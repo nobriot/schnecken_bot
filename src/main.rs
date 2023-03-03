@@ -1,12 +1,13 @@
 // https://lichess.org/api
 
-use json::JsonValue;
 use log::*;
 use reqwest;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use std::{fs, thread, time::Duration};
 
 // Local modules
+mod chess;
 mod lichess_api;
 mod lichess_types;
 mod user_commands;
@@ -78,17 +79,10 @@ async fn main_loop() -> Result<(), ()> {
 }
 
 async fn display_player_propaganda(lichess_api: &lichess_api::LichessApi) -> () {
-    match lichess_api::is_online(&lichess_api, "SchnellSchnecke").await {
-        Ok(online) => {
-            if online {
-                info!("SchnellSchnecke is online. You should check him out playing at https://lichess.org/@/SchnellSchnecke");
-            } else {
-                info!("SchnellSchnecke is not online =(. Oh crappy day!");
-            }
-        }
-        Err(_) => {
-            debug!("Error checking if SchnellSchnecke is online");
-        }
+    if lichess_api::is_online(&lichess_api, "SchnellSchnecke").await == true {
+        info!("SchnellSchnecke is online. You should check him out playing at https://lichess.org/@/SchnellSchnecke");
+    } else {
+        info!("SchnellSchnecke is not online =(. Oh crappy day!");
     }
 }
 
@@ -107,26 +101,28 @@ async fn display_account_info(lichess_api: &lichess_api::LichessApi) -> Result<(
 }
 
 async fn check_for_challenges(lichess_api: &lichess_api::LichessApi) -> Result<(), ()> {
-    let challenges_json: JsonValue;
-    if let Ok(json) = lichess_api::lichess_get(&lichess_api, "challenge").await {
-        challenges_json = json;
-    } else {
-        return Err(());
-    }
+    let challenges_json: JsonValue = lichess_api::lichess_get(&lichess_api, "challenge").await?;
 
     debug!("JSON response: {challenges_json}");
 
-    if challenges_json["in"].len() == 0 {
+    if challenges_json["in"].as_array().is_none() {
+        warn!("Cannot find the 'in' object in challenges");
+        return Ok(());
+    }
+
+    let challenges: Vec<JsonValue> = challenges_json["in"].as_array().unwrap().to_owned();
+
+    if challenges.len() == 0 {
         debug!("No new challenger. We are so lonely :'(");
         return Ok(());
     }
 
     info!(
         "Yay! We have a challenger! Accepting challenge ID {}",
-        challenges_json["in"][0]["id"]
+        challenges[0]["id"]
     );
 
-    if let JsonValue::Short(challenge_id) = &challenges_json["in"][0]["id"] {
+    if let JsonValue::String(challenge_id) = &challenges[0]["id"] {
         let _ = accept_challenge(lichess_api, &challenge_id as &str).await?;
     }
 
@@ -137,9 +133,9 @@ async fn accept_challenge(
     lichess_api: &lichess_api::LichessApi,
     challenge_id: &str,
 ) -> Result<(), ()> {
-    let api_endpoint: String = String::from("challenge/") + challenge_id;
+    let api_endpoint: String = String::from("challenge/") + challenge_id + "/accept";
     let json_response: JsonValue;
-    if let Ok(json) = lichess_api::lichess_post(&lichess_api, &api_endpoint, "accept").await {
+    if let Ok(json) = lichess_api::lichess_post(&lichess_api, &api_endpoint, "").await {
         json_response = json;
     } else {
         return Err(());
@@ -152,12 +148,20 @@ async fn accept_challenge(
 async fn play_games(lichess_api: &lichess_api::LichessApi) -> Result<bool, ()> {
     let games_json = get_ongoing_games(lichess_api).await?;
 
+    if games_json["nowPlaying"].as_array().is_none() {
+        warn!("Cannot find the 'nowPlaying' array in ongoing games");
+        return Ok(false);
+    }
+
+    let ongoing_games: Vec<JsonValue> = games_json["nowPlaying"].as_array().unwrap().to_owned();
     let mut playing_a_game: bool = false;
-    for game in games_json["nowPlaying"].members() {
-        let ongoing_game: lichess_types::Game =
-            serde_json::from_str(game.as_str().unwrap()).unwrap();
-        info!("Picking up game {:?}", ongoing_game);
-        error!("Should spawn a thread and play now");
+
+    for game in ongoing_games {
+        if let JsonValue::String(game_id) = &game["gameId"] {
+            info!("Picking up game {:?}", game_id);
+            let _ = play_game(lichess_api, &game_id).await;
+        }
+        //error!("Should spawn a thread and play now");
         playing_a_game = true;
     }
 
@@ -174,4 +178,39 @@ async fn get_ongoing_games(lichess_api: &lichess_api::LichessApi) -> Result<Json
 
     debug!("get_ongoing_games JSON response: {json_response}");
     Ok(json_response)
+}
+
+async fn play_game(api: &lichess_api::LichessApi, game_id: &str) -> Result<(), ()> {
+    info!("Anouncing ourselves in the chat for game {:?}", game_id);
+    lichess_api::write_in_chat(api, game_id, "I am ready! Gimme all you've got!").await;
+
+    info!("Streaming game {:?}", game_id);
+
+    while true == lichess_api::game_is_ongoing(api, game_id).await {
+        // Wait for our turn
+        while false == lichess_api::is_my_turn(api, game_id).await {
+            thread::sleep(Duration::from_millis(4000));
+        }
+        info!("It's our turn for game {}", game_id);
+
+        // Try to make a move
+        while false
+            == lichess_api::make_move(api, game_id, &chess::engine::play_move(""), false).await
+        {
+            thread::sleep(Duration::from_millis(100));
+        }
+    }
+
+    /*
+    let api_clone = api.clone();
+    let game_id_clone = String::from(game_id);
+
+    let handler = thread::spawn(move || {
+        lichess_api::play_game(&api_clone, &game_id_clone);
+    });
+    handler.join().expect("Game playing thread has panicked!");
+    */
+
+    info!("Nothing else to do?");
+    Ok(())
 }

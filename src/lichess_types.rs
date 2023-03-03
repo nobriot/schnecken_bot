@@ -2,23 +2,21 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Game {
+    pub color: Color,
+    pub fen: String,
+    pub full_id: String,
     pub id: String,
+    pub has_moved: bool,
+    pub is_my_turn: bool,
+    pub last_move: String,
+    pub opponent: Player,
     pub rated: bool,
-    pub initial_fen: String,
-    pub variant: Variant,
-    pub speed: Speed,
-    pub perf: Perf,
-    pub created_at: String,
-    pub last_move_at: String,
-    pub turns: i32,
-    pub status: Status,
-    pub clock: Option<Clock>,
-    pub white: Player,
-    pub black: Player,
-    pub moves: String,
-    pub opening_name: Option<String>,
-    pub opening_ply: Option<i32>,
-    pub result: Option<Result>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Color {
+    White,
+    Black,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -31,10 +29,8 @@ pub struct Clock {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Player {
     id: String,
-    name: String,
-    title: Option<String>,
+    username: String,
     rating: i32,
-    provisional: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
