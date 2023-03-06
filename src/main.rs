@@ -2,14 +2,12 @@
 
 use log::*;
 use reqwest;
-use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::{fs, thread, time::Duration};
 
 // Local modules
 mod chess;
-mod lichess_api;
-mod lichess_types;
+mod lichess;
 mod user_commands;
 
 const USER_NAME: &str = "schnecken_bot";
@@ -31,7 +29,7 @@ async fn main_loop() -> Result<(), ()> {
     info!("Watch it at: https://lichess.org/@/{USER_NAME}");
 
     let api_token_file_path = String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME;
-    let lichess_api: lichess_api::LichessApi = lichess_api::LichessApi {
+    let lichess_api: lichess::api::LichessApi = lichess::api::LichessApi {
         client: reqwest::Client::new(),
         token: fs::read_to_string(api_token_file_path).unwrap(),
     };
@@ -78,18 +76,18 @@ async fn main_loop() -> Result<(), ()> {
     Ok(())
 }
 
-async fn display_player_propaganda(lichess_api: &lichess_api::LichessApi) -> () {
-    if lichess_api::is_online(&lichess_api, "SchnellSchnecke").await == true {
+async fn display_player_propaganda(lichess_api: &lichess::api::LichessApi) -> () {
+    if lichess::api::is_online(&lichess_api, "SchnellSchnecke").await == true {
         info!("SchnellSchnecke is online. You should check him out playing at https://lichess.org/@/SchnellSchnecke");
     } else {
         info!("SchnellSchnecke is not online =(. Oh crappy day!");
     }
 }
 
-async fn display_account_info(lichess_api: &lichess_api::LichessApi) -> Result<(), ()> {
+async fn display_account_info(lichess_api: &lichess::api::LichessApi) -> Result<(), ()> {
     info!("Checking Account information...");
     let account_json: JsonValue;
-    if let Ok(json) = lichess_api::lichess_get(&lichess_api, "account").await {
+    if let Ok(json) = lichess::api::lichess_get(&lichess_api, "account").await {
         account_json = json;
     } else {
         return Err(());
@@ -100,8 +98,8 @@ async fn display_account_info(lichess_api: &lichess_api::LichessApi) -> Result<(
     Ok(())
 }
 
-async fn check_for_challenges(lichess_api: &lichess_api::LichessApi) -> Result<(), ()> {
-    let challenges_json: JsonValue = lichess_api::lichess_get(&lichess_api, "challenge").await?;
+async fn check_for_challenges(lichess_api: &lichess::api::LichessApi) -> Result<(), ()> {
+    let challenges_json: JsonValue = lichess::api::lichess_get(&lichess_api, "challenge").await?;
 
     debug!("JSON response: {challenges_json}");
 
@@ -130,12 +128,12 @@ async fn check_for_challenges(lichess_api: &lichess_api::LichessApi) -> Result<(
 }
 
 async fn accept_challenge(
-    lichess_api: &lichess_api::LichessApi,
+    lichess_api: &lichess::api::LichessApi,
     challenge_id: &str,
 ) -> Result<(), ()> {
     let api_endpoint: String = String::from("challenge/") + challenge_id + "/accept";
     let json_response: JsonValue;
-    if let Ok(json) = lichess_api::lichess_post(&lichess_api, &api_endpoint, "").await {
+    if let Ok(json) = lichess::api::lichess_post(&lichess_api, &api_endpoint, "").await {
         json_response = json;
     } else {
         return Err(());
@@ -145,7 +143,7 @@ async fn accept_challenge(
     Ok(())
 }
 
-async fn play_games(lichess_api: &lichess_api::LichessApi) -> Result<bool, ()> {
+async fn play_games(lichess_api: &lichess::api::LichessApi) -> Result<bool, ()> {
     let games_json = get_ongoing_games(lichess_api).await?;
 
     if games_json["nowPlaying"].as_array().is_none() {
@@ -168,9 +166,9 @@ async fn play_games(lichess_api: &lichess_api::LichessApi) -> Result<bool, ()> {
     Ok(playing_a_game)
 }
 
-async fn get_ongoing_games(lichess_api: &lichess_api::LichessApi) -> Result<JsonValue, ()> {
+async fn get_ongoing_games(lichess_api: &lichess::api::LichessApi) -> Result<JsonValue, ()> {
     let json_response: JsonValue;
-    if let Ok(json) = lichess_api::lichess_get(&lichess_api, "account/playing").await {
+    if let Ok(json) = lichess::api::lichess_get(&lichess_api, "account/playing").await {
         json_response = json;
     } else {
         return Err(());
@@ -180,24 +178,27 @@ async fn get_ongoing_games(lichess_api: &lichess_api::LichessApi) -> Result<Json
     Ok(json_response)
 }
 
-async fn play_game(api: &lichess_api::LichessApi, game_id: &str) -> Result<(), ()> {
+async fn play_game(api: &lichess::api::LichessApi, game_id: &str) -> Result<(), ()> {
     info!("Anouncing ourselves in the chat for game {:?}", game_id);
-    lichess_api::write_in_chat(api, game_id, "I am ready! Gimme all you've got!").await;
+    lichess::api::write_in_chat(api, game_id, "I am ready! Gimme all you've got!").await;
 
     info!("Streaming game {:?}", game_id);
 
-    while true == lichess_api::game_is_ongoing(api, game_id).await {
+    while true == lichess::api::game_is_ongoing(api, game_id).await {
         // Wait for our turn
-        while false == lichess_api::is_my_turn(api, game_id).await {
+        while false == lichess::api::is_my_turn(api, game_id).await {
             thread::sleep(Duration::from_millis(4000));
         }
         info!("It's our turn for game {}", game_id);
 
         // Try to make a move
-        while false
-            == lichess_api::make_move(api, game_id, &chess::engine::play_move(""), false).await
-        {
-            thread::sleep(Duration::from_millis(100));
+        let game_fen = lichess::api::get_game_fen(api, game_id).await;
+        if let Ok(chess_move) = &chess::engine::play_move(&game_fen) {
+            info!("Playing move {} for game id {}", chess_move, game_id);
+            lichess::api::make_move(api, game_id, chess_move, false).await;
+        } else {
+            info!("Can't find a move... Let's offer draw");
+            lichess::api::make_move(api, game_id, "", true).await;
         }
     }
 
@@ -206,7 +207,7 @@ async fn play_game(api: &lichess_api::LichessApi, game_id: &str) -> Result<(), (
     let game_id_clone = String::from(game_id);
 
     let handler = thread::spawn(move || {
-        lichess_api::play_game(&api_clone, &game_id_clone);
+        lichess::api::play_game(&api_clone, &game_id_clone);
     });
     handler.join().expect("Game playing thread has panicked!");
     */

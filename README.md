@@ -1,7 +1,11 @@
 # schnecken_bot
 
-This is a Lichess bot.
+I am the Schnecken Bot. My ultimate goal is to be able to defeat
+[the person that programmed me](https://lichess.org/@/SchnellSchnecke)!
 
+Watch me play on [Lichess](https://lichess.org/@/schnecken_bot/).
+
+I intend to use all the possible nasty tricks to get a win! 
 
 # How to use this with your own bot
 

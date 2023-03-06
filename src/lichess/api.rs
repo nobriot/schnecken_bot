@@ -2,7 +2,6 @@ use log::*;
 use reqwest;
 use serde_json::json;
 use serde_json::Value as JsonValue;
-use std::env;
 use urlencoding::encode;
 use websocket::{ClientBuilder, OwnedMessage};
 
@@ -258,6 +257,36 @@ pub async fn is_my_turn(api: &LichessApi, game_id: &str) -> bool {
     }
 
     return false;
+}
+
+pub async fn get_game_fen(api: &LichessApi, game_id: &str) -> String {
+    //https://lichess.org/api/account/playing
+
+    let mut game_fen: String = String::from("");
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_get(&api, "account/playing").await {
+        json_response = json;
+    } else {
+        return game_fen;
+    }
+
+    if json_response["nowPlaying"].as_array().is_none() {
+        warn!("Cannot find the 'nowPlaying' array in ongoing games");
+        return game_fen;
+    }
+
+    let json_game_array = json_response["nowPlaying"].as_array().unwrap();
+
+    for json_game in json_game_array {
+        if let JsonValue::String(json_game_id) = &json_game["gameId"] {
+            if json_game_id.eq(game_id) {
+                game_fen = String::from(json_game["fen"].as_str().unwrap_or(""));
+                return game_fen;
+            }
+        }
+    }
+
+    return game_fen;
 }
 
 pub async fn game_is_ongoing(api: &LichessApi, game_id: &str) -> bool {
