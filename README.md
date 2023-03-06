@@ -1,6 +1,6 @@
-# schnecken_bot
+# Schnecken Bot
 
-I am the Schnecken Bot. My ultimate goal is to be able to defeat
+I am the Schnecken Bot. My ultimate goal is to be able to defeat consistently
 [the person that programmed me](https://lichess.org/@/SchnellSchnecke)!
 
 Watch me play on [Lichess](https://lichess.org/@/schnecken_bot/).

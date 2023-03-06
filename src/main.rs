@@ -40,15 +40,17 @@ async fn main_loop() -> Result<(), ()> {
     let _ = display_account_info().await;
 
     loop {
-        info!("Checking for incoming challenges and/or ongoing games");
-        let mut playing_a_game = play_games().await?;
-        while playing_a_game == false {
-            // Take it easy between each check
-            thread::sleep(Duration::from_millis(4000));
-            // Check for challenges, accept them, then try to play games.
-            let _ = check_for_challenges().await;
-            playing_a_game = play_games().await?;
-        }
+        tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
+
+        // info!("Checking for incoming challenges and/or ongoing games");
+        // let mut playing_a_game = play_games().await?;
+        // while playing_a_game == false {
+        //     // Take it easy between each check
+        //     thread::sleep(Duration::from_millis(4000));
+        //     // Check for challenges, accept them, then try to play games.
+        //     let _ = check_for_challenges().await;
+        //     playing_a_game = play_games().await?;
+        // }
 
         // Read command line inputs for ever, until we have to exit
         let mut exit_requested: bool = false;
@@ -63,6 +65,82 @@ async fn main_loop() -> Result<(), ()> {
 
     // End the main loop.
     Ok(())
+}
+
+async fn stream_event_handler(json_value: JsonValue) -> Result<(), ()> {
+    if json_value["type"].as_str().is_none() {
+        error!("No type for incoming stream event.");
+        return Err(());
+    }
+
+    match json_value["type"].as_str().unwrap() {
+        "gameStart" => {
+            info!("New game Started!");
+            tokio::spawn(async move { on_new_game_started(json_value["game"].clone()).await });
+            return Ok(());
+        }
+        "gameFinish" => {
+            info!("Game finished! ");
+        }
+        "challenge" => {
+            info!("Incoming challenge!");
+        }
+        "challengeCanceled" => {
+            info!("Challenge cancelled ");
+        }
+        "challengeDeclined" => {
+            info!("Challenge declined");
+        }
+        other => {
+            // Ignore other events
+            warn!("Received unknown streaming event: {}", other);
+        }
+    }
+    Ok(())
+}
+
+async fn stream_game_state_handler(json_value: JsonValue) -> Result<(), ()> {
+    if json_value["type"].as_str().is_none() {
+        error!("No type for incoming stream event.");
+        return Err(());
+    }
+
+    match json_value["type"].as_str().unwrap() {
+        "gameFull" => {
+            info!("Full game state!");
+        }
+        "gameState" => {
+            info!("Game finished! ");
+        }
+        "chatLine" => {
+            info!("Incoming challenge!");
+        }
+        "opponentGone" => {
+            info!("Challenge cancelled ");
+        }
+        other => {
+            // Ignore other events
+            warn!("Received unknown streaming game state: {}", other);
+        }
+    }
+    debug!("JSON: {}", json_value);
+
+    Ok(())
+}
+
+async fn on_new_game_started(json_value: JsonValue) {
+    if json_value["gameId"].as_str().is_none() {
+        return;
+    }
+
+    // Let's stream the game!
+    tokio::spawn(async move {
+        lichess::api::stream_game_state(
+            json_value["gameId"].as_str().unwrap(),
+            &stream_game_state_handler,
+        )
+        .await
+    });
 }
 
 async fn display_player_propaganda(username: &str) -> () {

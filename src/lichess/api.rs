@@ -1,3 +1,4 @@
+use futures::Future;
 use futures_util::StreamExt;
 use log::*;
 use reqwest;
@@ -11,10 +12,11 @@ use crate::lichess::helpers;
 // Constants.
 const API_BASE_URL: &'static str = "https://lichess.org/api/";
 
-
-
-pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
-    let response_result = lichess::get_api()
+////////////////////////////////////////////////////////////////////////////////
+// Private functions
+////////////////////////////////////////////////////////////////////////////////
+async fn get(api_endpoint: &str) -> Result<reqwest::Response, reqwest::Error> {
+    lichess::get_api()
         .client
         .get(format!("{}{}", API_BASE_URL, api_endpoint))
         .header(
@@ -23,7 +25,29 @@ pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
         )
         .header("Accept", "application/x-ndjson")
         .send()
-        .await;
+        .await
+}
+
+async fn post(api_endpoint: &str, body: &str) -> Result<reqwest::Response, reqwest::Error> {
+    lichess::get_api()
+        .client
+        .post(format!("{}{}", API_BASE_URL, api_endpoint))
+        .header(
+            "Authorization",
+            format!("Bearer {}", lichess::get_api().token),
+        )
+        .header("Accept", "application/x-ndjson")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!("{}", body))
+        .send()
+        .await
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Public functions
+////////////////////////////////////////////////////////////////////////////////
+pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
+    let response_result = get(api_endpoint).await;
 
     if let Err(error) = response_result {
         warn!("Error issuing a Get request to Lichess {}", error);
@@ -59,16 +83,7 @@ pub async fn lichess_get_stream(
     api_endpoint: &str,
     stream_handler: &dyn Fn(JsonValue) -> Result<(), ()>,
 ) -> Result<(), ()> {
-    let response_result = lichess::get_api()
-        .client
-        .get(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header(
-            "Authorization",
-            format!("Bearer {}", lichess::get_api().token),
-        )
-        .header("Accept", "application/x-ndjson")
-        .send()
-        .await;
+    let response_result = get(api_endpoint).await;
 
     if let Err(error) = response_result {
         warn!("Error issuing a Get request to Lichess {}", error);
@@ -110,31 +125,17 @@ pub async fn lichess_get_stream(
 }
 
 pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
-    let response_result = lichess::get_api()
-        .client
-        .post(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header(
-            "Authorization",
-            format!("Bearer {}", lichess::get_api().token),
-        )
-        .header("Accept", "application/x-ndjson")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(format!("{}", body))
-        .send()
-        .await;
+    let response_result = get(api_endpoint).await;
 
-    if let Err(error) = response_result {
-        warn!("Error issuing a Get request to Lichess {}", error);
+    if let Err(e) = response_result {
+        warn!("Error issuing a Get request to Lichess {e}");
         return Err(());
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
-    if let Err(error) = response_text_result {
-        warn!(
-            "Error reading the payload from Get request to Lichess {}",
-            error
-        );
+    if let Err(e) = response_text_result {
+        warn!("Error reading the payload from Get request to Lichess {e}");
         return Err(());
     }
 
@@ -151,6 +152,100 @@ pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, (
 
     debug!("Lichess post answer: {}", json_object);
     Ok(json_object)
+}
+
+// Starts listenings to incoming events and sends the JSON data to the incoming
+// event handler
+// See https://lichess.org/api/stream/event
+pub async fn stream_incoming_events<Func, Fut>(stream_handler: Func) -> Result<(), ()>
+where
+    Func: Fn(serde_json::Value) -> Fut,
+    Fut: Future<Output = Result<(), ()>>,
+{
+    let response_result = get("stream/event").await;
+
+    if let Err(e) = response_result {
+        warn!("Error issuing a Get request to Lichess {}", e);
+        return Err(());
+    }
+
+    let stream = response_result.unwrap().bytes_stream();
+    stream
+        .for_each(|chunk_response| async {
+            if let Err(e) = chunk_response {
+                info!("Error receiving stream? {}", e);
+                //return futures::future::ready(());
+                return ();
+            }
+
+            let chunk = chunk_response.unwrap();
+            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+
+            for json_entry in json_entries {
+                if let Err(_) = stream_handler(json_entry).await {
+                    error!("Error handling JSON value");
+                }
+            }
+            // Sending 1 byte is usually just the keep-alive message
+            if chunk.len() == 1 {
+                info!("Received keep-alive message for event stream");
+            }
+
+            //futures::future::ready(())
+            ()
+        })
+        .await;
+
+    Ok(())
+}
+
+// Starts listenings to incoming game state updates and sends the JSON data
+// to the incoming event handler
+// See https://lichess.org/api/bot/game/stream/{gameId}
+pub async fn stream_game_state<Func, Fut>(game_id: &str, stream_handler: Func) -> Result<(), ()>
+where
+    Func: Fn(serde_json::Value) -> Fut,
+    Fut: Future<Output = Result<(), ()>>,
+{
+    info!("Requesting Lichess to stream Game ID {game_id}");
+    let response_result = get(&format!("bot/game/stream/{game_id}")).await;
+
+    if let Err(e) = response_result {
+        warn!("Error issuing a Get request to Lichess {}", e);
+        return Err(());
+    }
+
+    let stream = response_result.unwrap().bytes_stream();
+    stream
+        .for_each(|chunk_response| async {
+            if let Err(e) = chunk_response {
+                info!("Error receiving stream? {}", e);
+                //return futures::future::ready(());
+                return ();
+            }
+
+            let chunk = chunk_response.unwrap();
+            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+
+            for json_entry in json_entries {
+                if let Err(_) = stream_handler(json_entry).await {
+                    error!("Error handling JSON value");
+                }
+            }
+            // Sending 1 byte is usually just the keep-alive message
+            if chunk.len() == 1 {
+                info!("Received keep-alive message for Game State stream");
+            }
+
+            //futures::future::ready(())
+            ()
+        })
+        .await;
+
+    info!("Finished to stream game events for game id {game_id}");
+    Ok(())
 }
 
 pub async fn is_online(user_id: &str) -> bool {
