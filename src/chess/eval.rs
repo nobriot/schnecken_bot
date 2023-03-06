@@ -16,7 +16,6 @@ pub enum ChessEval {
     /// Indicate that the evaluation detects checkmate sequences.
     /// and the i8 indicate in how many moves.
     /// negative values for black, positive values for white.
-    /// Checkmate 0 is not valid.
     Checkmate(i8),
 }
 

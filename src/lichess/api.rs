@@ -1,25 +1,26 @@
+use futures_util::StreamExt;
 use log::*;
 use reqwest;
-use serde_json::json;
 use serde_json::Value as JsonValue;
 use urlencoding::encode;
-use websocket::{ClientBuilder, OwnedMessage};
+
+// From the same module:
+use crate::lichess;
+use crate::lichess::helpers;
 
 // Constants.
 const API_BASE_URL: &'static str = "https://lichess.org/api/";
 
-// Type definitions
-#[derive(Debug, Clone)]
-pub struct LichessApi {
-    pub client: reqwest::Client,
-    pub token: String,
-}
 
-pub async fn lichess_get(api: &LichessApi, api_endpoint: &str) -> Result<JsonValue, ()> {
-    let response_result = api
+
+pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
+    let response_result = lichess::get_api()
         .client
         .get(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header("Authorization", format!("Bearer {}", api.token))
+        .header(
+            "Authorization",
+            format!("Bearer {}", lichess::get_api().token),
+        )
         .header("Accept", "application/x-ndjson")
         .send()
         .await;
@@ -54,15 +55,68 @@ pub async fn lichess_get(api: &LichessApi, api_endpoint: &str) -> Result<JsonVal
     Ok(json_object)
 }
 
-pub async fn lichess_post(
-    api: &LichessApi,
+pub async fn lichess_get_stream(
     api_endpoint: &str,
-    body: &str,
-) -> Result<JsonValue, ()> {
-    let response_result = api
+    stream_handler: &dyn Fn(JsonValue) -> Result<(), ()>,
+) -> Result<(), ()> {
+    let response_result = lichess::get_api()
+        .client
+        .get(format!("{}{}", API_BASE_URL, api_endpoint))
+        .header(
+            "Authorization",
+            format!("Bearer {}", lichess::get_api().token),
+        )
+        .header("Accept", "application/x-ndjson")
+        .send()
+        .await;
+
+    if let Err(error) = response_result {
+        warn!("Error issuing a Get request to Lichess {}", error);
+        return Err(());
+    }
+
+    let stream = response_result.unwrap().bytes_stream();
+    stream
+        .for_each(|chunk_response| {
+            if let Err(e) = chunk_response {
+                info!("Error receiving stream? {}", e);
+                return futures::future::ready(());
+            }
+
+            let chunk = chunk_response.unwrap();
+            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+
+            for json_entry in json_entries {
+                if let Err(_) = stream_handler(json_entry) {
+                    error!("Error handling JSON value");
+                }
+            }
+
+            info!("Received {} bytes", chunk.len());
+            info!("Received data: {}", string_value);
+            futures::future::ready(())
+        })
+        .await;
+
+    // Set up event stream
+    info!("We're done with Streaming : ");
+
+    //while let Some(item) = stream.poll_next().await {
+    //   info!("Chunk: {:?}", item?);
+    // }
+
+    Ok(())
+}
+
+pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
+    let response_result = lichess::get_api()
         .client
         .post(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header("Authorization", format!("Bearer {}", api.token))
+        .header(
+            "Authorization",
+            format!("Bearer {}", lichess::get_api().token),
+        )
         .header("Accept", "application/x-ndjson")
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(format!("{}", body))
@@ -99,9 +153,9 @@ pub async fn lichess_post(
     Ok(json_object)
 }
 
-pub async fn is_online(api: &LichessApi, user_id: &str) -> bool {
+pub async fn is_online(user_id: &str) -> bool {
     let endpoint: String = String::from(format!("users/status?ids={}", user_id));
-    let result = lichess_get(api, &endpoint).await;
+    let result = lichess_get(&endpoint).await;
 
     if let Err(error) = result {
         warn!("Error parsing the result for is_online API");
@@ -112,12 +166,12 @@ pub async fn is_online(api: &LichessApi, user_id: &str) -> bool {
     return json_object[0]["online"].as_bool().unwrap_or(false);
 }
 
-pub async fn write_in_chat(api: &LichessApi, game_id: &str, message: &str) -> () {
+pub async fn write_in_chat(game_id: &str, message: &str) -> () {
     let endpoint: String = String::from(format!("bot/game/{game_id}/chat"));
     let body: String = String::from(format!("room=player&text={}", encode(message)));
     debug!("Body : {}", body);
 
-    let result = lichess_post(api, &endpoint, &body).await;
+    let result = lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
         warn!("Error sending message to game id {}", game_id);
@@ -127,88 +181,19 @@ pub async fn write_in_chat(api: &LichessApi, game_id: &str, message: &str) -> ()
 }
 
 /// https://lichess.org/api/bot/game/stream/%7BgameId%7D
-pub fn stream_game(api: &LichessApi, game_id: &str) -> () {
-    let url: String = String::from(format!("{}bot/game/stream/{}", API_BASE_URL, game_id));
-
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(reqwest::header::HeaderValue::from_static(
-            "schnecken_bot/1.0",
-        ))
-        .build()
-        .unwrap();
-
-    let response_result = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", api.token))
-        .header("Accept", "application/x-ndjson")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .send();
-
-    if let Err(error) = response_result {
-        warn!("Error streaming game id {} - {:?}", game_id, error);
-        return;
-    }
-
-    let mut response = response_result.unwrap();
-    for line in response.text().unwrap_or_default().lines() {
-        info!("Read line: {}", line);
-    }
+pub async fn stream_game(game_id: &str) -> () {
+    let api_endpoint: String = String::from(format!("bot/game/stream/{}", game_id));
+    let _ = lichess_get_stream(&api_endpoint, &on_game_state_changed).await;
 }
 
-pub fn play_game(api: &LichessApi, game_id: &str) {
-    let mut client = ClientBuilder::new("wss://lichess.org/api/stream/event")
-        .unwrap()
-        .add_protocol("irc")
-        .connect_insecure()
-        .unwrap();
+pub fn on_game_state_changed(json_value: JsonValue) -> Result<(), ()> {
+    info!("Game state changed called!");
+    info!("Json: {}", json_value);
 
-    let mut message = OwnedMessage::Text(json!({"t": "pong"}).to_string());
-    client.send_message(&message).unwrap();
-
-    message = OwnedMessage::Text(json!({"t": "hello", "d": {"token": api.token}}).to_string());
-    client.send_message(&message).unwrap();
-
-    for message in client.incoming_messages() {
-        let message = message.unwrap();
-        match message {
-            OwnedMessage::Text(message) => {
-                let event: serde_json::Value = serde_json::from_str(&message).unwrap();
-                if let Some(event_type) = event.get("type").and_then(|t| t.as_str()) {
-                    match event_type {
-                        "gameFull" => {
-                            // Game started or game information updated
-                            let game_id = event["id"].as_str().unwrap();
-                            let white = event["white"]["name"].as_str().unwrap();
-                            let black = event["black"]["name"].as_str().unwrap();
-                            info!("Game {}: {} (white) vs {} (black)", game_id, white, black);
-                        }
-                        "gameState" => {
-                            // Move played
-                            let game_id = event["id"].as_str().unwrap();
-                            let moves = event["moves"].as_str().unwrap();
-                            info!("Move played in game {}: {}", game_id, moves);
-                        }
-                        "chatLine" => {
-                            // Chat message sent in game
-                            let username = event["username"].as_str().unwrap();
-                            let text = event["text"].as_str().unwrap();
-                            info!("{}: {}", username, text);
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+    Ok(())
 }
 
-pub async fn make_move(
-    api: &LichessApi,
-    game_id: &str,
-    chess_move: &str,
-    offer_draw: bool,
-) -> bool {
+pub async fn make_move(game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
     info!(
         "Trying chess move {} on game id {} - Draw offer: {}",
         chess_move, game_id, offer_draw
@@ -218,7 +203,7 @@ pub async fn make_move(
     ));
 
     let json_response: JsonValue;
-    if let Ok(json) = lichess_post(&api, &api_endpoint, "").await {
+    if let Ok(json) = lichess_post(&api_endpoint, "").await {
         json_response = json;
     } else {
         return false;
@@ -231,11 +216,11 @@ pub async fn make_move(
     return json_response["ok"].as_bool().unwrap();
 }
 
-pub async fn is_my_turn(api: &LichessApi, game_id: &str) -> bool {
+pub async fn is_my_turn(game_id: &str) -> bool {
     //https://lichess.org/api/account/playing
 
     let json_response: JsonValue;
-    if let Ok(json) = lichess_get(&api, "account/playing").await {
+    if let Ok(json) = lichess_get("account/playing").await {
         json_response = json;
     } else {
         return false;
@@ -259,12 +244,12 @@ pub async fn is_my_turn(api: &LichessApi, game_id: &str) -> bool {
     return false;
 }
 
-pub async fn get_game_fen(api: &LichessApi, game_id: &str) -> String {
+pub async fn get_game_fen(game_id: &str) -> String {
     //https://lichess.org/api/account/playing
 
     let mut game_fen: String = String::from("");
     let json_response: JsonValue;
-    if let Ok(json) = lichess_get(&api, "account/playing").await {
+    if let Ok(json) = lichess_get("account/playing").await {
         json_response = json;
     } else {
         return game_fen;
@@ -289,11 +274,11 @@ pub async fn get_game_fen(api: &LichessApi, game_id: &str) -> String {
     return game_fen;
 }
 
-pub async fn game_is_ongoing(api: &LichessApi, game_id: &str) -> bool {
+pub async fn game_is_ongoing(game_id: &str) -> bool {
     //https://lichess.org/api/account/playing
 
     let json_response: JsonValue;
-    if let Ok(json) = lichess_get(&api, "account/playing").await {
+    if let Ok(json) = lichess_get("account/playing").await {
         json_response = json;
     } else {
         return false;
