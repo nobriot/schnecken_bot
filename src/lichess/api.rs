@@ -125,7 +125,7 @@ pub async fn lichess_get_stream(
 }
 
 pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
-    let response_result = get(api_endpoint).await;
+    let response_result = post(api_endpoint, body).await;
 
     if let Err(e) = response_result {
         warn!("Error issuing a Get request to Lichess {e}");
@@ -205,7 +205,7 @@ where
 // See https://lichess.org/api/bot/game/stream/{gameId}
 pub async fn stream_game_state<Func, Fut>(game_id: &str, stream_handler: Func) -> Result<(), ()>
 where
-    Func: Fn(serde_json::Value) -> Fut,
+    Func: Fn(serde_json::Value, String) -> Fut,
     Fut: Future<Output = Result<(), ()>>,
 {
     info!("Requesting Lichess to stream Game ID {game_id}");
@@ -230,7 +230,7 @@ where
             let json_entries = helpers::parse_string_to_nd_json(&string_value);
 
             for json_entry in json_entries {
-                if let Err(_) = stream_handler(json_entry).await {
+                if let Err(_) = stream_handler(json_entry, String::from(game_id)).await {
                     error!("Error handling JSON value");
                 }
             }
@@ -245,6 +245,53 @@ where
         .await;
 
     info!("Finished to stream game events for game id {game_id}");
+    Ok(())
+}
+
+pub async fn accept_challenge(challenge_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("challenge/{}/accept", challenge_id));
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_post(&api_endpoint, "").await {
+        json_response = json;
+    } else {
+        return Err(());
+    }
+
+    Ok(())
+}
+
+pub async fn decline_challenge(challenge_id: &str, reason: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("challenge/{}/decline", challenge_id));
+    let body: String = String::from(format!("reason={}", encode(reason)));
+
+    if let Ok(_) = lichess_post(&api_endpoint, &body).await {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
+pub async fn abort_game(game_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("bot/game/{game_id}/abort"));
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_post(&api_endpoint, "").await {
+        json_response = json;
+    } else {
+        return Err(());
+    }
+
+    Ok(())
+}
+
+pub async fn resign_game(game_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("bot/game/{game_id}/resign"));
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_post(&api_endpoint, "").await {
+        json_response = json;
+    } else {
+        return Err(());
+    }
+
     Ok(())
 }
 
@@ -264,7 +311,6 @@ pub async fn is_online(user_id: &str) -> bool {
 pub async fn write_in_chat(game_id: &str, message: &str) -> () {
     let endpoint: String = String::from(format!("bot/game/{game_id}/chat"));
     let body: String = String::from(format!("room=player&text={}", encode(message)));
-    debug!("Body : {}", body);
 
     let result = lichess_post(&endpoint, &body).await;
 
@@ -309,6 +355,18 @@ pub async fn make_move(game_id: &str, chess_move: &str, offer_draw: bool) -> boo
     }
 
     return json_response["ok"].as_bool().unwrap();
+}
+
+pub async fn claim_victory(game_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("board/game/{game_id}/claim-victory"));
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_post(&api_endpoint, "").await {
+        json_response = json;
+    } else {
+        return Err(());
+    }
+
+    Ok(())
 }
 
 pub async fn is_my_turn(game_id: &str) -> bool {

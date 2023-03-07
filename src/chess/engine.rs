@@ -57,7 +57,7 @@ pub fn eval_fen(fen: &str) -> Result<ChessEval, ()> {
 }
 
 pub fn eval(fen: &str, depth: u8) -> Result<(ChessEval, Option<ChessMove>), ()> {
-    debug!("eval {} at depth {}", fen, depth);
+    //debug!("eval {} at depth {}", fen, depth);
     let board_result = Board::from_str(fen);
     let board: Board;
     match board_result {

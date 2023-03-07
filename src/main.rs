@@ -84,6 +84,9 @@ async fn stream_event_handler(json_value: JsonValue) -> Result<(), ()> {
         }
         "challenge" => {
             info!("Incoming challenge!");
+            tokio::spawn(
+                async move { on_incoming_challenge(json_value["challenge"].clone()).await },
+            );
         }
         "challengeCanceled" => {
             info!("Challenge cancelled ");
@@ -99,7 +102,8 @@ async fn stream_event_handler(json_value: JsonValue) -> Result<(), ()> {
     Ok(())
 }
 
-async fn stream_game_state_handler(json_value: JsonValue) -> Result<(), ()> {
+async fn stream_game_state_handler(json_value: JsonValue, game_id: String) -> Result<(), ()> {
+    info!("Incoming stream event for Game ID {game_id}");
     if json_value["type"].as_str().is_none() {
         error!("No type for incoming stream event.");
         return Err(());
@@ -110,20 +114,21 @@ async fn stream_game_state_handler(json_value: JsonValue) -> Result<(), ()> {
             info!("Full game state!");
         }
         "gameState" => {
-            info!("Game finished! ");
+            info!("Game state update received.");
+            tokio::spawn(async move { play_on_game(&game_id.clone(), json_value.clone()).await });
         }
         "chatLine" => {
             info!("Incoming challenge!");
         }
         "opponentGone" => {
-            info!("Challenge cancelled ");
+            info!("Opponent gone! We'll just claim victory now, you chicken!");
         }
         other => {
             // Ignore other events
             warn!("Received unknown streaming game state: {}", other);
         }
     }
-    debug!("JSON: {}", json_value);
+    //debug!("JSON: {}", json_value);
 
     Ok(())
 }
@@ -141,6 +146,39 @@ async fn on_new_game_started(json_value: JsonValue) {
         )
         .await
     });
+}
+
+async fn on_incoming_challenge(json_value: JsonValue) {
+    debug!("Incoming challenge JSON: {}", json_value);
+    let challenger = json_value["challenger"]["name"]
+        .as_str()
+        .unwrap_or("Unknown challenger");
+    let challenger_rating = json_value["challenger"]["rating"]
+        .as_str()
+        .unwrap_or("unknown rating");
+    let variant = json_value["variant"]["key"]
+        .as_str()
+        .unwrap_or("Unknown variant");
+    let challenge_id = json_value["id"].as_str().unwrap_or("UnknownID").to_owned();
+
+    info!("{challenger} would like to play with us! Challenge {challenge_id}");
+    info!("{} is rated {} ", challenger, challenger_rating);
+
+    if variant != "standard" && variant != "chess960" {
+        info!(
+            "Ignoring challenge for variant {}. We play only standard and chess 960.",
+            variant
+        );
+
+        // Declining gracefully
+        tokio::spawn(async move {
+            lichess::api::decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT).await
+        });
+        return;
+    }
+
+    // Else we just accept.
+    tokio::spawn(async move { lichess::api::accept_challenge(&challenge_id).await });
 }
 
 async fn display_player_propaganda(username: &str) -> () {
@@ -164,48 +202,6 @@ async fn display_account_info() -> Result<(), ()> {
     Ok(())
 }
 
-async fn check_for_challenges() -> Result<(), ()> {
-    let challenges_json: JsonValue = lichess::api::lichess_get("challenge").await?;
-
-    debug!("JSON response: {challenges_json}");
-
-    if challenges_json["in"].as_array().is_none() {
-        warn!("Cannot find the 'in' object in challenges");
-        return Ok(());
-    }
-
-    let challenges: Vec<JsonValue> = challenges_json["in"].as_array().unwrap().to_owned();
-
-    if challenges.len() == 0 {
-        debug!("No new challenger. We are so lonely :'(");
-        return Ok(());
-    }
-
-    info!(
-        "Yay! We have a challenger! Accepting challenge ID {}",
-        challenges[0]["id"]
-    );
-
-    if let JsonValue::String(challenge_id) = &challenges[0]["id"] {
-        let _ = accept_challenge(&challenge_id as &str).await?;
-    }
-
-    Ok(())
-}
-
-async fn accept_challenge(challenge_id: &str) -> Result<(), ()> {
-    let api_endpoint: String = String::from("challenge/") + challenge_id + "/accept";
-    let json_response: JsonValue;
-    if let Ok(json) = lichess::api::lichess_post(&api_endpoint, "").await {
-        json_response = json;
-    } else {
-        return Err(());
-    }
-
-    debug!("accept_challenge JSON response: {json_response}");
-    Ok(())
-}
-
 async fn play_games() -> Result<bool, ()> {
     let games_json = get_ongoing_games().await?;
 
@@ -220,7 +216,7 @@ async fn play_games() -> Result<bool, ()> {
     for game in ongoing_games {
         if let JsonValue::String(game_id) = &game["gameId"] {
             info!("Picking up game {:?}", game_id);
-            let _ = play_game(&game_id).await;
+            //let _ = play_on_game(&game_id, "").await;
         }
         //error!("Should spawn a thread and play now");
         playing_a_game = true;
@@ -241,34 +237,40 @@ async fn get_ongoing_games() -> Result<JsonValue, ()> {
     Ok(json_response)
 }
 
-async fn play_game(game_id: &str) -> Result<(), ()> {
-    info!("Anouncing ourselves in the chat for game {:?}", game_id);
-    lichess::api::write_in_chat(game_id, "I am ready! Gimme all you've got!").await;
+async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
+    //info!("Anouncing ourselves in the chat for game {:?}", game_id);
+    //lichess::api::write_in_chat(game_id, "I am ready! Gimme all you've got!").await;
 
-    info!("Streaming game {:?}", game_id);
-    lichess::api::stream_game(game_id).await;
-    loop {
-        // Here we let the streaming do the work, react on updates from the server.
+    info!("Trying to find a move for game id {game_id}");
+
+    let moves = game_state["moves"].as_str().unwrap_or("Unknown move list");
+    let game_fen: String = chess::helpers::get_fen_from_move_list(moves);
+
+    if let Ok(chess_move) = &chess::engine::play_move(&game_fen) {
+        info!("Playing move {} for game id {}", chess_move, game_id);
+        lichess::api::make_move(game_id, chess_move, false).await;
+    } else {
+        warn!("Can't find a move... Let's offer draw");
+        lichess::api::make_move(game_id, "", true).await;
     }
+    /*
+        while true == lichess::api::game_is_ongoing(game_id).await {
+            // Wait for our turn
+            while false == lichess::api::is_my_turn(game_id).await {
+                thread::sleep(Duration::from_millis(4000));
+            }
+            info!("It's our turn for game {}", game_id);
 
-    while true == lichess::api::game_is_ongoing(game_id).await {
-        // Wait for our turn
-        while false == lichess::api::is_my_turn(game_id).await {
-            thread::sleep(Duration::from_millis(4000));
+            // Try to make a move
+            let game_fen = lichess::api::get_game_fen(game_id).await;
+            if let Ok(chess_move) = &chess::engine::play_move(&game_fen) {
+                info!("Playing move {} for game id {}", chess_move, game_id);
+                lichess::api::make_move(game_id, chess_move, false).await;
+            } else {
+                info!("Can't find a move... Let's offer draw");
+                lichess::api::make_move(game_id, "", true).await;
+            }
         }
-        info!("It's our turn for game {}", game_id);
-
-        // Try to make a move
-        let game_fen = lichess::api::get_game_fen(game_id).await;
-        if let Ok(chess_move) = &chess::engine::play_move(&game_fen) {
-            info!("Playing move {} for game id {}", chess_move, game_id);
-            lichess::api::make_move(game_id, chess_move, false).await;
-        } else {
-            info!("Can't find a move... Let's offer draw");
-            lichess::api::make_move(game_id, "", true).await;
-        }
-    }
-
-    info!("Nothing else to do?");
+    */
     Ok(())
 }
