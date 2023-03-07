@@ -321,19 +321,6 @@ pub async fn write_in_chat(game_id: &str, message: &str) -> () {
     return;
 }
 
-/// https://lichess.org/api/bot/game/stream/%7BgameId%7D
-pub async fn stream_game(game_id: &str) -> () {
-    let api_endpoint: String = String::from(format!("bot/game/stream/{}", game_id));
-    let _ = lichess_get_stream(&api_endpoint, &on_game_state_changed).await;
-}
-
-pub fn on_game_state_changed(json_value: JsonValue) -> Result<(), ()> {
-    info!("Game state changed called!");
-    info!("Json: {}", json_value);
-
-    Ok(())
-}
-
 pub async fn make_move(game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
     info!(
         "Trying chess move {} on game id {} - Draw offer: {}",
@@ -369,34 +356,6 @@ pub async fn claim_victory(game_id: &str) -> Result<(), ()> {
     Ok(())
 }
 
-pub async fn is_my_turn(game_id: &str) -> bool {
-    //https://lichess.org/api/account/playing
-
-    let json_response: JsonValue;
-    if let Ok(json) = lichess_get("account/playing").await {
-        json_response = json;
-    } else {
-        return false;
-    }
-
-    if json_response["nowPlaying"].as_array().is_none() {
-        warn!("Cannot find the 'nowPlaying' array in ongoing games");
-        return false;
-    }
-
-    let json_game_array = json_response["nowPlaying"].as_array().unwrap();
-
-    for json_game in json_game_array {
-        if let JsonValue::String(json_game_id) = &json_game["gameId"] {
-            if json_game_id.eq(game_id) {
-                return json_game["isMyTurn"].as_bool().unwrap_or(false);
-            }
-        }
-    }
-
-    return false;
-}
-
 pub async fn get_game_fen(game_id: &str) -> String {
     //https://lichess.org/api/account/playing
 
@@ -427,30 +386,32 @@ pub async fn get_game_fen(game_id: &str) -> String {
     return game_fen;
 }
 
-pub async fn game_is_ongoing(game_id: &str) -> bool {
+// Returns if a game is ongoing and if it is our turn
+pub async fn game_is_ongoing(game_id: &str) -> (bool, bool) {
     //https://lichess.org/api/account/playing
 
     let json_response: JsonValue;
     if let Ok(json) = lichess_get("account/playing").await {
         json_response = json;
     } else {
-        return false;
+        warn!("Error in the response");
+        return (false, false);
     }
 
     if json_response["nowPlaying"].as_array().is_none() {
         warn!("Cannot find the 'nowPlaying' array in ongoing games");
-        return false;
+        return (false, false);
     }
 
     let json_game_array = json_response["nowPlaying"].as_array().unwrap();
 
     for json_game in json_game_array {
-        if let JsonValue::String(json_game_id) = &json_game["gameId"] {
-            if json_game_id.eq(game_id) {
-                return true;
-            }
+        let current_game_id = json_game["gameId"].as_str().unwrap();
+        if current_game_id == game_id {
+            let is_my_turn = json_game["isMyTurn"].as_bool().unwrap_or(true);
+            return (true, is_my_turn);
         }
     }
 
-    return false;
+    return (false, false);
 }

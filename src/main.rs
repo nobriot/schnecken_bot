@@ -2,7 +2,7 @@
 
 use log::*;
 use serde_json::Value as JsonValue;
-use std::{thread, time::Duration};
+use tokio::time::{sleep, Duration};
 
 // Local modules
 mod chess;
@@ -112,6 +112,9 @@ async fn stream_game_state_handler(json_value: JsonValue, game_id: String) -> Re
     match json_value["type"].as_str().unwrap() {
         "gameFull" => {
             info!("Full game state!");
+            tokio::spawn(async move {
+                play_on_game(&game_id.clone(), json_value["state"].clone()).await
+            });
         }
         "gameState" => {
             info!("Game state update received.");
@@ -240,6 +243,19 @@ async fn get_ongoing_games() -> Result<JsonValue, ()> {
 async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
     //info!("Anouncing ourselves in the chat for game {:?}", game_id);
     //lichess::api::write_in_chat(game_id, "I am ready! Gimme all you've got!").await;
+
+    loop {
+        let (game_is_ongoing, is_my_turn) = lichess::api::game_is_ongoing(game_id).await;
+        if false == game_is_ongoing {
+            return Ok(());
+        }
+        if false == is_my_turn {
+            warn!("Not our turn. Now monitor game id {game_id} state actively");
+            sleep(Duration::from_millis(1000)).await;
+        } else {
+            break;
+        }
+    }
 
     info!("Trying to find a move for game id {game_id}");
 

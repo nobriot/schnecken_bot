@@ -2,9 +2,11 @@ use chess::*;
 use log::*;
 use rand::Rng;
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 
 // From our module
 use crate::chess::eval::ChessEval;
+use crate::chess::theory::*;
 
 trait EngineEval {
     // Engine evaluation of a certain static position, without any depth
@@ -56,8 +58,9 @@ pub fn eval_fen(fen: &str) -> Result<ChessEval, ()> {
     return Ok(chess_eval);
 }
 
-pub fn eval(fen: &str, depth: u8) -> Result<(ChessEval, Option<ChessMove>), ()> {
+pub fn eval(fen: &str, depth: u8, deadline: Instant) -> Result<(ChessEval, Option<ChessMove>), ()> {
     //debug!("eval {} at depth {}", fen, depth);
+
     let board_result = Board::from_str(fen);
     let board: Board;
     match board_result {
@@ -76,6 +79,17 @@ pub fn eval(fen: &str, depth: u8) -> Result<(ChessEval, Option<ChessMove>), ()> 
         }
     }
 
+    // Check if we have been thinking too much:
+    let current_time = Instant::now();
+    if current_time > deadline {
+        // Abort looking at the line by returning no move and a very bad evaluation.
+        if board.side_to_move() == Color::White {
+            return Ok((ChessEval::Checkmate(-1), None));
+        } else {
+            return Ok((ChessEval::Checkmate(1), None));
+        }
+    }
+
     // Check our available moves.
     let mut chess_eval: ChessEval = ChessEval::Score(0.0);
     let move_list = MoveGen::new_legal(&board);
@@ -91,7 +105,7 @@ pub fn eval(fen: &str, depth: u8) -> Result<(ChessEval, Option<ChessMove>), ()> 
         let new_board = board.make_move_new(chess_move);
 
         let new_chess_eval;
-        if let Ok((branch_eval, _)) = eval(&new_board.to_string(), depth - 1) {
+        if let Ok((branch_eval, _)) = eval(&new_board.to_string(), depth - 1, deadline) {
             new_chess_eval = branch_eval;
         } else {
             warn!("Error evaluating position {} at depth {}", fen, depth);
@@ -121,8 +135,19 @@ pub fn eval(fen: &str, depth: u8) -> Result<(ChessEval, Option<ChessMove>), ()> 
 }
 
 pub fn play_move(fen: &str) -> Result<String, ()> {
-    // Check if our eval works
-    if let Ok((chess_eval, best_move_option)) = eval(fen, 2) {
+    // Check if it is a known position
+    if let Some(moves) = get_theory_moves(fen) {
+        info!("We are in theory! Easy");
+        let mut rng = rand::thread_rng();
+        let random_good_move = rng.gen_range(0..moves.len());
+        return Ok(moves[random_good_move].to_string());
+    }
+
+    // Try to evaluate ourselves.
+    warn!("We should decide for a reasonable amount of time.");
+    let deadline = Instant::now() + Duration::new(1, 0);
+
+    if let Ok((chess_eval, best_move_option)) = eval(fen, 3, deadline) {
         if let Some(chess_move) = best_move_option {
             info!("Selecting move with evaluation {:?}", chess_eval);
             return Ok(chess_move.to_string());
