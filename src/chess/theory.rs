@@ -37,6 +37,7 @@ pub fn get_theory_moves(fen: &str) -> Option<&Vec<&'static str>> {
     CHESS_THEORY.get(fen)
 }
 
+#[cfg(test)]
 mod tests {
     #[test]
     fn test_theory_lines() {
