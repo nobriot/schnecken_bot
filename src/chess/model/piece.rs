@@ -69,22 +69,6 @@ impl Piece {
   /// Converts a piece into a u8, that can be used to represents on an array
   /// of squares for the chess board.
   ///
-  /// Type of piece can be deduced by performing a modulo 8
-  /// Piece color by comparing with value 8 (greater or less)
-  ///
-  /// Values will be:
-  /// - white king:   1
-  /// - white queen:  2
-  /// - white rook:   3
-  /// - white bishop: 4
-  /// - white knight: 5
-  /// - white pawn:   6
-  /// - black king:   9
-  /// - black queen:  10
-  /// - black rook:   11
-  /// - black bishop: 12
-  /// - black knight: 13
-  /// - black pawn:   14
   pub fn as_u8(&self) -> u8 {
     match (self.p_type, self.color) {
       (PieceType::King, Color::White) => WHITE_KING,
