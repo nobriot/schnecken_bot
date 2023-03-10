@@ -1,4 +1,5 @@
 use crate::chess::model::piece::*;
+use log::*;
 
 // -----------------------------------------------------------------------------
 //  Constants
@@ -11,7 +12,7 @@ pub const INVALID_SQUARE: u8 = 255;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Board {
-  squares: [u8; 64],
+  pub squares: [u8; 64],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -22,6 +23,94 @@ pub struct Move {
   pub dest: u8,
   // Piece to spawn in case of promotion. Encoded using piece constants (NO_PIECE, WHITE_QUEEN, etc.)
   pub promotion: u8,
+}
+
+// -----------------------------------------------------------------------------
+// Generic functions
+
+/// Converts the square number (from 0 to 63) to an algebraic notation
+/// such as a1, h7, f4
+///
+/// We put zeroes ('00') when a value does not exist.
+pub fn square_to_string(square: u8) -> String {
+  let mut string = String::new();
+
+  if square == INVALID_SQUARE {
+    string = String::from("00");
+    return string;
+  }
+
+  match square % 8 {
+    0 => string.push('a'),
+    1 => string.push('b'),
+    2 => string.push('c'),
+    3 => string.push('d'),
+    4 => string.push('e'),
+    5 => string.push('f'),
+    6 => string.push('g'),
+    7 => string.push('h'),
+    _ => string.push('0'),
+  }
+  match square / 8 {
+    0 => string.push('1'),
+    1 => string.push('2'),
+    2 => string.push('3'),
+    3 => string.push('4'),
+    4 => string.push('5'),
+    5 => string.push('6'),
+    6 => string.push('7'),
+    7 => string.push('8'),
+    _ => string.push('0'),
+  }
+
+  return string;
+}
+
+/// Converts the square algebraic notation to a number from 0 to 63.
+pub fn string_to_square(string: &str) -> u8 {
+  let mut square_value: u8 = 0;
+  match string.chars().nth(0) {
+    Some('a') => square_value += 0,
+    Some('b') => square_value += 1,
+    Some('c') => square_value += 2,
+    Some('d') => square_value += 3,
+    Some('e') => square_value += 4,
+    Some('f') => square_value += 5,
+    Some('g') => square_value += 6,
+    Some('h') => square_value += 7,
+    Some(_) | None => return INVALID_SQUARE,
+  }
+  match string.chars().nth(1) {
+    // a does not add value to the square index
+    Some('1') => {},
+    Some('2') => square_value += 1 * 8,
+    Some('3') => square_value += 2 * 8,
+    Some('4') => square_value += 3 * 8,
+    Some('5') => square_value += 4 * 8,
+    Some('6') => square_value += 5 * 8,
+    Some('7') => square_value += 6 * 8,
+    Some('8') => square_value += 7 * 8,
+    Some(_) | None => return INVALID_SQUARE,
+  }
+
+  square_value
+}
+
+pub fn board_mask_to_string(mask: u64) -> String {
+  let mut string = String::new();
+  for rank in (0..8 as u8).rev() {
+    for file in 0..8 {
+      let square_index = rank * 8 + file;
+      if ((mask >> square_index) & 1) == 1 {
+        string.push('x');
+      } else {
+        string.push('.');
+      }
+      string.push(' ');
+    }
+    string.push('\n');
+  }
+  string
 }
 
 // -----------------------------------------------------------------------------
@@ -37,20 +126,50 @@ impl Board {
   ///
   /// Very few checks are done here, the caller has to check that the move is
   /// legal before applying it.
-  fn apply_move(&self, chess_move: Move) -> Self {
-    println!(
-      "{} -> {} {}",
-      chess_move.src, chess_move.dest, chess_move.promotion
-    );
-    let mut new_board = self.clone();
-    if chess_move.promotion != NO_PIECE {
-      new_board.squares[chess_move.dest as usize] = chess_move.promotion;
-    } else {
-      new_board.squares[chess_move.dest as usize] = new_board.squares[chess_move.src as usize];
+  pub fn apply_move(&mut self, chess_move: Move) {
+    // Check if we just castled, we need to move the rooks around!
+    if self.squares[chess_move.src as usize] == WHITE_KING {
+      if chess_move.src == 4 && chess_move.dest == 2 {
+        let m = Move {
+          src: 0,
+          dest: 3,
+          promotion: NO_PIECE,
+        };
+        self.apply_move(m);
+      } else if chess_move.src == 4 && chess_move.dest == 6 {
+        let m = Move {
+          src: 7,
+          dest: 5,
+          promotion: NO_PIECE,
+        };
+        self.apply_move(m);
+      }
+    } else if self.squares[chess_move.src as usize] == BLACK_KING {
+      if chess_move.src == 60 && chess_move.dest == 62 {
+        let m = Move {
+          src: 63,
+          dest: 61,
+          promotion: NO_PIECE,
+        };
+        self.apply_move(m);
+      } else if chess_move.src == 60 && chess_move.dest == 58 {
+        let m = Move {
+          src: 56,
+          dest: 59,
+          promotion: NO_PIECE,
+        };
+        self.apply_move(m);
+      }
     }
 
-    new_board.squares[chess_move.src as usize] = NO_PIECE;
-    new_board
+    // No apply the initial move
+    if chess_move.promotion != NO_PIECE {
+      self.squares[chess_move.dest as usize] = chess_move.promotion;
+    } else {
+      self.squares[chess_move.dest as usize] = self.squares[chess_move.src as usize];
+    }
+
+    self.squares[chess_move.src as usize] = NO_PIECE;
   }
 
   /// Checks if there is a piece on a square
@@ -78,72 +197,28 @@ impl Board {
     }
   }
 
-  /// Converts the square number (from 0 to 63) to an algebraic notation
-  /// such as a1, h7, f4
-  ///
-  /// We put zeroes ('00') when a value does not exist.
-  pub fn square_to_string(square: u8) -> String {
-    let mut string = String::new();
+  /// Return a board bismask with squares set to 1 when they
+  /// have a piece with a certain color
+  pub fn get_color_mask(&self, color: Color) -> u64 {
+    let mut board_mask = 0;
 
-    if square == INVALID_SQUARE {
-      string = String::from("00");
-      return string;
+    for i in 0..64 {
+      match self.squares[i as usize] {
+        NO_PIECE => {},
+        WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
+          if color == Color::White {
+            board_mask |= 1 << i;
+          }
+        },
+        BLACK_KING | BLACK_QUEEN | BLACK_ROOK | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
+          if color == Color::Black {
+            board_mask |= 1 << i;
+          }
+        },
+        _ => {},
+      }
     }
-
-    match square % 8 {
-      0 => string.push('a'),
-      1 => string.push('b'),
-      2 => string.push('c'),
-      3 => string.push('d'),
-      4 => string.push('e'),
-      5 => string.push('f'),
-      6 => string.push('g'),
-      7 => string.push('h'),
-      _ => string.push('0'),
-    }
-    match square / 8 {
-      0 => string.push('1'),
-      1 => string.push('2'),
-      2 => string.push('3'),
-      3 => string.push('4'),
-      4 => string.push('5'),
-      5 => string.push('6'),
-      6 => string.push('7'),
-      7 => string.push('8'),
-      _ => string.push('0'),
-    }
-
-    return string;
-  }
-
-  /// Converts the square algebraic notation to a number from 0 to 63.
-  pub fn string_to_square(string: &str) -> u8 {
-    let mut square_value: u8 = 0;
-    match string.chars().nth(0) {
-      Some('a') => square_value += 0,
-      Some('b') => square_value += 1,
-      Some('c') => square_value += 2,
-      Some('d') => square_value += 3,
-      Some('e') => square_value += 4,
-      Some('f') => square_value += 5,
-      Some('g') => square_value += 6,
-      Some('h') => square_value += 7,
-      Some(_) | None => return INVALID_SQUARE,
-    }
-    match string.chars().nth(1) {
-      // a does not add value to the square index
-      Some('1') => {},
-      Some('2') => square_value += 1 * 8,
-      Some('3') => square_value += 2 * 8,
-      Some('4') => square_value += 3 * 8,
-      Some('5') => square_value += 4 * 8,
-      Some('6') => square_value += 5 * 8,
-      Some('7') => square_value += 6 * 8,
-      Some('8') => square_value += 7 * 8,
-      Some(_) | None => return INVALID_SQUARE,
-    }
-
-    square_value
+    board_mask
   }
 
   /// Converts first substring of a FEN (with the pieces) to a board
@@ -224,11 +299,39 @@ impl Move {
   /// Converts a move to the algebraic notation, e.g.
   pub fn to_string(&self) -> String {
     if self.promotion != NO_PIECE {
-      let mut move_string = Board::square_to_string(self.src) + &Board::square_to_string(self.dest);
-      move_string.push(Piece::u8_to_char(self.promotion).expect("Should be a valid piece!"));
+      let mut move_string = square_to_string(self.src) + &square_to_string(self.dest);
+      move_string.push(
+        Piece::u8_to_char(self.promotion)
+          .expect("Should be a valid piece!")
+          .to_ascii_uppercase(),
+      );
       move_string
     } else {
-      Board::square_to_string(self.src) + &Board::square_to_string(self.dest)
+      square_to_string(self.src) + &square_to_string(self.dest)
+    }
+  }
+
+  /// Converts a move to the algebraic notation, e.g.
+  pub fn from_string(move_notation: &str) -> Self {
+    let src = string_to_square(&move_notation[0..2]);
+    let dest = string_to_square(&move_notation[2..4]);
+    let promotion;
+    if move_notation.len() == 5 {
+      promotion = Piece::char_to_u8(
+        move_notation
+          .chars()
+          .nth(4)
+          .expect("Invalid promoted piece ??"),
+      )
+      .expect("unexpected piece");
+    } else {
+      promotion = NO_PIECE;
+    }
+
+    Move {
+      src,
+      dest,
+      promotion,
     }
   }
 }
@@ -253,6 +356,16 @@ impl std::fmt::Display for Board {
 impl std::fmt::Display for Move {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(self.to_string().as_str())
+  }
+}
+
+impl Default for Move {
+  fn default() -> Self {
+    Move {
+      src: 0,
+      dest: 0,
+      promotion: NO_PIECE,
+    }
   }
 }
 
@@ -300,59 +413,59 @@ mod tests {
   }
 
   #[test]
-  fn square_to_string() {
-    assert_eq!("a1", Board::square_to_string(0));
-    assert_eq!("b1", Board::square_to_string(1));
-    assert_eq!("c1", Board::square_to_string(2));
-    assert_eq!("d1", Board::square_to_string(3));
-    assert_eq!("e1", Board::square_to_string(4));
-    assert_eq!("f1", Board::square_to_string(5));
-    assert_eq!("g1", Board::square_to_string(6));
-    assert_eq!("h1", Board::square_to_string(7));
-    assert_eq!("a2", Board::square_to_string(8));
-    assert_eq!("b2", Board::square_to_string(9));
-    assert_eq!("c2", Board::square_to_string(10));
-    assert_eq!("d2", Board::square_to_string(11));
-    assert_eq!("e2", Board::square_to_string(12));
-    assert_eq!("f2", Board::square_to_string(13));
-    assert_eq!("g2", Board::square_to_string(14));
-    assert_eq!("h2", Board::square_to_string(15));
-    assert_eq!("a8", Board::square_to_string(56));
-    assert_eq!("b8", Board::square_to_string(57));
-    assert_eq!("c8", Board::square_to_string(58));
-    assert_eq!("d8", Board::square_to_string(59));
-    assert_eq!("e8", Board::square_to_string(60));
-    assert_eq!("f8", Board::square_to_string(61));
-    assert_eq!("g8", Board::square_to_string(62));
-    assert_eq!("h8", Board::square_to_string(63));
+  fn square_to_string_test() {
+    assert_eq!("a1", square_to_string(0));
+    assert_eq!("b1", square_to_string(1));
+    assert_eq!("c1", square_to_string(2));
+    assert_eq!("d1", square_to_string(3));
+    assert_eq!("e1", square_to_string(4));
+    assert_eq!("f1", square_to_string(5));
+    assert_eq!("g1", square_to_string(6));
+    assert_eq!("h1", square_to_string(7));
+    assert_eq!("a2", square_to_string(8));
+    assert_eq!("b2", square_to_string(9));
+    assert_eq!("c2", square_to_string(10));
+    assert_eq!("d2", square_to_string(11));
+    assert_eq!("e2", square_to_string(12));
+    assert_eq!("f2", square_to_string(13));
+    assert_eq!("g2", square_to_string(14));
+    assert_eq!("h2", square_to_string(15));
+    assert_eq!("a8", square_to_string(56));
+    assert_eq!("b8", square_to_string(57));
+    assert_eq!("c8", square_to_string(58));
+    assert_eq!("d8", square_to_string(59));
+    assert_eq!("e8", square_to_string(60));
+    assert_eq!("f8", square_to_string(61));
+    assert_eq!("g8", square_to_string(62));
+    assert_eq!("h8", square_to_string(63));
   }
 
   #[test]
-  fn string_to_square() {
-    assert_eq!(0, Board::string_to_square("a1"));
-    assert_eq!(1, Board::string_to_square("b1"));
-    assert_eq!(2, Board::string_to_square("c1"));
-    assert_eq!(3, Board::string_to_square("d1"));
-    assert_eq!(4, Board::string_to_square("e1"));
-    assert_eq!(5, Board::string_to_square("f1"));
-    assert_eq!(6, Board::string_to_square("g1"));
-    assert_eq!(7, Board::string_to_square("h1"));
-    assert_eq!(8, Board::string_to_square("a2"));
-    assert_eq!(9, Board::string_to_square("b2"));
-    assert_eq!(10, Board::string_to_square("c2"));
-    assert_eq!(11, Board::string_to_square("d2"));
-    assert_eq!(12, Board::string_to_square("e2"));
-    assert_eq!(13, Board::string_to_square("f2"));
-    assert_eq!(14, Board::string_to_square("g2"));
-    assert_eq!(15, Board::string_to_square("h2"));
-    assert_eq!(56, Board::string_to_square("a8"));
-    assert_eq!(57, Board::string_to_square("b8"));
-    assert_eq!(58, Board::string_to_square("c8"));
-    assert_eq!(59, Board::string_to_square("d8"));
-    assert_eq!(60, Board::string_to_square("e8"));
-    assert_eq!(61, Board::string_to_square("f8"));
-    assert_eq!(62, Board::string_to_square("g8"));
-    assert_eq!(63, Board::string_to_square("h8"));
+  fn string_to_square_test() {
+    assert_eq!(0, string_to_square("a1"));
+    assert_eq!(1, string_to_square("b1"));
+    assert_eq!(2, string_to_square("c1"));
+    assert_eq!(3, string_to_square("d1"));
+    assert_eq!(4, string_to_square("e1"));
+    assert_eq!(5, string_to_square("f1"));
+    assert_eq!(6, string_to_square("g1"));
+    assert_eq!(7, string_to_square("h1"));
+    assert_eq!(8, string_to_square("a2"));
+    assert_eq!(9, string_to_square("b2"));
+    assert_eq!(10, string_to_square("c2"));
+    assert_eq!(11, string_to_square("d2"));
+    assert_eq!(12, string_to_square("e2"));
+    assert_eq!(13, string_to_square("f2"));
+    assert_eq!(14, string_to_square("g2"));
+    assert_eq!(15, string_to_square("h2"));
+    assert_eq!(56, string_to_square("a8"));
+    assert_eq!(57, string_to_square("b8"));
+    assert_eq!(58, string_to_square("c8"));
+    assert_eq!(59, string_to_square("d8"));
+    assert_eq!(60, string_to_square("e8"));
+    assert_eq!(61, string_to_square("f8"));
+    assert_eq!(62, string_to_square("g8"));
+    assert_eq!(63, string_to_square("h8"));
   }
 
   #[test]
@@ -386,12 +499,19 @@ mod tests {
     println!("Board: {}", board);
 
     // Try and capture a piece
-    board = board.apply_move(Move {
-      src: Board::string_to_square("b3"),
-      dest: Board::string_to_square("g3"),
+    board.apply_move(Move {
+      src: string_to_square("b3"),
+      dest: string_to_square("g3"),
       promotion: NO_PIECE,
     });
+    println!("Board: {}", board);
 
+    // Try and promote a piece (super jump from h2 to h8)
+    board.apply_move(Move {
+      src: string_to_square("h2"),
+      dest: string_to_square("h8"),
+      promotion: WHITE_KNIGHT,
+    });
     println!("Board: {}", board);
   }
 

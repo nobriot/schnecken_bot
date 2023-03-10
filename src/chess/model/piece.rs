@@ -306,6 +306,23 @@ impl Piece {
     }
   }
 
+  /// Convenience function that takes a char and returns a u8, without converting
+  /// to the intermediate Piece Struct
+  ///
+  /// This function also tolerates the absence of pieces,
+  /// i.e. unknown u8 value convers to .
+  pub fn color(u: u8) -> Option<Color> {
+    match u {
+      WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
+        Some(Color::White)
+      },
+      BLACK_KING | BLACK_QUEEN | BLACK_ROOK | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
+        Some(Color::Black)
+      },
+      _ => None,
+    }
+  }
+
   /// Convenience function that takes a u8 and returns a char, without converting
   /// to the intermediate Piece Struct
   ///
