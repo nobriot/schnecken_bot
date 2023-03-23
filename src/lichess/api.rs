@@ -346,6 +346,15 @@ pub async fn make_move(game_id: &str, chess_move: &str, offer_draw: bool) -> boo
 
   if json_response["ok"].as_bool().is_none() {
     warn!("Lichess refused our move! :'( - We're so bad");
+    let _ = write_in_chat(
+      game_id,
+      format!(
+        "I just tried to play an invalid move! ({}) Embarassing for my developer! :'(",
+        chess_move
+      )
+      .as_str(),
+    )
+    .await;
     return false;
   }
 

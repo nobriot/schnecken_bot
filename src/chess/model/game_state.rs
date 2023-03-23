@@ -69,8 +69,7 @@ impl GameState {
     let ply: u8 = fen_parts[4].parse::<u8>().unwrap_or(0);
     let move_count: u8 = fen_parts[5].parse::<u8>().unwrap_or(0);
 
-    // FIXME: Determine if we're check / Checkmate
-    GameState {
+    let mut game_state = GameState {
       side_to_play: side_to_move,
       checks: 0,
       en_passant_square: en_passant_square,
@@ -78,7 +77,10 @@ impl GameState {
       board: board,
       ply: ply,
       move_count: move_count,
-    }
+    };
+    // Determine if we're check / Checkmate
+    game_state.update_checks();
+    game_state
   }
 
   pub fn to_string(&self) -> String {
@@ -126,6 +128,71 @@ impl GameState {
     fen
   }
 
+  pub fn get_piece_destinations(&self, source_square: usize, op: u64, ssp: u64) -> (u64, bool) {
+    let mut promotion: bool = false;
+    let destinations = match self.board.squares[source_square] {
+      WHITE_KING | BLACK_KING => get_king_moves(ssp, op, source_square),
+      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
+      WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
+      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
+      WHITE_KNIGHT | BLACK_KNIGHT => get_knight_moves(ssp, op, source_square),
+      WHITE_PAWN => {
+        let pawn_targets;
+        if self.en_passant_square != INVALID_SQUARE {
+          pawn_targets = op | (1 << self.en_passant_square);
+        } else {
+          pawn_targets = op;
+        }
+        if (source_square / 8) == 6 {
+          promotion = true;
+        }
+        get_white_pawn_moves(ssp, pawn_targets, source_square)
+      },
+      BLACK_PAWN => {
+        let pawn_targets;
+        if self.en_passant_square != INVALID_SQUARE {
+          pawn_targets = op | (1 << self.en_passant_square);
+        } else {
+          pawn_targets = op;
+        }
+        if (source_square / 8) == 1 {
+          promotion = true;
+        }
+        get_black_pawn_moves(ssp, pawn_targets, source_square)
+      },
+      _ => 0,
+    };
+
+    (destinations, promotion)
+  }
+
+  /// Computes the number of attackers on each square for a color.
+  /// Compare with your own color to get a number of defenders.
+  pub fn get_heatmap(&self, color: Color, with_x_rays: bool) -> [usize; 64] {
+    let mut heatmap: [usize; 64] = [0; 64];
+    let opposite_color = Color::opposite(color);
+
+    let ssp = self.board.get_color_mask(color);
+    let op = match with_x_rays {
+      true => 0,
+      false => self.board.get_color_mask(opposite_color),
+    };
+
+    for source_square in 0..64 as usize {
+      if !self.board.has_piece_with_color(source_square as u8, color) {
+        continue;
+      }
+      let (destinations, _) = self.get_piece_destinations(source_square, op, ssp);
+      for i in 0..64 {
+        if ((1 << i) & destinations) != 0 {
+          heatmap[i] += 1;
+        }
+      }
+    }
+
+    heatmap
+  }
+
   // Get all the possible moves in a position
   pub fn get_moves(&self) -> Vec<Move> {
     match self.side_to_play {
@@ -136,7 +203,7 @@ impl GameState {
 
   // Get all the possible moves for white in a position
   pub fn get_white_moves(&self) -> Vec<Move> {
-    let mut legal_moves = Vec::new();
+    let mut all_moves = Vec::new();
 
     let ssp = self.board.get_color_mask(Color::White);
     let op = self.board.get_color_mask(Color::Black);
@@ -150,39 +217,19 @@ impl GameState {
         continue;
       }
 
-      let mut promotion = false;
-      let destinations: u64 = match self.board.squares[source_square] {
-        WHITE_KING => get_king_moves(ssp, op, source_square),
-        WHITE_QUEEN => get_queen_moves(ssp, op, source_square),
-        WHITE_ROOK => get_rook_moves(ssp, op, source_square),
-        WHITE_BISHOP => get_bishop_moves(ssp, op, source_square),
-        WHITE_KNIGHT => get_knight_moves(ssp, op, source_square),
-        WHITE_PAWN => {
-          let pawn_targets;
-          if self.en_passant_square != INVALID_SQUARE {
-            pawn_targets = op | (1 << self.en_passant_square);
-          } else {
-            pawn_targets = op;
-          }
-          if (source_square / 8) == 6 {
-            promotion = true;
-          }
-          get_white_pawn_moves(ssp, pawn_targets, source_square)
-        },
-        _ => 0,
-      };
+      let (destinations, promotion) = self.get_piece_destinations(source_square, op, ssp);
 
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           if !promotion {
-            legal_moves.push(Move {
+            all_moves.push(Move {
               src: source_square as u8,
               dest: i,
               promotion: NO_PIECE,
             });
           } else {
             for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
-              legal_moves.push(Move {
+              all_moves.push(Move {
                 src: source_square as u8,
                 dest: i,
                 promotion: promotion_piece,
@@ -193,12 +240,65 @@ impl GameState {
       }
     }
 
+    let black_heatmap = self.get_heatmap(Color::Black, false);
+    if self.castling_rights.K == true
+      && self.checks == 0
+      && !self.board.has_piece(5)
+      && !self.board.has_piece(6)
+      && black_heatmap[5] == 0
+      && black_heatmap[6] == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 6u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.castling_rights.Q == true
+      && self.checks == 0
+      && !self.board.has_piece(1)
+      && !self.board.has_piece(2)
+      && !self.board.has_piece(3)
+      && black_heatmap[2] == 0
+      && black_heatmap[3] == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 2u8,
+        promotion: NO_PIECE,
+      });
+    }
+
+    // Now we need to remove all the moves where the moving side king is still in check.
+    let mut illegal_moves = Vec::new();
+    for m in &all_moves {
+      let mut new_game_state = self.clone();
+      new_game_state.apply_move(*m);
+      let new_black_heatmap = new_game_state.get_heatmap(Color::Black, false);
+
+      let king_square = new_game_state.board.get_white_king_square();
+      if king_square == INVALID_SQUARE {
+        illegal_moves.push(m);
+      } else if new_black_heatmap[king_square as usize] != 0 {
+        // We're in check, illegal move
+        illegal_moves.push(m);
+      }
+    }
+
+    // Now remove all the illegal moves
+    let mut legal_moves: Vec<Move> = Vec::new();
+    for m in &all_moves {
+      if !illegal_moves.contains(&m) {
+        legal_moves.push(*m);
+      }
+    }
+
     legal_moves
   }
 
   // Get all the possible moves for black in a position
   pub fn get_black_moves(&self) -> Vec<Move> {
-    let mut legal_moves = Vec::new();
+    let mut all_moves = Vec::new();
 
     let ssp = self.board.get_color_mask(Color::Black);
     let op = self.board.get_color_mask(Color::White);
@@ -212,39 +312,18 @@ impl GameState {
         continue;
       }
 
-      let mut promotion = false;
-      let destinations: u64 = match self.board.squares[source_square] {
-        BLACK_KING => get_king_moves(ssp, op, source_square),
-        BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
-        BLACK_ROOK => get_rook_moves(ssp, op, source_square),
-        BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
-        BLACK_KNIGHT => get_knight_moves(ssp, op, source_square),
-        BLACK_PAWN => {
-          let pawn_targets;
-          if self.en_passant_square != INVALID_SQUARE {
-            pawn_targets = op | (1 << self.en_passant_square);
-          } else {
-            pawn_targets = op;
-          }
-          if (source_square / 8) == 1 {
-            promotion = true;
-          }
-          get_black_pawn_moves(ssp, pawn_targets, source_square)
-        },
-        _ => 0,
-      };
-
+      let (destinations, promotion) = self.get_piece_destinations(source_square, op, ssp);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           if !promotion {
-            legal_moves.push(Move {
+            all_moves.push(Move {
               src: source_square as u8,
               dest: i,
               promotion: NO_PIECE,
             });
           } else {
             for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
-              legal_moves.push(Move {
+              all_moves.push(Move {
                 src: source_square as u8,
                 dest: i,
                 promotion: promotion_piece,
@@ -255,7 +334,69 @@ impl GameState {
       }
     }
 
+    // Now check castling.
+    let white_heatmap = self.get_heatmap(Color::White, false);
+
+    if self.castling_rights.k == true
+      && self.checks == 0
+      && !self.board.has_piece(62)
+      && !self.board.has_piece(61)
+      && white_heatmap[61] == 0
+      && white_heatmap[62] == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 62u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.castling_rights.q == true
+      && self.checks == 0
+      && !self.board.has_piece(59)
+      && !self.board.has_piece(58)
+      && !self.board.has_piece(57)
+      && white_heatmap[59] == 0
+      && white_heatmap[58] == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 58u8,
+        promotion: NO_PIECE,
+      });
+    }
+
+    // Now we need to remove all the moves where the moving side king is still in check.
+    let mut illegal_moves = Vec::new();
+    for m in &all_moves {
+      let mut new_game_state = self.clone();
+      new_game_state.apply_move(*m);
+      let new_white_heatmap = new_game_state.get_heatmap(Color::White, false);
+
+      let king_square = new_game_state.board.get_black_king_square();
+      if king_square == INVALID_SQUARE {
+        illegal_moves.push(m);
+      } else if new_white_heatmap[king_square as usize] != 0 {
+        // We're in check, illegal move
+        illegal_moves.push(m);
+      }
+    }
+
+    // Now remove all the illegal moves
+    let mut legal_moves: Vec<Move> = Vec::new();
+    for m in &all_moves {
+      if !illegal_moves.contains(&m) {
+        legal_moves.push(*m);
+      }
+    }
+
     legal_moves
+  }
+
+  pub fn get_king_square(&self) -> u8 {
+    match self.side_to_play {
+      Color::White => self.board.get_white_king_square(),
+      Color::Black => self.board.get_black_king_square(),
+    }
   }
 
   // Returns a position score, for the side to play
@@ -263,13 +404,11 @@ impl GameState {
     let mut material_score: f32 = 0.0;
     for i in 0..64 {
       match self.board.squares[i] {
-        WHITE_KING => material_score += 200.0,
         WHITE_QUEEN => material_score += 9.5,
         WHITE_ROOK => material_score += 5.0,
         WHITE_BISHOP => material_score += 3.05,
         WHITE_KNIGHT => material_score += 3.0,
         WHITE_PAWN => material_score += 1.0,
-        BLACK_KING => material_score -= 200.0,
         BLACK_QUEEN => material_score -= 9.5,
         BLACK_ROOK => material_score -= 5.0,
         BLACK_BISHOP => material_score -= 3.05,
@@ -279,7 +418,30 @@ impl GameState {
       }
     }
 
+    // Check if we are checkmated or stalemated
+    if self.get_moves().len() == 0 {
+      match (self.side_to_play, self.checks) {
+        (Color::Black, 0) => material_score = 0.0,
+        (Color::White, 0) => material_score = 0.0,
+        (Color::Black, _) => material_score = 200.0,
+        (Color::White, _) => material_score = -200.0,
+      }
+    }
+
     material_score
+  }
+
+  pub fn update_checks(&mut self) {
+    let opponent_color = Color::opposite(self.side_to_play);
+    let opponent_heatmap = self.get_heatmap(opponent_color, false);
+    let king_square = self.get_king_square();
+
+    if king_square == INVALID_SQUARE {
+      error!("Can't get king square ? {}", self.to_string());
+      self.checks = 0;
+      return;
+    }
+    self.checks = opponent_heatmap[king_square as usize] as u8;
   }
 
   pub fn apply_move(&mut self, chess_move: Move) -> () {
@@ -288,7 +450,7 @@ impl GameState {
     match Piece::color(self.board.squares[chess_move.src as usize]) {
       Some(c) => moving_side = c,
       None => {
-        println!(
+        error!(
           "Input moves with empty source square? {} - board:\n{}",
           chess_move, self.board
         );
@@ -297,7 +459,7 @@ impl GameState {
     }
 
     if moving_side != self.side_to_play {
-      println!("Input moves wrong color moving");
+      error!("Input moves wrong color moving");
       return;
     }
 
@@ -343,6 +505,9 @@ impl GameState {
     } else {
       self.en_passant_square = INVALID_SQUARE;
     }
+
+    // Check if we have checks
+    self.update_checks();
   }
 
   pub fn apply_move_list(&mut self, move_list: &str) -> () {
@@ -466,5 +631,24 @@ mod tests {
     assert_eq!(expected_fen, game_state.to_string().as_str());
     println!("{game_state}");
     */
+  }
+
+  #[test]
+  fn test_check_legal_moves() {
+    let fen = "4B3/p5k1/1pp4p/8/8/P6P/5PP1/2R3K1 b - - 0 37";
+    let game_state = GameState::from_string(fen);
+    let move_list = game_state.get_moves();
+    println!("List of moves (should not include moves going into a check square):\n");
+    for m in move_list {
+      println!("{m}");
+    }
+  }
+
+  #[test]
+  fn test_check_legal_moves_2() {
+    let fen = "rnbqk1nr/ppp2ppp/8/3pp3/B2bP3/8/P1PP1PPP/R3K1NR b - - 0 1";
+    let game_state = GameState::from_string(fen);
+    let move_list = game_state.get_moves();
+    assert_eq!(8, move_list.len());
   }
 }

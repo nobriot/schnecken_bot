@@ -37,6 +37,15 @@ pub enum Color {
   Black,
 }
 
+impl Color {
+  pub fn opposite(color: Self) -> Self {
+    match color {
+      Color::Black => Color::White,
+      Color::White => Color::Black,
+    }
+  }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PieceType {

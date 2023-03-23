@@ -15,7 +15,7 @@ pub struct Board {
   pub squares: [u8; 64],
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Move {
   // Source square of a move (value from 0 to 63)
   pub src: u8,
@@ -195,6 +195,38 @@ impl Board {
       BLACK_PAWN => color == Color::Black,
       _ => false,
     }
+  }
+
+  /// Finds the square with a white king on it.
+  pub fn get_black_white_square(&self) -> u8 {
+    for i in 0..64 {
+      if self.squares[i as usize] == WHITE_KING {
+        return i;
+      }
+    }
+    return INVALID_SQUARE;
+  }
+
+  /// Finds the square with a black king on it.
+  pub fn get_black_king_square(&self) -> u8 {
+    for i in 0..64 {
+      if self.squares[i as usize] == BLACK_KING {
+        return i;
+      }
+    }
+    error!("No black king ?? ");
+    return INVALID_SQUARE;
+  }
+
+  /// Finds the square with a white king on it.
+  pub fn get_white_king_square(&self) -> u8 {
+    for i in 0..64 {
+      if self.squares[i as usize] == WHITE_KING {
+        return i;
+      }
+    }
+    error!("No white king ?? ");
+    return INVALID_SQUARE;
   }
 
   /// Return a board bismask with squares set to 1 when they
