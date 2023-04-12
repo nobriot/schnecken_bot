@@ -7,7 +7,7 @@ lazy_static! {
         let mut t = HashMap::new();
         // First move for White
         t.insert("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        vec!["e2e4","d2d4","g1g3"]);
+        vec!["e2e4","d2d4","g1f3"]);
 
         // First move for Black, 1.e4
         t.insert("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
@@ -34,26 +34,26 @@ lazy_static! {
 // Check our known book moves, known positions that have been computed with an
 // evaluation before, so that we do not need to find moves ourselves.
 pub fn get_theory_moves(fen: &str) -> Option<&Vec<&'static str>> {
-    CHESS_THEORY.get(fen)
+  CHESS_THEORY.get(fen)
 }
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test_theory_lines() {
-        use crate::chess::theory::*;
-        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-        // Some eval values, from strongest to weakest (from white perspective)
-        let result = get_theory_moves(fen);
-        assert_eq!(Some(&vec!["e2e4", "d2d4", "g1g3"]), result);
-    }
+  #[test]
+  fn test_theory_lines() {
+    use crate::chess::theory::*;
+    let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    // Some eval values, from strongest to weakest (from white perspective)
+    let result = get_theory_moves(fen);
+    assert_eq!(Some(&vec!["e2e4", "d2d4", "g1g3"]), result);
+  }
 
-    #[test]
-    fn test_theory_lines_endgame() {
-        use crate::chess::theory::*;
-        let fen = "4r3/pppk4/2p1p2p/6PN/2P2PK1/1Pb4P/P3R3/8 w - - 3 38";
-        // Some eval values, from strongest to weakest (from white perspective)
-        let result = get_theory_moves(fen);
-        assert_eq!(Some(&vec!["h5g3", "h3h4", "e2e3"]), result);
-    }
+  #[test]
+  fn test_theory_lines_endgame() {
+    use crate::chess::theory::*;
+    let fen = "4r3/pppk4/2p1p2p/6PN/2P2PK1/1Pb4P/P3R3/8 w - - 3 38";
+    // Some eval values, from strongest to weakest (from white perspective)
+    let result = get_theory_moves(fen);
+    assert_eq!(Some(&vec!["h5g3", "h3h4", "e2e3"]), result);
+  }
 }
