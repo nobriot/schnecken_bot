@@ -401,6 +401,16 @@ impl GameState {
 
   // Returns a position score, for the side to play
   pub fn evaluate_position(&self) -> f32 {
+    // Check if we are checkmated or stalemated
+    if self.get_moves().len() == 0 {
+      match (self.side_to_play, self.checks) {
+        (_, 0) => return 0.0,
+        (Color::Black, _) => return 200.0,
+        (Color::White, _) => return -200.0,
+      }
+    }
+
+    // Basic material count
     let mut material_score: f32 = 0.0;
     for i in 0..64 {
       match self.board.squares[i] {
@@ -418,15 +428,9 @@ impl GameState {
       }
     }
 
-    // Check if we are checkmated or stalemated
-    if self.get_moves().len() == 0 {
-      match (self.side_to_play, self.checks) {
-        (Color::Black, 0) => material_score = 0.0,
-        (Color::White, 0) => material_score = 0.0,
-        (Color::Black, _) => material_score = 200.0,
-        (Color::White, _) => material_score = -200.0,
-      }
-    }
+    // Compare the mobility of both sides. Give +1 if one side has 10 more available moves than the other.
+    material_score +=
+      (self.get_white_moves().len() as isize - self.get_black_moves().len() as isize) as f32 / 10.0;
 
     material_score
   }
@@ -458,10 +462,12 @@ impl GameState {
       },
     }
 
-    if moving_side != self.side_to_play {
-      error!("Input moves wrong color moving");
-      return;
-    }
+    //if moving_side != self.side_to_play {
+    //  error!("Input moves wrong color moving");
+    //  error!("Game state {self}");
+    //  error!("Move {chess_move}");
+    //  return;
+    // }
 
     // Check the ply count first:
     if self.board.squares[chess_move.dest as usize] != NO_PIECE
@@ -650,5 +656,32 @@ mod tests {
     let game_state = GameState::from_string(fen);
     let move_list = game_state.get_moves();
     assert_eq!(8, move_list.len());
+  }
+
+  #[test]
+  fn test_evaluate_position() {
+    // This is a forced checkmate in 2:
+    let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
+    let game_state = GameState::from_string(fen);
+    let evaluation = game_state.evaluate_position();
+    println!("Evaluation {evaluation}");
+  }
+
+  #[test]
+  fn test_evaluate_position_checkmate_in_one() {
+    // This is a forced checkmate in 1:
+    let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
+    let game_state = GameState::from_string(fen);
+    let evaluation = game_state.evaluate_position();
+    println!("Evaluation {evaluation}");
+  }
+
+  #[test]
+  fn test_evaluate_position_checkmate() {
+    // This is a "game over" position
+    let fen = "1n4nr/5ppp/8/1P1Np3/1P6/4kP2/1B1NP1PP/R3KB1R b KQ - 2 37";
+    let game_state = GameState::from_string(fen);
+    let evaluation = game_state.evaluate_position();
+    assert_eq!(200.0, evaluation);
   }
 }

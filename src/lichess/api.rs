@@ -91,7 +91,7 @@ pub async fn lichess_get_stream(
   let response_result = get(api_endpoint).await;
 
   if let Err(error) = response_result {
-    warn!("Error issuing a Get request to Lichess {}", error);
+    warn!("Error issuing a Get Stream request to Lichess {}", error);
     return Err(());
   }
 
@@ -131,7 +131,6 @@ pub async fn lichess_get_stream(
 
 pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
   let response_result = post(api_endpoint, body).await;
-
   if let Err(e) = response_result {
     warn!("Error issuing a Get request to Lichess {e}");
     return Err(());
@@ -172,7 +171,7 @@ where
   let response_result = get("stream/event").await;
 
   if let Err(e) = response_result {
-    warn!("Error issuing a Get request to Lichess {}", e);
+    warn!("Error Streaming events (get) request to Lichess {}", e);
     return Err(());
   }
 
@@ -338,10 +337,21 @@ pub async fn make_move(game_id: &str, chess_move: &str, offer_draw: bool) -> boo
   ));
 
   let json_response: JsonValue;
-  if let Ok(json) = lichess_post(&api_endpoint, "").await {
-    json_response = json;
-  } else {
-    return false;
+  let mut retries = 0;
+
+  loop {
+    retries += 1;
+    let move_result = lichess_post(&api_endpoint, "").await;
+
+    if move_result.is_ok() {
+      json_response = move_result.unwrap();
+      break;
+    }
+
+    if retries > 10 {
+      error!("Something is not working with making moves");
+      return false;
+    }
   }
 
   if json_response["ok"].as_bool().is_none() {
@@ -403,8 +413,8 @@ pub async fn get_game_fen(game_id: &str) -> String {
   return game_fen;
 }
 
-// Returns if a game is ongoing and if it is our turn
-pub async fn game_is_ongoing(game_id: &str) -> (bool, bool) {
+// Returns if a game is ongoing and if it is our turn, if it is our turn, how many seconds we have left.
+pub async fn game_is_ongoing(game_id: &str) -> (bool, bool, u64) {
   //https://lichess.org/api/account/playing
 
   let json_response: JsonValue;
@@ -412,12 +422,12 @@ pub async fn game_is_ongoing(game_id: &str) -> (bool, bool) {
     json_response = json;
   } else {
     warn!("Error in the response");
-    return (false, false);
+    return (false, false, 0);
   }
 
   if json_response["nowPlaying"].as_array().is_none() {
     warn!("Cannot find the 'nowPlaying' array in ongoing games");
-    return (false, false);
+    return (false, false, 0);
   }
 
   let json_game_array = json_response["nowPlaying"].as_array().unwrap();
@@ -426,9 +436,10 @@ pub async fn game_is_ongoing(game_id: &str) -> (bool, bool) {
     let current_game_id = json_game["gameId"].as_str().unwrap();
     if current_game_id == game_id {
       let is_my_turn = json_game["isMyTurn"].as_bool().unwrap_or(true);
-      return (true, is_my_turn);
+      let seconds_left = json_game["secondsLeft"].as_u64().unwrap_or(0);
+      return (true, is_my_turn, seconds_left);
     }
   }
 
-  return (false, false);
+  return (false, false, 0);
 }

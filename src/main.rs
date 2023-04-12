@@ -206,9 +206,8 @@ async fn get_ongoing_games() -> Result<JsonValue, ()> {
 }
 
 async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
-
   // Double check that the game is still alive and it's our turn
-  let (game_is_ongoing, is_my_turn) = lichess::api::game_is_ongoing(game_id).await;
+  let (game_is_ongoing, is_my_turn, time_remaining) = lichess::api::game_is_ongoing(game_id).await;
   if false == game_is_ongoing {
     return Ok(());
   }
@@ -223,7 +222,9 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
   let mut game_state = chess::model::game_state::GameState::default();
   game_state.apply_move_list(moves);
 
-  if let Ok(chess_move) = &chess::engine::play_move(&game_state) {
+  let suggested_time_ms = (time_remaining as f64 / 60.0) * 1000.0;
+
+  if let Ok(chess_move) = &chess::engine::play_move(&game_state, suggested_time_ms as u64) {
     info!("Playing move {} for game id {}", chess_move, game_id);
     lichess::api::make_move(game_id, chess_move, false).await;
   } else {

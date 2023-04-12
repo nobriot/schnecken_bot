@@ -1,10 +1,8 @@
 use log::*;
 use rand::Rng;
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 // From our module
-use crate::chess::eval::ChessEval;
 use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -47,7 +45,7 @@ pub fn ranked_moves(game_state: GameState) -> Vec<Move> {
 
 // For now we just apply the entire line and evaluate the end result
 pub fn select_best_move(fen: &str, depth: u8, deadline: Instant) -> Result<(Move, f32), ()> {
-  debug!("eval {} at depth {}", fen, depth);
+  //debug!("eval {} at depth {}", fen, depth);
 
   // Check if we have been thinking too much:
   let current_time = Instant::now();
@@ -72,17 +70,17 @@ pub fn select_best_move(fen: &str, depth: u8, deadline: Instant) -> Result<(Move
   for m in &candidates {
     move_list += format!("{m} ").as_str();
   }
-  debug!("list of moves: {move_list}");
 
   let mut first_move = true;
   let mut best_move = candidates[0];
   let mut best_eval: f32 = 0.0;
   for m in candidates {
+
     game_state.apply_move(m);
     if let Ok((_, eval)) = select_best_move(&game_state.to_string(), depth - 1, deadline) {
       if first_move
-        || ((best_eval < eval) && game_state.side_to_play == Color::White)
-        || ((best_eval > eval) && game_state.side_to_play == Color::Black)
+        || ((best_eval < eval) && game_state.side_to_play == Color::Black)
+        || ((best_eval > eval) && game_state.side_to_play == Color::White)
       {
         best_move = m;
         best_eval = eval;
@@ -90,10 +88,10 @@ pub fn select_best_move(fen: &str, depth: u8, deadline: Instant) -> Result<(Move
     }
 
     // Stop if we found a checkmate, no need to look at other moves for that line
-    if ((best_eval == 200.0) && (game_state.side_to_play == Color::White))
-      || ((best_eval == -200.0) && (game_state.side_to_play == Color::Black))
+    if ((best_eval == 200.0) && (game_state.side_to_play == Color::Black))
+      || ((best_eval == -200.0) && (game_state.side_to_play == Color::White))
     {
-      debug!("Checkmate detected for {}", game_state.to_string().as_str());
+      info!("Checkmate detected for {}", game_state.to_string().as_str());
       return Ok((best_move, best_eval));
     }
 
@@ -104,7 +102,7 @@ pub fn select_best_move(fen: &str, depth: u8, deadline: Instant) -> Result<(Move
   return Ok((best_move, best_eval));
 }
 
-pub fn play_move(game_state: &GameState) -> Result<String, ()> {
+pub fn play_move(game_state: &GameState, suggested_time_ms: u64) -> Result<String, ()> {
   let fen = game_state.to_string();
   // Check if it is a known position
   if let Some(moves) = get_theory_moves(&fen) {
@@ -116,10 +114,14 @@ pub fn play_move(game_state: &GameState) -> Result<String, ()> {
   info!("We're out of theory for {fen}");
 
   // Try to evaluate ourselves.
-  info!("We should decide for a reasonable amount of time.");
-  let deadline = Instant::now() + Duration::new(5, 0);
+  info!("Using {suggested_time_ms} ms to find a move");
+  let deadline = Instant::now()
+    + Duration::new(
+      suggested_time_ms / 1000,
+      (suggested_time_ms % 1000) as u32 * 1_000_000,
+    );
 
-  if let Ok((chess_move, evaluation)) = select_best_move(&fen, 6, deadline) {
+  if let Ok((chess_move, evaluation)) = select_best_move(&fen, 4, deadline) {
     debug!(
       "Selecting move {} with evaluation {:?}",
       chess_move, evaluation
@@ -145,5 +147,28 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_evaluation_position() {}
+  fn test_select_best_move_checkmate_in_one() {
+    // This is a forced checkmate in 1:
+    let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
+    let deadline = Instant::now() + Duration::new(5, 0);
+    let (best_move, eval) =
+      select_best_move(fen, 1, deadline).expect("This should not be an error");
+
+    let expected_move = Move::from_string("b6d5");
+    assert_eq!(eval, 200.0);
+    assert_eq!(expected_move, best_move);
+  }
+
+  #[test]
+  fn test_select_best_move_checkmate_in_two() {
+    // This is a forced checkmate in 2: c1b2 d4e3 b6d5
+    let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
+    let deadline = Instant::now() + Duration::new(5, 0);
+    let (best_move, eval) =
+      select_best_move(fen, 3, deadline).expect("This should not be an error");
+
+    let expected_move = Move::from_string("c1b2");
+    assert_eq!(eval, 200.0);
+    assert_eq!(expected_move, best_move);
+  }
 }
