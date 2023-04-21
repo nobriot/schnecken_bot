@@ -312,13 +312,13 @@ mod tests {
 
   #[test]
   fn test_select_best_defensive_move() {
-    // Only good defense is : d7d5
-    let fen = "r1bqkb1r/ppppnppp/2n5/4p3/2B1P3/5Q1N/PPPP1PPP/RNB1K2R b KQkq - 5 4";
+    // Only good defense is : h8f8
+    let fen = "r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7";
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
 
-    let expected_move = Move::from_string("d7d5");
+    let expected_move = Move::from_string("h8f8");
     //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
     assert_eq!(expected_move, chess_lines[0].line[0]);
   }

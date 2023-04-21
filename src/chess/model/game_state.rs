@@ -451,19 +451,19 @@ impl GameState {
       match self.board.squares[i] {
         WHITE_KING => score -= black_heatmap[i] as f32, // This means checks.
         WHITE_QUEEN | BLACK_QUEEN => {
-          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 0.5
+          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 9.0
         },
         WHITE_ROOK | BLACK_ROOK => {
-          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 0.25
+          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 4.8
         },
         WHITE_BISHOP | BLACK_BISHOP => {
-          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 0.16
+          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 3.05
         },
         WHITE_KNIGHT | BLACK_KNIGHT => {
-          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 0.15
+          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 3.0
         },
         WHITE_PAWN | BLACK_PAWN => {
-          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 0.05
+          score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * 1.0
         },
         BLACK_KING => score += white_heatmap[i] as f32, // This means checks.
         _ => score += (white_heatmap[i] as f32 - black_heatmap[i] as f32) * HEATMAP_SCORES[i],
@@ -756,5 +756,25 @@ mod tests {
     let (evaluation, game_over) = game_state.evaluate_position();
     assert_eq!(true, game_over);
     assert_eq!(200.0, evaluation);
+  }
+  #[test]
+  fn test_evaluate_position_hanging_queen() {
+    // This should obviously be very bad for black:
+    let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
+    let game_state = GameState::from_string(fen);
+    let (evaluation, game_over) = game_state.evaluate_position();
+    assert_eq!(false, game_over);
+    assert!(evaluation < 4.0);
+  }
+
+  #[test]
+  fn test_evaluate_position_queen_standoff() {
+    // This should obviously be okay because queen is defended and attacked by a queen.
+    let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
+    let game_state = GameState::from_string(fen);
+    let (evaluation, game_over) = game_state.evaluate_position();
+    assert_eq!(false, game_over);
+    assert!(evaluation < 1.0);
+    assert!(evaluation > -1.0);
   }
 }
