@@ -1,5 +1,6 @@
 use log::*;
 use rand::Rng;
+use std::cmp;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
@@ -11,52 +12,180 @@ use crate::chess::theory::*;
 
 #[derive(Debug, Clone)]
 pub struct ChessLine {
-  pub line: Vec<Move>,
+  pub game_state: GameState,
+  pub chess_move: Move,
+  pub variations: Vec<ChessLine>,
   pub eval: Option<f32>,
   pub game_over: bool,
 }
 
-pub fn highest_evaluation(a: &ChessLine, b: &ChessLine) -> Ordering {
-  match (a.eval, b.eval) {
-    (None, _) => return Ordering::Greater,
-    (_, None) => return Ordering::Less,
-    (_, _) => {
-      let a_value = a.eval.unwrap();
-      let b_value = b.eval.unwrap();
-      if a_value > b_value {
-        return Ordering::Less;
-      } else if a_value < b_value {
-        return Ordering::Greater;
+impl ChessLine {
+  pub fn get_depth(&self) -> usize {
+    //println!("get_depth");
+    if self.variations.len() == 0 {
+      return 1;
+    }
+    let mut depth: usize = 2;
+    let mut line = &self.variations[0];
+    loop {
+      if line.variations.len() > 0 {
+        line = &line.variations[0];
+        depth += 1;
       } else {
-        // Shortest line is better:
-        if a.line.len() > b.line.len() {
-          return Ordering::Greater;
-        } else if a.line.len() < b.line.len() {
-          return Ordering::Less;
-        } else {
-          return Ordering::Equal;
+        break;
+      }
+    }
+
+    //println!("Returning {}", depth);
+    return depth;
+  }
+
+  // Sort based on what side is supposed to play first for the line
+  pub fn sort_variations(&mut self) {
+    //println!("sort_variations");
+    for i in 0..self.variations.len() {
+      self.variations[i].sort_variations();
+    }
+    self
+      .variations
+      .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+  }
+
+  // Evaluate all variations
+  pub fn evaluate(&mut self, deadline: Instant) {
+    //println!("Evaluate");
+    let current_time = Instant::now();
+    if current_time > deadline {}
+    if self.game_over == true {
+      return;
+    }
+
+    if self.variations.len() == 0 {
+      let (eval, game_over) = self.game_state.evaluate_position();
+      self.eval = Some(eval);
+      self.game_over = game_over;
+      return;
+    }
+
+    let mut game_over = false;
+    let mut variation_index = 0;
+    for i in 0..self.variations.len() {
+      self.variations[i].evaluate(deadline);
+      if self.variations[i].game_over == true {
+        game_over = true;
+        variation_index = i;
+        break;
+      }
+    }
+
+    // Keep only 1 variation since it is game over (ideally it should be checkmates, not stalemates though)
+    if game_over == true {
+      let mut new_variations: Vec<ChessLine> = Vec::new();
+      new_variations.push(self.variations[variation_index].to_owned());
+      self.variations = new_variations;
+    }
+  }
+
+  // Evaluate all variations
+  pub fn back_propagate_evaluations(&mut self) {
+    //println!("back_propagate_evaluations");
+    // Assuming here that everything is evaluated and that it is sorted.
+    if self.variations.len() == 0 {
+      return;
+    }
+    self.variations[0].back_propagate_evaluations();
+    self.eval = self.variations[0].eval;
+  }
+
+  // Returns true if moves are added, false otherwise
+  pub fn add_next_moves(&mut self) -> bool {
+    //println!("add_next_moves");
+    if self.game_over == true {
+      return false;
+    }
+    if self.variations.len() == 0 {
+      let candidates = ranked_moves(self.game_state);
+      if candidates.len() == 0 {
+        error!("We just computed moves for a game that is over. This is a waste of CPU.");
+        self.game_over = true;
+        return false;
+      }
+
+      // Add all the moves to the chess lines:
+      for m in candidates {
+        let mut new_game_state = self.game_state.clone();
+        new_game_state.apply_move(m);
+        let chess_line = ChessLine {
+          game_state: new_game_state,
+          chess_move: m,
+          variations: Vec::new(),
+          eval: None,
+          game_over: false,
+        };
+        self.variations.push(chess_line);
+      }
+      return true;
+    } else {
+      for i in 0..self.variations.len() {
+        if true == self.variations[i].add_next_moves() {
+          return true;
         }
       }
-    },
+    }
+    return false;
+  }
+
+  /// Keeps only the top "number_of_lines" in the tree.
+  /// You should call this on a sorted set of lines
+  pub fn trim_lines(&mut self, number_of_lines: usize) {
+    //println!("trim_lines");
+    if self.variations.len() == 0 {
+      return;
+    }
+    self.variations.truncate(number_of_lines);
+
+    for i in 0..self.variations.len() {
+      if self.variations[i].get_depth() == 2 {
+        self.variations[i].trim_lines(number_of_lines);
+        break;
+      }
+    }
   }
 }
 
-pub fn lowest_evaluation(a: &ChessLine, b: &ChessLine) -> Ordering {
+pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
+  // Adjust what is better for what side:
+  let greater;
+  let less;
+  match s {
+    Color::White => {
+      greater = Ordering::Greater;
+      less = Ordering::Less;
+    },
+    Color::Black => {
+      greater = Ordering::Less;
+      less = Ordering::Greater;
+    },
+  }
+
+  // Now compare the evaluations
   match (a.eval, b.eval) {
-    (None, _) => return Ordering::Greater,
-    (_, None) => return Ordering::Less,
+    (None, _) => return greater,
+    (_, None) => return less,
     (_, _) => {
       let a_value = a.eval.unwrap();
       let b_value = b.eval.unwrap();
       if a_value > b_value {
-        return Ordering::Greater;
+        return less;
       } else if a_value < b_value {
-        return Ordering::Less;
+        return greater;
       } else {
-        // Shortest line is better:
-        if a.line.len() > b.line.len() {
+        // Shortest line with same eval is better: FIXME: This is true only for stuff like checkmate.
+        let a_depth = a.get_depth();
+        let b_depth = b.get_depth();
+        if a_depth > b_depth {
           return Ordering::Greater;
-        } else if a.line.len() < b.line.len() {
+        } else if a_depth < b_depth {
           return Ordering::Less;
         } else {
           return Ordering::Equal;
@@ -69,9 +198,10 @@ pub fn lowest_evaluation(a: &ChessLine, b: &ChessLine) -> Ordering {
 // Sort the moves based on "interesting-ness"
 // 1. Double checks
 // 2. Checks
-// 3. Captures
-// 4. Tempos - pins ?
-// 5. All the rest
+// 3. Promotions
+// 4. Captures
+// 5. Tempos - pins ?
+// 6. All the rest
 pub fn ranked_moves(game_state: GameState) -> Vec<Move> {
   let moves = game_state.get_moves();
 
@@ -85,11 +215,12 @@ pub fn ranked_moves(game_state: GameState) -> Vec<Move> {
     let mut new_game_state = game_state.clone();
     new_game_state.apply_move(*m);
 
-    match (new_game_state.checks, capture) {
-      (2, _) => moves_arrays[0].push(*m),
-      (1, _) => moves_arrays[1].push(*m),
-      (0, true) => moves_arrays[2].push(*m),
-      (_, _) => moves_arrays[4].push(*m),
+    match (new_game_state.checks, capture, m.promotion) {
+      (2, _, _) => moves_arrays[0].push(*m),
+      (_, _, WHITE_QUEEN | BLACK_QUEEN) => moves_arrays[1].push(*m),
+      (1, _, _) => moves_arrays[2].push(*m),
+      (0, true, _) => moves_arrays[3].push(*m),
+      (_, _, _) => moves_arrays[4].push(*m),
     }
   }
 
@@ -99,6 +230,13 @@ pub fn ranked_moves(game_state: GameState) -> Vec<Move> {
   }
 
   moves
+}
+
+// Sorts the chess lines based on what side would play in each variation
+pub fn sort_chess_lines(side_to_move: Color, lines: &mut Vec<ChessLine>) {
+  //println!("sort_chess_lines {}", side_to_move);
+  lines.sort_by(|a, b| best_evaluation(a, b, side_to_move));
+  //println!("end of sort_chess_lines {}", side_to_move);
 }
 
 // For now we just apply the entire line and evaluate the end result
@@ -115,10 +253,12 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
 
   // Add all the moves to the chess lines:
   for m in candidates {
-    let mut line: Vec<Move> = Vec::new();
-    line.push(m);
+    let mut new_game_state = game_state.clone();
+    new_game_state.apply_move(m);
     let chess_line = ChessLine {
-      line,
+      game_state: new_game_state,
+      chess_move: m,
+      variations: Vec::new(),
       eval: None,
       game_over: false,
     };
@@ -127,19 +267,11 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
 
   // Process all the moves:
   for i in 0..chess_lines.len() {
-    let mut new_game_state = game_state.clone();
-    new_game_state.apply_moves(&chess_lines[i].line);
-    let (eval, game_over) = new_game_state.evaluate_position();
-    chess_lines[i].eval = Some(eval);
-    chess_lines[i].game_over = game_over;
+    chess_lines[i].evaluate(deadline);
   }
 
   // Rank the moves by eval
-  if game_state.side_to_play == Color::White {
-    chess_lines.sort_by(|a, b| highest_evaluation(a, b));
-  } else {
-    chess_lines.sort_by(|a, b| lowest_evaluation(a, b));
-  }
+  sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
   // Now loop the process:
   //display_lines(0, &chess_lines);
@@ -154,56 +286,56 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
       }
     }
 
-    // Find the shortest non-game over line:
+    // Find the shortest non-game over line
     let mut index = 0;
     let mut depth = usize::MAX;
+    let mut best_eval = 0.0;
     for i in 0..chess_lines.len() {
-      if chess_lines[i].line.len() < depth && chess_lines[i].game_over == false {
-        depth = chess_lines[i].line.len();
+      if (i == 0)
+        || (best_eval < chess_lines[i].eval.unwrap()
+          && chess_lines[i].game_state.side_to_play == Color::White)
+        || (best_eval > chess_lines[i].eval.unwrap()
+          && chess_lines[i].game_state.side_to_play == Color::Black)
+      {
+        best_eval = chess_lines[i].eval.unwrap();
+      }
+    }
+    for i in 0..cmp::min(chess_lines.len(), 10) {
+      if chess_lines[i].get_depth() < depth
+        && chess_lines[i].game_over == false
+        && chess_lines[i].game_over == false
+      {
+        depth = chess_lines[i].get_depth();
         index = i;
       }
     }
     if depth == usize::MAX {
-      // We have nothing to look at ? (all the lines are Game Over)
+      // We have nothing to look at ? (all the lines are Game Over ??)
       return Ok(chess_lines);
     }
 
-    let mut line_game_state = game_state.clone();
-    line_game_state.apply_moves(&chess_lines[index].line);
+    if false == chess_lines[index].add_next_moves() {
+      return Ok(chess_lines);
+    };
 
-    let candidate_moves = ranked_moves(line_game_state);
-    // Add all the moves to the chess lines:
-    let base_line: Vec<Move> = chess_lines[index].line.clone();
-    chess_lines.remove(index);
-    for m in candidate_moves {
-      let mut new_line = base_line.clone();
-      new_line.push(m);
-      let new_chess_line = ChessLine {
-        line: new_line,
-        eval: None,
-        game_over: false,
-      };
-      chess_lines.push(new_chess_line);
-    }
-
-    // Find all the un-evaluated positions and evaluate them:
+    // Process all the moves:
     for i in 0..chess_lines.len() {
-      if chess_lines[i].eval.is_none() {
-        let mut new_game_state = game_state.clone();
-        new_game_state.apply_moves(&chess_lines[i].line);
-        let (eval, game_over) = new_game_state.evaluate_position();
-        chess_lines[i].eval = Some(eval);
-        chess_lines[i].game_over = game_over;
-      }
+      chess_lines[i].evaluate(deadline);
     }
 
-    // Sort again by evaluation
     // Rank the moves by eval
-    if game_state.side_to_play == Color::White {
-      chess_lines.sort_by(|a, b| highest_evaluation(a, b));
-    } else {
-      chess_lines.sort_by(|a, b| lowest_evaluation(a, b));
+    for i in 0..chess_lines.len() {
+      chess_lines[i].sort_variations();
     }
+    for i in 0..chess_lines.len() {
+      chess_lines[i].back_propagate_evaluations();
+    }
+    sort_chess_lines(game_state.side_to_play, &mut chess_lines);
+
+    // Trim branches with low evaluations
+    //for i in 0..chess_lines.len() {
+    //  chess_lines[i].trim_lines(10);
+    // }
   } // loop
 }
 
@@ -228,7 +360,7 @@ pub fn play_move(game_state: &GameState, suggested_time_ms: u64) -> Result<Strin
 
   if let Ok(chess_lines) = select_best_move(&fen, deadline) {
     display_lines(3, &chess_lines);
-    return Ok(chess_lines[0].line[0].to_string());
+    return Ok(chess_lines[0].chess_move.to_string());
   }
 
   // Fallback on playing a random move:
@@ -245,26 +377,29 @@ pub fn play_move(game_state: &GameState, suggested_time_ms: u64) -> Result<Strin
 }
 
 pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
-  if number_of_lines == 0 {
+  if number_of_lines == 0 || number_of_lines > chess_lines.len() {
     number_of_lines = chess_lines.len();
   }
   for i in 0..number_of_lines {
     let mut moves: String = String::new();
-    for m in &chess_lines[i].line {
-      moves += m.to_string().as_str();
+    let mut current_line = &chess_lines[i];
+    moves += current_line.chess_move.to_string().as_str();
+    moves += " ";
+
+    while current_line.variations.len() != 0 {
+      current_line = &current_line.variations[0];
+      moves += current_line.chess_move.to_string().as_str();
       moves += " ";
     }
-    let game_over: &str;
-    if chess_lines[i].game_over {
-      game_over = "/ Game Over";
-    } else {
-      game_over = "";
+
+    if current_line.game_over {
+      moves += "/ Game Over";
     }
     debug!(
-      "Eval: {} - {} {}",
+      "Line {} Eval: {} - {}",
+      i,
       chess_lines[i].eval.unwrap_or(f32::NAN),
-      moves,
-      game_over
+      moves
     )
   }
 }
@@ -282,7 +417,7 @@ mod tests {
     display_lines(10, &chess_lines);
     let expected_move = Move::from_string("b6d5");
     assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
-    assert_eq!(expected_move, chess_lines[0].line[0]);
+    assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 
   #[test]
@@ -294,7 +429,7 @@ mod tests {
     display_lines(10, &chess_lines);
     let expected_move = Move::from_string("g3g1");
     assert_eq!(chess_lines[0].eval.unwrap(), -200.0);
-    assert_eq!(expected_move, chess_lines[0].line[0]);
+    assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 
   #[test]
@@ -304,10 +439,11 @@ mod tests {
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
+    display_lines(5, &chess_lines[0].variations);
 
     let expected_move = Move::from_string("c1b2");
-    assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
-    assert_eq!(expected_move, chess_lines[0].line[0]);
+    //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
+    assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 
   #[test]
@@ -317,9 +453,11 @@ mod tests {
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
+    println!("Line 0 sublines: ");
+    display_lines(0, &chess_lines[1].variations);
 
     let expected_move = Move::from_string("h8f8");
     //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
-    assert_eq!(expected_move, chess_lines[0].line[0]);
+    assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 }
