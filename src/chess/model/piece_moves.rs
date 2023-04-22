@@ -1,5 +1,3 @@
-use lazy_static::initialize;
-
 use crate::chess::model::board::board_mask_to_string;
 use crate::chess::model::board::string_to_square;
 
@@ -306,7 +304,11 @@ pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
   // Check if it can go by 2:
   if inital_rank == 1 {
     let destination_bitmask: u64 = 1 << ((inital_rank + 2) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0 && (destination_bitmask & opponent_pieces) == 0
+    let blocking_bitmask: u64 = 1 << ((inital_rank + 1) * 8 + inital_file);
+    if (destination_bitmask & same_side_pieces) == 0
+      && (destination_bitmask & opponent_pieces) == 0
+      && (blocking_bitmask & same_side_pieces) == 0
+      && (blocking_bitmask & opponent_pieces) == 0
     {
       destinations |= destination_bitmask;
     }
@@ -359,7 +361,11 @@ pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
   // Check if it can go by 2:
   if inital_rank == 6 {
     let destination_bitmask: u64 = 1 << ((inital_rank - 2) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0 && (destination_bitmask & opponent_pieces) == 0
+    let blocking_bitmask: u64 = 1 << ((inital_rank - 1) * 8 + inital_file);
+    if (destination_bitmask & same_side_pieces) == 0
+      && (destination_bitmask & opponent_pieces) == 0
+      && (blocking_bitmask & same_side_pieces) == 0
+      && (blocking_bitmask & opponent_pieces) == 0
     {
       destinations |= destination_bitmask;
     }

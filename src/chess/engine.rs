@@ -196,31 +196,44 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
 }
 
 // Sort the moves based on "interesting-ness"
-// 1. Double checks
-// 2. Checks
-// 3. Promotions
-// 4. Captures
-// 5. Tempos - pins ?
-// 6. All the rest
 pub fn ranked_moves(game_state: GameState) -> Vec<Move> {
   let moves = game_state.get_moves();
 
   // Try to apply all the moves and quickly look at the resulting position:
-  let mut moves_arrays: [Vec<Move>; 5] = Default::default();
+  let mut moves_arrays: [Vec<Move>; 6] = Default::default();
   for m in &moves {
-    let capture: bool = match game_state.board.squares[m.dest as usize] {
-      NO_PIECE => false,
-      _ => true,
+    let captured_piece: u8 = game_state.board.squares[m.dest as usize];
+    let castling: bool = match (game_state.board.squares[m.src as usize], m.src, m.dest) {
+      (WHITE_KING, 4, 6) => true,
+      (WHITE_KING, 4, 2) => true,
+      (BLACK_KING, 60, 62) => true,
+      (BLACK_KING, 60, 58) => true,
+      _ => false,
     };
     let mut new_game_state = game_state.clone();
     new_game_state.apply_move(*m);
 
-    match (new_game_state.checks, capture, m.promotion) {
-      (2, _, _) => moves_arrays[0].push(*m),
-      (_, _, WHITE_QUEEN | BLACK_QUEEN) => moves_arrays[1].push(*m),
-      (1, _, _) => moves_arrays[2].push(*m),
-      (0, true, _) => moves_arrays[3].push(*m),
-      (_, _, _) => moves_arrays[4].push(*m),
+    match (new_game_state.checks, captured_piece, m.promotion, castling) {
+      // 1. Double checks
+      // 2. Queen Promotions
+      // 3. Piece captures
+      // 4. Checks
+      // 5. Castles
+      // 6. Captures
+      // 6. Tempos - pins ?
+      // 7. All the rest
+      (2, _, _, _) => moves_arrays[0].push(*m),
+      (_, _, WHITE_QUEEN | BLACK_QUEEN, _) => moves_arrays[1].push(*m),
+      (
+        _,
+        WHITE_QUEEN | BLACK_QUEEN | WHITE_ROOK | BLACK_ROOK | WHITE_BISHOP | BLACK_BISHOP
+        | WHITE_KNIGHT | BLACK_KNIGHT,
+        _,
+        _,
+      ) => moves_arrays[2].push(*m),
+      (1, _, _, _) => moves_arrays[3].push(*m),
+      (_, _, _, true) => moves_arrays[4].push(*m),
+      (_, _, _, _) => moves_arrays[5].push(*m),
     }
   }
 
@@ -300,7 +313,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
         best_eval = chess_lines[i].eval.unwrap();
       }
     }
-    for i in 0..cmp::min(chess_lines.len(), 10) {
+    for i in 0..cmp::min(chess_lines.len(), 5) {
       if chess_lines[i].get_depth() < depth
         && chess_lines[i].game_over == false
         && chess_lines[i].game_over == false
@@ -395,7 +408,7 @@ pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
     if current_line.game_over {
       moves += "/ Game Over";
     }
-    debug!(
+    println!(
       "Line {} Eval: {} - {}",
       i,
       chess_lines[i].eval.unwrap_or(f32::NAN),
@@ -442,7 +455,7 @@ mod tests {
     display_lines(5, &chess_lines[0].variations);
 
     let expected_move = Move::from_string("c1b2");
-    //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
+    assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
     assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 
@@ -457,6 +470,22 @@ mod tests {
     display_lines(0, &chess_lines[1].variations);
 
     let expected_move = Move::from_string("h8f8");
+    //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
+    assert_eq!(expected_move, chess_lines[0].chess_move);
+  }
+
+  // Game https://lichess.org/Xjgkf4pp seemed really off. Testing some of the positions here
+  #[test]
+  fn test_select_pawn_capture() {
+    let fen = "r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11";
+    let deadline = Instant::now() + Duration::new(2, 10000000);
+    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    display_lines(3, &chess_lines);
+    display_lines(3, &chess_lines[0].variations);
+    display_lines(3, &chess_lines[1].variations);
+    display_lines(3, &chess_lines[2].variations);
+
+    let expected_move = Move::from_string("g2f3");
     //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
     assert_eq!(expected_move, chess_lines[0].chess_move);
   }

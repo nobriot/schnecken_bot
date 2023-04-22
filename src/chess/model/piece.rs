@@ -66,12 +66,31 @@ impl Piece {
   /// Indicates the material value of a piece.
   pub fn material_value(&self) -> f32 {
     match self.p_type {
-      PieceType::King => 200.0,
+      PieceType::King => 100.0,
       PieceType::Queen => 9.5,
       PieceType::Rook => 5.0,
       PieceType::Bishop => 3.0,
       PieceType::Knight => 3.0,
       PieceType::Pawn => 1.0,
+    }
+  }
+
+  /// Indicates the material value of a piece.
+  pub fn material_value_from_u8(piece: u8) -> f32 {
+    match piece {
+      WHITE_KING => 100.0,
+      WHITE_QUEEN => 9.0,
+      WHITE_ROOK => 5.0,
+      WHITE_BISHOP => 3.05,
+      WHITE_KNIGHT => 3.0,
+      WHITE_PAWN => 1.0,
+      BLACK_KING => -100.0,
+      BLACK_QUEEN => -9.0,
+      BLACK_ROOK => -5.0,
+      BLACK_BISHOP => -3.05,
+      BLACK_KNIGHT => -3.0,
+      BLACK_PAWN => -1.0,
+      _ => 0.0,
     }
   }
 
@@ -457,7 +476,7 @@ mod tests {
       p_type: PieceType::King,
       color: Color::White,
     };
-    assert_eq!(200.0, piece.material_value());
+    assert_eq!(100.0, piece.material_value());
     piece.p_type = PieceType::Queen;
     assert_eq!(9.5, piece.material_value());
     piece.p_type = PieceType::Rook;

@@ -204,6 +204,39 @@ impl GameState {
     heatmap
   }
 
+  /// Returns the location of the attackers of a particular square
+  /// Each square is encoded with u64 bitmask of the sources.
+  pub fn get_heatmap_with_sources(
+    &self,
+    color: Color,
+    with_x_rays: bool,
+  ) -> ([usize; 64], [usize; 64]) {
+    let mut heatmap: [usize; 64] = [0; 64];
+    let mut heatmap_sources: [usize; 64] = [0; 64];
+    let opposite_color = Color::opposite(color);
+
+    let ssp = self.board.get_color_mask(color);
+    let op = match with_x_rays {
+      true => 0,
+      false => self.board.get_color_mask(opposite_color),
+    };
+
+    for source_square in 0..64 as usize {
+      if !self.board.has_piece_with_color(source_square as u8, color) {
+        continue;
+      }
+      let (destinations, _) = self.get_piece_destinations(source_square, op, ssp);
+      for i in 0..64 {
+        if ((1 << i) & destinations) != 0 {
+          heatmap[i] += 1;
+          heatmap_sources[i] |= 1 << source_square;
+        }
+      }
+    }
+
+    (heatmap, heatmap_sources)
+  }
+
   // Get all the possible moves in a position
   pub fn get_moves(&self) -> Vec<Move> {
     match self.side_to_play {
@@ -774,7 +807,20 @@ mod tests {
     let game_state = GameState::from_string(fen);
     let (evaluation, game_over) = game_state.evaluate_position();
     assert_eq!(false, game_over);
+    println!("Evaluation: {}", evaluation);
     assert!(evaluation < 1.0);
     assert!(evaluation > -1.0);
+  }
+
+  #[test]
+  fn check_blocked_pawns() {
+    let fen = "rn2k3/1bpp1p1p/p2bp3/6Q1/3PP3/2PB4/PP2NPPP/RN2K2R b KQq - 0 13";
+    let game_state = GameState::from_string(fen);
+    let move_list = game_state.get_moves();
+    //println!("List of moves (should not include moves d7d5\n");
+    for m in &move_list {
+      //println!("{m}");
+      assert_ne!("d7d5", m.to_string());
+    }
   }
 }
