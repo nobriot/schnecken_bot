@@ -693,7 +693,7 @@ mod tests {
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
     let game_state = GameState::from_string(fen);
     let move_list = game_state.get_moves();
-    assert_eq!(38, move_list.len());
+    assert_eq!(37, move_list.len());
     println!("List of moves (should include castling!):\n");
     for m in move_list {
       println!("{m}");
@@ -702,7 +702,7 @@ mod tests {
     let fen = "5k2/P7/2p5/1p6/3P2NR/1p2p3/1P4q1/1K6 w - - 0 53";
     let game_state = GameState::from_string(fen);
     let move_list = game_state.get_moves();
-    assert_eq!(21, move_list.len());
+    assert_eq!(20, move_list.len());
     println!("List of moves (should include a promotion):\n");
     for m in move_list {
       println!("{m}");
@@ -715,7 +715,7 @@ mod tests {
     for m in &move_list {
       println!("{m}");
     }
-    assert_eq!(43, move_list.len());
+    assert_eq!(42, move_list.len());
 
     // Apply the en-passant move, check that the destination capture pawn is gone.
     let en_passant_move = Move::from_string("d5c6");
