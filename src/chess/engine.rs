@@ -495,4 +495,38 @@ mod tests {
     assert_eq!("e1g1", chess_lines[0].chess_move.to_string());
     assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
   }
+
+  // From game : https://lichess.org/47V8eE5x -
+  // Did not capture the knight, it was very obvious to capture.
+  // Spent 2900 ms to come up with this crap: d7d5
+  #[test]
+  fn capture_the_damn_knight() {
+    let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
+    let deadline = Instant::now() + Duration::new(3, 0);
+    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let best_move = chess_lines[0].chess_move.to_string();
+    if "f8f6" != best_move && "g7f6" != best_move {
+      assert!(
+        false,
+        "Should have been either f8f6 or g7f6, instead we have: {best_move}"
+      );
+    }
+  }
+
+  // From game : https://lichess.org/SKF7qgMu -
+  // Did not capture the knight, it was very obvious to capture.
+  // Spent 2450 ms to come up with this crap: e5f5
+  #[test]
+  fn save_the_queen() {
+    let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
+    let deadline = Instant::now() + Duration::new(3, 0);
+    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let best_move = chess_lines[0].chess_move.to_string();
+    if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
+      assert!(
+        false,
+        "Should have been either e5g5, e5d4 or e5c3, instead we have: {best_move}"
+      );
+    }
+  }
 }
