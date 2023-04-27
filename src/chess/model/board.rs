@@ -347,7 +347,7 @@ impl Move {
   pub fn from_string(move_notation: &str) -> Self {
     let src = string_to_square(&move_notation[0..2]);
     let dest = string_to_square(&move_notation[2..4]);
-    let promotion;
+    let mut promotion;
     if move_notation.len() == 5 {
       promotion = Piece::char_to_u8(
         move_notation
@@ -358,6 +358,18 @@ impl Move {
       .expect("unexpected piece");
     } else {
       promotion = NO_PIECE;
+    }
+
+    // By default the notation has small letter, so it will produce black pieces.
+    // Change here the black piece into white piece if the destination rank is the 8th
+    if (dest / 8) == 7 && promotion != NO_PIECE {
+      match promotion {
+        BLACK_QUEEN => promotion = WHITE_QUEEN,
+        BLACK_ROOK => promotion = WHITE_ROOK,
+        BLACK_BISHOP => promotion = WHITE_BISHOP,
+        BLACK_KNIGHT => promotion = WHITE_KNIGHT,
+        x => warn!("Something strange happened {x}"),
+      }
     }
 
     Move {

@@ -223,7 +223,7 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
   let mut game_state = chess::model::game_state::GameState::default();
   game_state.apply_move_list(moves);
 
-  let suggested_time_ms = (time_remaining as f64 / 20.0) * 1000.0 + increment_ms;
+  let suggested_time_ms = (time_remaining as f64 / 90.0) * 1000.0 + increment_ms;
 
   if let Ok(chess_move) = &chess::engine::play_move(&game_state, suggested_time_ms as u64) {
     info!("Playing move {} for game id {}", chess_move, game_id);

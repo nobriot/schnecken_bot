@@ -580,6 +580,21 @@ impl GameState {
       63 => self.castling_rights.k = false,
       _ => {},
     }
+    match chess_move.dest {
+      0 => self.castling_rights.Q = false,
+      4 => {
+        self.castling_rights.K = false;
+        self.castling_rights.Q = false
+      },
+      7 => self.castling_rights.K = false,
+      56 => self.castling_rights.q = false,
+      60 => {
+        self.castling_rights.k = false;
+        self.castling_rights.q = false
+      },
+      63 => self.castling_rights.k = false,
+      _ => {},
+    }
 
     // Check if we have a en passant square
     if (self.board.squares[chess_move.dest as usize] == WHITE_PAWN
