@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-
 use log::*;
 
 use crate::chess::model::board::*;
@@ -7,18 +5,19 @@ use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
 
+use crate::chess::engine::square_affinity::*;
+
 // Shows "interesting" squares to control on the board
 // Giving them a score
 pub const HEATMAP_SCORES: [f32; 64] = [
-  // 1st row
+  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 1st row
   0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 2nd row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 3rd row
-  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 4th row
+  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 3rd row
+  0.01, 0.01, 0.02, 0.03, 0.03, 0.02, 0.01, 0.01, // 4th row
   0.01, 0.01, 0.02, 0.03, 0.03, 0.02, 0.01, 0.01, // 5th row
-  0.01, 0.01, 0.02, 0.03, 0.03, 0.02, 0.01, 0.01, // 6th row
-  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 7th row
+  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 6th row
+  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 7th row
   0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 8th row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01,
 ];
 
 /// Start game state for a standard chess game.
@@ -206,6 +205,7 @@ impl GameState {
 
   /// Returns the location of the attackers of a particular square
   /// Each square is encoded with u64 bitmask of the sources.
+  #[allow(dead_code)]
   pub fn get_heatmap_with_sources(
     &self,
     color: Color,
@@ -503,6 +503,25 @@ impl GameState {
       }
     }
 
+    // Piece affinit offsets
+    for i in 0..64 {
+      match self.board.squares[i] {
+        WHITE_KING => score += 0.1 * WHITE_KING_SQUARE_AFFINITY[i] as f32,
+        WHITE_QUEEN => score += 0.1 * QUEEN_SQUARE_AFFINITY[i] as f32,
+        WHITE_ROOK => score += 0.1 * WHITE_ROOK_SQUARE_AFFINITY[i] as f32,
+        WHITE_BISHOP => score += 0.1 * WHITE_BISHOP_SQUARE_AFFINITY[i] as f32,
+        WHITE_KNIGHT => score += 0.1 * KNIGHT_SQUARE_AFFINITY[i] as f32,
+        WHITE_PAWN => score += 0.1 * WHITE_PAWN_SQUARE_AFFINITY[i] as f32,
+        BLACK_KING => score -= 0.1 * BLACK_KING_SQUARE_AFFINITY[i] as f32,
+        BLACK_QUEEN => score -= 0.1 * QUEEN_SQUARE_AFFINITY[i] as f32,
+        BLACK_ROOK => score -= 0.1 * BLACK_ROOK_SQUARE_AFFINITY[i] as f32,
+        BLACK_BISHOP => score -= 0.1 * BLACK_BISHOP_SQUARE_AFFINITY[i] as f32,
+        BLACK_KNIGHT => score -= 0.1 * KNIGHT_SQUARE_AFFINITY[i] as f32,
+        BLACK_PAWN => score -= 0.1 * BLACK_PAWN_SQUARE_AFFINITY[i] as f32,
+        _ => {},
+      }
+    }
+
     (score, false)
   }
 
@@ -545,7 +564,7 @@ impl GameState {
       || self.board.squares[chess_move.src as usize] == BLACK_PAWN)
       && self.en_passant_square == chess_move.dest
     {
-      match (chess_move.dest as isize - chess_move.src as isize) {
+      match chess_move.dest as isize - chess_move.src as isize {
         7 => self.board.squares[(chess_move.src - 1) as usize] = NO_PIECE,
         9 => self.board.squares[(chess_move.src + 1) as usize] = NO_PIECE,
         -7 => self.board.squares[(chess_move.src + 1) as usize] = NO_PIECE,
@@ -611,6 +630,7 @@ impl GameState {
   }
 
   // Applies all moves from a vector of moves
+  #[allow(dead_code)]
   pub fn apply_moves(&mut self, move_list: &Vec<Move>) -> () {
     for chess_move in move_list {
       self.apply_move(*chess_move);

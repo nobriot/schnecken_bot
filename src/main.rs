@@ -2,7 +2,6 @@
 
 use log::*;
 use serde_json::Value as JsonValue;
-use tokio::time::{sleep, Duration};
 
 // Local modules
 mod chess;
@@ -184,9 +183,9 @@ async fn display_player_propaganda(username: &str) -> () {
 
 async fn display_account_info() -> Result<(), ()> {
   info!("Checking Account information...");
-  let account_json: JsonValue;
+  let _account_json: JsonValue;
   if let Ok(json) = lichess::api::lichess_get("account").await {
-    account_json = json;
+    _account_json = json;
   } else {
     return Err(());
   }
@@ -194,6 +193,7 @@ async fn display_account_info() -> Result<(), ()> {
   Ok(())
 }
 
+#[allow(dead_code)]
 async fn get_ongoing_games() -> Result<JsonValue, ()> {
   let json_response: JsonValue;
   if let Ok(json) = lichess::api::lichess_get("account/playing").await {
@@ -225,7 +225,7 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
 
   let suggested_time_ms = (time_remaining as f64 / 90.0) * 1000.0 + increment_ms;
 
-  if let Ok(chess_move) = &chess::engine::play_move(&game_state, suggested_time_ms as u64) {
+  if let Ok(chess_move) = &chess::engine::core::play_move(&game_state, suggested_time_ms as u64) {
     info!("Playing move {} for game id {}", chess_move, game_id);
     lichess::api::make_move(game_id, chess_move, false).await;
   } else {

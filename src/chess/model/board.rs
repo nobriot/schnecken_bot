@@ -197,16 +197,6 @@ impl Board {
     }
   }
 
-  /// Finds the square with a white king on it.
-  pub fn get_black_white_square(&self) -> u8 {
-    for i in 0..64 {
-      if self.squares[i as usize] == WHITE_KING {
-        return i;
-      }
-    }
-    return INVALID_SQUARE;
-  }
-
   /// Finds the square with a black king on it.
   pub fn get_black_king_square(&self) -> u8 {
     for i in 0..64 {
@@ -320,6 +310,7 @@ impl Board {
 
 impl Move {
   /// Initialize a board with no piece, all zeroes
+  #[allow(dead_code)]
   pub fn new() -> Self {
     Move {
       src: 0,

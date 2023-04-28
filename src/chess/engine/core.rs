@@ -5,10 +5,10 @@ use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 // From our module
+use crate::chess::engine::theory::*;
 use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
-use crate::chess::theory::*;
 
 #[derive(Debug, Clone)]
 pub struct ChessLine {
@@ -144,18 +144,36 @@ impl ChessLine {
 
   /// Keeps only the top "number_of_lines" in the tree.
   /// You should call this on a sorted set of lines
-  pub fn trim_lines(&mut self, number_of_lines: usize) {
-    //println!("trim_lines");
+  pub fn prune_lines(&mut self) {
     if self.variations.len() == 0 {
       return;
     }
-    self.variations.truncate(number_of_lines);
 
     for i in 0..self.variations.len() {
-      if self.variations[i].get_depth() == 2 {
-        self.variations[i].trim_lines(number_of_lines);
+      self.variations[i].prune_lines();
+      break;
+    }
+
+    // We want all the variations evaluated for that depth before we prune
+    for i in 0..self.variations.len() {
+      if let None = self.variations[i].eval {
+        return;
+      }
+    }
+
+    // Now we can compare evaluations.
+    let best_evaluation = self.variations[0].eval.unwrap();
+
+    let mut snip_index = self.variations.len();
+    for i in 0..self.variations.len() {
+      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 5.0 {
+        snip_index = i;
         break;
       }
+    }
+
+    if snip_index < self.variations.len() - 1 {
+      self.variations.truncate(snip_index)
     }
   }
 }
@@ -300,7 +318,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
   sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
   // Now loop the process:
-  //display_lines(0, &chess_lines);
+  display_lines(0, &chess_lines);
   let mut current_move_rating = 0;
   let mut index = 0;
   loop {
@@ -318,7 +336,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
     if current_move_rating >= 4 {
       index += 1;
       current_move_rating = 0;
-      if index >= min(chess_lines.len(), 8) {
+      if index >= chess_lines.len() {
         index = 0;
       }
     }
@@ -344,10 +362,10 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
     }
     sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
-    // Trim branches with low evaluations
-    //for i in 0..chess_lines.len() {
-    //  chess_lines[i].trim_lines(10);
-    // }
+    // Prune branches with low evaluations
+    for i in 0..chess_lines.len() {
+      chess_lines[i].prune_lines();
+    }
   } // loop
 }
 
@@ -521,6 +539,8 @@ mod tests {
     let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
+
     let best_move = chess_lines[0].chess_move.to_string();
     if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
       assert!(

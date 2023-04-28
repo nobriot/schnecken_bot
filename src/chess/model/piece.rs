@@ -76,6 +76,7 @@ impl Piece {
   }
 
   /// Indicates the material value of a piece.
+  #[allow(dead_code)]
   pub fn material_value_from_u8(piece: u8) -> f32 {
     match piece {
       WHITE_KING => 100.0,
@@ -111,7 +112,6 @@ impl Piece {
       (PieceType::Bishop, Color::Black) => BLACK_BISHOP,
       (PieceType::Knight, Color::Black) => BLACK_KNIGHT,
       (PieceType::Pawn, Color::Black) => BLACK_PAWN,
-      (_, _) => NO_PIECE,
     }
   }
 
