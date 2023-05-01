@@ -752,22 +752,22 @@ mod tests {
   fn game_state_display_test() {
     let game_state = GameState::from_string(START_POSITION_FEN);
     assert_eq!(START_POSITION_FEN, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
 
     let fen = "5rk1/3b1p2/1r3p1p/p1pPp3/8/1P6/P3BPPP/R1R3K1 w - c6 0 23";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
 
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
   }
 
   #[test]
@@ -814,13 +814,15 @@ mod tests {
 
     let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq a6 0 13";
     assert_eq!(expected_fen, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
+
     /*
     game_state = GameState::default();
     game_state.apply_move_list("d2d4 g8f6 c2c4 e7e6 g1f3 d7d5 b1c3 d5c4 e2e4 c8b4 f1c4 g7e5 e1g1 b8f8 d1a4 c7c6 g1e2 b4d6 e2c3 d6b6 a4c6 b7d7 d2f2 g8e8 c1g5 f8b8 a1b1 h8h7 g5h4 b8b6 d4e5 g6e5 e5e6 f7e6 f2f4 e8g8 b1e1 g8g7 d3e4 f6g4 h2h3 d8b8 e1c2 b6c4 b2b3 f8h8 f3e5 c4e5 f4e5 c6c5 h4g3 g7f6 a2a4 f6e5 g3g6 e8f8 a4a5 f8e7 f2e2 f7f5 c2c3 e7g5 g2g4 g5c5 c3c4 h7h3 e5f3 e6f4 d4d5 d7c6 e1g1");
     let expected_fen = "8/p1pk1r2/2Nb3p/8/2P2P2/2Q1n2p/P4qPP/6RK b - - 0 36";
     assert_eq!(expected_fen, game_state.to_string().as_str());
-    println!("{game_state}");
+    println!("{}",game_state.to_string());
+
     */
   }
 

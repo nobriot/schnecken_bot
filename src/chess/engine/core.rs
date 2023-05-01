@@ -108,7 +108,13 @@ impl ChessLine {
     }
     self.variations[0].back_propagate_evaluations();
     if self.variations[0].eval.is_some() {
-      self.eval = self.variations[0].eval;
+      if self.variations[0].eval.unwrap() > 100.0 {
+        self.eval = Some(self.variations[0].eval.unwrap() - 2.0);
+      } else if self.variations[0].eval.unwrap() < -100.0 {
+        self.eval = Some(self.variations[0].eval.unwrap() + 2.0);
+      } else {
+        self.eval = self.variations[0].eval;
+      }
     }
   }
 
@@ -118,46 +124,47 @@ impl ChessLine {
     if self.game_over == true {
       return false;
     }
-    let mut move_added = false;
 
-    if self.variations.len() == 0 && self.eval.is_some() {
-      let _ = self.game_state.get_moves();
-      self.sort_moves();
-
-      // Add all the moves to the chess lines:
+    if self.eval.is_some() && self.variations.len() < self.game_state.move_list.len() {
       for m in &self.game_state.move_list {
-        let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
-        new_game_state.apply_move(m, false);
-        let chess_line = ChessLine {
-          game_state: new_game_state,
-          chess_move: m.clone(),
-          variations: Vec::new(),
-          eval: None,
-          game_over: false,
-        };
-        self.variations.push(chess_line);
-        move_added = true;
-      }
-    } else {
-      for i in 0..self.variations.len() {
-        if self.eval.is_some() {
-          if true == self.variations[i].add_next_moves() {
-            move_added = true;
-            //return true;
+        let mut move_found = false;
+        for i in 0..self.variations.len() {
+          if self.variations[i].chess_move == *m {
+            move_found = true;
+            break;
           }
+        }
+        if move_found == false {
+          let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
+          new_game_state.apply_move(m, false);
+          let chess_line = ChessLine {
+            game_state: new_game_state,
+            chess_move: m.clone(),
+            variations: Vec::new(),
+            eval: None,
+            game_over: false,
+          };
+          self.variations.push(chess_line);
+        }
+      }
+      return true;
+    }
+
+    if self.eval.is_some() && self.variations.len() == self.game_state.move_list.len() {
+      for i in 0..self.variations.len() {
+        if true == self.variations[i].add_next_moves() {
+          return true;
         }
       }
     }
 
-    // Sort moves by interesting-ness
-    self.sort_moves();
-    return move_added;
+    return false;
   }
 
   /// Keeps only the top "number_of_lines" in the tree.
   /// You should call this on a sorted set of lines
   pub fn prune_lines(&mut self) {
-    if self.variations.len() < 5 {
+    if self.variations.len() < 5 || self.variations.len() < self.game_state.get_moves().len() {
       return;
     }
 
@@ -224,6 +231,15 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
       let b_value = b.eval.unwrap();
       let a_depth = a.get_depth();
       let b_depth = b.get_depth();
+
+      if b.game_over == true && b.game_over == true {
+        if a_depth > (b_depth) {
+          return Ordering::Greater;
+        } else if (a_depth) < b_depth {
+          return Ordering::Less;
+        }
+        return Ordering::Equal;
+      }
 
       if a_depth > (b_depth + 1) {
         return Ordering::Less;
@@ -357,6 +373,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
     // Go to the next index:
     index += 1;
     if index >= chess_lines.len() {
+      sort_chess_lines(game_state.side_to_play, &mut chess_lines);
       index = 0;
     }
 
@@ -476,7 +493,7 @@ mod tests {
     let fen = "8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55";
     let deadline = Instant::now() + Duration::new(1, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
-    display_lines(10, &chess_lines);
+    display_lines(0, &chess_lines);
     let expected_move = Move::from_string("g3g1");
     assert_eq!(chess_lines[0].eval.unwrap(), -200.0);
     assert_eq!(expected_move, chess_lines[0].chess_move);
@@ -492,7 +509,7 @@ mod tests {
     display_lines(5, &chess_lines[0].variations);
 
     let expected_move = Move::from_string("c1b2");
-    assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
+    assert_eq!(chess_lines[0].eval.unwrap(), 196.0);
     assert_eq!(expected_move, chess_lines[0].chess_move);
   }
 
@@ -503,8 +520,6 @@ mod tests {
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
-    println!("Line 0 sublines: ");
-    display_lines(0, &chess_lines[1].variations);
 
     let expected_move = Move::from_string("h8f8");
     //assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
