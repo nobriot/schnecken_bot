@@ -1,5 +1,4 @@
 // https://lichess.org/api
-
 use log::*;
 use serde_json::Value as JsonValue;
 
@@ -219,7 +218,10 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
   info!("Trying to find a move for game id {game_id}");
 
   let moves = game_state["moves"].as_str().unwrap_or("Unknown move list");
-  let increment_ms = game_state["winc"].as_f64().unwrap_or(0.0);
+  let mut increment_ms = game_state["winc"].as_f64().unwrap_or(0.0);
+  if increment_ms > 60_000.0 {
+    increment_ms = 60_000.0
+  }
   let mut game_state = chess::model::game_state::GameState::default();
   game_state.apply_move_list(moves);
 

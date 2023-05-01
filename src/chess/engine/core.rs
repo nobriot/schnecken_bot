@@ -1,6 +1,5 @@
 use log::*;
 use rand::Rng;
-use std::cmp::min;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
@@ -165,14 +164,16 @@ impl ChessLine {
     let best_evaluation = self.variations[0].eval.unwrap();
 
     let mut snip_index = self.variations.len();
-    for i in 0..self.variations.len() {
-      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 5.0 {
+    for i in 1..self.variations.len() {
+      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 8.0 {
         snip_index = i;
         break;
       }
     }
 
     if snip_index < self.variations.len() - 1 {
+      println!("Keeping only {snip_index} lines from");
+      display_lines(0, &self.variations);
       self.variations.truncate(snip_index)
     }
   }
@@ -314,11 +315,16 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
     chess_lines[i].evaluate(deadline, 10);
   }
 
+  if chess_lines.len() == 1 {
+    // Only 1 legal move, no need to think too much about that
+    return Ok(chess_lines);
+  }
+
   // Rank the moves by eval
   sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
   // Now loop the process:
-  display_lines(0, &chess_lines);
+  //display_lines(0, &chess_lines);
   let mut current_move_rating = 0;
   let mut index = 0;
   loop {
@@ -389,7 +395,7 @@ pub fn play_move(game_state: &GameState, suggested_time_ms: u64) -> Result<Strin
     );
 
   if let Ok(chess_lines) = select_best_move(&fen, deadline) {
-    display_lines(3, &chess_lines);
+    display_lines(5, &chess_lines);
     return Ok(chess_lines[0].chess_move.to_string());
   }
 
@@ -522,6 +528,7 @@ mod tests {
     let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines[0].variations);
     let best_move = chess_lines[0].chess_move.to_string();
     if "f8f6" != best_move && "g7f6" != best_move {
       assert!(
