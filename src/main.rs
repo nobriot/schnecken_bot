@@ -227,7 +227,8 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
 
   let suggested_time_ms = (time_remaining as f64 / 90.0) * 1000.0 + increment_ms;
 
-  if let Ok(chess_move) = &chess::engine::core::play_move(&game_state, suggested_time_ms as u64) {
+  if let Ok(chess_move) = &chess::engine::core::play_move(&mut game_state, suggested_time_ms as u64)
+  {
     info!("Playing move {} for game id {}", chess_move, game_id);
     lichess::api::make_move(game_id, chess_move, false).await;
   } else {

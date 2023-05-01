@@ -126,7 +126,7 @@ impl Board {
   ///
   /// Very few checks are done here, the caller has to check that the move is
   /// legal before applying it.
-  pub fn apply_move(&mut self, chess_move: Move) {
+  pub fn apply_move(&mut self, chess_move: &Move) {
     // Check if we just castled, we need to move the rooks around!
     if self.squares[chess_move.src as usize] == WHITE_KING {
       if chess_move.src == 4 && chess_move.dest == 2 {
@@ -135,14 +135,14 @@ impl Board {
           dest: 3,
           promotion: NO_PIECE,
         };
-        self.apply_move(m);
+        self.apply_move(&m);
       } else if chess_move.src == 4 && chess_move.dest == 6 {
         let m = Move {
           src: 7,
           dest: 5,
           promotion: NO_PIECE,
         };
-        self.apply_move(m);
+        self.apply_move(&m);
       }
     } else if self.squares[chess_move.src as usize] == BLACK_KING {
       if chess_move.src == 60 && chess_move.dest == 62 {
@@ -151,14 +151,30 @@ impl Board {
           dest: 61,
           promotion: NO_PIECE,
         };
-        self.apply_move(m);
+        self.apply_move(&m);
       } else if chess_move.src == 60 && chess_move.dest == 58 {
         let m = Move {
           src: 56,
           dest: 59,
           promotion: NO_PIECE,
         };
-        self.apply_move(m);
+        self.apply_move(&m);
+      }
+    }
+
+    // Check if this is some en-passant action: PAWN is moving diagonally while the destination square is empty:
+    // En passant needs to remove the captured pawn.
+    if (self.squares[chess_move.src as usize] == WHITE_PAWN
+      || self.squares[chess_move.src as usize] == BLACK_PAWN)
+      && self.squares[chess_move.dest as usize] == NO_PIECE
+    {
+      match chess_move.dest as isize - chess_move.src as isize {
+        7 => self.squares[(chess_move.src - 1) as usize] = NO_PIECE,
+        9 => self.squares[(chess_move.src + 1) as usize] = NO_PIECE,
+        -7 => self.squares[(chess_move.src + 1) as usize] = NO_PIECE,
+        -9 => self.squares[(chess_move.src - 1) as usize] = NO_PIECE,
+        _ => { // Not a en-passant move
+        },
       }
     }
 
@@ -534,7 +550,7 @@ mod tests {
     println!("Board: {}", board);
 
     // Try and capture a piece
-    board.apply_move(Move {
+    board.apply_move(&Move {
       src: string_to_square("b3"),
       dest: string_to_square("g3"),
       promotion: NO_PIECE,
@@ -542,7 +558,7 @@ mod tests {
     println!("Board: {}", board);
 
     // Try and promote a piece (super jump from h2 to h8)
-    board.apply_move(Move {
+    board.apply_move(&Move {
       src: string_to_square("h2"),
       dest: string_to_square("h8"),
       promotion: WHITE_KNIGHT,
