@@ -38,8 +38,33 @@ pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize
   pawn_islands
 }
 
+/// Determine of passed pawn in a position for a given color.
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
+  // Same side pawn
+  let ss_pawn = match color {
+    Color::White => WHITE_PAWN,
+    Color::Black => BLACK_PAWN,
+  };
+  // Opposite side pawn
+  let op_pawn = match color {
+    Color::White => WHITE_PAWN,
+    Color::Black => BLACK_PAWN,
+  };
   let passers: usize = 0;
+  // TODO:
+  /*
+  for i in 0..64 {
+    if game_state.board.squares[i] == ss_pawn{
+      let rank = i;
+      let file = i;
+    }
+  }
+  */
 
   passers
 }
@@ -76,5 +101,17 @@ mod tests {
 
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::Black));
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::White));
+  }
+
+  #[test]
+  fn get_pawn_data_endgame() {
+    let fen = "6k1/R7/6p1/6P1/7P/8/p5K1/r7 w - - 14 55";
+    let game_state = GameState::from_string(fen);
+
+    assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::Black));
+    assert_eq!(1, get_number_of_pawn_islands(&game_state, Color::White));
+
+    assert_eq!(1, get_number_of_passers(&game_state, Color::Black));
+    assert_eq!(0, get_number_of_passers(&game_state, Color::White));
   }
 }

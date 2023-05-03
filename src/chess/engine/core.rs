@@ -71,6 +71,7 @@ impl ChessLine {
     }
 
     if self.variations.len() == 0 {
+      self.game_state.get_moves();
       let (eval, game_over) = evaluate_position(&self.game_state);
       self.eval = Some(eval);
       self.game_over = game_over;

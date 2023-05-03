@@ -7,8 +7,8 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 // Constants
-const PIECE_AFFINITY_FACTOR: f32 = 0.2;
-const PAWN_ISLAND_FACTOR: f32 = 0.5;
+const PIECE_AFFINITY_FACTOR: f32 = 0.3;
+const PAWN_ISLAND_FACTOR: f32 = 0.2;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
