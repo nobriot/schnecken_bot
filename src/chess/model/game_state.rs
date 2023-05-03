@@ -5,21 +5,6 @@ use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
 
-use crate::chess::engine::square_affinity::*;
-
-// Shows "interesting" squares to control on the board
-// Giving them a score
-pub const HEATMAP_SCORES: [f32; 64] = [
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 1st row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 2nd row
-  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 3rd row
-  0.01, 0.01, 0.02, 0.03, 0.03, 0.02, 0.01, 0.01, // 4th row
-  0.01, 0.01, 0.02, 0.03, 0.03, 0.02, 0.01, 0.01, // 5th row
-  0.01, 0.01, 0.02, 0.02, 0.02, 0.02, 0.01, 0.01, // 6th row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 7th row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 8th row
-];
-
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -452,135 +437,6 @@ impl GameState {
     }
   }
 
-  // Returns a position score, for the side to play
-  pub fn evaluate_position(&mut self) -> (f32, bool) {
-    // Check if we are checkmated or stalemated
-    if self.get_moves().len() == 0 {
-      match (self.side_to_play, self.checks) {
-        (_, 0) => return (0.0, true),
-        (Color::Black, _) => return (200.0, true),
-        (Color::White, _) => return (-200.0, true),
-      }
-    }
-
-    // Basic material count
-    let mut score: f32 = 0.0;
-    for i in 0..64 {
-      match self.board.squares[i] {
-        WHITE_QUEEN => score += 9.5,
-        WHITE_ROOK => score += 5.0,
-        WHITE_BISHOP => score += 3.05,
-        WHITE_KNIGHT => score += 3.0,
-        WHITE_PAWN => score += 1.0,
-        BLACK_QUEEN => score -= 9.5,
-        BLACK_ROOK => score -= 5.0,
-        BLACK_BISHOP => score -= 3.05,
-        BLACK_KNIGHT => score -= 3.0,
-        BLACK_PAWN => score -= 1.0,
-        _ => {},
-      }
-    }
-
-    // This is an expensive calculation, for now we skip this.
-    // Compare the mobility of both sides. Give +1 if one side has 15 more available moves than the other.
-    //score +=
-    //  (self.get_white_moves().len() as isize - self.get_black_moves().len() as isize) as f32 / 15.0;
-
-    // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
-    //let white_heatmap = self.get_heatmap(Color::White, false);
-    //let black_heatmap = self.get_heatmap(Color::Black, false);
-    let (white_heatmap, white_heatmap_sources) = self.get_heatmap_with_sources(Color::White, false);
-    let (black_heatmap, black_heatmap_sources) = self.get_heatmap_with_sources(Color::Black, false);
-
-    // Compute if we have un-defended pieces:
-    for i in 0..64 {
-      if white_heatmap[i] == 0 {
-        if self.board.squares[i] == WHITE_QUEEN {
-          score -= 0.5 * black_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == WHITE_ROOK {
-          score -= 0.25 * black_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == WHITE_KNIGHT {
-          score -= 0.15 * black_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == WHITE_BISHOP {
-          score -= 0.15 * black_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == WHITE_PAWN {
-          score -= 0.05 * black_heatmap[i] as f32;
-          continue;
-        }
-      }
-      if black_heatmap[i] == 0 {
-        if self.board.squares[i] == BLACK_QUEEN {
-          score += 0.5 * white_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == BLACK_ROOK {
-          score += 0.25 * white_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == BLACK_KNIGHT {
-          score += 0.15 * white_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == BLACK_BISHOP {
-          score += 0.15 * white_heatmap[i] as f32;
-          continue;
-        } else if self.board.squares[i] == BLACK_PAWN {
-          score += 0.05 * white_heatmap[i] as f32;
-          continue;
-        }
-      }
-    }
-
-    /*
-    for i in 0..64 {
-      let heatmap_diff = white_heatmap[i] as f32 - black_heatmap[i] as f32;
-
-      let mut white_attackers_value = 0.0;
-      let mut black_attackers_value = 0.0;
-      for j in 0..64 {
-        if white_heatmap_sources[j as usize] > 0 {
-          white_attackers_value += Piece::material_value_from_u8(self.board.squares[j])
-        }
-        if black_heatmap_sources[j as usize] > 0 {
-          black_attackers_value += Piece::material_value_from_u8(self.board.squares[j])
-        }
-      }
-
-      if (heatmap_diff.abs()white_attackers_value
-
-      score += heatmap_diff * Piece::material_value_from_u8(self.board.squares[i]) / 2.0;
-
-      match self.board.squares[i] {
-        WHITE_KING => score -= black_heatmap[i] as f32, // This means checks.
-        BLACK_KING => score += white_heatmap[i] as f32, // This means checks.
-        _ => {},
-      }
-    }
-    */
-
-    // Piece affinity offsets
-    for i in 0..64 {
-      match self.board.squares[i] {
-        WHITE_KING => score += 0.1 * WHITE_KING_SQUARE_AFFINITY[i] as f32,
-        WHITE_QUEEN => score += 0.1 * QUEEN_SQUARE_AFFINITY[i] as f32,
-        WHITE_ROOK => score += 0.1 * WHITE_ROOK_SQUARE_AFFINITY[i] as f32,
-        WHITE_BISHOP => score += 0.1 * WHITE_BISHOP_SQUARE_AFFINITY[i] as f32,
-        WHITE_KNIGHT => score += 0.1 * KNIGHT_SQUARE_AFFINITY[i] as f32,
-        WHITE_PAWN => score += 0.1 * WHITE_PAWN_SQUARE_AFFINITY[i] as f32,
-        BLACK_KING => score -= 0.1 * BLACK_KING_SQUARE_AFFINITY[i] as f32,
-        BLACK_QUEEN => score -= 0.1 * QUEEN_SQUARE_AFFINITY[i] as f32,
-        BLACK_ROOK => score -= 0.1 * BLACK_ROOK_SQUARE_AFFINITY[i] as f32,
-        BLACK_BISHOP => score -= 0.1 * BLACK_BISHOP_SQUARE_AFFINITY[i] as f32,
-        BLACK_KNIGHT => score -= 0.1 * KNIGHT_SQUARE_AFFINITY[i] as f32,
-        BLACK_PAWN => score -= 0.1 * BLACK_PAWN_SQUARE_AFFINITY[i] as f32,
-        _ => {},
-      }
-    }
-
-    (score, false)
-  }
-
   pub fn update_checks(&mut self) {
     let opponent_color = Color::opposite(self.side_to_play);
     let opponent_heatmap = self.get_heatmap(opponent_color, false);
@@ -752,22 +608,22 @@ mod tests {
   fn game_state_display_test() {
     let game_state = GameState::from_string(START_POSITION_FEN);
     assert_eq!(START_POSITION_FEN, game_state.to_string().as_str());
-    println!("{}",game_state.to_string());
+    println!("{}", game_state.to_string());
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{}",game_state.to_string());
+    println!("{}", game_state.to_string());
 
     let fen = "5rk1/3b1p2/1r3p1p/p1pPp3/8/1P6/P3BPPP/R1R3K1 w - c6 0 23";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{}",game_state.to_string());
+    println!("{}", game_state.to_string());
 
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
     let game_state = GameState::from_string(fen);
     assert_eq!(fen, game_state.to_string().as_str());
-    println!("{}",game_state.to_string());
+    println!("{}", game_state.to_string());
   }
 
   #[test]
@@ -814,7 +670,7 @@ mod tests {
 
     let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq a6 0 13";
     assert_eq!(expected_fen, game_state.to_string().as_str());
-    println!("{}",game_state.to_string());
+    println!("{}", game_state.to_string());
 
     /*
     game_state = GameState::default();
@@ -843,57 +699,6 @@ mod tests {
     let mut game_state = GameState::from_string(fen);
     let move_list = game_state.get_moves();
     assert_eq!(8, move_list.len());
-  }
-
-  #[test]
-  fn test_evaluate_position() {
-    // This is a forced checkmate in 2:
-    let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
-    let mut game_state = GameState::from_string(fen);
-    let (evaluation, game_over) = game_state.evaluate_position();
-    assert_eq!(false, game_over);
-    println!("Evaluation {evaluation}");
-  }
-
-  #[test]
-  fn test_evaluate_position_checkmate_in_one() {
-    // This is a forced checkmate in 1:
-    let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
-    let mut game_state = GameState::from_string(fen);
-    let (evaluation, game_over) = game_state.evaluate_position();
-    assert_eq!(false, game_over);
-    println!("Evaluation {evaluation}");
-  }
-
-  #[test]
-  fn test_evaluate_position_checkmate() {
-    // This is a "game over" position
-    let fen = "1n4nr/5ppp/8/1P1Np3/1P6/4kP2/1B1NP1PP/R3KB1R b KQ - 2 37";
-    let mut game_state = GameState::from_string(fen);
-    let (evaluation, game_over) = game_state.evaluate_position();
-    assert_eq!(true, game_over);
-    assert_eq!(200.0, evaluation);
-  }
-  #[test]
-  fn test_evaluate_position_hanging_queen() {
-    // This should obviously be very bad for black:
-    let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
-    let mut game_state = GameState::from_string(fen);
-    let (evaluation, game_over) = game_state.evaluate_position();
-    assert_eq!(false, game_over);
-    assert!(evaluation < 4.0);
-  }
-
-  #[test]
-  fn test_evaluate_position_queen_standoff() {
-    // This should obviously be okay because queen is defended and attacked by a queen.
-    let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
-    let mut game_state = GameState::from_string(fen);
-    let (evaluation, game_over) = game_state.evaluate_position();
-    assert_eq!(false, game_over);
-    println!("Evaluation: {}", evaluation);
-    assert!(evaluation < 1.0);
-    assert!(evaluation > -1.0);
   }
 
   #[test]

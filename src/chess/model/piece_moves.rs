@@ -1,6 +1,3 @@
-use crate::chess::model::board::board_mask_to_string;
-use crate::chess::model::board::string_to_square;
-
 // Array of u64 (board bitmasks bitmasks indicating if a knight can move from a square to another)
 
 // Knights can always go at the same "jumps", regardless of the board.
@@ -399,6 +396,8 @@ pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::chess::model::board::board_mask_to_string;
+  use crate::chess::model::board::string_to_square;
   #[test]
   fn check_knight_moves() {
     let expected_squares: u64 = (1 << string_to_square("a5"))

@@ -1,3 +1,5 @@
+use log::*;
+
 // -----------------------------------------------------------------------------
 //  Constants
 
@@ -92,6 +94,19 @@ impl Piece {
       BLACK_KNIGHT => -3.0,
       BLACK_PAWN => -1.0,
       _ => 0.0,
+    }
+  }
+
+  /// Indicates the material value of a piece.
+  #[allow(dead_code)]
+  pub fn color_from_u8(piece: u8) -> Color {
+    match piece {
+      WHITE_KING..=WHITE_PAWN => return Color::White,
+      BLACK_KING..=BLACK_PAWN => return Color::Black,
+      _ => {
+        warn!("Returning a color for an empty square! ");
+        return Color::Black;
+      },
     }
   }
 

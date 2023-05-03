@@ -188,6 +188,24 @@ impl Board {
     self.squares[chess_move.src as usize] = NO_PIECE;
   }
 
+  // Verifies if the move is a castling move
+  pub fn is_castle(self, chess_move: &Move) -> bool {
+    if self.squares[chess_move.src as usize] == WHITE_KING {
+      if chess_move.src == 4 && chess_move.dest == 2 {
+        return true;
+      } else if chess_move.src == 4 && chess_move.dest == 6 {
+        return true;
+      }
+    } else if self.squares[chess_move.src as usize] == BLACK_KING {
+      if chess_move.src == 60 && chess_move.dest == 62 {
+        return true;
+      } else if chess_move.src == 60 && chess_move.dest == 58 {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Checks if there is a piece on a square
   pub fn has_piece(&self, square: u8) -> bool {
     self.squares[square as usize] != NO_PIECE

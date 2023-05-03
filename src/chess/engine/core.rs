@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 // From our module
+use crate::chess::engine::position_evaluation::*;
 use crate::chess::engine::theory::*;
 use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GameState;
@@ -53,11 +54,7 @@ impl ChessLine {
   // Sort moves based on their potential/interesting-ness
   pub fn sort_moves(&mut self) {
     //println!("sort_moves");
-    for i in 0..self.variations.len() {
-      self.variations[i].sort_moves();
-    }
     let fen = self.game_state.to_string();
-
     self
       .game_state
       .move_list
@@ -74,7 +71,7 @@ impl ChessLine {
     }
 
     if self.variations.len() == 0 {
-      let (eval, game_over) = self.game_state.evaluate_position();
+      let (eval, game_over) = evaluate_position(&self.game_state);
       self.eval = Some(eval);
       self.game_over = game_over;
       return;
@@ -121,8 +118,13 @@ impl ChessLine {
   // Returns true if moves are added, false otherwise
   pub fn add_next_moves(&mut self) -> bool {
     //println!("add_next_moves");
-    if self.game_over == true {
+    if self.game_over == true || self.eval.is_none() {
       return false;
+    }
+
+    if self.game_state.move_list.len() == 0 {
+      self.game_state.get_moves();
+      self.sort_moves();
     }
 
     if self.eval.is_some() && self.variations.len() < self.game_state.move_list.len() {
@@ -199,8 +201,8 @@ impl ChessLine {
     }
 
     if snip_index < self.variations.len() - 1 {
-      println!("Keeping only {snip_index} lines from");
-      display_lines(0, &self.variations);
+      //println!("Keeping only {snip_index} lines from");
+      //display_lines(0, &self.variations);
       self.variations.truncate(snip_index)
     }
   }
@@ -232,34 +234,36 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
       let a_depth = a.get_depth();
       let b_depth = b.get_depth();
 
-      if b.game_over == true && b.game_over == true {
-        if a_depth > (b_depth) {
+      if a_value.abs() > 100.0 || b_value.abs() > 100.0 {
+        if a_value > b_value {
+          return less;
+        } else if a_value < b_value {
+          return greater;
+        } else if a_depth > b_depth {
           return Ordering::Greater;
-        } else if (a_depth) < b_depth {
+        } else if a_depth < b_depth {
           return Ordering::Less;
         }
         return Ordering::Equal;
       }
 
-      if a_depth > (b_depth + 1) {
-        return Ordering::Less;
-      } else if (a_depth + 1) < b_depth {
-        return Ordering::Greater;
+      // Not checkmates, we trust longer lines for relatively close evals.
+      let value_diff = a_value - b_value;
+
+      if value_diff.abs() < 1.5 {
+        if a_depth > (b_depth + value_diff.abs() as usize) {
+          return Ordering::Less;
+        } else if (a_depth + value_diff.abs() as usize) < b_depth {
+          return Ordering::Greater;
+        }
       }
+
       if a_value > b_value {
         return less;
       } else if a_value < b_value {
         return greater;
-      } else {
-        // Shortest line with same eval is better: FIXME: This is true only for stuff like checkmate.
-        if a_depth > b_depth {
-          return Ordering::Greater;
-        } else if a_depth < b_depth {
-          return Ordering::Less;
-        } else {
-          return Ordering::Equal;
-        }
       }
+      return Ordering::Equal;
     },
   }
 }
@@ -279,7 +283,9 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
   game_state_b.apply_move(b, false);
 
   match (game_state_a.checks, game_state_b.checks) {
-    (2, 2) => return Ordering::Equal,
+    (2, 2) => {
+      // Continue the comparison to tie-break.
+    },
     (2, _) => return Ordering::Less,
     (_, 2) => return Ordering::Greater,
     (_, _) => {},
@@ -292,8 +298,10 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
     (_, _) => {},
   }
 
-  let a_captured_value = Piece::material_value_from_u8(game_state.board.squares[a.dest as usize]);
-  let b_captured_value = Piece::material_value_from_u8(game_state.board.squares[b.dest as usize]);
+  let a_captured_value =
+    Piece::material_value_from_u8(game_state.board.squares[a.dest as usize]).abs();
+  let b_captured_value =
+    Piece::material_value_from_u8(game_state.board.squares[b.dest as usize]).abs();
 
   if a_captured_value > b_captured_value {
     return Ordering::Less;
@@ -301,8 +309,18 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
     return Ordering::Greater;
   }
 
+  // We like castling in general:
+  let a_castle = game_state.board.is_castle(a);
+  let b_castle = game_state.board.is_castle(b);
+  match (a_castle, b_castle) {
+    (true, true) => {},
+    (true, false) => return Ordering::Less,
+    (false, true) => return Ordering::Greater,
+    (_, _) => {},
+  }
+
   match (game_state_a.checks, game_state_b.checks) {
-    (1, 1) => return Ordering::Equal,
+    (1, 1) => {},
     (1, _) => return Ordering::Less,
     (_, 1) => return Ordering::Greater,
     (_, _) => {},
@@ -345,6 +363,8 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
 
   // Process all the moves, all ratings
   for i in 0..chess_lines.len() {
+    chess_lines[i].game_state.get_moves();
+    chess_lines[i].sort_moves();
     chess_lines[i].evaluate(deadline);
   }
 
@@ -366,6 +386,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
       if chess_lines.len() == 0 {
         return Err(());
       } else {
+        sort_chess_lines(game_state.side_to_play, &mut chess_lines);
         return Ok(chess_lines);
       }
     }
@@ -373,16 +394,15 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
     // Go to the next index:
     index += 1;
     if index >= chess_lines.len() {
-      sort_chess_lines(game_state.side_to_play, &mut chess_lines);
       index = 0;
     }
 
     if false == chess_lines[index].add_next_moves() {
-      println!("Continuing");
+      //println!("Continuing");
       continue;
     }
-    println!("Index: {index}");
-    display_lines(index, &chess_lines);
+    //println!("Index: {index}");
+    //display_lines(index, &chess_lines);
 
     // Process all the moves:
     //for i in 0..chess_lines.len() {
@@ -557,7 +577,7 @@ mod tests {
     let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
-    display_lines(0, &chess_lines[0].variations);
+    display_lines(0, &chess_lines);
     let best_move = chess_lines[0].chess_move.to_string();
     if "f8f6" != best_move && "g7f6" != best_move {
       assert!(
@@ -583,6 +603,26 @@ mod tests {
         false,
         "Should have been either e5g5, e5d4 or e5c3, instead we have: {best_move}"
       );
+    }
+  }
+
+  #[test]
+  fn sort_moves() {
+    let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
+
+    let mut chess_line = ChessLine {
+      game_state: GameState::from_string(fen),
+      chess_move: Move::default(),
+      variations: Vec::new(),
+      eval: None,
+      game_over: false,
+    };
+
+    let _ = chess_line.game_state.get_moves();
+    chess_line.sort_moves();
+
+    for m in chess_line.game_state.get_moves() {
+      println!("{m}");
     }
   }
 }
