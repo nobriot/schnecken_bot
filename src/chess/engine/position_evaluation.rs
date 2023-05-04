@@ -9,6 +9,7 @@ use crate::chess::model::piece::*;
 // Constants
 const PIECE_AFFINITY_FACTOR: f32 = 0.3;
 const PAWN_ISLAND_FACTOR: f32 = 0.2;
+const PASSED_PAWN_FACTOR: f32 = 0.5;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -63,6 +64,10 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   score += PAWN_ISLAND_FACTOR
     * (get_number_of_pawn_islands(game_state, Color::Black) as f32
       - get_number_of_pawn_islands(game_state, Color::White) as f32);
+
+  score += PASSED_PAWN_FACTOR
+    * (get_number_of_passers(game_state, Color::Black) as f32
+      - get_number_of_passers(game_state, Color::White) as f32);
 
   // This is an expensive calculation, for now we skip this.
   // Compare the mobility of both sides. Give +1 if one side has 15 available moves.
