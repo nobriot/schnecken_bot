@@ -7,7 +7,7 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 // Constants
-const PIECE_AFFINITY_FACTOR: f32 = 0.3;
+const PIECE_AFFINITY_FACTOR: f32 = 0.05;
 const PAWN_ISLAND_FACTOR: f32 = 0.2;
 const PASSED_PAWN_FACTOR: f32 = 0.5;
 
@@ -24,12 +24,112 @@ pub const HEATMAP_SCORES: [f32; 64] = [
   0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 8th row
 ];
 
+fn get_free_piece_value(game_state: &GameState) -> f32 {
+  let mut highest_free_piece_value: f32 = 0.0;
+  //println!("Side to play: {}", game_state.side_to_play);
+  let op_color = Color::opposite(game_state.side_to_play);
+  //println!("Opposite side : {}", op_color);
+  let op_heatmap = game_state.get_heatmap(op_color, false);
+  let ss_heatmap = game_state.get_heatmap(game_state.side_to_play, false);
+
+  for i in 0..64 {
+    if game_state.board.has_piece_with_color(i, op_color) == true {
+      if ss_heatmap[i as usize] > 0
+        && op_heatmap[i as usize] == 0
+        && highest_free_piece_value.abs()
+          < Piece::material_value_from_u8(game_state.board.squares[i as usize]).abs()
+      {
+        highest_free_piece_value =
+          Piece::material_value_from_u8(game_state.board.squares[i as usize]);
+      }
+    }
+  }
+  //println!("Free piece value: {highest_free_piece_value}");
+  highest_free_piece_value
+}
+
+fn find_most_interesting_capture(game_state: &GameState) -> f32 {
+  let mut highest_value_gain: f32 = 0.0;
+  let op_color = Color::opposite(game_state.side_to_play);
+  //println!("Opposite side : {}", op_color);
+  let (op_heatmap, op_sources) = game_state.get_heatmap_with_sources(op_color, false);
+  let (ss_heatmap, ss_sources) =
+    game_state.get_heatmap_with_sources(game_state.side_to_play, false);
+
+  for i in 0..64 {
+    if game_state.board.has_piece_with_color(i, op_color) == false {
+      continue;
+    }
+    if ss_heatmap[i as usize] == 0 {
+      continue;
+    }
+
+    let target_value = Piece::material_value_from_u8(game_state.board.squares[i as usize]).abs();
+    // Same number or less attackers than defenders.
+    // Check if we have a lesser value piece that can capture a higher value piece.
+    if ss_heatmap[i as usize] <= op_heatmap[i as usize] {
+      let mut min_value_attacker = 200.0;
+      for j in 0..64 {
+        if ((1 << j) & ss_sources[i as usize] != 0)
+          && min_value_attacker
+            > Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs()
+        {
+          min_value_attacker =
+            Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs();
+        }
+      }
+      if (min_value_attacker < target_value)
+        && (target_value - min_value_attacker) > highest_value_gain
+      {
+        highest_value_gain = target_value - min_value_attacker;
+      }
+    } else if ss_heatmap[i as usize] >= op_heatmap[i as usize] {
+      // Let's just calculate the gain if we chop everything (in ascending piece value order)
+      let mut defender_values: Vec<f32> = Vec::new();
+      defender_values.push(target_value);
+      let mut attacker_values: Vec<f32> = Vec::new();
+      for j in 0..64 {
+        if (1 << j) & ss_sources[i as usize] != 0 {
+          attacker_values
+            .push(Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs());
+        }
+        if (1 << j) & op_sources[i as usize] != 0 {
+          defender_values
+            .push(Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs());
+        }
+      }
+      defender_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+      attacker_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+      for chop_stop in 1..attacker_values.len() {
+        let mut defender_sum = target_value;
+        let mut attacker_sum = 0.0;
+        for j in 1..=chop_stop {
+          attacker_sum += attacker_values[j];
+          if j > 1 {
+            defender_sum += attacker_values[j - 1];
+          }
+        }
+        if (attacker_sum < defender_sum) && (defender_sum - attacker_sum) > highest_value_gain {
+          highest_value_gain = defender_sum - attacker_sum;
+        }
+      }
+    }
+  }
+  //println!("Highest value gain: {highest_value_gain}");
+  if game_state.side_to_play == Color::White {
+    highest_value_gain = highest_value_gain * -1.0;
+  }
+  highest_value_gain
+}
+
 /// Evaluates a position and returns a score and if the game is over.
 ///
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
+  // println!("evaluate_position");
   // Check if we are checkmated or stalemated
   if game_state.available_moves_computed == false {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
@@ -66,8 +166,15 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
       - get_number_of_pawn_islands(game_state, Color::White) as f32);
 
   score += PASSED_PAWN_FACTOR
-    * (get_number_of_passers(game_state, Color::Black) as f32
-      - get_number_of_passers(game_state, Color::White) as f32);
+    * (get_number_of_passers(game_state, Color::White) as f32
+      - get_number_of_passers(game_state, Color::Black) as f32);
+
+  // Find the highest free piece, if any:
+  let mut capture_gain = get_free_piece_value(game_state);
+  if capture_gain == 0.0 {
+    capture_gain = find_most_interesting_capture(game_state);
+  }
+  score -= capture_gain;
 
   // This is an expensive calculation, for now we skip this.
   // Compare the mobility of both sides. Give +1 if one side has 15 available moves.
@@ -75,8 +182,13 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   //  (self.get_white_moves().len() as isize - self.get_black_moves().len() as isize) as f32 / 15.0;
 
   // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
-  //let white_heatmap = self.get_heatmap(Color::White, false);
-  //let black_heatmap = self.get_heatmap(Color::Black, false);
+  let white_heatmap = game_state.get_heatmap(Color::White, false);
+  let black_heatmap = game_state.get_heatmap(Color::Black, false);
+
+  for i in 0..64 {
+    score += HEATMAP_SCORES[i] * white_heatmap[i] as f32;
+    score -= HEATMAP_SCORES[i] * black_heatmap[i] as f32;
+  }
 
   // Piece affinity offsets
   for i in 0..64 {
@@ -141,9 +253,11 @@ mod tests {
     // This should obviously be very bad for black:
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let mut game_state = GameState::from_string(fen);
+    game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
+    println!("Evaluation : {evaluation} - Game Over: {game_over}");
     assert_eq!(false, game_over);
-    assert!(evaluation < 4.0);
+    assert!(evaluation < -8.0);
   }
 
   #[test]

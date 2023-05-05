@@ -31,6 +31,38 @@ pub struct GameState {
 }
 
 // -----------------------------------------------------------------------------
+// Helper functions (prints)
+pub fn print_heatmap(heatmap: &[usize; 64]) {
+  let mut representation = String::from("\n");
+  for rank in (0..8 as u8).rev() {
+    for file in 0..8 {
+      representation += (heatmap[(rank * 8 + file) as usize]).to_string().as_str();
+      representation.push(' ');
+    }
+    representation.push('\n');
+  }
+
+  println!("{representation}");
+}
+
+pub fn print_mask(mask: u64) {
+  let mut representation = String::from("\n");
+  for rank in (0..8 as u8).rev() {
+    for file in 0..8 {
+      if (mask >> (rank * 8 + file) & 1) == 1 {
+        representation.push('1');
+      } else {
+        representation.push('0');
+      }
+      representation.push(' ');
+    }
+    representation.push('\n');
+  }
+
+  println!("{representation}");
+}
+
+// -----------------------------------------------------------------------------
 // Game state implementation
 
 impl GameState {
@@ -171,17 +203,23 @@ impl GameState {
     let mut heatmap: [usize; 64] = [0; 64];
     let opposite_color = Color::opposite(color);
 
-    let ssp = self.board.get_color_mask(color);
-    let op = match with_x_rays {
-      true => 0,
-      false => self.board.get_color_mask(opposite_color),
+    let (ssp, mut op) = match with_x_rays {
+      true => (0, 0),
+      false => (
+        self.board.get_color_mask(color),
+        self.board.get_color_mask(opposite_color),
+      ),
     };
+
+    // To get the heatmap, we assume that any other piece on the board
+    // is opposite color, as if we could capture everything
+    op = ssp | op;
 
     for source_square in 0..64 as usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.get_piece_destinations(source_square, op, ssp);
+      let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           heatmap[i] += 1;
@@ -203,17 +241,23 @@ impl GameState {
     let mut heatmap_sources: [usize; 64] = [0; 64];
     let opposite_color = Color::opposite(color);
 
-    let ssp = self.board.get_color_mask(color);
-    let op = match with_x_rays {
-      true => 0,
-      false => self.board.get_color_mask(opposite_color),
+    let (ssp, mut op) = match with_x_rays {
+      true => (0, 0),
+      false => (
+        self.board.get_color_mask(color),
+        self.board.get_color_mask(opposite_color),
+      ),
     };
+
+    // To get the heatmap, we assume that any other piece on the board
+    // is opposite color, as if we could capture everything
+    op = ssp | op;
 
     for source_square in 0..64 as usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.get_piece_destinations(source_square, op, ssp);
+      let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           heatmap[i] += 1;

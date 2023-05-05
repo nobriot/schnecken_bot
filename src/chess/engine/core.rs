@@ -251,7 +251,7 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
       // Not checkmates, we trust longer lines for relatively close evals.
       let value_diff = a_value - b_value;
 
-      if value_diff.abs() < 1.5 {
+      if value_diff.abs() < 0.5 {
         if a_depth > (b_depth + value_diff.abs() as usize) {
           return Ordering::Less;
         } else if (a_depth + value_diff.abs() as usize) < b_depth {
@@ -624,6 +624,28 @@ mod tests {
 
     for m in chess_line.game_state.get_moves() {
       println!("{m}");
+    }
+  }
+
+  #[test]
+  fn test_dont_hang_pieces() {
+    /* Got this in a game, hanging a knight, after thinking for 16_000 ms :
+     Line 0 Eval: 0.79999995 - f8h6 d5e4 d7d5 e4d3
+     Line 1 Eval: -0.30000085 - e4f6 d5d3
+     Line 2 Eval: 2.3999996 - b7b5 d5e4 d7d5 e4d3 e7e5 b1c3
+     Line 3 Eval: 2.5499997 - b7b6 d5e4 d7d5 e4d3 e7e5 b1c3
+     Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
+    */
+    let fen = "r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7";
+    let deadline = Instant::now() + Duration::new(3, 0);
+    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
+    let best_move = chess_lines[0].chess_move.to_string();
+    if "e4f6" != best_move && "e4d6" != best_move {
+      assert!(
+        false,
+        "Should have been either e4f6 or e4d6, instead we have: {best_move}"
+      );
     }
   }
 }
