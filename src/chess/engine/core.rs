@@ -436,7 +436,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     let random_good_move = rng.gen_range(0..moves.len());
     return Ok(moves[random_good_move].to_string());
   }
-  info!("We're out of theory for {fen}");
+  debug!("We're out of theory for {fen}");
 
   // Try to evaluate ourselves.
   info!("Using {suggested_time_ms} ms to find a move");

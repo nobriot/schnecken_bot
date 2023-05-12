@@ -1,4 +1,7 @@
 sargon-1ply
 sargon-2ply
+sargon-4ply
+CHoMPBoT
 maia1
+simplexitor
 SchnellSchnecke
