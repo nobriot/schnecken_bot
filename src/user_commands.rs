@@ -6,14 +6,15 @@ const EXIT_COMMAND: &str = "exit";
 const QUIT_COMMAND: &str = "quit";
 const HELP_COMMAND: &str = "help";
 const PLAY_COMMAND: &str = "play";
+const P_COMMAND: &str = "p";
 const EMPTY_COMMAND: &str = "";
 
 // Private functions
 fn print_help() {
   println!("Welcome ! You can use the following commands:");
   println!(
-    "{} - Attempts to play with one of our favorite players",
-    PLAY_COMMAND
+    "{} or {} - Attempts to play with one of our favorite players",
+    PLAY_COMMAND, P_COMMAND
   );
   println!("{} - Exits the program", EXIT_COMMAND);
   println!("{} - Exits the program", QUIT_COMMAND);
@@ -28,7 +29,7 @@ pub fn read_user_commands(exit_requested: &mut bool) -> Result<(), std::io::Erro
 
   // Remember to trim, it will also remove the newline
   match input.trim() as &str {
-    PLAY_COMMAND => {
+    PLAY_COMMAND | P_COMMAND => {
       tokio::spawn(async { lichess::play().await });
     },
     EXIT_COMMAND | QUIT_COMMAND => {

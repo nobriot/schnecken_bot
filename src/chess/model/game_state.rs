@@ -17,6 +17,13 @@ pub struct CastlingRights {
   pub q: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum GamePhase {
+  Opening,
+  Middlegame,
+  Endgame,
+}
+
 #[derive(Clone)]
 pub struct GameState {
   pub side_to_play: Color,
@@ -28,6 +35,7 @@ pub struct GameState {
   pub move_count: u8,
   pub available_moves_computed: bool,
   pub move_list: Vec<Move>,
+  pub game_phase: Option<GamePhase>,
 }
 
 // -----------------------------------------------------------------------------
@@ -108,6 +116,7 @@ impl GameState {
       move_count: move_count,
       available_moves_computed: false,
       move_list: Vec::new(),
+      game_phase: None,
     };
     // Determine if we're check / Checkmate
     game_state.update_checks();
@@ -592,6 +601,48 @@ impl GameState {
       self.apply_move(&Move::from_string(&chess_move), false);
     }
   }
+
+  // Determine the game phrase and update it.
+  pub fn update_game_phase(&mut self) {
+    // Do not recalculate when we calculated already
+    if let Some(_) = self.game_phase {
+      return;
+    }
+
+    // Basic material count, disregarding pawns.
+    let mut material_count: usize = 0;
+    let mut development_index: usize = 0;
+    for i in 0..64 {
+      match self.board.squares[i] {
+        WHITE_QUEEN | BLACK_QUEEN => material_count += 9,
+        WHITE_ROOK | BLACK_ROOK => material_count += 5,
+        WHITE_BISHOP | BLACK_BISHOP => material_count += 3,
+        WHITE_KNIGHT | BLACK_KNIGHT => material_count += 3,
+        _ => {},
+      }
+    }
+    for i in 0..8 {
+      match self.board.squares[i] {
+        WHITE_QUEEN | WHITE_BISHOP | WHITE_KNIGHT => development_index += 1,
+        _ => {},
+      }
+    }
+    for i in 56..64 {
+      match self.board.squares[i] {
+        BLACK_QUEEN | BLACK_BISHOP | BLACK_KNIGHT => development_index += 1,
+        _ => {},
+      }
+    }
+
+    if material_count < 17 {
+      self.game_phase = Some(GamePhase::Endgame);
+      return;
+    } else if development_index > 2 {
+      self.game_phase = Some(GamePhase::Opening);
+    } else {
+      self.game_phase = Some(GamePhase::Middlegame);
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -637,6 +688,7 @@ impl Default for GameState {
       move_count: 1,
       available_moves_computed: false,
       move_list: Vec::new(),
+      game_phase: None,
     }
   }
 }
@@ -754,5 +806,23 @@ mod tests {
       //println!("{m}");
       assert_ne!("d7d5", m.to_string());
     }
+  }
+
+  #[test]
+  fn update_game_phase() {
+    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
+    let mut game_state = GameState::from_string(fen);
+    game_state.update_game_phase();
+    assert_eq!(Some(GamePhase::Opening), game_state.game_phase);
+
+    let fen = "r3k2r/2qnbppp/p1p5/1p1np3/3PQ3/2P1B1PP/PP1NNP2/R3K2R w KQkq - 4 14";
+    let mut game_state = GameState::from_string(fen);
+    game_state.update_game_phase();
+    assert_eq!(Some(GamePhase::Middlegame), game_state.game_phase);
+
+    let fen = "4r1k1/4b1p1/p3p2p/2pR4/2p5/4B1PP/PP3P2/2K5 w - - 0 27";
+    let mut game_state = GameState::from_string(fen);
+    game_state.update_game_phase();
+    assert_eq!(Some(GamePhase::Endgame), game_state.game_phase);
   }
 }
