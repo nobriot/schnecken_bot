@@ -1,6 +1,7 @@
 use log::*;
 
 // From our module
+use crate::chess::engine::development::*;
 use crate::chess::engine::pawn_structure::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::*;
@@ -10,6 +11,7 @@ use crate::chess::model::piece::*;
 const PIECE_AFFINITY_FACTOR: f32 = 0.05;
 const PAWN_ISLAND_FACTOR: f32 = 0.2;
 const PASSED_PAWN_FACTOR: f32 = 0.5;
+const DEVELOPMENT_FACTOR: f32 = 0.15;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -159,6 +161,11 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
       _ => {},
     }
   }
+
+  // Measure if we are developed.
+  score += DEVELOPMENT_FACTOR
+    * (get_development_score(game_state, Color::White) as f32
+      - get_development_score(game_state, Color::Black) as f32);
 
   // Compare pawn islands.
   score += PAWN_ISLAND_FACTOR

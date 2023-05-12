@@ -3,5 +3,7 @@ sargon-2ply
 sargon-4ply
 CHoMPBoT
 maia1
+ZE_ROOK
+ELO_1500
 simplexitor
 SchnellSchnecke

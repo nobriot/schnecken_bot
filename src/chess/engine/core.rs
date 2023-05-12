@@ -448,7 +448,31 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
 
   if let Ok(chess_lines) = select_best_move(&fen, deadline) {
     display_lines(5, &chess_lines);
-    return Ok(chess_lines[0].chess_move.to_string());
+
+    // Check how tight is the evaluation between the best lines
+    let mut move_cutoff = 0;
+    let best_eval = chess_lines[0].eval.unwrap();
+    loop {
+      if (move_cutoff + 1) < chess_lines.len()
+        && (best_eval - chess_lines[move_cutoff + 1].eval.unwrap()).abs() < 0.2
+      {
+        move_cutoff += 1;
+      } else {
+        break;
+      }
+    }
+
+    // Select a move amongs the best moves:
+    let index;
+    if move_cutoff > 1 {
+      let mut rng = rand::thread_rng();
+      index = rng.gen_range(0..move_cutoff);
+    } else {
+      index = move_cutoff;
+    }
+    debug!("Playing {index}th best move");
+
+    return Ok(chess_lines[index].chess_move.to_string());
   }
 
   // Fallback on playing a random move:
@@ -646,6 +670,36 @@ mod tests {
         false,
         "Should have been either e4f6 or e4d6, instead we have: {best_move}"
       );
+    }
+  }
+
+  #[test]
+  fn test_dont_hang_pieces_2() {
+    /*
+      https://lichess.org/zcQesp7F#69
+      Here we blunded a rook playing e2f2
+      2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35
+      Using 1355 ms to find a move
+      Line 0 Eval: -9.860003 - e2f2 g3f2 c8b8 f2g1 c4c3 g1g2 c3c2 g2g1 c2c1Q
+      Line 1 Eval: -9.250003 - e2e5 d4e5 c8b8 g3g2 c4c3 e5e6 c3c2 e6e7 c2c1Q
+      Line 2 Eval: -7.820003 - e2a2 g3f3 a2a3 f3g2
+      Line 3 Eval: -8.105003 - e2h2 g3g4 h2e2
+      Line 4 Eval: -7.9150023 - e2d2 b4b5 d2d4
+      [2023-05-12T06:06:18Z INFO  schnecken_bot] Playing move e2f2 for game id zcQesp7F
+
+    */
+    let fen = "2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35";
+    let deadline = Instant::now() + Duration::new(1, 0);
+    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
+    // Hanging the piece should not be in the top 10
+    for i in 0..10 {
+      if "e2f2" == chess_lines[i].chess_move.to_string() {
+        assert!(
+          false,
+          "Top move {i} is e2f2, which is almost the worst move"
+        );
+      }
     }
   }
 }

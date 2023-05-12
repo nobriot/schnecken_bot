@@ -7,19 +7,19 @@ lazy_static! {
         let mut t = HashMap::new();
         // First move for White
         t.insert("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        vec!["e2e4","d2d4","g1f3"]);
+        vec!["e2e4","d2d4","g1f3","c2c4","g2g3","f2f4"]);
 
         // First move for Black, 1.e4
         t.insert("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
-        vec!["c7c5","e7e5","e7e6"]);
+        vec!["c7c5","e7e5","e7e6","d7d5"]);
 
-        // After 1.e4e5, we play the bongcloud!
+        // After 1.e4e5, we play the bongcloud! ... along with the good lines
         t.insert("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-        vec!["e1e2"]);
+        vec!["e1e2", "g1f3", "f1c4","b1c3","f2f4"]);
 
         // French defence for black
         t.insert("rnbqkbnr/pppp1ppp/4p3/8/4P3/3P4/PPP2PPP/RNBQKBNR b KQkq - 0 2",
-        vec!["d7d5"]);
+        vec!["d7d5","c7c5","b7b6"]);
 
         // Random position I asked stockfist to analyze:
         // We should probably strip the last numbers from this hashmap key for the endgames
@@ -44,7 +44,10 @@ mod tests {
     use crate::chess::engine::theory::*;
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let result = get_theory_moves(fen);
-    assert_eq!(Some(&vec!["e2e4", "d2d4", "g1f3"]), result);
+    assert_eq!(
+      Some(&vec!["e2e4", "d2d4", "g1f3", "c2c4", "g2g3", "f2f4"]),
+      result
+    );
   }
 
   #[test]
