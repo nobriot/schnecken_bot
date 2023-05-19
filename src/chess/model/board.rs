@@ -98,9 +98,9 @@ pub fn string_to_square(string: &str) -> u8 {
 
 pub fn board_mask_to_string(mask: u64) -> String {
   let mut string = String::new();
-  for rank in (0..8 as u8).rev() {
-    for file in 0..8 {
-      let square_index = rank * 8 + file;
+  for rank in (1..=8).rev() {
+    for file in 1..=8 {
+      let square_index = Board::fr_to_index(file, rank);
       if ((mask >> square_index) & 1) == 1 {
         string.push('x');
       } else {
@@ -120,6 +120,43 @@ impl Board {
   /// Initialize a board with no piece, all zeroes
   fn new() -> Self {
     Board { squares: [0u8; 64] }
+  }
+
+  /// Converts Rank / File into a board index
+  ///
+  /// Returns an index in the range 0..63. Asserts in debug mode if
+  /// the values passed are not valid.
+  ///
+  /// * `file`: [1..8]
+  /// * `rank`: [1..8]
+  ///
+  pub fn fr_to_index(file: usize, rank: usize) -> usize {
+    debug_assert!(file > 0);
+    debug_assert!(file <= 8);
+    debug_assert!(rank > 0);
+    debug_assert!(rank <= 8);
+    return (file - 1) + (rank - 1) * 8;
+  }
+
+  /// Converts a board index into Rank / File.
+  ///
+  /// Returns a filæe and rank in the range [1..8]. Asserts in debug mode if
+  /// the values passed are not valid.
+  ///
+  /// * `index`: [0..63]
+  ///
+  pub fn index_to_fr(index: usize) -> (usize, usize) {
+    debug_assert!(index < 64);
+    return (index % 8 + 1, index / 8 + 1);
+  }
+
+  /// Returns the piece currently set at the board file/rank a board index into Rank / File.
+  ///
+  /// * `file`: [1..8]
+  /// * `rank`: [1..8]
+  ///
+  pub fn get_piece(&self, file: usize, rank: usize) -> u8 {
+    return self.squares[Board::fr_to_index(file, rank)];
   }
 
   /// Applies a move on the board.
@@ -315,16 +352,16 @@ impl Board {
   pub fn to_string(&self) -> String {
     let mut fen = String::new();
     let mut empty_squares = 0;
-    for rank in (0..8 as u8).rev() {
-      for file in 0..8 {
-        match self.squares[(rank * 8 + file) as usize] {
+    for rank in (1..=8).rev() {
+      for file in 1..=8 {
+        match self.get_piece(file, rank) {
           NO_PIECE => empty_squares += 1,
           WHITE_KING..=BLACK_PAWN => {
             if empty_squares > 0 {
               fen.push(char::from_digit(empty_squares, 10).unwrap());
               empty_squares = 0;
             }
-            fen.push(Piece::u8_to_char(self.squares[(rank * 8 + file) as usize]).unwrap());
+            fen.push(Piece::u8_to_char(self.get_piece(file, rank)).unwrap());
           },
           _ => {},
         }
@@ -333,7 +370,7 @@ impl Board {
         fen.push(char::from_digit(empty_squares, 10).unwrap());
         empty_squares = 0;
       }
-      if rank != 0 {
+      if rank != 1 {
         fen.push('/');
       }
     }
@@ -411,9 +448,9 @@ impl Move {
 impl std::fmt::Display for Board {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let mut board = String::from("\n");
-    for rank in (0..8 as u8).rev() {
-      for file in 0..8 {
-        board.push(Piece::u8_to_char(self.squares[(rank * 8 + file) as usize]).unwrap());
+    for rank in (1..=8).rev() {
+      for file in 1..=8 {
+        board.push(Piece::u8_to_char(self.get_piece(file, rank)).unwrap());
         board.push(' ');
       }
       board.push('\n');
@@ -599,5 +636,40 @@ mod tests {
       promotion: NO_PIECE,
     };
     assert_eq!("h8b1", m.to_string());
+  }
+
+  #[test]
+  fn test_fr_to_index() {
+    assert_eq!(0, Board::fr_to_index(1, 1));
+    assert_eq!(1, Board::fr_to_index(2, 1));
+    assert_eq!(3, Board::fr_to_index(4, 1));
+    assert_eq!(6, Board::fr_to_index(7, 1));
+    assert_eq!(7, Board::fr_to_index(8, 1));
+    assert_eq!(8, Board::fr_to_index(1, 2));
+    assert_eq!(9, Board::fr_to_index(2, 2));
+    assert_eq!(62, Board::fr_to_index(7, 8));
+    assert_eq!(63, Board::fr_to_index(8, 8));
+  }
+
+  #[test]
+  fn test_index_to_fr() {
+    assert_eq!((1, 1), Board::index_to_fr(0));
+    assert_eq!((2, 1), Board::index_to_fr(1));
+    assert_eq!((4, 1), Board::index_to_fr(3));
+    assert_eq!((7, 1), Board::index_to_fr(6));
+    assert_eq!((8, 1), Board::index_to_fr(7));
+    assert_eq!((1, 2), Board::index_to_fr(8));
+    assert_eq!((2, 2), Board::index_to_fr(9));
+    assert_eq!((7, 8), Board::index_to_fr(62));
+    assert_eq!((8, 8), Board::index_to_fr(63));
+  }
+
+  #[test]
+  fn test_get_piece() {
+    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
+    let board = Board::from_string(fen);
+    assert_eq!(BLACK_ROOK, board.get_piece(2, 3));
+    assert_eq!(WHITE_KING, board.get_piece(6, 4));
+    assert_eq!(BLACK_KING, board.get_piece(7, 7));
   }
 }

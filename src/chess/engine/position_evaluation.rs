@@ -11,6 +11,9 @@ use crate::chess::model::piece::*;
 const PIECE_AFFINITY_FACTOR: f32 = 0.05;
 const PAWN_ISLAND_FACTOR: f32 = 0.2;
 const PASSED_PAWN_FACTOR: f32 = 0.5;
+const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
+const PROTECTED_PAWN_FACTOR: f32 = 0.15;
+const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const DEVELOPMENT_FACTOR: f32 = 0.15;
 
 // Shows "interesting" squares to control on the board
@@ -162,14 +165,14 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
     }
   }
 
-  // Measure if we are developed. 
+  // Measure if we are developed.
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Opening {
     score += DEVELOPMENT_FACTOR
       * (get_development_score(game_state, Color::White) as f32
         - get_development_score(game_state, Color::Black) as f32);
   }
 
-  // Compare pawn islands.
+  // Pawn structure comparisons
   score += PAWN_ISLAND_FACTOR
     * (get_number_of_pawn_islands(game_state, Color::Black) as f32
       - get_number_of_pawn_islands(game_state, Color::White) as f32);
@@ -177,6 +180,18 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   score += PASSED_PAWN_FACTOR
     * (get_number_of_passers(game_state, Color::White) as f32
       - get_number_of_passers(game_state, Color::Black) as f32);
+
+  score += PROTECTED_PASSED_PAWN_FACTOR
+    * (get_number_of_protected_passers(game_state, Color::White) as f32
+      - get_number_of_protected_passers(game_state, Color::Black) as f32);
+
+  score += PROTECTED_PAWN_FACTOR
+    * (get_number_of_protected_pawns(game_state, Color::White) as f32
+      - get_number_of_protected_pawns(game_state, Color::Black) as f32);
+
+  score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
+    * (get_distance_left_for_closest_pawn_to_promotion(game_state, Color::Black) as f32
+      - get_distance_left_for_closest_pawn_to_promotion(game_state, Color::White) as f32);
 
   // Find the highest free piece, if any:
   let mut capture_gain = get_free_piece_value(game_state);
@@ -199,22 +214,33 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
     score -= HEATMAP_SCORES[i] * black_heatmap[i] as f32;
   }
 
-  // Piece affinity offsets
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_KING => score += PIECE_AFFINITY_FACTOR * WHITE_KING_SQUARE_AFFINITY[i] as f32,
-      WHITE_QUEEN => score += PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
-      WHITE_ROOK => score += PIECE_AFFINITY_FACTOR * WHITE_ROOK_SQUARE_AFFINITY[i] as f32,
-      WHITE_BISHOP => score += PIECE_AFFINITY_FACTOR * WHITE_BISHOP_SQUARE_AFFINITY[i] as f32,
-      WHITE_KNIGHT => score += PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
-      WHITE_PAWN => score += PIECE_AFFINITY_FACTOR * WHITE_PAWN_SQUARE_AFFINITY[i] as f32,
-      BLACK_KING => score -= PIECE_AFFINITY_FACTOR * BLACK_KING_SQUARE_AFFINITY[i] as f32,
-      BLACK_QUEEN => score -= PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
-      BLACK_ROOK => score -= PIECE_AFFINITY_FACTOR * BLACK_ROOK_SQUARE_AFFINITY[i] as f32,
-      BLACK_BISHOP => score -= PIECE_AFFINITY_FACTOR * BLACK_BISHOP_SQUARE_AFFINITY[i] as f32,
-      BLACK_KNIGHT => score -= PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
-      BLACK_PAWN => score -= PIECE_AFFINITY_FACTOR * BLACK_PAWN_SQUARE_AFFINITY[i] as f32,
-      _ => {},
+  // Are we in an endgame:
+  /*
+  if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
+    score += DEVELOPMENT_FACTOR
+      * (get_endgame_score(game_state, Color::White) as f32
+        - get_endgame_score(game_state, Color::Black) as f32);
+  }
+   */
+
+  // Piece affinity offsets, do not apply this in the endgame
+  if game_state.game_phase.unwrap_or(GamePhase::Endgame) != GamePhase::Endgame {
+    for i in 0..64 {
+      match game_state.board.squares[i] {
+        WHITE_KING => score += PIECE_AFFINITY_FACTOR * WHITE_KING_SQUARE_AFFINITY[i] as f32,
+        WHITE_QUEEN => score += PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
+        WHITE_ROOK => score += PIECE_AFFINITY_FACTOR * WHITE_ROOK_SQUARE_AFFINITY[i] as f32,
+        WHITE_BISHOP => score += PIECE_AFFINITY_FACTOR * WHITE_BISHOP_SQUARE_AFFINITY[i] as f32,
+        WHITE_KNIGHT => score += PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
+        WHITE_PAWN => score += PIECE_AFFINITY_FACTOR * WHITE_PAWN_SQUARE_AFFINITY[i] as f32,
+        BLACK_KING => score -= PIECE_AFFINITY_FACTOR * BLACK_KING_SQUARE_AFFINITY[i] as f32,
+        BLACK_QUEEN => score -= PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
+        BLACK_ROOK => score -= PIECE_AFFINITY_FACTOR * BLACK_ROOK_SQUARE_AFFINITY[i] as f32,
+        BLACK_BISHOP => score -= PIECE_AFFINITY_FACTOR * BLACK_BISHOP_SQUARE_AFFINITY[i] as f32,
+        BLACK_KNIGHT => score -= PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
+        BLACK_PAWN => score -= PIECE_AFFINITY_FACTOR * BLACK_PAWN_SQUARE_AFFINITY[i] as f32,
+        _ => {},
+      }
     }
   }
 
@@ -280,5 +306,24 @@ mod tests {
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < 1.0);
     assert!(evaluation > -1.0);
+  }
+
+  #[test]
+  fn test_evaluate_position_losing() {
+    // We had this evaluated in favor of black in a game: (after a certain continuation)
+    /* INFO  schnecken_bot::chess::engine::core] Using 5866 ms to find a move
+    Line 0 Eval: -2.0450013 - h8f8 a8d5 f6d5
+    Line 1 Eval: -1.9150015 - d6c5 a8d5 f6d5
+    Line 2 Eval: -1.8200021 - e8g8 a8d5 f6d5
+    Line 3 Eval: 7.735001 - d6e5 a8f3 g7f8 d2c1
+    Line 4 Eval: 7.7650003 - e8c6 a8c6 b8c6 f1e1
+     */
+    let fen = "Qn2q2r/2p2pb1/p2k1n1p/5Bp1/8/2NP4/PPPB1PPP/R4RK1 b - - 0 15";
+    let mut game_state = GameState::from_string(fen);
+    game_state.get_moves();
+    let (evaluation, game_over) = evaluate_position(&game_state);
+    assert_eq!(false, game_over);
+    println!("Evaluation: {}", evaluation);
+    assert!(evaluation > 7.0);
   }
 }

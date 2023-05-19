@@ -1,9 +1,11 @@
+Ptit-biscuit
+CHoMPBoT
+LISEBOT
+ZE_ROOK
 sargon-1ply
 sargon-2ply
 sargon-4ply
-CHoMPBoT
 maia1
-ZE_ROOK
 ELO_1500
 simplexitor
 SchnellSchnecke

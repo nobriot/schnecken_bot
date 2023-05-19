@@ -42,9 +42,9 @@ pub struct GameState {
 // Helper functions (prints)
 pub fn print_heatmap(heatmap: &[usize; 64]) {
   let mut representation = String::from("\n");
-  for rank in (0..8 as u8).rev() {
-    for file in 0..8 {
-      representation += (heatmap[(rank * 8 + file) as usize]).to_string().as_str();
+  for rank in (1..=8).rev() {
+    for file in 1..=8 {
+      representation += heatmap[Board::fr_to_index(file, rank)].to_string().as_str();
       representation.push(' ');
     }
     representation.push('\n');
@@ -55,9 +55,9 @@ pub fn print_heatmap(heatmap: &[usize; 64]) {
 
 pub fn print_mask(mask: u64) {
   let mut representation = String::from("\n");
-  for rank in (0..8 as u8).rev() {
-    for file in 0..8 {
-      if (mask >> (rank * 8 + file) & 1) == 1 {
+  for rank in (1..=8).rev() {
+    for file in 1..=8 {
+      if (mask >> Board::fr_to_index(file, rank) & 1) == 1 {
         representation.push('1');
       } else {
         representation.push('0');

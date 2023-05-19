@@ -13,13 +13,13 @@ use crate::chess::model::piece::*;
 pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   let mut score: usize = 0;
   let rank = match color {
-    Color::White => 0,
-    Color::Black => 7,
+    Color::White => 1,
+    Color::Black => 8,
   };
 
   // Check for trailing pieces first:
-  for file in 0..8 {
-    match game_state.board.squares[rank * 8 + file] {
+  for file in 1..=8 {
+    match game_state.board.get_piece(file, rank) {
       WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT | BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT => {
         score += 1
       },
@@ -35,8 +35,8 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
 
   // Check for trailing pieces first:
   let mut first_rook_found = false;
-  for file in 0..8 {
-    match game_state.board.squares[rank * 8 + file] {
+  for file in 1..=8 {
+    match game_state.board.get_piece(file, rank) {
       WHITE_ROOK | BLACK_ROOK => {
         if first_rook_found == true {
           // We just found the second rook, we are happy!
