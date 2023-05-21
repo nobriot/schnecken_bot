@@ -15,7 +15,7 @@ const PASSED_PAWN_FACTOR: f32 = 0.5;
 const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
 const PROTECTED_PAWN_FACTOR: f32 = 0.15;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
-const DEVELOPMENT_FACTOR: f32 = 0.15;
+const DEVELOPMENT_FACTOR: f32 = 0.25;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -181,8 +181,8 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   // Measure if we are developed.
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Opening {
     score += DEVELOPMENT_FACTOR
-      * (get_development_score(game_state, Color::White) as f32
-        - get_development_score(game_state, Color::Black) as f32);
+      * ((6 - get_development_score(game_state, Color::White)) as f32
+        - (6 - get_development_score(game_state, Color::Black)) as f32);
   }
 
   // Pawn structure comparisons

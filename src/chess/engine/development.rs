@@ -2,7 +2,7 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 /// Gives a score penalty for lack of development.
-/// 0 for full development
+/// 0 for full development - 6 for no development
 /// +1 if connected rooks are missing
 /// +1 per pieces that is still in the 1th / 8th row
 ///

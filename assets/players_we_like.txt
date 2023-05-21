@@ -1,8 +1,8 @@
 Ptit-biscuit
-CHoMPBoT
-LISEBOT
-ZE_ROOK
 sargon-1ply
+LISEBOT
+CHoMPBoT
+ZE_ROOK
 sargon-2ply
 sargon-4ply
 maia1
