@@ -16,7 +16,7 @@ pub fn get_endgame_score(game_state: &GameState) -> f32 {
     return get_king_vs_queen_or_rook_score(game_state);
   }
 
-  warn!("TODO!");
+  // TODO: Implement a proper evaluation here
   return get_king_vs_queen_or_rook_score(game_state);
 }
 

@@ -1,6 +1,7 @@
 use log::*;
 use rand::Rng;
 use std::cmp::Ordering;
+use std::thread;
 use std::time::{Duration, Instant};
 
 // From our module
@@ -338,6 +339,20 @@ pub fn sort_chess_lines(side_to_move: Color, lines: &mut Vec<ChessLine>) {
   //println!("end of sort_chess_lines {}", side_to_move);
 }
 
+pub fn evaluate_next_nodes(chess_line: &mut ChessLine, deadline: Instant) {
+  // Add the next layer of moves.
+  if false == chess_line.add_next_moves() {
+    return;
+  }
+
+  // Process all the moves:
+  chess_line.evaluate(deadline);
+
+  // Rank the moves by eval
+  chess_line.sort_variations();
+  chess_line.back_propagate_evaluations();
+}
+
 // For now we just apply the entire line and evaluate the end result
 pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, ()> {
   let mut chess_lines: Vec<ChessLine> = Vec::new();
@@ -380,7 +395,6 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
 
   // Now loop the process:
   //display_lines(0, &chess_lines);
-  let mut index = chess_lines.len();
   loop {
     // Check if we have been thinking too much:
     let current_time = Instant::now();
@@ -393,38 +407,32 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
       }
     }
 
-    // Go to the next index:
-    index += 1;
-    if index >= chess_lines.len() {
-      index = 0;
+    // Go one level deeper in the tree. Spawn one thread per line.
+    let mut handles = Vec::new();
+    while chess_lines.len() > 0 {
+      let mut line = chess_lines.pop().unwrap();
+      let deadline_copy = deadline;
+      handles.push(thread::spawn(move || {
+        evaluate_next_nodes(&mut line, deadline_copy);
+        line
+      }));
     }
 
-    if false == chess_lines[index].add_next_moves() {
-      //println!("Continuing");
-      continue;
-    }
-    //println!("Index: {index}");
-    //display_lines(index, &chess_lines);
-
-    // Process all the moves:
-    //for i in 0..chess_lines.len() {
-    chess_lines[index].evaluate(deadline);
-    //}
+    // Wait that all the threads are done:
+    chess_lines = handles.into_iter().map(|t| t.join().unwrap()).collect();
 
     // Rank the moves by eval
-    //for i in 0..chess_lines.len() {
-    chess_lines[index].sort_variations();
-    //}
-    //for i in 0..chess_lines.len() {
-    chess_lines[index].back_propagate_evaluations();
-    //}
+    for i in 0..chess_lines.len() {
+      chess_lines[i].sort_variations();
+      chess_lines[i].back_propagate_evaluations();
+    }
+
     sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
     // Prune branches with low evaluations
-    chess_lines[index].prune_lines();
-    //for i in 0..chess_lines.len() {
-    //  chess_lines[i].prune_lines();
-    //}
+    for i in 0..chess_lines.len() {
+      chess_lines[i].prune_lines();
+    }
   } // loop
 }
 

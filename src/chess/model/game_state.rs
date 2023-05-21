@@ -240,7 +240,7 @@ impl GameState {
       let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
-          bitmap |= (1 << i);
+          bitmap |= 1 << i;
         }
       }
     }
