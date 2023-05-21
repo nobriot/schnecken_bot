@@ -2,6 +2,7 @@ use log::*;
 
 // From our module
 use crate::chess::engine::development::*;
+use crate::chess::engine::endgame::*;
 use crate::chess::engine::pawn_structure::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::*;
@@ -128,6 +129,32 @@ fn find_most_interesting_capture(game_state: &GameState) -> f32 {
   highest_value_gain
 }
 
+/// Makes a material count of the position
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+pub fn get_material_score(game_state: &GameState) -> f32 {
+  // Basic material count
+  let mut score: f32 = 0.0;
+  for i in 0..64 {
+    match game_state.board.squares[i] {
+      WHITE_QUEEN => score += 9.5,
+      WHITE_ROOK => score += 5.0,
+      WHITE_BISHOP => score += 3.05,
+      WHITE_KNIGHT => score += 3.0,
+      WHITE_PAWN => score += 1.0,
+      BLACK_QUEEN => score -= 9.5,
+      BLACK_ROOK => score -= 5.0,
+      BLACK_BISHOP => score -= 3.05,
+      BLACK_KNIGHT => score -= 3.0,
+      BLACK_PAWN => score -= 1.0,
+      _ => {},
+    }
+  }
+  score
+}
+
 /// Evaluates a position and returns a score and if the game is over.
 ///
 /// # Arguments
@@ -147,23 +174,9 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
     }
   }
 
-  // Basic material count
   let mut score: f32 = 0.0;
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_QUEEN => score += 9.5,
-      WHITE_ROOK => score += 5.0,
-      WHITE_BISHOP => score += 3.05,
-      WHITE_KNIGHT => score += 3.0,
-      WHITE_PAWN => score += 1.0,
-      BLACK_QUEEN => score -= 9.5,
-      BLACK_ROOK => score -= 5.0,
-      BLACK_BISHOP => score -= 3.05,
-      BLACK_KNIGHT => score -= 3.0,
-      BLACK_PAWN => score -= 1.0,
-      _ => {},
-    }
-  }
+  // Basic material count
+  score += get_material_score(game_state);
 
   // Measure if we are developed.
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Opening {
@@ -189,9 +202,11 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
     * (get_number_of_protected_pawns(game_state, Color::White) as f32
       - get_number_of_protected_pawns(game_state, Color::Black) as f32);
 
-  score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
-    * (get_distance_left_for_closest_pawn_to_promotion(game_state, Color::Black) as f32
-      - get_distance_left_for_closest_pawn_to_promotion(game_state, Color::White) as f32);
+  if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
+    score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
+      * (get_distance_left_for_closest_pawn_to_promotion(game_state, Color::Black) as f32
+        - get_distance_left_for_closest_pawn_to_promotion(game_state, Color::White) as f32);
+  }
 
   // Find the highest free piece, if any:
   let mut capture_gain = get_free_piece_value(game_state);
@@ -215,13 +230,9 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   }
 
   // Are we in an endgame:
-  /*
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
-    score += DEVELOPMENT_FACTOR
-      * (get_endgame_score(game_state, Color::White) as f32
-        - get_endgame_score(game_state, Color::Black) as f32);
+    score += get_endgame_score(game_state);
   }
-   */
 
   // Piece affinity offsets, do not apply this in the endgame
   if game_state.game_phase.unwrap_or(GamePhase::Endgame) != GamePhase::Endgame {

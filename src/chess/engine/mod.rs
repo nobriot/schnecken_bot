@@ -1,5 +1,6 @@
 pub mod core;
 pub mod development;
+pub mod endgame;
 pub mod pawn_structure;
 pub mod position_evaluation;
 pub mod square_affinity;
