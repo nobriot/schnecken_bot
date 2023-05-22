@@ -17,7 +17,7 @@ pub fn get_endgame_score(game_state: &GameState) -> f32 {
   }
 
   // TODO: Implement a proper evaluation here
-  return get_king_vs_queen_or_rook_score(game_state);
+  return 0.0;
 }
 
 /// Checks if it is a King-Queen vs King endgame
@@ -138,21 +138,21 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   // Recursion to find all square sounds expensive when evaluating tons of positions.
   // We will simplify by assuming it's rook or queen, so detect horizontal/vertical lines and assign the leftover area of the side of the king.
   for rank in 1..=8 {
-    let mut rank_controlled = false;
+    let mut rank_control = 0;
     for file in 1..=8 {
-      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap == 0 {
-        rank_controlled = false;
-        break;
+      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap != 0 {
+        rank_control += 1;
       }
     }
 
-    if rank_controlled == true {
+    if rank_control >= 7 {
+      // Rank control is from 7 squares because
       if rank == king_rank {
         continue;
       }
       for i in 0..64 {
         let (_, current_rank) = Board::index_to_fr(i);
-        if (current_rank <= rank && rank > king_rank) || (current_rank >= rank && rank < king_rank)
+        if (current_rank <= rank && king_rank > rank) || (current_rank >= rank && king_rank < rank)
         {
           king_bitmap |= 1 << i;
         }
@@ -161,21 +161,20 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   }
   // Same for the file:
   for file in 1..=8 {
-    let mut file_controlled = false;
+    let mut file_control = 0;
     for rank in 1..=8 {
-      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap == 0 {
-        file_controlled = false;
-        break;
+      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap != 0 {
+        file_control += 1;
       }
     }
 
-    if file_controlled == true {
+    if file_control >= 7 {
       if file == king_file {
         continue;
       }
       for i in 0..64 {
         let (current_file, _) = Board::index_to_fr(i);
-        if (current_file <= file && file > king_file) || (current_file >= file && file < king_file)
+        if (current_file <= file && king_file > file) || (current_file >= file && king_file < file)
         {
           king_bitmap |= 1 << i;
         }
@@ -183,6 +182,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     }
   }
   // Now make the count
+  //print_mask(king_bitmap);
   let mut available_squares = 0;
   for i in 0..64 {
     if (king_bitmap & (1 << i)) == 0 {
@@ -214,11 +214,18 @@ mod tests {
   use super::*;
 
   #[test]
-  fn get_endgame_test() {
-    // Not developed at all
-    let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  fn test_get_king_vs_queen_or_rook_score() {
+    // Simple position, the king is boxed with 12 squares and the kings are 4 steps apart.
+    let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_string(fen);
+    let expected_score = -(64.0 - 12.0 + 7.0 - 4.0);
+    assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
-    todo!();
+    // Another one from white's perpective
+    // King is on a controlled rank, so it will go either side it likes.
+    let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
+    let game_state = GameState::from_string(fen);
+    let expected_score = 64.0 - 40.0 + 7.0 - 2.0;
+    assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
 }

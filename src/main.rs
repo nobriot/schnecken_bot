@@ -37,9 +37,11 @@ async fn main_loop() -> Result<(), ()> {
   // Start checking what's our bot state
   let _ = display_account_info().await;
 
-  loop {
-    tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
+  // Start 2 tasks: one that checks steam events, one that send challenges when we have been idle for a while
+  tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
+  tokio::spawn(async { lichess::api::send_challenges_with_interval(600).await });
 
+  loop {
     // Read command line inputs for ever, until we have to exit
     let mut exit_requested: bool = false;
     if let Err(_) = user_commands::read_user_commands(&mut exit_requested) {

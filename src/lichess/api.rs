@@ -3,6 +3,8 @@ use futures_util::StreamExt;
 use log::*;
 use reqwest;
 use serde_json::Value as JsonValue;
+use std::time::Instant;
+use tokio::time::*;
 use urlencoding::encode;
 
 // From the same module:
@@ -140,10 +142,11 @@ pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, (
   let response_text_result = response_result.unwrap().text().await;
 
   if let Err(e) = response_text_result {
-    warn!("Error reading the payload from Get request to Lichess {e}");
+    warn!("Error reading the payload from Post request to Lichess {e}");
     return Err(());
   }
 
+  //debug!("Lichess post answer: {:?}", response_text_result);
   let json_value_result = serde_json::from_str(&response_text_result.unwrap());
   let json_object;
 
@@ -455,10 +458,45 @@ pub async fn game_is_ongoing(game_id: &str) -> (bool, bool, u64) {
     let current_game_id = json_game["gameId"].as_str().unwrap();
     if current_game_id == game_id {
       let is_my_turn = json_game["isMyTurn"].as_bool().unwrap_or(true);
-      let seconds_left = json_game["secondsLeft"].as_u64().unwrap_or(0);
+      let seconds_left = json_game["secondsLeft"].as_u64().unwrap_or(20);
       return (true, is_my_turn, seconds_left);
     }
   }
 
   return (false, false, 0);
+}
+
+/// Checks when was last time we played a game, and if more than the indicated
+/// number of seconds, we go and challenge somebody.
+///
+/// # Arguments
+///
+/// * `timeout` - The longest time of seconds to wait without playing before throwing challenges.
+pub async fn send_challenges_with_interval(timeout: u64) {
+  let mut last_play = Instant::now();
+
+  loop {
+    let json_response: JsonValue;
+    if let Ok(json) = lichess_get("account/playing").await {
+      json_response = json;
+    } else {
+      continue;
+    }
+
+    if json_response["nowPlaying"].as_array().is_none() {
+      debug!("Cannot find the 'nowPlaying' array in ongoing games, considering that we are not playing now.");
+    } else {
+      if json_response["nowPlaying"].as_array().unwrap().len() > 0 {
+        last_play = Instant::now();
+      }
+    }
+
+    // Throw a challenge somewhere
+    if Instant::now() > last_play + Duration::from_secs(timeout) {
+      info!("We did not play in a while. Throwing a challenge.");
+      tokio::spawn(async { lichess::play().await });
+    }
+
+    tokio::time::sleep(Duration::from_millis(timeout * 1000)).await;
+  }
 }
