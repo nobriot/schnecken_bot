@@ -28,7 +28,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   }
 
   // If pieces are around, we can conclude that rook are not connected
-  if score != 0 {
+  if score != 6 {
     score -= 1;
     return score;
   }
@@ -40,7 +40,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
       WHITE_ROOK | BLACK_ROOK => {
         if first_rook_found == true {
           // We just found the second rook, we are happy!
-          return 0;
+          return score;
         } else {
           // First rook found
           first_rook_found = true;
@@ -50,7 +50,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
       _ => {
         // Rooks are not connected!
         if first_rook_found == true {
-          score += 1;
+          score -= 1;
           return score;
         }
       },

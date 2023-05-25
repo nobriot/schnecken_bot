@@ -39,7 +39,7 @@ async fn main_loop() -> Result<(), ()> {
 
   // Start 2 tasks: one that checks steam events, one that send challenges when we have been idle for a while
   tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
-  tokio::spawn(async { lichess::api::send_challenges_with_interval(600).await });
+  tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
 
   loop {
     // Read command line inputs for ever, until we have to exit

@@ -3,6 +3,8 @@ use log::*;
 // From our module
 use crate::chess::engine::development::*;
 use crate::chess::engine::endgame::*;
+use crate::chess::engine::eval_helpers::generic::mask_sum;
+use crate::chess::engine::eval_helpers::pawn::*;
 use crate::chess::engine::pawn_structure::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::*;
@@ -15,6 +17,7 @@ const PASSED_PAWN_FACTOR: f32 = 0.5;
 const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
 const PROTECTED_PAWN_FACTOR: f32 = 0.15;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
+const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
 const DEVELOPMENT_FACTOR: f32 = 0.20;
 
 // Shows "interesting" squares to control on the board
@@ -200,6 +203,10 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   score += PROTECTED_PAWN_FACTOR
     * (get_number_of_protected_pawns(game_state, Color::White) as f32
       - get_number_of_protected_pawns(game_state, Color::Black) as f32);
+
+  score += BACKWARDS_PAWN_FACTOR
+    * (mask_sum(get_backwards_pawns(&game_state, Color::Black)) as f32
+      - mask_sum(get_backwards_pawns(&game_state, Color::White)) as f32);
 
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
     score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
