@@ -19,7 +19,6 @@ const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
 const PROTECTED_PAWN_FACTOR: f32 = 0.15;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
-const DEVELOPMENT_FACTOR: f32 = 0.20;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -159,43 +158,16 @@ pub fn get_material_score(game_state: &GameState) -> f32 {
   score
 }
 
-/// Evaluates a position and returns a score and if the game is over.
+/// Default way to look at a position if we are not in a special situation.
 ///
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
-  // println!("evaluate_position");
-  // Check if we are checkmated or stalemated
-  if game_state.available_moves_computed == false {
-    warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
-  }
-  if game_state.available_moves_computed == true && game_state.move_list.len() == 0 {
-    match (game_state.side_to_play, game_state.checks) {
-      (_, 0) => return (0.0, true),
-      (Color::Black, _) => return (200.0, true),
-      (Color::White, _) => return (-200.0, true),
-    }
-  }
-
+pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
-
-  if game_state.game_phase.is_some() {
-    match game_state.game_phase.unwrap() {
-      GamePhase::Opening => score = get_opening_position_evaluation(&game_state),
-      GamePhase::Middlegame => score = get_middlegame_position_evaluation(&game_state),
-      GamePhase::Endgame => score = get_endgame_position_evaluation(&game_state),
-    }
-  }
 
   // Basic material count
   score += get_material_score(game_state);
-
-  // Measure if we are developed.
-  if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Opening {
-    score += DEVELOPMENT_FACTOR * (get_development_score(game_state, Color::White) as f32)
-      - (get_development_score(game_state, Color::Black) as f32);
-  }
 
   // Pawn structure comparisons
   score += PAWN_ISLAND_FACTOR
@@ -231,11 +203,6 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   }
   score -= capture_gain;
 
-  // This is an expensive calculation, for now we skip this.
-  // Compare the mobility of both sides. Give +1 if one side has 15 available moves.
-  // score +=
-  //  (self.get_white_moves().len() as isize - self.get_black_moves().len() as isize) as f32 / 15.0;
-
   // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
   let white_heatmap = game_state.get_heatmap(Color::White, false);
   let black_heatmap = game_state.get_heatmap(Color::Black, false);
@@ -243,11 +210,6 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   for i in 0..64 {
     score += HEATMAP_SCORES[i] * white_heatmap[i] as f32;
     score -= HEATMAP_SCORES[i] * black_heatmap[i] as f32;
-  }
-
-  // Are we in an endgame:
-  if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
-    score += get_endgame_position_evaluation(game_state);
   }
 
   // Piece affinity offsets, do not apply this in the endgame
@@ -269,6 +231,41 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
         _ => {},
       }
     }
+  }
+  // Return our score
+  score
+}
+
+/// Evaluates a position and returns a score and if the game is over.
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
+  // println!("evaluate_position");
+  // Check if we are checkmated or stalemated
+  if game_state.available_moves_computed == false {
+    warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
+  }
+  if game_state.available_moves_computed == true && game_state.move_list.len() == 0 {
+    match (game_state.side_to_play, game_state.checks) {
+      (_, 0) => return (0.0, true),
+      (Color::Black, _) => return (200.0, true),
+      (Color::White, _) => return (-200.0, true),
+    }
+  }
+
+  let score: f32;
+
+  if game_state.game_phase.is_some() {
+    match game_state.game_phase.unwrap() {
+      GamePhase::Opening => score = get_opening_position_evaluation(&game_state),
+      GamePhase::Middlegame => score = get_middlegame_position_evaluation(&game_state),
+      GamePhase::Endgame => score = get_endgame_position_evaluation(&game_state),
+    }
+  } else {
+    warn!("Evaluating a position in an unknown game phase");
+    score = default_position_evaluation(&game_state);
   }
 
   (score, false)

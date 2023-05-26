@@ -1,3 +1,4 @@
+use crate::chess::engine::position_evaluation::default_position_evaluation;
 use crate::chess::engine::position_evaluation::*;
 use crate::chess::model::board::*;
 use crate::chess::model::board_geometry::*;
@@ -16,11 +17,12 @@ use log::*;
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state) {
+    debug!("Queen and/or rook vs King detected");
     return get_king_vs_queen_or_rook_score(game_state);
   }
 
   // TODO: Implement a proper evaluation here
-  return 0.0;
+  return default_position_evaluation(game_state);
 }
 
 /// Checks if it is a King-Queen vs King endgame
@@ -229,6 +231,18 @@ mod tests {
     let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
     let game_state = GameState::from_string(fen);
     let expected_score = 64.0 - 40.0 + 7.0 - 2.0;
+    assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
+
+    // From a game with another bot:
+    let fen = "8/1k6/6Q1/5K2/8/8/8/8 w - - 7 80";
+    let game_state = GameState::from_string(fen);
+    let expected_score = 64.0 - 12.0 + 7.0 - 4.0;
+    assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
+
+    // Check if the incentive to box the king better is good:
+    let fen = "8/1k6/3Q4/5K2/8/8/8/8 b - - 8 80";
+    let game_state = GameState::from_string(fen);
+    let expected_score = 64.0 - 6.0 + 7.0 - 4.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
 }
