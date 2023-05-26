@@ -1,3 +1,14 @@
+// Submodules
+pub mod account;
+pub mod challenges;
+pub mod game;
+pub mod users;
+
+// Other crates
+use lazy_static::lazy_static;
+use log::*;
+use std::fs;
+
 use futures::Future;
 use futures_util::StreamExt;
 use log::*;
@@ -7,25 +18,65 @@ use std::time::Instant;
 use tokio::time::*;
 use urlencoding::encode;
 
+use crate::chess::model::game_state::START_POSITION_FEN;
 // From the same module:
 use crate::lichess;
 use crate::lichess::helpers;
 
-// Constants.
+// Constants
 const API_BASE_URL: &'static str = "https://lichess.org/api/";
+const API_TOKEN_FILE_NAME: &str = "/assets/lichess_api_token.txt";
+const LICHESS_PLAYERS_FILE_NAME: &str = "/assets/players_we_like.txt";
+
+// Type definitions
+#[derive(Debug, Clone)]
+pub struct LichessApi {
+  pub client: reqwest::Client,
+  pub token: String,
+}
+
+// Our one time init of the API data:
+lazy_static! {
+  static ref LICHESS_API_CONFIG: LichessApi = LichessApi {
+    client: reqwest::Client::new(),
+    token: fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME)
+      .unwrap(),
+  };
+}
+
+pub fn get_api() -> &'static LichessApi {
+  &LICHESS_API_CONFIG
+}
+
+/// Checks if any of the players we like is online and sends a challenge.
+pub async fn play() {
+  let player_list =
+    fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + LICHESS_PLAYERS_FILE_NAME)
+      .unwrap();
+  //let parameters = serde_json::json!({ "rated": true, "clock" : {"limit":180,"increment":0}, "color":"random", "variant":"standard" });
+  let players = player_list.lines();
+
+  for username in players {
+    if is_online(username).await == true {
+      info!("{username} is online. Sending a challenge!");
+      if let Err(()) = challenges::send_challenge(username).await {
+        info!("Error sending a challenge to {username}");
+        continue;
+      }
+      break;
+    }
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 async fn get(api_endpoint: &str) -> Result<reqwest::Response, reqwest::Error> {
   debug!("Lichess GET request at {}{}", API_BASE_URL, api_endpoint);
-  lichess::get_api()
+  get_api()
     .client
     .get(format!("{}{}", API_BASE_URL, api_endpoint))
-    .header(
-      "Authorization",
-      format!("Bearer {}", lichess::get_api().token),
-    )
+    .header("Authorization", format!("Bearer {}", get_api().token))
     .header("Accept", "application/x-ndjson")
     .send()
     .await
@@ -33,13 +84,10 @@ async fn get(api_endpoint: &str) -> Result<reqwest::Response, reqwest::Error> {
 
 async fn post(api_endpoint: &str, body: &str) -> Result<reqwest::Response, reqwest::Error> {
   debug!("Lichess POST request at {}{}", API_BASE_URL, api_endpoint);
-  lichess::get_api()
+  get_api()
     .client
     .post(format!("{}{}", API_BASE_URL, api_endpoint))
-    .header(
-      "Authorization",
-      format!("Bearer {}", lichess::get_api().token),
-    )
+    .header("Authorization", format!("Bearer {}", get_api().token))
     .header("Accept", "application/x-ndjson")
     .header("Content-Type", "application/x-www-form-urlencoded")
     .body(format!("{}", body))
@@ -258,39 +306,6 @@ where
   Ok(())
 }
 
-pub async fn accept_challenge(challenge_id: &str) -> Result<(), ()> {
-  let api_endpoint: String = String::from(format!("challenge/{}/accept", challenge_id));
-  //let json_response: JsonValue;
-  if let Err(_) = lichess_post(&api_endpoint, "").await {
-    return Err(());
-  }
-
-  Ok(())
-}
-
-pub async fn decline_challenge(challenge_id: &str, reason: &str) -> Result<(), ()> {
-  let api_endpoint: String = String::from(format!("challenge/{}/decline", challenge_id));
-  let body: String = String::from(format!("reason={}", encode(reason)));
-
-  if let Ok(_) = lichess_post(&api_endpoint, &body).await {
-    Ok(())
-  } else {
-    Err(())
-  }
-}
-
-pub async fn send_challenge(player: &str) -> Result<(), ()> {
-  let api_endpoint: String = String::from(format!("challenge/{}", player));
-  // Let's hardcode this to 3+0 for now.
-  let body_parameters =
-    "rated=true&clock.limit=180&clock.increment=0&color=random&variant=standard";
-  if let Ok(_) = lichess_post(&api_endpoint, body_parameters).await {
-    Ok(())
-  } else {
-    Err(())
-  }
-}
-
 #[allow(dead_code)]
 pub async fn abort_game(game_id: &str) -> Result<(), ()> {
   let api_endpoint: String = String::from(format!("bot/game/{game_id}/abort"));
@@ -404,37 +419,6 @@ pub async fn claim_victory(game_id: &str) -> Result<(), ()> {
   Ok(())
 }
 
-#[allow(dead_code)]
-pub async fn get_game_fen(game_id: &str) -> String {
-  //https://lichess.org/api/account/playing
-
-  let mut game_fen: String = String::from("");
-  let json_response: JsonValue;
-  if let Ok(json) = lichess_get("account/playing").await {
-    json_response = json;
-  } else {
-    return game_fen;
-  }
-
-  if json_response["nowPlaying"].as_array().is_none() {
-    warn!("Cannot find the 'nowPlaying' array in ongoing games");
-    return game_fen;
-  }
-
-  let json_game_array = json_response["nowPlaying"].as_array().unwrap();
-
-  for json_game in json_game_array {
-    if let JsonValue::String(json_game_id) = &json_game["gameId"] {
-      if json_game_id.eq(game_id) {
-        game_fen = String::from(json_game["fen"].as_str().unwrap_or(""));
-        return game_fen;
-      }
-    }
-  }
-
-  return game_fen;
-}
-
 // Returns if a game is ongoing and if it is our turn, if it is our turn, how many seconds we have left.
 pub async fn game_is_ongoing(game_id: &str) -> (bool, bool, u64) {
   //https://lichess.org/api/account/playing
@@ -466,6 +450,38 @@ pub async fn game_is_ongoing(game_id: &str) -> (bool, bool, u64) {
   return (false, false, 0);
 }
 
+pub async fn get_game_fen(game_id: &str) -> String {
+  //https://lichess.org/api/account/playing
+
+  let json_response: JsonValue;
+  if let Ok(json) = lichess_get("account/playing").await {
+    json_response = json;
+  } else {
+    warn!("Error in the response");
+    return String::from(START_POSITION_FEN);
+  }
+
+  if json_response["nowPlaying"].as_array().is_none() {
+    warn!("Cannot find the 'nowPlaying' array in ongoing games");
+    return String::from(START_POSITION_FEN);
+  }
+
+  let json_game_array = json_response["nowPlaying"].as_array().unwrap();
+
+  for json_game in json_game_array {
+    let current_game_id = json_game["gameId"].as_str().unwrap();
+    if current_game_id == game_id {
+      let fen = json_game["fen"]
+        .as_str()
+        .unwrap_or(START_POSITION_FEN)
+        .to_owned();
+      return fen;
+    }
+  }
+
+  return String::from(START_POSITION_FEN);
+}
+
 /// Checks when was last time we played a game, and if more than the indicated
 /// number of seconds, we go and challenge somebody.
 ///
@@ -494,7 +510,7 @@ pub async fn send_challenges_with_interval(timeout: u64) {
     // Throw a challenge somewhere
     if Instant::now() > last_play + Duration::from_secs(timeout) {
       info!("We did not play in a while. Throwing a challenge.");
-      tokio::spawn(async { lichess::play().await });
+      tokio::spawn(async { lichess::api::play().await });
     }
 
     tokio::time::sleep(Duration::from_millis(timeout * 1000)).await;

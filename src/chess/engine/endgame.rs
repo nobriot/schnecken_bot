@@ -5,13 +5,16 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 use log::*;
 
+// TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
+// Or maybe just try as much as I can without any external resources.
+
 /// Gives a score based on the endgame situation.
 ///
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
-pub fn get_endgame_score(game_state: &GameState) -> f32 {
+pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state) {
     return get_king_vs_queen_or_rook_score(game_state);
   }

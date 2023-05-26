@@ -30,7 +30,7 @@ pub fn read_user_commands(exit_requested: &mut bool) -> Result<(), std::io::Erro
   // Remember to trim, it will also remove the newline
   match input.trim() as &str {
     PLAY_COMMAND | P_COMMAND => {
-      tokio::spawn(async { lichess::play().await });
+      tokio::spawn(async { lichess::api::play().await });
     },
     EXIT_COMMAND | QUIT_COMMAND => {
       *exit_requested = true;

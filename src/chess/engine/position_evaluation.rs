@@ -5,7 +5,8 @@ use crate::chess::engine::development::*;
 use crate::chess::engine::endgame::*;
 use crate::chess::engine::eval_helpers::generic::mask_sum;
 use crate::chess::engine::eval_helpers::pawn::*;
-use crate::chess::engine::pawn_structure::*;
+use crate::chess::engine::middlegame::*;
+use crate::chess::engine::opening::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
@@ -178,6 +179,15 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   }
 
   let mut score: f32 = 0.0;
+
+  if game_state.game_phase.is_some() {
+    match game_state.game_phase.unwrap() {
+      GamePhase::Opening => score = get_opening_position_evaluation(&game_state),
+      GamePhase::Middlegame => score = get_middlegame_position_evaluation(&game_state),
+      GamePhase::Endgame => score = get_endgame_position_evaluation(&game_state),
+    }
+  }
+
   // Basic material count
   score += get_material_score(game_state);
 
@@ -237,7 +247,7 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
 
   // Are we in an endgame:
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
-    score += get_endgame_score(game_state);
+    score += get_endgame_position_evaluation(game_state);
   }
 
   // Piece affinity offsets, do not apply this in the endgame

@@ -3,11 +3,15 @@ use log::*;
 use serde_json::Value as JsonValue;
 
 // Local modules
+mod bot_state;
 mod chess;
 mod lichess;
 mod user_commands;
 
+use crate::lichess::api::challenges::*;
+
 const USER_NAME: &str = "schnecken_bot";
+const DEV_USER_NAME: &str = "SchnellSchnecke";
 
 // Main function
 fn main() {
@@ -25,19 +29,19 @@ async fn main_loop() -> Result<(), ()> {
   info!("Watch it at: https://lichess.org/@/{USER_NAME}");
 
   // Check that the Token is okay:
-  if lichess::get_api().token.len() == 0 {
+  if lichess::api::get_api().token.len() == 0 {
     error!("Error reading the API token. Make sure that you have added a token file.");
     return Err(());
   }
   info!("Lichess API token loaded successfully");
 
   // Check for our favorite player
-  display_player_propaganda("SchnellSchnecke").await;
+  display_player_propaganda(DEV_USER_NAME).await;
 
   // Start checking what's our bot state
   let _ = display_account_info().await;
 
-  // Start 2 tasks: one that checks steam events, one that send challenges when we have been idle for a while
+  // Start 2 tasks: one that checks stream events, one that send challenges when we have been idle for a while
   tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
   tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
 
@@ -163,21 +167,25 @@ async fn on_incoming_challenge(json_value: JsonValue) {
   info!("{challenger} would like to play with us! Challenge {challenge_id}");
   info!("{} is rated {} ", challenger, challenger_rating);
 
-  if variant != "standard" && variant != "chess960" {
-    info!(
-      "Ignoring challenge for variant {}. We play only standard and chess 960.",
-      variant
+  if variant != "standard" {
+    info!("Ignoring challenge for variant {variant}. We play only standard for now.");
+    tokio::spawn(
+      async move { decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT).await },
     );
+    return;
+  }
 
-    // Declining gracefully
-    tokio::spawn(async move {
-      lichess::api::decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT).await
-    });
+  // Do not take several games at a time for now:
+  if already_playing().await == true {
+    info!("Ignoring challenge as we are already playing");
+    tokio::spawn(
+      async move { decline_challenge(&challenge_id, lichess::types::DECLINE_LATER).await },
+    );
     return;
   }
 
   // Else we just accept.
-  tokio::spawn(async move { lichess::api::accept_challenge(&challenge_id).await });
+  tokio::spawn(async move { accept_challenge(&challenge_id).await });
 }
 
 async fn display_player_propaganda(username: &str) -> () {
@@ -202,16 +210,23 @@ async fn display_account_info() -> Result<(), ()> {
   Ok(())
 }
 
-#[allow(dead_code)]
-async fn get_ongoing_games() -> Result<JsonValue, ()> {
+async fn already_playing() -> bool {
   let json_response: JsonValue;
   if let Ok(json) = lichess::api::lichess_get("account/playing").await {
     json_response = json;
   } else {
-    return Err(());
+    warn!("Error checking if we are already playing");
+    return false;
   }
 
-  Ok(json_response)
+  if json_response["nowPlaying"].as_array().is_none() {
+    warn!("Cannot find the 'nowPlaying' array in ongoing games");
+    return false;
+  }
+
+  let json_game_array = json_response["nowPlaying"].as_array().unwrap();
+
+  return json_game_array.len() > 0;
 }
 
 async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
@@ -233,6 +248,7 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
     increment_ms = 60_000.0
   }
   let mut game_state = chess::model::game_state::GameState::default();
+  //chess::model::game_state::GameState::from_string(lichess::api::get_game_fen(game_id).await.as_str(),);
   game_state.apply_move_list(moves);
 
   let suggested_time_ms;

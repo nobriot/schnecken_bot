@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 // Reasons for declining a challenge
 /*
 pub const DECLINE_GENERIC: &str = "generic";
-pub const DECLINE_LATER: &str = "later";
 pub const DECLINE_TOO_FAST: &str = "tooFast";
 pub const DECLINE_TOO_SLOW: &str = "tooSlow";
 pub const DECLINE_TIME_CONTROL: &str = "timeControl";
@@ -14,19 +13,8 @@ pub const DECLINE_NOT_BOTS: &str = "noBot";
 pub const DECLINE_ONLY_BOTS: &str = "onlyBot";
 */
 pub const DECLINE_VARIANT: &str = "variant";
+pub const DECLINE_LATER: &str = "later";
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Game {
-  pub color: Color,
-  pub fen: String,
-  pub full_id: String,
-  pub id: String,
-  pub has_moved: bool,
-  pub is_my_turn: bool,
-  pub last_move: String,
-  pub opponent: Player,
-  pub rated: bool,
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Color {

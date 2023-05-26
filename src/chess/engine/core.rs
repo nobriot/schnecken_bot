@@ -74,6 +74,7 @@ impl ChessLine {
     if self.variations.len() == 0 {
       self.game_state.get_moves();
       self.game_state.update_game_phase();
+      // TODO: Check if we just did a 50 moves or 3-fold repetition
       let (eval, game_over) = evaluate_position(&self.game_state);
       self.eval = Some(eval);
       self.game_over = game_over;
@@ -445,7 +446,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     let random_good_move = rng.gen_range(0..moves.len());
     return Ok(moves[random_good_move].to_string());
   }
- 
+
   // Try to evaluate ourselves.
   info!("Using {suggested_time_ms} ms to find a move");
   let deadline = Instant::now()
