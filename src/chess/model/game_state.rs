@@ -564,6 +564,8 @@ impl GameState {
       || self.board.squares[chess_move.src as usize] == BLACK_PAWN
     {
       self.ply = 0;
+    } else {
+      self.ply += 1;
     }
 
     self.board.apply_move(chess_move);

@@ -17,7 +17,7 @@ use log::*;
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state) {
-    debug!("Queen and/or rook vs King detected");
+    //debug!("Queen and/or rook vs King detected");
     return get_king_vs_queen_or_rook_score(game_state);
   }
 

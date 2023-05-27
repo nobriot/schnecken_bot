@@ -4,6 +4,13 @@ use crate::chess::model::board_geometry::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
+// State to track pawn islands
+#[derive(PartialEq)]
+enum PawnTrackingState {
+  NoPawn,
+  Pawn,
+}
+
 /// Determine if a pawn on the board can be protected by another pawn
 ///
 /// # Arguments
@@ -106,16 +113,6 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> u64 {
     }
   }
   mask
-}
-
-use crate::chess::model::board::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
-
-#[derive(PartialEq)]
-enum PawnTrackingState {
-  NoPawn,
-  Pawn,
 }
 
 /// Determine the number of pawn islands in a position for a given color.

@@ -254,6 +254,10 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
       (Color::White, _) => return (-200.0, true),
     }
   }
+  if game_state.ply >= 100 {
+    debug!("100 Ply detected");
+    return (0.0, true);
+  }
 
   let score: f32;
 
