@@ -131,7 +131,10 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     }
   }
 
-  let attacking_bitmap = game_state.get_color_bitmap(attacking_side, false);
+  let attacking_bitmap = match attacking_side {
+    Color::White => game_state.white_bitmap.unwrap_or(0),
+    Color::Black => game_state.black_bitmap.unwrap_or(0),
+  };
   let king_position = match attacking_side {
     Color::White => game_state.board.get_black_king_square(),
     Color::Black => game_state.board.get_white_king_square(),

@@ -430,7 +430,7 @@ impl Move {
         BLACK_ROOK => promotion = WHITE_ROOK,
         BLACK_BISHOP => promotion = WHITE_BISHOP,
         BLACK_KNIGHT => promotion = WHITE_KNIGHT,
-        x => warn!("Something strange happened processing move {move_notation}, promotion is: {x}"),
+        _ => {},
       }
     }
 
