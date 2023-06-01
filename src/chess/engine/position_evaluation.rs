@@ -1,7 +1,6 @@
 use log::*;
 
 // From our module
-use crate::chess::engine::development::*;
 use crate::chess::engine::endgame::*;
 use crate::chess::engine::eval_helpers::generic::mask_sum;
 use crate::chess::engine::eval_helpers::pawn::*;
@@ -236,14 +235,12 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   score
 }
 
-/// Evaluates a position and returns a score and if the game is over.
+/// Evaluates a position and  tells if it seems to be game over or not
 ///
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
-  // println!("evaluate_position");
-  // Check if we are checkmated or stalemated
+pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
   if game_state.available_moves_computed == false {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
   }
@@ -259,7 +256,20 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
     return (0.0, true);
   }
 
-  let score: f32;
+  return (0.0, false);
+}
+
+/// Evaluates a position and returns a score and if the game is over.
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
+  // Check if the evaluation is due to a game over:
+  let (mut score, game_over) = is_game_over(game_state);
+  if game_over == true {
+    return (score, game_over);
+  }
 
   if game_state.game_phase.is_some() {
     match game_state.game_phase.unwrap() {

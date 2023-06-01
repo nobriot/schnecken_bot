@@ -430,7 +430,7 @@ impl Move {
         BLACK_ROOK => promotion = WHITE_ROOK,
         BLACK_BISHOP => promotion = WHITE_BISHOP,
         BLACK_KNIGHT => promotion = WHITE_KNIGHT,
-        x => warn!("Something strange happened {x}"),
+        x => warn!("Something strange happened processing move {move_notation}, promotion is: {x}"),
       }
     }
 
@@ -439,6 +439,27 @@ impl Move {
       dest,
       promotion,
     }
+  }
+
+  pub fn vec_to_string(move_list: &Vec<Move>) -> String {
+    let mut string: String = String::new();
+    for &chess_move in move_list {
+      string += &chess_move.to_string();
+      string.push(' ');
+    }
+    string.pop();
+    string
+  }
+
+  pub fn string_to_vec(string: &str) -> Vec<Move> {
+    let move_list: Vec<&str> = string.split(" ").collect();
+    let mut chess_moves: Vec<Move> = Vec::new();
+    for move_string in move_list {
+      if move_string != "" {
+        chess_moves.push(Move::from_string(move_string));
+      }
+    }
+    chess_moves
   }
 }
 
@@ -636,6 +657,41 @@ mod tests {
       promotion: NO_PIECE,
     };
     assert_eq!("h8b1", m.to_string());
+  }
+
+  #[test]
+  fn vec_to_string() {
+    let mut vec = Vec::new();
+    vec.push(Move {
+      src: 0,
+      dest: 1,
+      promotion: WHITE_BISHOP,
+    });
+    vec.push(Move {
+      src: 63,
+      dest: 0,
+      promotion: NO_PIECE,
+    });
+
+    assert_eq!("a1b1B h8a1", Move::vec_to_string(&vec));
+  }
+
+  #[test]
+  fn string_to_vec() {
+    let moves = "a1b1B h8a1";
+    let vec = Move::string_to_vec(moves);
+    let m0 = Move {
+      src: 0,
+      dest: 1,
+      promotion: WHITE_BISHOP,
+    };
+    let m1 = Move {
+      src: 63,
+      dest: 0,
+      promotion: NO_PIECE,
+    };
+    assert_eq!(vec[0], m0);
+    assert_eq!(vec[1], m1);
   }
 
   #[test]

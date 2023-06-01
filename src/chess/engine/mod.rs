@@ -7,3 +7,4 @@ pub mod opening;
 pub mod position_evaluation;
 pub mod square_affinity;
 pub mod theory;
+pub mod cache;

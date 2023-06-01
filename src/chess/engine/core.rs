@@ -5,6 +5,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 // From our module
+use crate::chess::engine::cache::get_engine_cache;
 use crate::chess::engine::position_evaluation::*;
 use crate::chess::engine::theory::*;
 use crate::chess::model::board::Move;
@@ -62,6 +63,54 @@ impl ChessLine {
       .sort_by(|a, b| best_move_potential(&fen, a, b));
   }
 
+  // Checks the engine cache if we know the move list, else derives the
+  // list of moves from the game state
+  fn get_moves_with_cache(&mut self) {
+    let fen = self.game_state.to_string();
+    let fen_str = fen.as_str();
+
+    // Check if we computed the same position before
+    if let Some(cached_moves) = get_engine_cache().get_move_list(fen_str) {
+      //debug!("Known position. Using the cache");
+      self.game_state.move_list = Move::string_to_vec(cached_moves.as_str());
+      self.game_state.available_moves_computed = true;
+    } else {
+      //debug!("New position. Computing manually");
+      self.game_state.get_moves();
+      get_engine_cache().set_move_list(fen_str, Move::vec_to_string(&self.game_state.move_list));
+    }
+  }
+
+  fn get_game_state_with_cache(&mut self) {
+    let fen = self.game_state.to_string();
+    let fen_str = fen.as_str();
+
+    if let Some(game_phase) = get_engine_cache().get_game_phase(fen_str) {
+      self.game_state.game_phase = Some(game_phase);
+    } else {
+      self.game_state.update_game_phase();
+      if let Some(phase) = self.game_state.game_phase {
+        get_engine_cache().set_game_phase(fen_str, phase);
+      }
+    }
+  }
+
+  fn get_eval_with_cache(&mut self) {
+    let fen = self.game_state.to_string();
+    let fen_str = fen.as_str();
+
+    // TODO: Check if we just did a 3-fold repetition
+    if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
+      self.eval = Some(evaluation);
+      (_, self.game_over) = is_game_over(&self.game_state);
+    } else {
+      let (eval, game_over) = evaluate_position(&self.game_state);
+      self.eval = Some(eval);
+      self.game_over = game_over;
+      get_engine_cache().set_eval(fen_str, eval);
+    }
+  }
+
   // Evaluate all variations
   pub fn evaluate(&mut self, deadline: Instant) {
     //println!("Evaluate");
@@ -72,12 +121,10 @@ impl ChessLine {
     }
 
     if self.variations.len() == 0 {
-      self.game_state.get_moves();
-      self.game_state.update_game_phase();
-      // TODO: Check if we just did a 50 moves or 3-fold repetition
-      let (eval, game_over) = evaluate_position(&self.game_state);
-      self.eval = Some(eval);
-      self.game_over = game_over;
+      // Check if we computed the same position before
+      self.get_moves_with_cache();
+      self.get_game_state_with_cache();
+      self.get_eval_with_cache();
       return;
     }
 
@@ -127,7 +174,8 @@ impl ChessLine {
     }
 
     if self.game_state.move_list.len() == 0 {
-      self.game_state.get_moves();
+      self.get_moves_with_cache();
+
       self.sort_moves();
     }
 
@@ -381,7 +429,7 @@ pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, 
 
   // Process all the moves, all ratings
   for i in 0..chess_lines.len() {
-    chess_lines[i].game_state.get_moves();
+    chess_lines[i].get_moves_with_cache();
     chess_lines[i].sort_moves();
     chess_lines[i].evaluate(deadline);
   }
