@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub const DECLINE_GENERIC: &str = "generic";
 pub const DECLINE_TOO_FAST: &str = "tooFast";
 pub const DECLINE_TOO_SLOW: &str = "tooSlow";
-pub const DECLINE_TIME_CONTROL: &str = "timeControl";
 pub const DECLINE_RATED: &str = "rated";
 pub const DECLINE_CASUAL: &str = "casual";
 pub const DECLINE_STANDARD: &str = "standard";
@@ -14,6 +13,7 @@ pub const DECLINE_ONLY_BOTS: &str = "onlyBot";
 */
 pub const DECLINE_VARIANT: &str = "variant";
 pub const DECLINE_LATER: &str = "later";
+pub const DECLINE_TIME_CONTROL: &str = "timeControl";
 
 
 #[derive(Serialize, Deserialize, Debug)]

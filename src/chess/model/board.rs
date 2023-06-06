@@ -276,6 +276,8 @@ impl Board {
       }
     }
     error!("No black king ?? ");
+    println!("Board: {}", self);
+
     return INVALID_SQUARE;
   }
 

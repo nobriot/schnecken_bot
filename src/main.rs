@@ -163,6 +163,10 @@ async fn on_incoming_challenge(json_value: JsonValue) {
     .as_str()
     .unwrap_or("Unknown variant");
   let challenge_id = json_value["id"].as_str().unwrap_or("UnknownID").to_owned();
+  let time_control_type = json_value["timeControl"]["type"]
+    .as_str()
+    .unwrap_or("unknown")
+    .to_owned();
 
   info!("{challenger} would like to play with us! Challenge {challenge_id}");
   info!("{} is rated {} ", challenger, challenger_rating);
@@ -172,6 +176,12 @@ async fn on_incoming_challenge(json_value: JsonValue) {
     tokio::spawn(
       async move { decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT).await },
     );
+    return;
+  } else if time_control_type != "clock" {
+    info!("Ignoring non-real-time challenge.");
+    tokio::spawn(async move {
+      decline_challenge(&challenge_id, lichess::types::DECLINE_TIME_CONTROL).await
+    });
     return;
   }
 
