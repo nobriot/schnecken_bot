@@ -366,6 +366,24 @@ impl Piece {
     }
   }
 
+  /// Convenience function that determines if a char is a piece (Rook, Bishop, Knight or Queen)
+  ///
+  /// /// # Arguments
+  ///
+  /// * `u` - Value of the square on the board
+  ///
+  /// # Return value
+  ///
+  /// True if is it a piece, false in any other case
+  ///
+  pub fn is_piece(u: u8) -> bool {
+    match u {
+      WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | BLACK_QUEEN | BLACK_ROOK
+      | BLACK_BISHOP | BLACK_KNIGHT => true,
+      _ => false,
+    }
+  }
+
   /// Convenience function that takes a u8 and returns a char, without converting
   /// to the intermediate Piece Struct
   ///

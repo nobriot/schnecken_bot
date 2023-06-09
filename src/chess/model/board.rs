@@ -140,7 +140,7 @@ impl Board {
 
   /// Converts a board index into Rank / File.
   ///
-  /// Returns a filæe and rank in the range [1..8]. Asserts in debug mode if
+  /// Returns a file and rank in the range [1..8]. Asserts in debug mode if
   /// the values passed are not valid.
   ///
   /// * `index`: [0..63]

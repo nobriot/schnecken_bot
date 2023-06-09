@@ -1,10 +1,13 @@
+use crate::chess::engine::eval_helpers::mobility::*;
 use crate::chess::engine::position_evaluation::default_position_evaluation;
-use crate::chess::engine::position_evaluation::*;
 use crate::chess::model::board::*;
 use crate::chess::model::board_geometry::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
+
 use log::*;
+
+const PIECE_MOBILITY_FACTOR: f32 = 0.1;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
@@ -22,7 +25,12 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   }
 
   // TODO: Implement a proper evaluation here
-  return default_position_evaluation(game_state);
+  let mut score: f32 = 0.0;
+
+  score += PIECE_MOBILITY_FACTOR * (get_piece_mobility(game_state, Color::White) as f32)
+    - (get_piece_mobility(game_state, Color::Black) as f32);
+
+  return score + default_position_evaluation(game_state);
 }
 
 /// Checks if it is a King-Queen vs King endgame
