@@ -19,11 +19,10 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
 
   // Check for trailing pieces first:
   for file in 1..=8 {
-    match game_state.board.get_piece(file, rank) {
-      WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT | BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT => {
-        score -= 1
-      },
-      _ => {},
+    match (game_state.board.get_piece(file, rank), color) {
+      ((WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT), Color::White) => score -= 1,
+      ((BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT), Color::Black) => score -= 1,
+      (_, _) => {},
     }
   }
 
@@ -117,5 +116,11 @@ mod tests {
 
     assert_eq!(6, get_development_score(&game_state, Color::White));
     assert_eq!(6, get_development_score(&game_state, Color::Black));
+
+    // We crashed during a game here, with a black piece in white's camp:
+    let fen = "1bqk1nr/pppp1ppp/2n5/3Pp3/4P3/8/PPP1KPPP/RNBQbBNR w kq - 3 5";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(0, get_development_score(&game_state, Color::White));
+    assert_eq!(2, get_development_score(&game_state, Color::Black));
   }
 }

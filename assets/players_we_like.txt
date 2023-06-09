@@ -1,5 +1,4 @@
 sargon-1ply
-LISEBOT
 CHoMPBoT
 ZE_ROOK
 sargon-2ply
