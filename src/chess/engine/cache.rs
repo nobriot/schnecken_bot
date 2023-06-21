@@ -6,6 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::chess::model::game_state::GamePhase;
 
+// How large do we want the cache to grow before we purge it.
+const DEFAULT_CACHE_MAX_SIZE: usize = 100_000_000;
+
 #[derive(Debug, Clone)]
 pub struct PositionCache {
   // List of moves available for a position
@@ -50,6 +53,9 @@ impl EngineCache {
   }
 
   pub fn add(&self, fen: &str, position_cache: PositionCache) {
+    if self.len() > DEFAULT_CACHE_MAX_SIZE {
+      self.clear();
+    }
     self
       .cache
       .lock()
@@ -59,6 +65,10 @@ impl EngineCache {
 
   pub fn len(&self) -> usize {
     return self.cache.lock().unwrap().len();
+  }
+
+  pub fn clear(&self) {
+    self.cache.lock().unwrap().clear();
   }
 
   pub fn has_fen(&self, fen: &str) -> bool {
@@ -237,5 +247,12 @@ mod tests {
     assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap().as_str());
     assert_eq!(Some(99.9), engine_cache.get_eval(fen));
     assert_eq!(Some(GamePhase::Endgame), engine_cache.get_game_phase(fen));
+
+    // Clear the cache:
+    engine_cache.clear();
+    assert_eq!(0, engine_cache.len());
+    assert_eq!(None, engine_cache.get_move_list(fen));
+    assert_eq!(None, engine_cache.get_eval(fen));
+    assert_eq!(None, engine_cache.get_game_phase(fen));
   }
 }

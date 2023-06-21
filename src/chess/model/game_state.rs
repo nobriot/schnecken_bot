@@ -45,6 +45,7 @@ pub struct GameState {
 
 // -----------------------------------------------------------------------------
 // Helper functions (prints)
+#[allow(dead_code)]
 pub fn print_heatmap(heatmap: &[usize; 64]) {
   let mut representation = String::from("\n");
   for rank in (1..=8).rev() {
@@ -58,6 +59,7 @@ pub fn print_heatmap(heatmap: &[usize; 64]) {
   println!("{representation}");
 }
 
+#[allow(dead_code)]
 pub fn print_mask(mask: u64) {
   let mut representation = String::from("\n");
   for rank in (1..=8).rev() {
@@ -127,6 +129,8 @@ impl GameState {
     };
     // Determine if we're check / Checkmate
     game_state.update_checks();
+    game_state.get_color_bitmap(Color::White);
+    game_state.get_color_bitmap(Color::Black);
     game_state
   }
 
@@ -574,6 +578,9 @@ impl GameState {
     // Reset computed assets that need re-computation:
     self.white_bitmap = None;
     self.black_bitmap = None;
+    if self.game_phase.is_some() && self.game_phase.unwrap() != GamePhase::Endgame {
+      self.game_phase = None;
+    }
 
     // Check the ply count first:
     if self.board.squares[chess_move.dest as usize] != NO_PIECE
@@ -645,7 +652,6 @@ impl GameState {
   }
 
   // Applies all moves from a vector of moves
-  #[allow(dead_code)]
   pub fn apply_moves(&mut self, move_list: &Vec<Move>) -> () {
     for chess_move in move_list {
       self.apply_move(chess_move, false);

@@ -162,7 +162,9 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     }
 
     if rank_control >= 7 {
-      // Rank control is from 7 squares because
+      // Rank control is from 7 squares because the piece controlling the rank makes a hole if undefended.
+      //println!("Rank {rank} is controlled {rank_control}");
+
       if rank == king_rank {
         continue;
       }
@@ -234,6 +236,7 @@ mod tests {
     // Simple position, the king is boxed with 12 squares and the kings are 4 steps apart.
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_string(fen);
+    //println!("{}", game_state.board);
     let expected_score = -(64.0 - 12.0 + 7.0 - 4.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
