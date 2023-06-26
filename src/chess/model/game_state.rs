@@ -643,6 +643,8 @@ impl GameState {
     }
 
     // Check if we have checks
+    self.get_color_bitmap(Color::White);
+    self.get_color_bitmap(Color::Black);
     self.update_checks();
 
     // Compute the list of legal moves if we need it

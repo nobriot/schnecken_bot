@@ -7,7 +7,10 @@ use crate::chess::model::piece::*;
 
 use log::*;
 
+use super::eval_helpers::king::get_king_danger_score;
+
 const PIECE_MOBILITY_FACTOR: f32 = 0.1;
+const KING_DANGER_FACTOR: f32 = 1.0;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
@@ -29,6 +32,10 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 
   score += PIECE_MOBILITY_FACTOR * (get_piece_mobility(game_state, Color::White) as f32)
     - (get_piece_mobility(game_state, Color::Black) as f32);
+
+  score += KING_DANGER_FACTOR
+    * (get_king_danger_score(game_state, Color::Black)
+      - get_king_danger_score(game_state, Color::White));
 
   return score + default_position_evaluation(game_state);
 }
