@@ -9,7 +9,7 @@ use log::*;
 
 use super::eval_helpers::king::get_king_danger_score;
 
-const PIECE_MOBILITY_FACTOR: f32 = 0.1;
+const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 1.0;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
@@ -30,8 +30,9 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   // TODO: Implement a proper evaluation here
   let mut score: f32 = 0.0;
 
-  score += PIECE_MOBILITY_FACTOR * (get_piece_mobility(game_state, Color::White) as f32)
-    - (get_piece_mobility(game_state, Color::Black) as f32);
+  score += PIECE_MOBILITY_FACTOR
+    * ((get_piece_mobility(game_state, Color::White) as f32)
+      - (get_piece_mobility(game_state, Color::Black) as f32));
 
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)

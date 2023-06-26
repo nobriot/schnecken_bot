@@ -239,7 +239,7 @@ impl ChessLine {
 
     let mut snip_index = self.variations.len();
     for i in 1..self.variations.len() {
-      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 5.0 {
+      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 6.0 {
         snip_index = i;
         break;
       }
@@ -403,9 +403,11 @@ pub fn evaluate_next_nodes(chess_line: &mut ChessLine, deadline: Instant) {
 }
 
 // For now we just apply the entire line and evaluate the end result
-pub fn select_best_move(fen: &str, deadline: Instant) -> Result<Vec<ChessLine>, ()> {
+pub fn select_best_move(
+  game_state: &mut GameState,
+  deadline: Instant,
+) -> Result<Vec<ChessLine>, ()> {
   let mut chess_lines: Vec<ChessLine> = Vec::new();
-  let mut game_state = GameState::from_string(fen);
 
   // Get the list of moves to assess:
   let _ = game_state.get_moves();
@@ -503,7 +505,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
       (suggested_time_ms % 1000) as u32 * 1_000_000,
     );
 
-  if let Ok(chess_lines) = select_best_move(&fen, deadline) {
+  if let Ok(chess_lines) = select_best_move(game_state, deadline) {
     display_lines(5, &chess_lines);
 
     // Check how tight is the evaluation between the best lines
@@ -576,13 +578,16 @@ pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::chess::model::game_state::GamePhase;
 
   #[test]
   fn test_select_best_move_checkmate_in_one() {
     // This is a forced checkmate in 1:
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
     let expected_move = Move::from_string("b6d5");
     assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
@@ -593,8 +598,10 @@ mod tests {
   fn test_select_best_move_checkmate_in_one_for_black() {
     // This is a forced checkmate in 1:
     let fen = "8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
     let expected_move = Move::from_string("g3g1");
     assert_eq!(chess_lines[0].eval.unwrap(), -200.0);
@@ -605,8 +612,10 @@ mod tests {
   fn test_select_best_move_checkmate_in_two() {
     // This is a forced checkmate in 2: c1b2 d4e3 b6d5
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(5, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
     display_lines(5, &chess_lines[0].variations);
 
@@ -619,8 +628,10 @@ mod tests {
   fn test_select_best_defensive_move() {
     // Only good defense is : h8f8
     let fen = "r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(5, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
 
     let expected_move = Move::from_string("h8f8");
@@ -632,8 +643,10 @@ mod tests {
   #[test]
   fn test_select_pawn_capture() {
     let fen = "r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(2, 10000000);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(3, &chess_lines);
     display_lines(3, &chess_lines[2].variations[0].variations);
 
@@ -645,8 +658,10 @@ mod tests {
   #[test]
   fn evaluate_checkmate_with_castle() {
     let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(0, 10000000);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     assert_eq!("e1g1", chess_lines[0].chess_move.to_string());
     assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
   }
@@ -657,8 +672,10 @@ mod tests {
   #[test]
   fn capture_the_damn_knight() {
     let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
     let best_move = chess_lines[0].chess_move.to_string();
     if "f8f6" != best_move && "g7f6" != best_move {
@@ -675,8 +692,10 @@ mod tests {
   #[test]
   fn save_the_queen() {
     let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
 
     let best_move = chess_lines[0].chess_move.to_string();
@@ -718,8 +737,10 @@ mod tests {
      Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
     */
     let fen = "r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
     let best_move = chess_lines[0].chess_move.to_string();
     if "e4f6" != best_move && "e4d6" != best_move {
@@ -746,8 +767,10 @@ mod tests {
 
     */
     let fen = "2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35";
+    let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
-    let chess_lines = select_best_move(fen, deadline).expect("This should not be an error");
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
     // Hanging the piece should not be in the top 10
     for i in 0..10 {
@@ -757,6 +780,31 @@ mod tests {
           "Top move {i} is e2f2, which is almost the worst move"
         );
       }
+    }
+  }
+
+  #[test]
+  fn save_the_bishop() {
+    /*
+     [2023-06-26T13:51:05Z DEBUG schnecken_bot::lichess::api] Lichess get answer: {"nowPlaying":[{"color":"white","fen":"2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12","fullId":"AHbg0nGCsiMN","gameId":"AHbg0nGC","hasMoved":true,"isMyTurn":true,"lastMove":"e7e6","opponent":{"id":"sargon-1ply","rating":1233,"username":"BOT sargon-1ply"},"perf":"blitz","rated":true,"secondsLeft":160,"source":"friend","speed":"blitz","status":{"id":20,"name":"started"},"variant":{"key":"standard","name":"Standard"}}]}
+     [2023-06-26T13:51:05Z INFO  schnecken_bot] Trying to find a move for game id AHbg0nGC
+     [2023-06-26T13:51:05Z INFO  schnecken_bot::chess::engine::core] Using 1777 ms to find a move
+     Line 0 Eval: -1.8000004 - f5e6 d6e6 e2e4
+     Line 1 Eval: -4.4000006 - f3g1 e6f5
+     Line 2 Eval: -16.820002 - c2c3 f8e7
+     Line 3 Eval: -17.800003 - a2a3 f8e7
+     Line 4 Eval: -17.860003 - f3e5 f8e7
+    */
+    let fen = "2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(2, 0);
+    assert_eq!(Some(GamePhase::Opening), game_state.game_phase);
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
+    // This should be quite obvious to find, it's the only move that saves the bishop
+    if "f5e4" != chess_lines[0].chess_move.to_string() {
+      assert!(false, "Come on, the only good move is f5e4")
     }
   }
 }

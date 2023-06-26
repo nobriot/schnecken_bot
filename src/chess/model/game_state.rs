@@ -1,4 +1,5 @@
 use log::*;
+use std::collections::VecDeque;
 
 use crate::chess::model::board::*;
 use crate::chess::model::piece::NO_PIECE;
@@ -7,6 +8,8 @@ use crate::chess::model::piece_moves::*;
 
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+/// How many positions do we memorize in the GameState to check for 3-fold repetitions
+pub const LAST_POSITIONS_SIZE: usize = 8;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(non_snake_case)]
@@ -37,6 +40,8 @@ pub struct GameState {
   pub move_list: Vec<Move>,
   // Phase of the game. None if not determined yet
   pub game_phase: Option<GamePhase>,
+  // Vector of position representing the last x positions
+  pub last_positions: VecDeque<String>,
   // Mask of squares controlled by white pieces. None if not determined yet.
   pub white_bitmap: Option<u64>,
   // Mask of squares controlled by black pieces. None if not determined yet.
@@ -124,6 +129,7 @@ impl GameState {
       available_moves_computed: false,
       move_list: Vec::new(),
       game_phase: None,
+      last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
       white_bitmap: None,
       black_bitmap: None,
     };
@@ -131,6 +137,7 @@ impl GameState {
     game_state.update_checks();
     game_state.get_color_bitmap(Color::White);
     game_state.get_color_bitmap(Color::Black);
+    game_state.update_game_phase();
     game_state
   }
 
@@ -582,6 +589,12 @@ impl GameState {
       self.game_phase = None;
     }
 
+    // Save the last position:
+    if self.last_positions.len() == LAST_POSITIONS_SIZE {
+      self.last_positions.pop_back();
+    }
+    self.last_positions.push_front(self.board.to_string());
+
     // Check the ply count first:
     if self.board.squares[chess_move.dest as usize] != NO_PIECE
       || self.board.squares[chess_move.src as usize] == WHITE_PAWN
@@ -592,6 +605,7 @@ impl GameState {
       self.ply += 1;
     }
 
+    // Move the pieces on the board
     self.board.apply_move(chess_move);
     if self.side_to_play == Color::White {
       self.side_to_play = Color::Black;
@@ -600,7 +614,7 @@ impl GameState {
       self.side_to_play = Color::White;
     }
 
-    // Update castling rights.(just look if something from the rook/king)
+    // Update castling rights.(just look if something from the rook/king moved)
     match chess_move.src {
       0 => self.castling_rights.Q = false,
       4 => {
@@ -736,6 +750,11 @@ impl std::fmt::Debug for GameState {
 
     message += format!("Board: {}\n", self.board.to_string()).as_str();
 
+    message += "last positions:\n";
+    for i in 0..self.last_positions.len() {
+      message += format!("- {}\n", self.last_positions[i]).as_str();
+    }
+
     f.write_str(message.as_str())
   }
 }
@@ -758,6 +777,7 @@ impl Default for GameState {
       available_moves_computed: false,
       move_list: Vec::new(),
       game_phase: None,
+      last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
       white_bitmap: None,
       black_bitmap: None,
     }
@@ -887,17 +907,14 @@ mod tests {
   fn update_game_phase() {
     let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
     let mut game_state = GameState::from_string(fen);
-    game_state.update_game_phase();
     assert_eq!(Some(GamePhase::Opening), game_state.game_phase);
 
     let fen = "r3k2r/2qnbppp/p1p5/1p1np3/3PQ3/2P1B1PP/PP1NNP2/R3K2R w KQkq - 4 14";
     let mut game_state = GameState::from_string(fen);
-    game_state.update_game_phase();
     assert_eq!(Some(GamePhase::Middlegame), game_state.game_phase);
 
     let fen = "4r1k1/4b1p1/p3p2p/2pR4/2p5/4B1PP/PP3P2/2K5 w - - 0 27";
     let mut game_state = GameState::from_string(fen);
-    game_state.update_game_phase();
     assert_eq!(Some(GamePhase::Endgame), game_state.game_phase);
   }
 }

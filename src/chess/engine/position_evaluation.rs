@@ -11,11 +11,11 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 // Constants
-const PIECE_AFFINITY_FACTOR: f32 = 0.1;
-const PAWN_ISLAND_FACTOR: f32 = 0.2;
+const PIECE_AFFINITY_FACTOR: f32 = 0.05;
+const PAWN_ISLAND_FACTOR: f32 = 0.02;
 const PASSED_PAWN_FACTOR: f32 = 0.5;
 const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
-const PROTECTED_PAWN_FACTOR: f32 = 0.15;
+const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
 
@@ -260,6 +260,19 @@ pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
   return true;
 }
 
+pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
+  let current_position = game_state.board.to_string();
+  let mut repetition_count = 0;
+  for position in &game_state.last_positions {
+    if current_position.as_str() == position {
+      repetition_count += 1;
+    }
+  }
+
+  // We need to find 2 occurences of the same as the current to make it a 3 fold repetition
+  return repetition_count >= 2;
+}
+
 /// Evaluates a position and  tells if it seems to be game over or not
 ///
 /// # Arguments
@@ -282,6 +295,13 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
   }
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if is_game_over_by_insufficient_material(game_state) == true {
+    debug!("game over by insufficient material detected");
+    return (0.0, true);
+  }
+
+  // 2 kings, or 1 king + knight or/bishop vs king is game over:
+  if is_game_over_by_repetition(game_state) == true {
+    debug!("3-fold repetition detected");
     return (0.0, true);
   }
 
@@ -413,5 +433,54 @@ mod tests {
     let fen = "8/4nk2/8/8/8/2KR4/8/8 w - - 0 1";
     let game_state = GameState::from_string(fen);
     assert_eq!(false, is_game_over_by_insufficient_material(&game_state));
+  }
+
+  #[test]
+  fn test_game_over_threefold_repetition() {
+    use crate::chess::model::board::Move;
+
+    let fen = "8/8/8/5P2/Q1k2KP1/8/p7/8 b - - 1 87";
+    let mut game_state = GameState::from_string(fen);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("c4c3"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("a4a2"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("c3d4"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("a2c2"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("d4d5"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("c2g2"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("d5d6"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("g2c2"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("d6d5"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("c2c1"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("d5d4"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("c1c2"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+
+    game_state.apply_move(&Move::from_string("d4d5"), false);
+    println!("{:?}", game_state);
+    assert_eq!(true, is_game_over_by_repetition(&game_state));
   }
 }
