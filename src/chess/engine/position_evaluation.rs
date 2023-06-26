@@ -198,7 +198,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   // Find the highest free piece, if any:
   let mut capture_gain = get_free_piece_value(game_state);
   if capture_gain == 0.0 {
-    capture_gain = find_most_interesting_capture(game_state);
+    // Divide the capture gain by 2, so it stays more interesting to actually capture than to just have a capture possibility.
+    capture_gain = find_most_interesting_capture(game_state) / 2.0;
   }
   score -= capture_gain;
 
@@ -235,6 +236,30 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   score
 }
 
+/// Determines if a position is a game over due to insufficient material or not
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object reference representing a position, side to play, etc.
+pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
+  let mut minor_piece_count = 0;
+  for i in 0..64 {
+    match game_state.board.squares[i] {
+      NO_PIECE | WHITE_KING | BLACK_KING => {},
+      WHITE_BISHOP | WHITE_KNIGHT | BLACK_BISHOP | BLACK_KNIGHT => {
+        minor_piece_count += 1;
+        if minor_piece_count > 1 {
+          return false;
+        }
+      },
+      _ => {
+        return false;
+      },
+    }
+  }
+  return true;
+}
+
 /// Evaluates a position and  tells if it seems to be game over or not
 ///
 /// # Arguments
@@ -253,6 +278,10 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
   }
   if game_state.ply >= 100 {
     debug!("100 Ply detected");
+    return (0.0, true);
+  }
+  // 2 kings, or 1 king + knight or/bishop vs king is game over:
+  if is_game_over_by_insufficient_material(game_state) == true {
     return (0.0, true);
   }
 
@@ -290,6 +319,8 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
 
 #[cfg(test)]
 mod tests {
+  use crate::chess::model::game_state;
+
   use super::*;
   #[test]
   fn test_evaluate_position() {
@@ -363,5 +394,24 @@ mod tests {
     assert_eq!(false, game_over);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation > 7.0);
+  }
+
+  #[test]
+  fn test_game_over_insufficient_material() {
+    let fen = "8/4nk2/8/8/8/2K5/8/8 w - - 0 1";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(true, is_game_over_by_insufficient_material(&game_state));
+
+    let fen = "8/5k2/8/8/8/2KB4/8/8 w - - 0 1";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(true, is_game_over_by_insufficient_material(&game_state));
+
+    let fen = "8/4nk2/8/8/8/2KB4/8/8 w - - 0 1";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(false, is_game_over_by_insufficient_material(&game_state));
+
+    let fen = "8/4nk2/8/8/8/2KR4/8/8 w - - 0 1";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(false, is_game_over_by_insufficient_material(&game_state));
   }
 }

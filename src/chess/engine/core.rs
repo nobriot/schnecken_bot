@@ -239,7 +239,7 @@ impl ChessLine {
 
     let mut snip_index = self.variations.len();
     for i in 1..self.variations.len() {
-      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 8.0 {
+      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 5.0 {
         snip_index = i;
         break;
       }
