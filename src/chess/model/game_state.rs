@@ -590,7 +590,7 @@ impl GameState {
     }
 
     // Save the last position:
-    if self.last_positions.len() == LAST_POSITIONS_SIZE {
+    if self.last_positions.len() >= LAST_POSITIONS_SIZE {
       self.last_positions.pop_back();
     }
     self.last_positions.push_front(self.board.to_string());

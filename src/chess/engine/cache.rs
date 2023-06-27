@@ -4,6 +4,7 @@ use log::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GamePhase;
 
 // How large do we want the cache to grow before we purge it.
@@ -12,7 +13,7 @@ const DEFAULT_CACHE_MAX_SIZE: usize = 100_000_000;
 #[derive(Debug, Clone)]
 pub struct PositionCache {
   // List of moves available for a position
-  pub move_list: Option<String>,
+  pub move_list: Option<Vec<Move>>,
   // Evaluation for a position
   pub eval: Option<f32>,
   // game phase for a position
@@ -46,7 +47,7 @@ impl EngineCache {
   fn clip_fen(fen: &str) -> String {
     let mut clipped_fen = String::new();
     let fen_parts: Vec<&str> = fen.split(' ').collect();
-    for i in 0..3 {
+    for i in 0..4 {
       clipped_fen.push_str(fen_parts[i]);
     }
     clipped_fen
@@ -79,7 +80,7 @@ impl EngineCache {
       .contains_key(EngineCache::clip_fen(fen).as_str());
   }
 
-  pub fn get_move_list(&self, fen: &str) -> Option<String> {
+  pub fn get_move_list(&self, fen: &str) -> Option<Vec<Move>> {
     return self
       .cache
       .lock()
@@ -90,7 +91,7 @@ impl EngineCache {
       .clone();
   }
 
-  pub fn set_move_list(&self, fen: &str, move_list: String) {
+  pub fn set_move_list(&self, fen: &str, move_list: &Vec<Move>) {
     if self.has_fen(fen) == false {
       self.add(fen, PositionCache::default());
     }
@@ -101,7 +102,7 @@ impl EngineCache {
       .unwrap()
       .get_mut(EngineCache::clip_fen(fen).as_str())
     {
-      entry.move_list = Some(move_list);
+      entry.move_list = Some(move_list.clone());
     } else {
       error!("Error updating move list in the cache for {fen}");
     }
@@ -209,7 +210,7 @@ mod tests {
 
     // Now add the data:
     let position_cache = PositionCache {
-      move_list: Some(String::from("Test")),
+      move_list: Some(Vec::new()),
       eval: Some(20.0),
       game_phase: Some(GamePhase::Opening),
     };
@@ -218,7 +219,7 @@ mod tests {
     assert_eq!(1, engine_cache.len());
 
     // Read the cache
-    assert_eq!("Test", engine_cache.get_move_list(fen).unwrap().as_str());
+    assert_eq!(Vec::<Move>::new(), engine_cache.get_move_list(fen).unwrap());
     assert_eq!(Some(20.0), engine_cache.get_eval(fen));
     assert_eq!(Some(GamePhase::Opening), engine_cache.get_game_phase(fen));
 
@@ -229,22 +230,25 @@ mod tests {
     assert_eq!(None, engine_cache.get_game_phase(fen));
 
     // First the move list
-    let move_list = "c6d4 h5f7 h7h6";
-    engine_cache.set_move_list(fen, String::from(move_list));
+    let mut move_list = Vec::new();
+    move_list.push(Move::from_string("h3g7"));
+    move_list.push(Move::from_string("a1a8Q"));
 
-    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap().as_str());
+    engine_cache.set_move_list(fen, &move_list);
+
+    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap());
     assert_eq!(None, engine_cache.get_eval(fen));
     assert_eq!(None, engine_cache.get_game_phase(fen));
 
     // Then the eval:
     engine_cache.set_eval(fen, 99.9);
-    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap().as_str());
+    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap());
     assert_eq!(Some(99.9), engine_cache.get_eval(fen));
     assert_eq!(None, engine_cache.get_game_phase(fen));
 
     // Finally the game phase
     engine_cache.set_game_phase(fen, GamePhase::Endgame);
-    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap().as_str());
+    assert_eq!(move_list, engine_cache.get_move_list(fen).unwrap());
     assert_eq!(Some(99.9), engine_cache.get_eval(fen));
     assert_eq!(Some(GamePhase::Endgame), engine_cache.get_game_phase(fen));
 

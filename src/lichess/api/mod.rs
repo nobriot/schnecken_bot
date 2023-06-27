@@ -11,7 +11,6 @@ use std::fs;
 
 use futures::Future;
 use futures_util::StreamExt;
-use log::*;
 use reqwest;
 use serde_json::Value as JsonValue;
 use std::time::Instant;

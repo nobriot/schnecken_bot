@@ -1,4 +1,3 @@
-use crate::chess::engine::eval_helpers::generic::mask_sum;
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
@@ -64,7 +63,7 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
     return 1.0;
   }
 
-  return (attacked_squares as f32 / total_squares as f32);
+  return attacked_squares as f32 / total_squares as f32;
 }
 
 // -----------------------------------------------------------------------------

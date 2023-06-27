@@ -5,8 +5,6 @@ use crate::chess::model::board_geometry::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
-use log::*;
-
 use super::eval_helpers::king::get_king_danger_score;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;

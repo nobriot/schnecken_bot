@@ -339,6 +339,7 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
 
 #[cfg(test)]
 mod tests {
+  use crate::chess::model::board::Move;
   use crate::chess::model::game_state;
 
   use super::*;
@@ -436,9 +437,7 @@ mod tests {
   }
 
   #[test]
-  fn test_game_over_threefold_repetition() {
-    use crate::chess::model::board::Move;
-
+  fn test_game_over_threefold_repetition_1() {
     let fen = "8/8/8/5P2/Q1k2KP1/8/p7/8 b - - 1 87";
     let mut game_state = GameState::from_string(fen);
     assert_eq!(false, is_game_over_by_repetition(&game_state));
@@ -481,6 +480,36 @@ mod tests {
 
     game_state.apply_move(&Move::from_string("d4d5"), false);
     println!("{:?}", game_state);
+    assert_eq!(true, is_game_over_by_repetition(&game_state));
+  }
+
+  #[test]
+  fn test_game_over_threefold_repetition_2() {
+    // This three-fold repetition was not understood during the game: https://lichess.org/oBjYp62P/white
+    let fen = "r2q1b1r/1pp1pkpp/2n1p3/p2p4/3PnB2/2NQ1NP1/PPP1PP1P/R3K2R w KQ - 2 9";
+    let mut game_state = GameState::from_string(fen);
+    game_state.apply_move(&Move::from_string("c3e4"), false);
+    game_state.apply_move(&Move::from_string("d5e4"), false);
+    game_state.apply_move(&Move::from_string("f3g5"), false);
+    game_state.apply_move(&Move::from_string("f7f6"), false);
+    game_state.apply_move(&Move::from_string("g5e4"), false);
+    game_state.apply_move(&Move::from_string("f6f7"), false);
+    game_state.apply_move(&Move::from_string("e4g5"), false);
+    game_state.apply_move(&Move::from_string("f7f6"), false);
+    game_state.apply_move(&Move::from_string("g5h7"), false);
+    game_state.apply_move(&Move::from_string("f6f7"), false);
+    game_state.apply_move(&Move::from_string("h7g5"), false);
+    game_state.apply_move(&Move::from_string("f7f6"), false);
+    game_state.apply_move(&Move::from_string("g5e4"), false);
+    game_state.apply_move(&Move::from_string("f6f7"), false);
+    game_state.apply_move(&Move::from_string("e4g5"), false);
+    game_state.apply_move(&Move::from_string("f7f6"), false);
+    game_state.apply_move(&Move::from_string("g5h7"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+    game_state.apply_move(&Move::from_string("g5h7"), false);
+    game_state.apply_move(&Move::from_string("f6f7"), false);
+    assert_eq!(false, is_game_over_by_repetition(&game_state));
+    game_state.apply_move(&Move::from_string("h7g5"), false);
     assert_eq!(true, is_game_over_by_repetition(&game_state));
   }
 }

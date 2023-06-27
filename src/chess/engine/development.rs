@@ -20,8 +20,8 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   // Check for trailing pieces first:
   for file in 1..=8 {
     match (game_state.board.get_piece(file, rank), color) {
-      ((WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT), Color::White) => score -= 1,
-      ((BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT), Color::Black) => score -= 1,
+      (WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT, Color::White) => score -= 1,
+      (BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT, Color::Black) => score -= 1,
       (_, _) => {},
     }
   }

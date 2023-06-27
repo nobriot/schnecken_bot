@@ -199,6 +199,12 @@ impl Board {
       }
     }
 
+    if self.squares[chess_move.dest as usize] == WHITE_KING
+      || self.squares[chess_move.dest as usize] == BLACK_KING
+    {
+      warn!("Capturing a king seems wrong... ");
+    }
+
     // Check if this is some en-passant action: PAWN is moving diagonally while the destination square is empty:
     // En passant needs to remove the captured pawn.
     if (self.squares[chess_move.src as usize] == WHITE_PAWN

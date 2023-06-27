@@ -71,13 +71,12 @@ impl ChessLine {
 
     // Check if we computed the same position before
     if let Some(cached_moves) = get_engine_cache().get_move_list(fen_str) {
-      //debug!("Known position. Using the cache");
-      self.game_state.move_list = Move::string_to_vec(cached_moves.as_str());
+      //println!("Known position {fen}. Using the cache");
+      self.game_state.move_list = cached_moves;
       self.game_state.available_moves_computed = true;
     } else {
-      //debug!("New position. Computing manually");
-      self.game_state.get_moves();
-      get_engine_cache().set_move_list(fen_str, Move::vec_to_string(&self.game_state.move_list));
+      //println!("New position {fen}. Computing manually");
+      get_engine_cache().set_move_list(fen_str, self.game_state.get_moves());
     }
   }
 
@@ -806,5 +805,20 @@ mod tests {
     if "f5e4" != chess_lines[0].chess_move.to_string() {
       assert!(false, "Come on, the only good move is f5e4")
     }
+  }
+
+  #[test]
+  fn king_should_not_disappear() {
+    let fen = "8/2p3pk/3p2p1/4r2p/R7/P1N3PP/1B3P2/5K2 b - - 0 40";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(3, 0);
+    let chess_lines =
+      select_best_move(&mut game_state, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
+    // Eval should be quite bad:
+    assert!(
+      chess_lines[0].eval.unwrap_or(0.0) > 4.0,
+      "Eval should be clearly in favor of white"
+    );
   }
 }
