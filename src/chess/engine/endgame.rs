@@ -113,6 +113,23 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
   return true;
 }
 
+/// Checks if it is a King and pawns endgame
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
+  for i in 0..64 {
+    match game_state.board.squares[i] {
+      WHITE_ROOK | WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT | BLACK_BISHOP | BLACK_KNIGHT
+      | BLACK_QUEEN | BLACK_ROOK => return false,
+      _ => {},
+    }
+  }
+
+  return true;
+}
+
 /// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
 /// Note: This function assumes the board is in this configuration for its calculations
 ///

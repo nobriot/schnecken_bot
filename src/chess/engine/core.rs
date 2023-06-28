@@ -19,6 +19,7 @@ pub struct ChessLine {
   pub variations: Vec<ChessLine>,
   pub eval: Option<f32>,
   pub game_over: bool,
+  pub permutation: bool, // Stop evaluating or calculating stuff for permutations
 }
 
 impl ChessLine {
@@ -123,7 +124,7 @@ impl ChessLine {
       return;
     }
 
-    if self.variations.len() == 0 {
+    if self.variations.len() == 0 || self.permutation == true {
       // Check if we computed the same position before
       self.get_moves_with_cache();
       self.get_game_state_with_cache();
@@ -152,6 +153,11 @@ impl ChessLine {
       } else {
         self.eval = self.variations[0].eval;
       }
+      if self.eval.is_some() {
+        let fen = self.game_state.to_string();
+        let fen_str = fen.as_str();
+        get_engine_cache().set_eval(fen_str, self.eval.unwrap());
+      }
     }
   }
 
@@ -159,7 +165,11 @@ impl ChessLine {
   /// variations stopped.
   pub fn add_next_moves(&mut self, deadline: Instant) -> bool {
     //println!("add_next_moves");
-    if self.game_over == true || self.eval.is_none() || Instant::now() > deadline {
+    if self.game_over == true
+      || self.permutation == true
+      || self.eval.is_none()
+      || Instant::now() > deadline
+    {
       return false;
     }
 
@@ -172,12 +182,14 @@ impl ChessLine {
       for m in &self.game_state.move_list {
         let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
         new_game_state.apply_move(m, false);
+        let is_permutation = get_engine_cache().has_fen(new_game_state.to_string().as_str());
         let chess_line = ChessLine {
           game_state: new_game_state,
           chess_move: m.clone(),
           variations: Vec::new(),
           eval: None,
           game_over: false,
+          permutation: is_permutation,
         };
         self.variations.push(chess_line);
       }
@@ -397,13 +409,13 @@ pub fn select_best_move(
       variations: Vec::new(),
       eval: None,
       game_over: false,
+      permutation: false,
     };
     chess_lines.push(chess_line);
   }
 
   // Process all the moves, all ratings
   for i in 0..chess_lines.len() {
-    chess_lines[i].get_moves_with_cache();
     chess_lines[i].sort_moves();
     chess_lines[i].evaluate(deadline);
   }
@@ -697,6 +709,7 @@ mod tests {
       variations: Vec::new(),
       eval: None,
       game_over: false,
+      permutation: false,
     };
 
     let _ = chess_line.game_state.get_moves();
