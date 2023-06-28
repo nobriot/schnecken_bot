@@ -8,7 +8,7 @@ use crate::chess::model::piece::*;
 use super::eval_helpers::king::get_king_danger_score;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;
-const KING_DANGER_FACTOR: f32 = 1.0;
+const KING_DANGER_FACTOR: f32 = 2.0;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.

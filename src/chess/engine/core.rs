@@ -95,27 +95,31 @@ impl ChessLine {
   }
 
   fn get_eval_with_cache(&mut self) {
+    // Check if we reach a game over state first.
+    let (eval, game_over) = is_game_over(&self.game_state);
+    if game_over == true {
+      self.eval = Some(eval);
+      return;
+    }
+
     let fen = self.game_state.to_string();
     let fen_str = fen.as_str();
-
-    // TODO: Check if we just did a 3-fold repetition
     if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
       self.eval = Some(evaluation);
-      (_, self.game_over) = is_game_over(&self.game_state);
     } else {
       let (eval, game_over) = evaluate_position(&self.game_state);
       self.eval = Some(eval);
       self.game_over = game_over;
-      get_engine_cache().set_eval(fen_str, eval);
+      if game_over == false {
+        get_engine_cache().set_eval(fen_str, eval);
+      }
     }
   }
 
   // Evaluate all variations
   pub fn evaluate(&mut self, deadline: Instant) {
     //println!("Evaluate");
-    let current_time = Instant::now();
-    if current_time > deadline {}
-    if self.game_over == true {
+    if Instant::now() > deadline || self.game_over == true {
       return;
     }
 
@@ -127,22 +131,8 @@ impl ChessLine {
       return;
     }
 
-    let mut game_over = false;
-    let mut variation_index = 0;
     for i in 0..self.variations.len() {
       self.variations[i].evaluate(deadline);
-      if self.variations[i].game_over == true {
-        game_over = true;
-        variation_index = i;
-        break;
-      }
-    }
-
-    // Keep only 1 variation since it is game over (ideally it should be checkmates, not stalemates though)
-    if game_over == true {
-      let mut new_variations: Vec<ChessLine> = Vec::new();
-      new_variations.push(self.variations[variation_index].to_owned());
-      self.variations = new_variations;
     }
   }
 
@@ -165,53 +155,38 @@ impl ChessLine {
     }
   }
 
-  // Returns true if moves are added, false otherwise
-  pub fn add_next_moves(&mut self) -> bool {
+  /// Navigates at the end of the line and add more variations at the depth were
+  /// variations stopped.
+  pub fn add_next_moves(&mut self, deadline: Instant) -> bool {
     //println!("add_next_moves");
-    if self.game_over == true || self.eval.is_none() {
+    if self.game_over == true || self.eval.is_none() || Instant::now() > deadline {
       return false;
     }
 
     if self.game_state.move_list.len() == 0 {
       self.get_moves_with_cache();
-
       self.sort_moves();
     }
 
-    if self.eval.is_some() && self.variations.len() < self.game_state.move_list.len() {
+    if self.variations.len() == 0 {
       for m in &self.game_state.move_list {
-        let mut move_found = false;
-        for i in 0..self.variations.len() {
-          if self.variations[i].chess_move == *m {
-            move_found = true;
-            break;
-          }
-        }
-        if move_found == false {
-          let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
-          new_game_state.apply_move(m, false);
-          let chess_line = ChessLine {
-            game_state: new_game_state,
-            chess_move: m.clone(),
-            variations: Vec::new(),
-            eval: None,
-            game_over: false,
-          };
-          self.variations.push(chess_line);
-        }
+        let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
+        new_game_state.apply_move(m, false);
+        let chess_line = ChessLine {
+          game_state: new_game_state,
+          chess_move: m.clone(),
+          variations: Vec::new(),
+          eval: None,
+          game_over: false,
+        };
+        self.variations.push(chess_line);
       }
-      return true;
-    }
-
-    if self.eval.is_some() && self.variations.len() == self.game_state.move_list.len() {
+    } else {
       for i in 0..self.variations.len() {
-        if true == self.variations[i].add_next_moves() {
-          return true;
-        }
+        self.variations[i].add_next_moves(deadline);
       }
     }
-
-    return false;
+    return true;
   }
 
   /// Keeps only the top "number_of_lines" in the tree.
@@ -244,11 +219,9 @@ impl ChessLine {
       }
     }
 
-    // Always keep at least 5 lines and max 20
+    // Always keep at least 5 lines
     if snip_index < 5 {
       snip_index = 5;
-    } else if snip_index > 20 {
-      snip_index = 20;
     }
 
     if snip_index < self.variations.len() - 1 {
@@ -389,7 +362,7 @@ pub fn sort_chess_lines(side_to_move: Color, lines: &mut Vec<ChessLine>) {
 
 pub fn evaluate_next_nodes(chess_line: &mut ChessLine, deadline: Instant) {
   // Add the next layer of moves.
-  if false == chess_line.add_next_moves() {
+  if false == chess_line.add_next_moves(deadline) {
     return;
   }
 
@@ -507,11 +480,18 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
   if let Ok(chess_lines) = select_best_move(game_state, deadline) {
     display_lines(5, &chess_lines);
 
+    // In super time pressure, we may not get around to evaluate moves at depth 1:
+    if chess_lines[0].eval.is_none() {
+      // Just play the first move from the list
+      return Ok(chess_lines[0].chess_move.to_string());
+    }
+
     // Check how tight is the evaluation between the best lines
     let mut move_cutoff = 0;
     let best_eval = chess_lines[0].eval.unwrap();
     loop {
       if (move_cutoff + 1) < chess_lines.len()
+        && chess_lines[move_cutoff + 1].eval.is_some()
         && (best_eval - chess_lines[move_cutoff + 1].eval.unwrap()).abs() < 0.2
       {
         move_cutoff += 1;
@@ -661,6 +641,7 @@ mod tests {
     let deadline = Instant::now() + Duration::new(0, 10000000);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
+    display_lines(0, &chess_lines);
     assert_eq!("e1g1", chess_lines[0].chess_move.to_string());
     assert_eq!(chess_lines[0].eval.unwrap(), 200.0);
   }
@@ -819,6 +800,20 @@ mod tests {
     assert!(
       chess_lines[0].eval.unwrap_or(0.0) > 4.0,
       "Eval should be clearly in favor of white"
+    );
+  }
+
+  #[test]
+  fn test_eval_stalemate_lines() {
+    let fen = "8/2k5/6K1/2p1b3/6q1/8/8/8 w - - 4 71";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(15, 0);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(0, &chess_lines);
+    display_lines(0, &chess_lines[0].variations);
+    assert!(
+      chess_lines[0].eval.unwrap_or(0.0) < -100.0,
+      "We are in a checkmate in 2 situation."
     );
   }
 }

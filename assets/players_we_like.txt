@@ -1,9 +1,10 @@
 sargon-1ply
+sargon-2ply
+HardRok
 CHoMPBoT
 ZE_ROOK
-sargon-2ply
-sargon-4ply
 maia1
+sargon-4ply
 ELO_1500
 simplexitor
 SchnellSchnecke
