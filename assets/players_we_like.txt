@@ -1,8 +1,8 @@
+HardRok
+ZE_ROOK
 sargon-1ply
 sargon-2ply
-HardRok
 CHoMPBoT
-ZE_ROOK
 maia1
 sargon-4ply
 ELO_1500

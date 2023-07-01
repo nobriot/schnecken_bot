@@ -246,10 +246,9 @@ where
       }
       // Sending 1 byte is usually just the keep-alive message
       if chunk.len() == 1 {
-        info!("Received keep-alive message for event stream");
+        debug!("Received keep-alive message for event stream");
       }
 
-      //futures::future::ready(())
       ()
     })
     .await;
@@ -293,7 +292,7 @@ where
       }
       // Sending 1 byte is usually just the keep-alive message
       if chunk.len() == 1 {
-        info!("Received keep-alive message for Game State stream");
+        debug!("Received keep-alive message for Game State stream");
       }
 
       //futures::future::ready(())
