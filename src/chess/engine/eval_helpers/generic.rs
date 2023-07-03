@@ -71,9 +71,7 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 ///
 /// true if the file is open. false otherwise
 pub fn is_file_open(game_state: &GameState, file: usize) -> bool {
-  if file < 1 || file > 8 {
-    return false;
-  }
+  fr_bounds_or_return!(file, false);
 
   for rank in 1..9 {
     let i = Board::fr_to_index(file, rank);
@@ -101,9 +99,7 @@ pub fn is_file_open(game_state: &GameState, file: usize) -> bool {
 ///
 /// true if the file is half-open. false otherwise
 pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
-  if file < 1 || file > 8 {
-    return false;
-  }
+  fr_bounds_or_return!(file, false);
 
   let mut black_pawn = false;
   let mut white_pawn = false;

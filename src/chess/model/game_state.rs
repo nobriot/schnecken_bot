@@ -588,6 +588,9 @@ impl GameState {
     if self.game_phase.is_some() && self.game_phase.unwrap() != GamePhase::Endgame {
       self.game_phase = None;
     }
+    self.available_moves_computed = false;
+    self.move_list.clear();
+    self.checks = 0;
 
     // Save the last position:
     if self.last_positions.len() >= LAST_POSITIONS_SIZE {
@@ -916,5 +919,26 @@ mod tests {
     let fen = "4r1k1/4b1p1/p3p2p/2pR4/2p5/4B1PP/PP3P2/2K5 w - - 0 27";
     let mut game_state = GameState::from_string(fen);
     assert_eq!(Some(GamePhase::Endgame), game_state.game_phase);
+  }
+
+  #[test]
+  fn test_copying() {
+    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
+    let mut game_state = GameState::from_string(fen);
+    let last_position = String::from("rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1N w");
+    game_state.last_positions.push_front(last_position);
+
+    let mut game_state_copy = game_state.clone();
+    game_state.get_moves();
+
+    assert_eq!(true, game_state.available_moves_computed);
+    assert_eq!(false, game_state_copy.available_moves_computed);
+    assert!(0 != game_state.move_list.len());
+    assert!(0 == game_state_copy.move_list.len());
+
+    assert!(1 == game_state_copy.last_positions.len());
+    game_state_copy.last_positions.pop_front();
+    assert!(1 == game_state.last_positions.len());
+    assert!(0 == game_state_copy.last_positions.len());
   }
 }

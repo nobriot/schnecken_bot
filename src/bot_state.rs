@@ -26,6 +26,10 @@ pub struct BotGame {
   pub rated: bool,
 }
 
+/// TODO: Finish this
+/// The intent is that there is a high level state aware-ness of the bot activity
+/// on lichess. Right now it just connects and responds to event streams.
+
 impl BotState {
   pub fn add_game(&mut self, game: &BotGame) {
     for existing_game in &self.games {

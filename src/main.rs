@@ -258,7 +258,6 @@ async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
     increment_ms = 60_000.0
   }
   let mut game_state = chess::model::game_state::GameState::default();
-  //chess::model::game_state::GameState::from_string(lichess::api::get_game_fen(game_id).await.as_str(),);
   game_state.apply_move_list(moves);
 
   let suggested_time_ms;

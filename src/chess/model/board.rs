@@ -8,6 +8,20 @@ use log::*;
 pub const INVALID_SQUARE: u8 = 255;
 
 // -----------------------------------------------------------------------------
+//  Macros
+
+/// Checks if a file/rank value is within bounds, else returns the rvalue.
+macro_rules! fr_bounds_or_return {
+  ($file:expr, $rvalue:expr) => {
+    if $file < 1 || $file > 8 {
+      return $rvalue;
+    }
+  };
+}
+// Make this macro public
+pub(crate) use fr_bounds_or_return;
+
+// -----------------------------------------------------------------------------
 //  Structs/Enums
 
 #[derive(Debug, Clone, Copy)]

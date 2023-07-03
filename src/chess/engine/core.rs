@@ -17,6 +17,7 @@ pub struct ChessLine {
   pub game_state: GameState,
   pub chess_move: Move,
   pub variations: Vec<ChessLine>,
+  //pub move_hints: Vec<Move>,
   pub eval: Option<f32>,
   pub game_over: bool,
   pub permutation: bool, // Stop evaluating or calculating stuff for permutations
@@ -95,6 +96,8 @@ impl ChessLine {
     }
   }
 
+  /// Assigns an evaluation to a position, using the engine cache.
+  ///
   fn get_eval_with_cache(&mut self) {
     // Check if we reach a game over state first.
     let (eval, game_over) = is_game_over(&self.game_state);
@@ -104,28 +107,40 @@ impl ChessLine {
       return;
     }
 
-    let fen = self.game_state.to_string();
-    let fen_str = fen.as_str();
-    if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
-      self.eval = Some(evaluation);
-    } else {
-      let (eval, game_over) = evaluate_position(&self.game_state);
-      self.eval = Some(eval);
-      self.game_over = game_over;
-      if game_over == false {
-        get_engine_cache().set_eval(fen_str, eval);
+    // Never evaluated before
+    if self.eval.is_none() {
+      let fen = self.game_state.to_string();
+      let fen_str = fen.as_str();
+      if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
+        self.eval = Some(evaluation);
+        self.permutation = true;
+      } else {
+        let (eval, game_over) = evaluate_position(&self.game_state);
+        self.eval = Some(eval);
+        self.game_over = game_over;
+        if game_over == false {
+          get_engine_cache().set_eval(fen_str, eval);
+        }
       }
     }
   }
 
-  // Evaluate all variations
-  pub fn evaluate(&mut self, deadline: Instant) {
+  /// Evaluate all variations in the ChessLine
+  ///
+  /// ### Arguments
+  ///
+  /// * `evaluate_all`:
+  ///   If true, evaluate all moves.
+  ///   If false, evaluates only "active" moves (checks, captures, promotions)
+  /// * `deadline`: Timestamp at which, we have to return and stop evaluating
+  ///
+  pub fn evaluate(&mut self, evaluate_all: bool, deadline: Instant) {
     //println!("Evaluate");
     if Instant::now() > deadline || self.game_over == true {
       return;
     }
 
-    if self.variations.len() == 0 || self.permutation == true {
+    if self.eval.is_none() || (self.variations.len() == 0 && self.permutation == false) {
       // Check if we computed the same position before
       self.get_moves_with_cache();
       self.get_game_state_with_cache();
@@ -134,7 +149,14 @@ impl ChessLine {
     }
 
     for i in 0..self.variations.len() {
-      self.variations[i].evaluate(deadline);
+      if evaluate_all == true {
+        self.variations[i].evaluate(evaluate_all, deadline);
+      } else {
+        // Check if the variation is "active", else skip for now
+        if self.game_state.board.squares[self.variations[i].chess_move.dest as usize] != NO_PIECE {
+          self.variations[i].evaluate(evaluate_all, deadline);
+        }
+      }
     }
   }
 
@@ -215,16 +237,15 @@ impl ChessLine {
     let mut moves_added = false;
     if self.variations.len() == 0 {
       for m in &self.game_state.move_list {
-        let mut new_game_state = GameState::from_string(self.game_state.to_string().as_str());
+        let mut new_game_state = self.game_state.clone();
         new_game_state.apply_move(m, false);
-        let is_permutation = get_engine_cache().has_fen(new_game_state.to_string().as_str());
         let chess_line = ChessLine {
           game_state: new_game_state,
           chess_move: m.clone(),
           variations: Vec::new(),
           eval: None,
           game_over: false,
-          permutation: is_permutation,
+          permutation: false,
         };
         self.variations.push(chess_line);
         moves_added = true;
@@ -240,43 +261,40 @@ impl ChessLine {
   /// Keeps only the top "number_of_lines" in the tree.
   /// You should call this on a sorted set of lines
   pub fn prune_lines(&mut self) {
-    if self.variations.len() < 5 || self.variations.len() < self.game_state.get_moves().len() {
-      return;
-    }
-
+    // Go in depth first
     for i in 0..self.variations.len() {
       self.variations[i].prune_lines();
       break;
     }
 
-    // We want all the variations evaluated for that depth before we prune
+    if self.variations.len() == 0 || self.variations[0].eval.is_none() {
+      return;
+    }
+
+    // Do not remove what is not evaluated yet
+    let mut stop_prune_index = self.variations.len();
     for i in 0..self.variations.len() {
-      if let None = self.variations[i].eval {
-        return;
+      if self.variations[i].eval.is_none() {
+        stop_prune_index = i;
+        break;
       }
     }
 
     // Now we can compare evaluations.
     let best_evaluation = self.variations[0].eval.unwrap();
-
-    let mut snip_index = self.variations.len();
-    for i in 1..self.variations.len() {
+    let mut start_prune_index = self.variations.len();
+    for i in 1..stop_prune_index {
       if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 6.0 {
-        snip_index = i;
+        start_prune_index = i;
         break;
       }
     }
-
-    // Always keep at least 5 lines
-    if snip_index < 5 {
-      snip_index = 5;
+    if start_prune_index == self.variations.len() {
+      return;
     }
 
-    if snip_index < self.variations.len() - 1 {
-      //println!("Keeping only {snip_index} lines from");
-      //display_lines(0, &self.variations);
-      self.variations.truncate(snip_index)
-    }
+    // Remove from start to stop:
+    self.variations.drain(start_prune_index..stop_prune_index);
   }
 }
 
@@ -340,13 +358,15 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
   }
 }
 
-// Returns which moves seems most interesting, based the game state.
-// 1. Double checks
-// 2. Queen promotions
-// 3. Captures (ordered by captured material)
-// 4. Checks
-// 5. Tempos
-// All the rest ?
+/// Returns which moves seems most interesting, based the game state.
+///
+/// It will sort using the following ordering:
+/// 1. Double checks
+/// 2. Queen promotions
+/// 3. Captures (ordered by captured material)
+/// 4. Checks
+/// 5. Tempos
+/// All the rest ?
 pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
   let game_state = GameState::from_string(fen.as_str());
   let mut game_state_a = GameState::from_string(fen.as_str());
@@ -358,15 +378,17 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
     (2, 2) => {
       // Continue the comparison to tie-break.
     },
-    (2, _) => return Ordering::Less,
-    (_, 2) => return Ordering::Greater,
+    (2, _) => return Ordering::Greater,
+    (_, 2) => return Ordering::Less,
+    (1, _) => return Ordering::Greater,
+    (_, 1) => return Ordering::Less,
     (_, _) => {},
   }
 
   match (a.promotion, b.promotion) {
     (BLACK_QUEEN | WHITE_QUEEN, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Equal,
-    (BLACK_QUEEN | WHITE_QUEEN, _) => return Ordering::Less,
-    (_, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Greater,
+    (BLACK_QUEEN | WHITE_QUEEN, _) => return Ordering::Greater,
+    (_, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Less,
     (_, _) => {},
   }
 
@@ -376,25 +398,18 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
     Piece::material_value_from_u8(game_state.board.squares[b.dest as usize]).abs();
 
   if a_captured_value > b_captured_value {
-    return Ordering::Less;
-  } else if a_captured_value < b_captured_value {
     return Ordering::Greater;
+  } else if a_captured_value < b_captured_value {
+    return Ordering::Less;
   }
 
   // We like castling in general:
   let a_castle = game_state.board.is_castle(a);
   let b_castle = game_state.board.is_castle(b);
   match (a_castle, b_castle) {
-    (true, true) => {},
-    (true, false) => return Ordering::Less,
-    (false, true) => return Ordering::Greater,
-    (_, _) => {},
-  }
-
-  match (game_state_a.checks, game_state_b.checks) {
-    (1, 1) => {},
-    (1, _) => return Ordering::Less,
-    (_, 1) => return Ordering::Greater,
+    (true, true) => return Ordering::Equal,
+    (true, false) => return Ordering::Greater,
+    (false, true) => return Ordering::Less,
     (_, _) => {},
   }
 
@@ -406,16 +421,6 @@ pub fn sort_chess_lines(side_to_move: Color, lines: &mut Vec<ChessLine>) {
   //println!("sort_chess_lines {}", side_to_move);
   lines.sort_by(|a, b| best_evaluation(a, b, side_to_move));
   //println!("end of sort_chess_lines {}", side_to_move);
-}
-
-pub fn evaluate_next_nodes(chess_line: &mut ChessLine, deadline: Instant) {
-  // Add the next layer of moves.
-  if false == chess_line.add_next_moves(deadline) {
-    return;
-  }
-
-  // Process all the moves:
-  chess_line.evaluate(deadline);
 }
 
 // For now we just apply the entire line and evaluate the end result
@@ -433,7 +438,7 @@ pub fn select_best_move(
 
   // Add all the moves to the chess lines:
   for m in &game_state.move_list {
-    let mut new_game_state = GameState::from_string(game_state.to_string().as_str());
+    let mut new_game_state = game_state.clone();
     new_game_state.apply_move(m, false);
     let chess_line = ChessLine {
       game_state: new_game_state,
@@ -449,7 +454,7 @@ pub fn select_best_move(
   // Process all the moves, all ratings
   for i in 0..chess_lines.len() {
     chess_lines[i].sort_moves();
-    chess_lines[i].evaluate(deadline);
+    chess_lines[i].evaluate(true, deadline);
   }
 
   if chess_lines.len() <= 1 {
@@ -463,9 +468,10 @@ pub fn select_best_move(
   // Now loop the process:
   //display_lines(0, &chess_lines);
   let mut search_complete = false;
+  let mut evaluate_all = false;
   loop {
     // Check if we have been thinking too much:
-    if Instant::now() > deadline {
+    if Instant::now() > deadline || search_complete == true {
       if chess_lines.len() == 0 {
         return Err(());
       } else {
@@ -474,19 +480,23 @@ pub fn select_best_move(
       }
     }
 
-    // Go one level deeper in the tree. Spawn one thread per line.
-    let mut handles = Vec::new();
-    while chess_lines.len() > 0 {
-      let mut line = chess_lines.pop().unwrap();
-      let deadline_copy = deadline;
-      handles.push(thread::spawn(move || {
-        evaluate_next_nodes(&mut line, deadline_copy);
-        line
-      }));
+    // Add depth to the tree. If we are stuck, switch into evaluate all.
+    let mut moves_added = false;
+    for i in 0..chess_lines.len() {
+      moves_added |= chess_lines[i].add_next_moves(deadline);
+    }
+    if moves_added == false && evaluate_all == false {
+      evaluate_all = true;
+      continue;
+    } else if moves_added == false && evaluate_all == true {
+      // println!("We are stuck! ");
+      // This condition should happen only 1 time in a row.
     }
 
-    // Wait that all the threads are done:
-    chess_lines = handles.into_iter().map(|t| t.join().unwrap()).collect();
+    // Evaluate lines
+    for i in 0..chess_lines.len() {
+      chess_lines[i].evaluate(evaluate_all, deadline);
+    }
 
     // Go around once more to find permutations and update them too
     for i in 0..chess_lines.len() {
@@ -503,6 +513,9 @@ pub fn select_best_move(
     for i in 0..chess_lines.len() {
       chess_lines[i].prune_lines();
     }
+
+    // By default try looping with evaluate_all = false
+    evaluate_all = false;
   } // loop
 }
 
@@ -646,7 +659,13 @@ mod tests {
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(10, &chess_lines);
-    display_lines(5, &chess_lines[0].variations);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations[0].variations);
+    println!("{:?}", &chess_lines[0]);
+    println!("----------------------------------");
+    for m in &chess_lines[0].variations[0].game_state.move_list {
+      println!("Move: {m}");
+    }
 
     let expected_move = Move::from_string("c1b2");
     assert_eq!(chess_lines[0].eval.unwrap(), 196.0);
@@ -863,9 +882,8 @@ mod tests {
     display_lines(0, &chess_lines);
     display_lines(0, &chess_lines[0].variations);
     println!("----------------------------------");
-    display_lines(0, &chess_lines[0].variations[14].variations[0].variations);
-    println!("----------------------------------");
     //display_lines(0, &chess_lines[0].variations[14].variations);
+    /*
     println!("----------------------------------");
     println!(
       "Game Over: {}, moves computed: {}, number of moves: {}",
@@ -886,15 +904,8 @@ mod tests {
       "is permutation before : {}",
       &chess_lines[0].variations[14].variations[0].permutation
     );
-    /*
     display_lines(0, &chess_lines[0].variations[23].variations);
     */
-
-    // trying to sort now:
-    for i in 0..chess_lines.len() {
-      chess_lines[i].back_propagate_evaluations();
-    }
-    display_lines(0, &chess_lines);
 
     assert!(
       chess_lines[0].eval.unwrap_or(0.0) < -100.0,
