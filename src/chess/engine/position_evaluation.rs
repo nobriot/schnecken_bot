@@ -1,6 +1,7 @@
 use log::*;
 
 // From our module
+use super::eval_helpers::rook::*;
 use crate::chess::engine::endgame::*;
 use crate::chess::engine::eval_helpers::generic::*;
 use crate::chess::engine::eval_helpers::pawn::*;
@@ -18,6 +19,8 @@ const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
 const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
+const CONNECTED_ROOKS_FACTOR: f32 = 0.02;
+const ROOK_FILE_FACTOR: f32 = 0.03;
 const MATERIAL_COUNT_FACTOR: f32 = 50.0;
 
 // Shows "interesting" squares to control on the board
@@ -167,6 +170,18 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (mask_sum(get_backwards_pawns(&game_state, Color::Black)) as f32
       - mask_sum(get_backwards_pawns(&game_state, Color::White)) as f32);
 
+  // Evaluate the quality of our rooks:
+  if are_rooks_connected(game_state, Color::White) {
+    score += CONNECTED_ROOKS_FACTOR;
+  }
+  if are_rooks_connected(game_state, Color::Black) {
+    score -= CONNECTED_ROOKS_FACTOR;
+  }
+
+  score += ROOK_FILE_FACTOR
+    * (get_rooks_file_score(&game_state, Color::Black)
+      - get_rooks_file_score(&game_state, Color::White));
+
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
     score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
       * (get_distance_left_for_closest_pawn_to_promotion(game_state, Color::Black) as f32
@@ -277,7 +292,7 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
     return (0.0, true);
   }
 
-  // 2 kings, or 1 king + knight or/bishop vs king is game over:
+  // Check the 3-fold repetitions
   if is_game_over_by_repetition(game_state) == true {
     debug!("3-fold repetition detected");
     return (0.0, true);
