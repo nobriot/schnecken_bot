@@ -430,6 +430,9 @@ pub fn select_best_move(
   game_state: &mut GameState,
   deadline: Instant,
 ) -> Result<Vec<ChessLine>, ()> {
+  // Reset the engine cache:
+  get_engine_cache().clear();
+
   let mut chess_lines: Vec<ChessLine> = Vec::new();
 
   // Get the list of moves to assess:
@@ -518,6 +521,15 @@ pub fn select_best_move(
     // Prune branches with low evaluations
     for i in 0..chess_lines.len() {
       chess_lines[i].prune_lines();
+    }
+
+    // Check if we found a winning sequence:
+    let mut current_line = &chess_lines[0];
+    while current_line.variations.len() != 0 {
+      current_line = &current_line.variations[0];
+    }
+    if current_line.game_over == true {
+      search_complete = true;
     }
 
     // By default try looping with evaluate_all = false
@@ -862,7 +874,7 @@ mod tests {
   fn test_dont_hang_pieces_2() {
     /*
       https://lichess.org/zcQesp7F#69
-      Here we blunded a rook playing e2f2
+      Here we blundered a rook playing e2f2
       2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35
       Using 1355 ms to find a move
       Line 0 Eval: -9.860003 - e2f2 g3f2 c8b8 f2g1 c4c3 g1g2 c3c2 g2g1 c2c1Q
@@ -968,5 +980,52 @@ mod tests {
       chess_lines[0].eval.unwrap_or(0.0) < -100.0,
       "We are in a checkmate in 2 situation."
     );
+  }
+
+  #[test]
+  fn test_avoid_threefold_repetitions() {
+    /* Looks like we had a permutation bug that lead us into some 3-fold repetitions
+     [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms to find a move
+       Line 0 Eval: 10.71348 - d1e2 / Permutation
+       Line 1 Eval: 6.581044 - h2h3 / Permutation
+       Line 2 Eval: 6.461045 - g3g2 / Permutation
+       Line 3 Eval: 6.431045 - a1b1 / Permutation
+       Line 4 Eval: 6.391044 - g3g1 / Permutation
+    */
+    let fen = "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(1, 211_000_000);
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
+    ));
+    game_state.last_positions.push_back(String::from(
+      "r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
+    ));
+
+    let mut chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("-----------------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    if "d1e2" == chess_lines[0].chess_move.to_string() {
+      assert!(false, "Come on, do not repeat when winning!")
+    }
   }
 }
