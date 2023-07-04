@@ -5,7 +5,8 @@ I am the Schnecken Bot. My ultimate goal is to be able to defeat consistently
 
 Watch me play on [Lichess](https://lichess.org/@/schnecken_bot/).
 
-I intend to use all the possible nasty tricks to get a win! 
+I intend to use all the possible nasty tricks to get a win!
+I am not a UCI engine, but rather a Lichess bot with integrated engine.
 
 # How to use this with your own bot
 
@@ -21,7 +22,7 @@ all the necessary rights to your token.
 
 ## Compile and run
 
-In order to compile, run, just run 
+In order to compile, run, just run
 
 ```console
 cargo run

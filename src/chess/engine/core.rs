@@ -62,7 +62,7 @@ impl ChessLine {
     self
       .game_state
       .move_list
-      .sort_by(|a, b| best_move_potential(&fen, a, b));
+      .sort_by(|a, b| best_move_potential(&fen, &a, &b));
   }
 
   // Checks the engine cache if we know the move list, else derives the
@@ -375,20 +375,16 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
   game_state_b.apply_move(b, false);
 
   match (game_state_a.checks, game_state_b.checks) {
-    (2, 2) => {
-      // Continue the comparison to tie-break.
-    },
-    (2, _) => return Ordering::Greater,
-    (_, 2) => return Ordering::Less,
-    (1, _) => return Ordering::Greater,
-    (_, 1) => return Ordering::Less,
+    (2, 2) => {},
+    (2, _) => return Ordering::Less,
+    (_, 2) => return Ordering::Greater,
     (_, _) => {},
   }
 
   match (a.promotion, b.promotion) {
-    (BLACK_QUEEN | WHITE_QUEEN, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Equal,
-    (BLACK_QUEEN | WHITE_QUEEN, _) => return Ordering::Greater,
-    (_, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Less,
+    (BLACK_QUEEN | WHITE_QUEEN, BLACK_QUEEN | WHITE_QUEEN) => {},
+    (BLACK_QUEEN | WHITE_QUEEN, _) => return Ordering::Less,
+    (_, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Greater,
     (_, _) => {},
   }
 
@@ -398,18 +394,24 @@ pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
     Piece::material_value_from_u8(game_state.board.squares[b.dest as usize]).abs();
 
   if a_captured_value > b_captured_value {
-    return Ordering::Greater;
-  } else if a_captured_value < b_captured_value {
     return Ordering::Less;
+  } else if a_captured_value < b_captured_value {
+    return Ordering::Greater;
+  }
+
+  // Single checks
+  match (game_state_a.checks, game_state_b.checks) {
+    (1, _) => return Ordering::Less,
+    (_, 1) => return Ordering::Greater,
+    (_, _) => {},
   }
 
   // We like castling in general:
   let a_castle = game_state.board.is_castle(a);
   let b_castle = game_state.board.is_castle(b);
   match (a_castle, b_castle) {
-    (true, true) => return Ordering::Equal,
-    (true, false) => return Ordering::Greater,
-    (false, true) => return Ordering::Less,
+    (true, false) => return Ordering::Less,
+    (false, true) => return Ordering::Greater,
     (_, _) => {},
   }
 
@@ -435,6 +437,10 @@ pub fn select_best_move(
   if game_state.move_list.len() == 0 {
     return Err(());
   }
+  let fen = game_state.to_string();
+  game_state
+    .move_list
+    .sort_by(|a, b| best_move_potential(&fen, &a, &b));
 
   // Add all the moves to the chess lines:
   for m in &game_state.move_list {
@@ -623,6 +629,57 @@ mod tests {
   use crate::chess::model::game_state::GamePhase;
 
   #[test]
+  fn test_sorting_moves() {
+    // This is a forced checkmate in 1:
+    let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
+    let mut game_state = GameState::from_string(fen);
+    game_state.get_moves();
+    assert!(true == game_state.available_moves_computed);
+
+    let move_nothing = Move::from_string("e1d1");
+    let move_nothing_2 = Move::from_string("h2h3");
+    let move_castle_check = Move::from_string("e1g1");
+    let move_capture = Move::from_string("d4b3");
+    let move_check = Move::from_string("e2c3");
+    assert_eq!(
+      Ordering::Greater,
+      best_move_potential(&String::from(fen), &move_nothing, &move_castle_check)
+    );
+    assert_eq!(
+      Ordering::Less,
+      best_move_potential(&String::from(fen), &move_castle_check, &move_nothing)
+    );
+    assert_eq!(
+      Ordering::Less,
+      best_move_potential(&String::from(fen), &move_castle_check, &move_check)
+    );
+    assert_eq!(
+      Ordering::Less,
+      best_move_potential(&String::from(fen), &move_castle_check, &move_check)
+    );
+    assert_eq!(
+      Ordering::Less,
+      best_move_potential(&String::from(fen), &move_capture, &move_check)
+    );
+    assert_eq!(
+      Ordering::Less,
+      best_move_potential(&String::from(fen), &move_capture, &move_castle_check)
+    );
+    assert_eq!(
+      Ordering::Equal,
+      best_move_potential(&String::from(fen), &move_nothing, &move_nothing_2)
+    );
+
+    game_state
+      .move_list
+      .sort_by(|a, b| best_move_potential(&String::from(fen), &a, &b));
+
+    assert_eq!("c2b3", game_state.move_list[0].to_string());
+    assert_eq!("d4b3", game_state.move_list[1].to_string());
+    assert_eq!("e1g1", game_state.move_list[2].to_string());
+  }
+
+  #[test]
   fn test_select_best_move_checkmate_in_one() {
     // This is a forced checkmate in 1:
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
@@ -707,7 +764,7 @@ mod tests {
   fn evaluate_checkmate_with_castle() {
     let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
     let mut game_state = GameState::from_string(fen);
-    let deadline = Instant::now() + Duration::new(0, 10000000);
+    let deadline = Instant::now() + Duration::new(0, 10_000_000);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
