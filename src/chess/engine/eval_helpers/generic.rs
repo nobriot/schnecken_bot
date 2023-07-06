@@ -123,6 +123,7 @@ pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
   }
 }
 
+
 // -----------------------------------------------------------------------------
 //  Tests
 

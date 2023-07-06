@@ -1,17 +1,14 @@
-// https://lichess.org/api
+// External crates
 use log::*;
-use serde_json::Value as JsonValue;
+use std::fs;
 
 // Local modules
-mod bot_state;
+mod bot;
 mod chess;
 mod lichess;
-mod user_commands;
 
-use crate::lichess::api::challenges::*;
-
-const USER_NAME: &str = "schnecken_bot";
-const DEV_USER_NAME: &str = "SchnellSchnecke";
+// Constants:
+const USERNAME_FILENAME: &str = "/assets/username.txt";
 
 // Main function
 fn main() {
@@ -25,30 +22,32 @@ fn main() {
 }
 
 async fn main_loop() -> Result<(), ()> {
-  info!("Starting the Lichess bot... ");
-  info!("Watch it at: https://lichess.org/@/{USER_NAME}");
-
-  // Check that the Token is okay:
+  // Check that the Lichess Token is okay:
   if lichess::api::get_api().token.len() == 0 {
     error!("Error reading the API token. Make sure that you have added a token file.");
     return Err(());
   }
   info!("Lichess API token loaded successfully");
 
-  // Check for our favorite player
-  display_player_propaganda(DEV_USER_NAME).await;
+  // Read our username from the text file, default on schnecken_bot if text file is not readable.
+  // TODO: We should ask Lichess with account info for retrieving our username
+  let username = fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + USERNAME_FILENAME)
+    .unwrap_or(String::from("schnecken_bot"));
 
-  // Start checking what's our bot state
-  let _ = display_account_info().await;
+  // Starts the bot, it will stream incoming events
+  info!("Starting the Lichess bot... ");
+  info!("Watch it at: https://lichess.org/@/{username}");
+  let schnecken_bot = bot::state::BotState::new(username.as_str());
+  schnecken_bot.start();
 
   // Start 2 tasks: one that checks stream events, one that send challenges when we have been idle for a while
-  tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
-  tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
+  //tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
+  //tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
 
   loop {
     // Read command line inputs for ever, until we have to exit
     let mut exit_requested: bool = false;
-    if let Err(_) = user_commands::read_user_commands(&mut exit_requested) {
+    if let Err(_) = bot::commands::read_user_commands(&mut exit_requested) {
       error!("Error reading user input");
     }
     if true == exit_requested {
@@ -58,224 +57,5 @@ async fn main_loop() -> Result<(), ()> {
   }
 
   // End the main loop.
-  Ok(())
-}
-
-async fn stream_event_handler(json_value: JsonValue) -> Result<(), ()> {
-  if json_value["type"].as_str().is_none() {
-    error!("No type for incoming stream event.");
-    return Err(());
-  }
-
-  match json_value["type"].as_str().unwrap() {
-    "gameStart" => {
-      info!("New game Started!");
-      tokio::spawn(async move { on_new_game_started(json_value["game"].clone()).await });
-      return Ok(());
-    },
-    "gameFinish" => {
-      info!("Game finished! ");
-    },
-    "challenge" => {
-      info!("Incoming challenge!");
-      tokio::spawn(async move { on_incoming_challenge(json_value["challenge"].clone()).await });
-    },
-    "challengeCanceled" => {
-      info!("Challenge cancelled ");
-    },
-    "challengeDeclined" => {
-      info!("Challenge declined");
-    },
-    other => {
-      // Ignore other events
-      warn!("Received unknown streaming event: {}", other);
-    },
-  }
-  Ok(())
-}
-
-async fn stream_game_state_handler(json_value: JsonValue, game_id: String) -> Result<(), ()> {
-  info!("Incoming stream event for Game ID {game_id}");
-  if json_value["type"].as_str().is_none() {
-    error!("No type for incoming stream event.");
-    return Err(());
-  }
-
-  match json_value["type"].as_str().unwrap() {
-    "gameFull" => {
-      info!("Full game state!");
-      tokio::spawn(
-        async move { play_on_game(&game_id.clone(), json_value["state"].clone()).await },
-      );
-    },
-    "gameState" => {
-      info!("Game state update received.");
-      tokio::spawn(async move { play_on_game(&game_id.clone(), json_value.clone()).await });
-    },
-    "chatLine" => {
-      info!("Incoming Message!");
-    },
-    "opponentGone" => {
-      info!("Opponent gone! We'll just claim victory now, you chicken!");
-    },
-    other => {
-      // Ignore other events
-      warn!("Received unknown streaming game state: {}", other);
-    },
-  }
-  //debug!("JSON: {}", json_value);
-
-  Ok(())
-}
-
-async fn on_new_game_started(json_value: JsonValue) {
-  if json_value["gameId"].as_str().is_none() {
-    return;
-  }
-
-  // Let's stream the game!
-  tokio::spawn(async move {
-    lichess::api::stream_game_state(
-      json_value["gameId"].as_str().unwrap(),
-      &stream_game_state_handler,
-    )
-    .await
-  });
-}
-
-async fn on_incoming_challenge(json_value: JsonValue) {
-  // Check if it is a challenge generated by us.
-  let challenger_id = json_value["challenger"]["id"]
-    .as_str()
-    .unwrap_or("schnecken_bot");
-  if challenger_id == "schnecken_bot" {
-    return;
-  }
-
-  debug!("Incoming challenge JSON: {}", json_value);
-  let challenger = json_value["challenger"]["name"]
-    .as_str()
-    .unwrap_or("Unknown challenger");
-  let challenger_rating = json_value["challenger"]["rating"]
-    .as_str()
-    .unwrap_or("unknown rating");
-  let variant = json_value["variant"]["key"]
-    .as_str()
-    .unwrap_or("Unknown variant");
-  let challenge_id = json_value["id"].as_str().unwrap_or("UnknownID").to_owned();
-  let time_control_type = json_value["timeControl"]["type"]
-    .as_str()
-    .unwrap_or("unknown")
-    .to_owned();
-
-  info!("{challenger} would like to play with us! Challenge {challenge_id}");
-  info!("{} is rated {} ", challenger, challenger_rating);
-
-  if variant != "standard" {
-    info!("Ignoring challenge for variant {variant}. We play only standard for now.");
-    tokio::spawn(
-      async move { decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT).await },
-    );
-    return;
-  } else if time_control_type != "clock" {
-    info!("Ignoring non-real-time challenge.");
-    tokio::spawn(async move {
-      decline_challenge(&challenge_id, lichess::types::DECLINE_TIME_CONTROL).await
-    });
-    return;
-  }
-
-  // Do not take several games at a time for now:
-  if already_playing().await == true {
-    info!("Ignoring challenge as we are already playing");
-    tokio::spawn(
-      async move { decline_challenge(&challenge_id, lichess::types::DECLINE_LATER).await },
-    );
-    return;
-  }
-
-  // Else we just accept.
-  tokio::spawn(async move { accept_challenge(&challenge_id).await });
-}
-
-async fn display_player_propaganda(username: &str) -> () {
-  if lichess::api::is_online(username).await == true {
-    info!(
-      "{username} is online. You should check him out playing at https://lichess.org/@/{username}"
-    );
-  } else {
-    info!("{username} is not online =(. Oh crappy day!");
-  }
-}
-
-async fn display_account_info() -> Result<(), ()> {
-  info!("Checking Account information...");
-  let _account_json: JsonValue;
-  if let Ok(json) = lichess::api::lichess_get("account").await {
-    _account_json = json;
-  } else {
-    return Err(());
-  }
-
-  Ok(())
-}
-
-async fn already_playing() -> bool {
-  let json_response: JsonValue;
-  if let Ok(json) = lichess::api::lichess_get("account/playing").await {
-    json_response = json;
-  } else {
-    warn!("Error checking if we are already playing");
-    return false;
-  }
-
-  if json_response["nowPlaying"].as_array().is_none() {
-    warn!("Cannot find the 'nowPlaying' array in ongoing games");
-    return false;
-  }
-
-  let json_game_array = json_response["nowPlaying"].as_array().unwrap();
-
-  return json_game_array.len() > 0;
-}
-
-async fn play_on_game(game_id: &str, game_state: JsonValue) -> Result<(), ()> {
-  // Double check that the game is still alive and it's our turn
-  let (game_is_ongoing, is_my_turn, time_remaining) = lichess::api::game_is_ongoing(game_id).await;
-  if false == game_is_ongoing {
-    return Ok(());
-  }
-  if false == is_my_turn {
-    info!("Not our turn. Now relying on the stream to tell us when to play for game {game_id}");
-    return Ok(());
-  }
-
-  info!("Trying to find a move for game id {game_id}");
-
-  let moves = game_state["moves"].as_str().unwrap_or("Unknown move list");
-  let mut increment_ms = game_state["winc"].as_f64().unwrap_or(0.0);
-  if increment_ms > 60_000.0 {
-    increment_ms = 60_000.0
-  }
-  let mut game_state = chess::model::game_state::GameState::default();
-  game_state.apply_move_list(moves);
-
-  let suggested_time_ms;
-  if time_remaining < 10 {
-    // Play as quick as possible if we have less than 10 seconds left
-    suggested_time_ms = 1.0;
-  } else {
-    suggested_time_ms = (time_remaining as f64 / 90.0) * 1000.0 + increment_ms;
-  }
-
-  if let Ok(chess_move) = &chess::engine::core::play_move(&mut game_state, suggested_time_ms as u64)
-  {
-    info!("Playing move {} for game id {}", chess_move, game_id);
-    lichess::api::make_move(game_id, chess_move, false).await;
-  } else {
-    warn!("Can't find a move... Let's offer draw");
-    lichess::api::make_move(game_id, "", true).await;
-  }
-
   Ok(())
 }

@@ -1,26 +1,26 @@
 [package]
 name = "schnecken_bot"
 version = "0.3.1"
-authors = ["Nicolas Obriot"]
+authors = ["Nicolas Woltmann"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-reqwest = { version = "0.11.14", features = ["blocking", "stream"] }
-serde = { version = "1.0.152", features = ["derive"] }
+reqwest = { version = "0.11.18", features = ["blocking", "stream"] }
+serde = { version = "1.0.166", features = ["derive"] }
 signal-hook = "0.3.15"
 log = { version = "0.4", features = ["std", "serde"] }
 env_logger = "0.10.0"
-tokio = "1.25.0"
+tokio = "1.29.1"
 io = "0.0.2"
-once_cell = "1.17.1"
-serde_json = "1.0.93"
-urlencoding = "2.1.2"
+once_cell = "1.18"
+serde_json = "1.0"
+urlencoding = "2.1"
 websocket = "0.26.5"
 rand = "0.8.5"
-futures-util = "0.3.26"
-futures = "0.3.26"
+futures-util = "0.3"
+futures = "0.3"
 bytes = "1.4.0"
 lazy_static = "1.4.0"
 

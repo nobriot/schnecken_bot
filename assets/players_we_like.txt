@@ -1,5 +1,6 @@
 ZE_ROOK
 sargon-1ply
+dlvc-bot
 HardRok
 ELO_1500
 maia1

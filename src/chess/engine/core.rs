@@ -12,6 +12,8 @@ use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
 
+const PRUNE_CUTOFF: f32 = 6.0;
+
 #[derive(Debug, Clone)]
 pub struct ChessLine {
   pub game_state: GameState,
@@ -153,10 +155,28 @@ impl ChessLine {
         self.variations[i].evaluate(evaluate_all, deadline);
       } else {
         // Check if the variation is "active", else skip for now
-        if self.game_state.board.squares[self.variations[i].chess_move.dest as usize] != NO_PIECE {
+        if self.game_state.board.squares[self.variations[i].chess_move.dest as usize] != NO_PIECE
+          || self.game_state.checks > 0
+          || self.variations[i].game_state.checks > 0
+          || self.variations[i].chess_move.promotion == WHITE_QUEEN
+          || self.variations[i].chess_move.promotion == BLACK_QUEEN
+        {
           self.variations[i].evaluate(evaluate_all, deadline);
         }
       }
+    }
+
+    // When we just did a evaluate all, we want to already back-propagate / prune at depth n-1
+    if evaluate_all == true {
+      for i in 0..self.variations.len() {
+        if self.variations[i].eval.is_none() {
+          return;
+        }
+      }
+      self
+        .variations
+        .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+      self.prune_lines();
     }
   }
 
@@ -284,7 +304,7 @@ impl ChessLine {
     let best_evaluation = self.variations[0].eval.unwrap();
     let mut start_prune_index = self.variations.len();
     for i in 1..stop_prune_index {
-      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > 6.0 {
+      if (best_evaluation - self.variations[i].eval.unwrap()).abs() > PRUNE_CUTOFF {
         start_prune_index = i;
         break;
       }
@@ -335,17 +355,6 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
           return Ordering::Less;
         }
         return Ordering::Equal;
-      }
-
-      // Not checkmates, we trust longer lines for relatively close evals.
-      let value_diff = a_value - b_value;
-
-      if value_diff.abs() < 0.2 {
-        if a_depth > (b_depth + value_diff.abs() as usize) {
-          return Ordering::Less;
-        } else if (a_depth + value_diff.abs() as usize) < b_depth {
-          return Ordering::Greater;
-        }
       }
 
       if a_value > b_value {
@@ -478,6 +487,7 @@ pub fn select_best_move(
   //display_lines(0, &chess_lines);
   let mut search_complete = false;
   let mut evaluate_all = false;
+  let mut top_moves = chess_lines.len();
   loop {
     // Check if we have been thinking too much:
     if Instant::now() > deadline || search_complete == true {
@@ -491,36 +501,51 @@ pub fn select_best_move(
 
     // Add depth to the tree. If we are stuck, switch into evaluate all.
     let mut moves_added = false;
-    for i in 0..chess_lines.len() {
+    for i in 0..top_moves {
       moves_added |= chess_lines[i].add_next_moves(deadline);
     }
     if moves_added == false && evaluate_all == false {
       evaluate_all = true;
       continue;
     } else if moves_added == false && evaluate_all == true {
+      top_moves += 1;
+      if top_moves > chess_lines.len() {
+        top_moves = chess_lines.len()
+      }
       // println!("We are stuck! ");
       // This condition should happen only 1 time in a row.
     }
 
     // Evaluate lines
-    for i in 0..chess_lines.len() {
+    for i in 0..top_moves {
       chess_lines[i].evaluate(evaluate_all, deadline);
     }
 
     // Go around once more to find permutations and update them too
-    for i in 0..chess_lines.len() {
+    for i in 0..top_moves {
       chess_lines[i].update_permutations_eval();
     }
     // Rank the moves by eval
-    for i in 0..chess_lines.len() {
+    for i in 0..top_moves {
       chess_lines[i].back_propagate_evaluations();
     }
 
     sort_chess_lines(game_state.side_to_play, &mut chess_lines);
 
     // Prune branches with low evaluations
-    for i in 0..chess_lines.len() {
+    for i in 0..top_moves {
       chess_lines[i].prune_lines();
+    }
+
+    // Keep analyzing branches based on their current eval:
+    let best_eval = chess_lines[0].eval.unwrap();
+    for i in 0..chess_lines.len() {
+      if chess_lines[i].eval.is_none() {
+        break;
+      }
+      if (best_eval - chess_lines[i].eval.unwrap()).abs() < PRUNE_CUTOFF {
+        top_moves = i;
+      }
     }
 
     // Check if we found a winning sequence:
@@ -556,7 +581,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     );
 
   if let Ok(chess_lines) = select_best_move(game_state, deadline) {
-    display_lines(5, &chess_lines);
+    display_lines(0, &chess_lines);
 
     // In super time pressure, we may not get around to evaluate moves at depth 1:
     if chess_lines[0].eval.is_none() {
@@ -627,9 +652,9 @@ pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
       moves += "/ Permutation";
     }
     println!(
-      "Line {} Eval: {} - {}",
+      "Line {:<2} Eval: {:<7} - {}",
       i,
-      chess_lines[i].eval.unwrap_or(f32::NAN),
+      format!("{:.4}", chess_lines[i].eval.unwrap_or(f32::NAN)),
       moves
     )
   }
@@ -732,9 +757,6 @@ mod tests {
     display_lines(5, &chess_lines[0].variations[0].variations);
     println!("{:?}", &chess_lines[0]);
     println!("----------------------------------");
-    for m in &chess_lines[0].variations[0].game_state.move_list {
-      println!("Move: {m}");
-    }
 
     let expected_move = Move::from_string("c1b2");
     assert_eq!(chess_lines[0].eval.unwrap(), 196.0);
@@ -1027,5 +1049,42 @@ mod tests {
     if "d1e2" == chess_lines[0].chess_move.to_string() {
       assert!(false, "Come on, do not repeat when winning!")
     }
+  }
+
+  #[test]
+  fn test_do_not_give_material_up() {
+    // https://lichess.org/PsC4jC2o
+    let fen = "6n1/6pr/4Pk2/1P2bb1p/R2Np3/1P6/4K3/2r5 b - - 2 34";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(1, 377_000_000);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(10, &chess_lines);
+    for i in 0..10 {
+      if "c1e1" == chess_lines[i].chess_move.to_string() {
+        assert!(false, "Come on, giving up material is not good!")
+      }
+    }
+  }
+
+  #[test]
+  fn find_checkmate_in_two() {
+    // https://lichess.org/YVidO7Iw
+    let fen = "r1kq1b1r/4ppp1/2p2n2/p1Pp1b2/Q2P1B1p/2N1P3/PP3PPP/3RK1NR w K - 0 15";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(1, 722_000_000);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    display_lines(0, &chess_lines);
+    assert_eq!("a4c6", chess_lines[0].chess_move.to_string());
+    assert_eq!(chess_lines[0].eval.unwrap(), 196.0);
+  }
+
+  #[test]
+  fn promote_this_pawn() {
+    let fen = "8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::new(0, 855_000_000);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    assert_eq!("a7a8Q", chess_lines[0].chess_move.to_string());
   }
 }

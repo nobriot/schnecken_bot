@@ -21,7 +21,7 @@ const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.02;
 const ROOK_FILE_FACTOR: f32 = 0.03;
-const MATERIAL_COUNT_FACTOR: f32 = 50.0;
+const MATERIAL_COUNT_FACTOR: f32 = 1.1;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -143,12 +143,6 @@ fn find_most_interesting_capture(game_state: &GameState) -> f32 {
 pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
-  // Basic material count
-  let white_material = get_material_score(game_state, Color::White);
-  let black_material = get_material_score(game_state, Color::Black);
-  score +=
-    MATERIAL_COUNT_FACTOR * (white_material - black_material) / (white_material + black_material);
-
   // Pawn structure comparisons
   score += PAWN_ISLAND_FACTOR
     * (get_number_of_pawn_islands(game_state, Color::Black) as f32
@@ -189,12 +183,14 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   }
 
   // Find the highest free piece, if any:
+  /*
   let mut capture_gain = get_free_piece_value(game_state);
   if capture_gain == 0.0 {
     // Divide the capture gain by 2, so it stays more interesting to actually capture than to just have a capture possibility.
     capture_gain = find_most_interesting_capture(game_state) / 2.0;
   }
   score -= capture_gain;
+  */
 
   // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
   let white_heatmap = game_state.get_heatmap(Color::White, false);

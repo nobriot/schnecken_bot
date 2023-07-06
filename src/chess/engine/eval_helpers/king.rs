@@ -66,6 +66,79 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   return attacked_squares as f32 / total_squares as f32;
 }
 
+/// Checks if the king is x-rayed in some way
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
+///
+/// # Returns
+///
+/// The number of squares surrounding the king attacked by enemy pieces
+/// divided by the total number of squares around the king.
+///
+pub fn is_king_xrayed(game_state: &GameState, color: Color) -> bool {
+  let king_position = match color {
+    Color::White => game_state.board.get_white_king_square(),
+    Color::Black => game_state.board.get_black_king_square(),
+  };
+
+  let opponent_mask = game_state.get_color_bitmap_with_xrays(Color::opposite(color));
+  return (1 << king_position) & opponent_mask == 0;
+}
+
+/// Checks if the king is way too adventurous (noticed that the engine likes to walk)
+/// the king up the board, but it should not do that unless opponent has no more
+/// major pieces
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
+///
+/// # Returns
+///
+/// True if the king has left its home rank and major enemy pieces are still here.
+///
+pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
+  let king_position = match color {
+    Color::White => game_state.board.get_white_king_square(),
+    Color::Black => game_state.board.get_black_king_square(),
+  };
+
+  let (_, king_rank) = Board::index_to_fr(king_position as usize);
+  match (king_rank, color) {
+    (1, Color::White) => {
+      return false;
+    },
+    (8, Color::Black) => {
+      return false;
+    },
+    (_, _) => {},
+  }
+
+  // Check for major enemy pieces
+  for i in 0..64 {
+    if color == Color::White {
+      match game_state.board.squares[i] {
+        BLACK_QUEEN | BLACK_ROOK => {
+          return true;
+        },
+        _ => {},
+      }
+    } else {
+      match game_state.board.squares[i] {
+        WHITE_QUEEN | WHITE_ROOK => {
+          return true;
+        },
+        _ => {},
+      }
+    }
+  }
+  false
+}
+
 // -----------------------------------------------------------------------------
 //  Tests
 

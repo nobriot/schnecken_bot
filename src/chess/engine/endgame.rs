@@ -1,3 +1,5 @@
+use super::eval_helpers::king::*;
+use crate::chess::engine::eval_helpers::generic::get_material_score;
 use crate::chess::engine::eval_helpers::mobility::*;
 use crate::chess::engine::position_evaluation::default_position_evaluation;
 use crate::chess::model::board::*;
@@ -5,10 +7,10 @@ use crate::chess::model::board_geometry::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
-use super::eval_helpers::king::get_king_danger_score;
-
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
+const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.5;
+const MATERIAL_COUNT_FACTOR: f32 = 1.3;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
@@ -25,6 +27,8 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
     return get_king_vs_queen_or_rook_score(game_state);
   }
 
+  if is_king_and_pawn_endgame(game_state) {}
+
   // TODO: Implement a proper evaluation here
   let mut score: f32 = 0.0;
 
@@ -35,6 +39,17 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
+
+  if is_king_too_adventurous(game_state, Color::White) {
+    score -= KING_TOO_ADVENTUROUS_PENALTY;
+  }
+  if is_king_too_adventurous(game_state, Color::Black) {
+    score += KING_TOO_ADVENTUROUS_PENALTY;
+  }
+
+  let white_material = get_material_score(game_state, Color::White);
+  let black_material = get_material_score(game_state, Color::Black);
+  score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
 
   return score + default_position_evaluation(game_state);
 }

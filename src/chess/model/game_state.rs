@@ -273,6 +273,35 @@ impl GameState {
     bitmap
   }
 
+  /// Computes if a square is under attack by the color for a given game state.
+  /// X-Rays are included.
+  ///
+  /// # Arguments
+  ///
+  /// * `self` -   A GameState object representing a position, side to play, etc.
+  /// * `color` -  The color for which we want to determine the bitmap
+  ///
+  /// # Return value
+  ///
+  /// A bitmask indicating squares under control by the color for that game state.
+  pub fn get_color_bitmap_with_xrays(&self, color: Color) -> u64 {
+    let mut bitmap: u64 = 0;
+
+    for source_square in 0..64 as usize {
+      if !self.board.has_piece_with_color(source_square as u8, color) {
+        continue;
+      }
+      let (destinations, _) = self.get_piece_destinations(source_square, 0, 0);
+      for i in 0..64 {
+        if ((1 << i) & destinations) != 0 {
+          bitmap |= 1 << i;
+        }
+      }
+    }
+
+    bitmap
+  }
+
   /// Computes the number of attackers on each square for a color.
   /// Compare with your own color to get a number of defenders.
   pub fn get_heatmap(&self, color: Color, with_x_rays: bool) -> [usize; 64] {
