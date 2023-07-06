@@ -1,5 +1,5 @@
+use crate::bot::state::BotState;
 use crate::lichess;
-use std::io;
 
 // Constants
 const EXIT_COMMAND: &str = "exit";
@@ -9,7 +9,21 @@ const PLAY_COMMAND: &str = "play";
 const P_COMMAND: &str = "p";
 const EMPTY_COMMAND: &str = "";
 
-// Private functions
+// -----------------------------------------------------------------------------
+// Trait definition
+pub trait BotCommands {
+  /// Function that reads some text input and executes a bot command
+  ///
+  /// # Arguments
+  ///
+  /// * `self` -            Object reference for which we implement the method
+  /// * `input` -           Text input / Command to interpret
+  /// * `exit_requested` -  Whether the command requests the bot/program to stop
+  fn execute_command(&self, input: &str, exit_requested: &mut bool);
+}
+
+// -----------------------------------------------------------------------------
+// Helper functions
 fn print_help() {
   println!("Welcome ! You can use the following commands:");
   println!(
@@ -21,24 +35,21 @@ fn print_help() {
   println!("{} - Displays the help", HELP_COMMAND);
 }
 
-// Public functions
-pub fn read_user_commands(exit_requested: &mut bool) -> Result<(), std::io::Error> {
-  // Read the line from the terminal
-  let mut input = String::new();
-  io::stdin().read_line(&mut input)?;
-
-  // Remember to trim, it will also remove the newline
-  match input.trim() as &str {
-    PLAY_COMMAND | P_COMMAND => {
-      tokio::spawn(async { lichess::api::play().await });
-    },
-    EXIT_COMMAND | QUIT_COMMAND => {
-      *exit_requested = true;
-    },
-    HELP_COMMAND => print_help(),
-    EMPTY_COMMAND => {},
-    _ => print_help(),
+// -----------------------------------------------------------------------------
+// Implementation
+impl BotCommands for BotState {
+  fn execute_command(&self, input: &str, exit_requested: &mut bool) {
+    // Remember to trim, it will also remove the newline
+    match input.trim() as &str {
+      PLAY_COMMAND | P_COMMAND => {
+        tokio::spawn(async { lichess::api::play().await });
+      },
+      EXIT_COMMAND | QUIT_COMMAND => {
+        *exit_requested = true;
+      },
+      HELP_COMMAND => print_help(),
+      EMPTY_COMMAND => {},
+      _ => print_help(),
+    }
   }
-
-  Ok(())
 }

@@ -21,7 +21,6 @@ const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.02;
 const ROOK_FILE_FACTOR: f32 = 0.03;
-const MATERIAL_COUNT_FACTOR: f32 = 1.1;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score

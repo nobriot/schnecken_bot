@@ -339,15 +339,16 @@ pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> us
 
 /// Determine the number of squares left for the pawn closest to promotion.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the closest pawn to promotion
 ///
-/// # Return value
+/// ### Return value
 ///
 /// 8 if no pawn is present, else the number of squares that the closest pawn
 /// has to travel to get promoted
+///
 pub fn get_distance_left_for_closest_pawn_to_promotion(
   game_state: &GameState,
   color: Color,
@@ -370,6 +371,65 @@ pub fn get_distance_left_for_closest_pawn_to_promotion(
   }
 
   best_distance
+}
+
+/// Determines holes in our position
+/// (squares that cannot be defended by a pawn anymore)
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine holes
+///
+/// ### Return value
+///
+/// Board mask with the holes for that 8 if no pawn is present, else the number of squares that the closest pawn
+/// has to travel to get promoted
+///
+pub fn get_holes(game_state: &GameState, color: Color) -> u64 {
+  let mut holes: u64 = 0;
+
+  let pawn = match color {
+    Color::White => WHITE_PAWN,
+    Color::Black => BLACK_PAWN,
+  };
+  let stop_rank = match color {
+    Color::White => 2,
+    Color::Black => 7,
+  };
+
+  // ranks 1-2 and 7-8 are not counted here.
+  for i in 16..48 {
+    let (file, mut rank) = Board::index_to_fr(i);
+
+    while rank != stop_rank {
+      match color {
+        Color::White => rank -= 1,
+        Color::Black => rank += 1,
+      };
+      // Check on the left side:
+      if file > 1 {
+        let s = Board::fr_to_index(file - 1, rank);
+        if game_state.board.squares[s] == pawn {
+          rank = 0;
+          break;
+        }
+      }
+      if file < 8 {
+        let s = Board::fr_to_index(file + 1, rank);
+        if game_state.board.squares[s] == pawn {
+          rank = 0;
+          break;
+        }
+      }
+    }
+
+    if rank == stop_rank {
+      holes |= 1 << i;
+    }
+  }
+
+  holes
 }
 
 // -----------------------------------------------------------------------------
@@ -491,7 +551,7 @@ mod tests {
   fn test_backwards_pawns() {
     // 2 backwards pawn in here: d7 and d4
     let fen = "rnbqkbnr/pp1p3p/2p3p1/2Pp2p1/PP1P4/8/6PP/RNBQKBNR w KQkq - 0 4";
-    let mut game_state = GameState::from_string(fen);
+    let game_state = GameState::from_string(fen);
     let mask = get_backwards_pawns(&game_state, Color::White);
     print_mask(mask);
     assert_eq!(1, mask_sum(mask));
@@ -501,5 +561,17 @@ mod tests {
     print_mask(mask);
     assert_eq!(1, mask_sum(mask));
     assert_eq!(1 << 51, mask)
+  }
+
+  #[test]
+  fn test_get_holes() {
+    let fen = "r1b2r2/1p4bk/2pR1npn/p6p/2P1PP2/1PN4P/PB2N1B1/5RK1 b - - 0 19";
+    let game_state = GameState::from_string(fen);
+    let mask = get_holes(&game_state, Color::White);
+    print_mask(mask);
+    assert_eq!(13, mask_sum(mask));
+    let mask = get_holes(&game_state, Color::Black);
+    print_mask(mask);
+    assert_eq!(10, mask_sum(mask));
   }
 }

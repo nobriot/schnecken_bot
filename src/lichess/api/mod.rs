@@ -97,6 +97,17 @@ async fn post(api_endpoint: &str, body: &str) -> Result<reqwest::Response, reqwe
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
+
+/// Generic HTTPS Get request to Lichess.
+///
+/// ### Arguments
+/// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a
+///   Get to `https://lichess.org/api/account/playing`
+///
+/// ### Returns
+///
+/// Result with a JSON value received in the API response.
+///
 pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
   debug!("Lichess get request at {}{}", API_BASE_URL, api_endpoint);
   let response_result = get(api_endpoint).await;
@@ -133,52 +144,18 @@ pub async fn lichess_get(api_endpoint: &str) -> Result<JsonValue, ()> {
   Ok(json_object)
 }
 
-#[allow(dead_code)]
-pub async fn lichess_get_stream(
-  api_endpoint: &str,
-  stream_handler: &dyn Fn(JsonValue) -> Result<(), ()>,
-) -> Result<(), ()> {
-  let response_result = get(api_endpoint).await;
-
-  if let Err(error) = response_result {
-    warn!("Error issuing a Get Stream request to Lichess {}", error);
-    return Err(());
-  }
-
-  let stream = response_result.unwrap().bytes_stream();
-  stream
-    .for_each(|chunk_response| {
-      if let Err(e) = chunk_response {
-        info!("Error receiving stream? {}", e);
-        return futures::future::ready(());
-      }
-
-      let chunk = chunk_response.unwrap();
-      let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-      let json_entries = helpers::parse_string_to_nd_json(&string_value);
-
-      for json_entry in json_entries {
-        if let Err(_) = stream_handler(json_entry) {
-          error!("Error handling JSON value");
-        }
-      }
-
-      info!("Received {} bytes", chunk.len());
-      info!("Received data: {}", string_value);
-      futures::future::ready(())
-    })
-    .await;
-
-  // Set up event stream
-  info!("We're done with Streaming : ");
-
-  //while let Some(item) = stream.poll_next().await {
-  //   info!("Chunk: {:?}", item?);
-  // }
-
-  Ok(())
-}
-
+/// Generic HTTPS Post request to Lichess.
+///
+/// ### Arguments
+///
+/// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a
+/// Get to `https://lichess.org/api/account/playing`
+/// * `body` for the POST message
+///
+/// ### Returns
+///
+/// Result with a JSON value received in the API response.
+///
 pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
   let response_result = post(api_endpoint, body).await;
   if let Err(e) = response_result {
@@ -211,9 +188,19 @@ pub async fn lichess_post(api_endpoint: &str, body: &str) -> Result<JsonValue, (
   Ok(json_object)
 }
 
-// Starts listenings to incoming events and sends the JSON data to the incoming
-// event handler
-// See https://lichess.org/api/stream/event
+/// Streams incoming events using an object and stream handler.
+/// Refer to https://lichess.org/api/stream/event
+///
+/// JSON values received on the stream will be passed to the stream_handler function.
+///
+/// ### Arguments
+///
+/// * `object` Reference to the object invoking the stream handler (e.g. bot reference)
+/// * `stream_handler` Function to invoke when data has been received on the stream
+///
+/// ### Returns
+///
+/// Result indicating if we had error receiving/parsing the event stream.
 pub async fn stream_incoming_events<Func, Fut>(stream_handler: Func) -> Result<(), ()>
 where
   Func: Fn(serde_json::Value) -> Fut,

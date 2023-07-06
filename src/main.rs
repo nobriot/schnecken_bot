@@ -1,6 +1,8 @@
 // External crates
+use anyhow::{anyhow, Result};
 use log::*;
 use std::fs;
+use std::io;
 
 // Local modules
 mod bot;
@@ -21,11 +23,11 @@ fn main() {
   };
 }
 
-async fn main_loop() -> Result<(), ()> {
+async fn main_loop() -> Result<()> {
   // Check that the Lichess Token is okay:
   if lichess::api::get_api().token.len() == 0 {
     error!("Error reading the API token. Make sure that you have added a token file.");
-    return Err(());
+    return Err(anyhow!("Missing API Token"));
   }
   info!("Lichess API token loaded successfully");
 
@@ -40,16 +42,15 @@ async fn main_loop() -> Result<(), ()> {
   let schnecken_bot = bot::state::BotState::new(username.as_str());
   schnecken_bot.start();
 
-  // Start 2 tasks: one that checks stream events, one that send challenges when we have been idle for a while
-  //tokio::spawn(async { lichess::api::stream_incoming_events(&stream_event_handler).await });
-  //tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
-
   loop {
+    use crate::bot::commands::BotCommands;
     // Read command line inputs for ever, until we have to exit
+    let mut input = String::new();
     let mut exit_requested: bool = false;
-    if let Err(_) = bot::commands::read_user_commands(&mut exit_requested) {
-      error!("Error reading user input");
-    }
+    io::stdin().read_line(&mut input)?;
+
+    schnecken_bot.execute_command(input.trim(), &mut exit_requested);
+
     if true == exit_requested {
       info!("Exiting the Lichess bot... ");
       break;

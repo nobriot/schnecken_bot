@@ -1,7 +1,6 @@
 use log::*;
 use rand::Rng;
 use std::cmp::Ordering;
-use std::thread;
 use std::time::{Duration, Instant};
 
 // From our module
@@ -440,6 +439,7 @@ pub fn select_best_move(
   deadline: Instant,
 ) -> Result<Vec<ChessLine>, ()> {
   // Reset the engine cache:
+  // FIXME: We should be able to call this function in parallel
   get_engine_cache().clear();
 
   let mut chess_lines: Vec<ChessLine> = Vec::new();
