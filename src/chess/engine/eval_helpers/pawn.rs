@@ -196,6 +196,55 @@ pub fn is_protected(game_state: &GameState, index: usize) -> bool {
   return false;
 }
 
+/// Determine if a square on the board is protected by a pawn of a certain color
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `index` -      Index of the square on the board
+/// * `color` -      Color to check for pawns
+///
+/// ### Return value
+///
+/// true if the pawn is protected by a pawn of the indicated color, false otherwise
+///
+pub fn is_square_protected_by_pawn(game_state: &GameState, index: usize, color: Color) -> bool {
+  // Find the pawn value
+  let pawn = match color {
+    Color::White => WHITE_PAWN,
+    Color::Black => BLACK_PAWN,
+  };
+
+  // Determine the rank / File:
+  let (file, mut rank) = Board::index_to_fr(index);
+
+  // Check if we are protected, back one rank and one file on the right and/or left.
+  if pawn == WHITE_PAWN {
+    rank -= 1;
+  } else {
+    rank += 1;
+  }
+  // 1st rank can be defended by white pawns, and same for 8th rank/black pawns
+  if (rank > 8) || (rank < 1) {
+    return false;
+  }
+
+  // Check on the left side:
+  if file > 1 {
+    if game_state.board.get_piece(file - 1, rank) == pawn {
+      return true;
+    }
+  }
+  // Check on the right side:
+  if file < 8 {
+    if game_state.board.get_piece(file + 1, rank) == pawn {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /// Determine if a pawn on the board is passed.
 ///
 /// # Arguments

@@ -1,6 +1,9 @@
+use crate::chess::engine::eval_helpers::pawn::*;
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
+
+use log::*;
 
 /// Makes the sum of a board mask
 ///
@@ -123,6 +126,80 @@ pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
   }
 }
 
+/// Finds the outputs for a color on a position
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      Color for which we determine outposts
+///
+/// ### Return value
+///
+/// Board mask with outposts squares
+pub fn get_outposts(game_state: &GameState, color: Color) -> u64 {
+  let mut outposts: u64 = 0;
+
+  let opponent_holes = get_holes(game_state, Color::opposite(color));
+
+  for i in 0..64 {
+    // Not a hole, not an outpost
+    if (1 << i) & opponent_holes == 0 {
+      continue;
+    }
+
+    // Now to be an outpost we need the hole to be defended by one of our pawns
+    if is_square_protected_by_pawn(game_state, i, color) {
+      outposts |= 1 << i;
+    }
+  }
+
+  outposts
+}
+
+/// Checks if a piece is hanging
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `index` -      Index of the square on the board
+///
+/// ### Return value
+///
+/// True if the square contains a piece or pawn (knight, bishop, rook, queen or pawn) that is hanging
+/// False otherwise
+///
+pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
+  let piece = game_state.board.squares[index];
+
+  let color;
+  match piece {
+    NO_PIECE | BLACK_KING | WHITE_KING => return false,
+    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => color = Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => color = Color::Black,
+    p => {
+      warn!("Unknown piece onthe board! {p}");
+      return false;
+    },
+  }
+
+  let bitmap;
+  if color == Color::White {
+    bitmap = game_state.white_bitmap;
+  } else {
+    bitmap = game_state.black_bitmap;
+  }
+
+  if bitmap.is_none() {
+    warn!("Unknown color bitmap, we won't know if pieces are hanging");
+    return false;
+  }
+
+  if (1 << index & bitmap.unwrap()) > 0 {
+    return false;
+  }
+
+  return true;
+}
 
 // -----------------------------------------------------------------------------
 //  Tests
@@ -181,5 +258,50 @@ mod tests {
     assert_eq!(false, is_file_half_open(&game_state, 6));
     assert_eq!(false, is_file_half_open(&game_state, 7));
     assert_eq!(true, is_file_half_open(&game_state, 8));
+  }
+
+  #[test]
+  fn test_outposts() {
+    let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
+    let game_state = GameState::from_string(fen);
+    assert_eq!(0, get_outposts(&game_state, Color::White));
+    assert_eq!(5497558138880, get_outposts(&game_state, Color::Black));
+
+    let fen = "rnbqkbnr/3pp1pp/3N4/p4p2/1pPP4/1P2PN1P/P4PP1/R1BQKB1R b KQkq - 0 4";
+    let game_state = GameState::from_string(fen);
+    /*
+    let outposts = get_outposts(&game_state, Color::White);
+    let outposts = get_outposts(&game_state, Color::Black);
+    print_mask(outposts);
+    */
+    assert_eq!(327680, get_outposts(&game_state, Color::Black));
+    assert_eq!(8606711808, get_outposts(&game_state, Color::White));
+  }
+
+  #[test]
+  fn test_is_hanging() {
+    let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
+    let game_state = GameState::from_string(fen);
+
+    assert_eq!(false, is_hanging(&game_state, 0));
+    assert_eq!(false, is_hanging(&game_state, 7));
+    assert_eq!(true, is_hanging(&game_state, 12));
+
+    let fen = "r1bq1rk1/5pb1/p3p1p1/3pn3/QP6/3PP1N1/1P1BB1PP/1R3RK1 b - - 2 20";
+    let game_state = GameState::from_string(fen);
+
+    assert_eq!(false, is_hanging(&game_state, 0));
+    assert_eq!(false, is_hanging(&game_state, 1));
+    assert_eq!(false, is_hanging(&game_state, 2));
+    assert_eq!(false, is_hanging(&game_state, 3));
+    assert_eq!(false, is_hanging(&game_state, 5));
+    assert_eq!(false, is_hanging(&game_state, 6));
+    assert_eq!(false, is_hanging(&game_state, 6));
+    assert_eq!(true, is_hanging(&game_state, 11));
+    assert_eq!(false, is_hanging(&game_state, 12));
+    assert_eq!(false, is_hanging(&game_state, 22));
+    assert_eq!(true, is_hanging(&game_state, 24));
+    assert_eq!(true, is_hanging(&game_state, 56));
+    assert_eq!(false, is_hanging(&game_state, 58));
   }
 }
