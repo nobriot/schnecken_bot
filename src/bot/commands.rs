@@ -1,9 +1,9 @@
 use crate::bot::state::BotState;
-use crate::lichess;
 
 // Constants
 const EXIT_COMMAND: &str = "exit";
 const QUIT_COMMAND: &str = "quit";
+const Q_COMMAND: &str = "q";
 const HELP_COMMAND: &str = "help";
 const PLAY_COMMAND: &str = "play";
 const P_COMMAND: &str = "p";
@@ -31,7 +31,7 @@ fn print_help() {
     PLAY_COMMAND, P_COMMAND
   );
   println!("{} - Exits the program", EXIT_COMMAND);
-  println!("{} - Exits the program", QUIT_COMMAND);
+  println!("{} or {} - Exits the program", QUIT_COMMAND, Q_COMMAND);
   println!("{} - Displays the help", HELP_COMMAND);
 }
 
@@ -42,9 +42,10 @@ impl BotCommands for BotState {
     // Remember to trim, it will also remove the newline
     match input.trim() as &str {
       PLAY_COMMAND | P_COMMAND => {
-        tokio::spawn(async { lichess::api::play().await });
+        let clone = self.clone();
+        tokio::spawn(async move { clone.play().await });
       },
-      EXIT_COMMAND | QUIT_COMMAND => {
+      EXIT_COMMAND | QUIT_COMMAND | Q_COMMAND => {
         *exit_requested = true;
       },
       HELP_COMMAND => print_help(),

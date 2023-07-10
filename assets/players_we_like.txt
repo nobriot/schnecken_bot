@@ -6,6 +6,7 @@ HardRok
 ELO_1500
 maia1
 sargon-2ply
+Lynx_BOT
 CHoMPBoT
 sargon-4ply
 simplexitor

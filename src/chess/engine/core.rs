@@ -470,9 +470,11 @@ pub fn select_best_move(
   }
 
   // Process all the moves, all ratings
+  // Ignore the initial deadline, we do not want to return without evaluating anything
+  let initial_deadline = Instant::now() + Duration::new(1, 0);
   for i in 0..chess_lines.len() {
     chess_lines[i].sort_moves();
-    chess_lines[i].evaluate(true, deadline);
+    chess_lines[i].evaluate(true, initial_deadline);
   }
 
   if chess_lines.len() <= 1 {

@@ -10,7 +10,7 @@ mod chess;
 mod lichess;
 
 // Constants:
-const USERNAME_FILENAME: &str = "/assets/username.txt";
+const API_TOKEN_FILE_NAME: &str = "/assets/lichess_api_token.txt";
 
 // Main function
 fn main() {
@@ -25,21 +25,16 @@ fn main() {
 
 async fn main_loop() -> Result<()> {
   // Check that the Lichess Token is okay:
-  if lichess::api::get_api().token.len() == 0 {
+  let api_token =
+    fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME)?;
+  if api_token.len() == 0 {
     error!("Error reading the API token. Make sure that you have added a token file.");
     return Err(anyhow!("Missing API Token"));
   }
   info!("Lichess API token loaded successfully");
 
-  // Read our username from the text file, default on schnecken_bot if text file is not readable.
-  // TODO: We should ask Lichess with account info for retrieving our username
-  let username = fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + USERNAME_FILENAME)
-    .unwrap_or(String::from("schnecken_bot"));
-
   // Starts the bot, it will stream incoming events
-  info!("Starting the Lichess bot... ");
-  info!("Watch it at: https://lichess.org/@/{username}");
-  let schnecken_bot = bot::state::BotState::new(username.as_str());
+  let mut schnecken_bot = bot::state::BotState::new(api_token.as_str()).await;
   schnecken_bot.start();
 
   loop {

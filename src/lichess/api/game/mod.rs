@@ -1,1 +1,152 @@
+// Internal crates
+use crate::lichess::api::LichessApi;
 
+// External crates
+use log::*;
+use serde_json::Value as JsonValue;
+use urlencoding::encode;
+
+impl LichessApi {
+  /// Attempts to abort a game.
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID to abort
+  ///
+  /// ### Returns
+  ///
+  /// Result indicating if we had error requesting a game abort
+  ///
+  pub async fn abort_game(&self, game_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("bot/game/{game_id}/abort"));
+    let _json_response: JsonValue;
+    if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
+      _json_response = json;
+    } else {
+      return Err(());
+    }
+
+    Ok(())
+  }
+
+  /// Resigns a game
+  ///
+  /// Note: we should never resign, always try to svindle something out of the situation :-D
+  /// Perhaps just resign 1 move before being smothered mated
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID to resign
+  ///
+  /// ### Returns
+  ///
+  /// Result indicating if we had error requesting a game abort
+  ///
+  pub async fn resign_game(&self, game_id: &str) -> Result<(), ()> {
+    let api_endpoint: String = String::from(format!("bot/game/{game_id}/resign"));
+    let _json_response: JsonValue;
+    if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
+      _json_response = json;
+    } else {
+      return Err(());
+    }
+
+    Ok(())
+  }
+
+  /// Writes in the game chat
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID on which we should send a chat message
+  ///
+  pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
+    let endpoint: String = String::from(format!("bot/game/{game_id}/chat"));
+    let body: String = String::from(format!("room=player&text={}", encode(message)));
+
+    let result = self.lichess_post(&endpoint, &body).await;
+
+    if let Err(error) = result {
+      warn!(
+        "Error sending message to game id {} - Error: {:#?}",
+        game_id, error
+      );
+    }
+
+    return;
+  }
+
+  /// Makes a move on a Game
+  ///
+  /// Will make a few retries if the move is not accepted at the first attempt.
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID on which we should send a chat message
+  /// * `chess_move` Notation of the move to make
+  /// * `offer_draw` Set this to true to make a draw offer.
+  ///
+  /// ### Returns
+  ///
+  /// True if the move was sent and accepted by the Lichess server
+  /// False otherwise
+  ///
+  pub async fn make_move(&self, game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
+    info!(
+      "Trying chess move {} on game id {} - Draw offer: {}",
+      chess_move, game_id, offer_draw
+    );
+    let api_endpoint: String = String::from(format!(
+      "bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}"
+    ));
+
+    let json_response: JsonValue;
+    let mut retries = 0;
+
+    loop {
+      retries += 1;
+      let move_result = self.lichess_post(&api_endpoint, "").await;
+
+      if move_result.is_ok() {
+        json_response = move_result.unwrap();
+        break;
+      }
+
+      if retries > 10 {
+        error!("Something is not working with making moves");
+        return false;
+      }
+    }
+
+    if json_response["ok"].as_bool().is_none() {
+      warn!("Lichess refused our move! :'( - We're so bad");
+      return false;
+    }
+
+    return json_response["ok"].as_bool().unwrap();
+  }
+
+  /// Claims victory for a game where the opponent left
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID on which we are claiming victory
+  ///
+  /// ### Returns
+  ///
+  /// True if the move was sent and accepted by the Lichess server
+  /// False otherwise
+  ///
+  pub async fn claim_victory(&self, game_id: &str) -> Result<(), ()> {
+    info!("Attempting to claim victory for game id {}", game_id);
+    let api_endpoint: String = String::from(format!("board/game/{game_id}/claim-victory"));
+    let _json_response: JsonValue;
+    if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
+      _json_response = json;
+    } else {
+      return Err(());
+    }
+
+    Ok(())
+  }
+}
