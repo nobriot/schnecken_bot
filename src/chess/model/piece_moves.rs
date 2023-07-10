@@ -145,11 +145,15 @@ pub const KING_MOVES: [u64; 64] = [
 
 /// Returns a bitmask of the knight possible destination squares.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `same_side_pieces` - boardmask of the same side pieces
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
+///
+/// ### Returns
+///
+/// Board mask of where the knight can move
 ///
 pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> u64 {
   // Knight just cannot go where we have same side pieces
@@ -162,7 +166,7 @@ pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: us
 ///
 /// Returns a bitmask of the possible destination squares.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `move_offsets` - possible offsets to apply First the file, then the rank
 /// * `recursion` - can the piece continue going in one direction ? true or is it only 1 jump ? false

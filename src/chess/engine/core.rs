@@ -595,7 +595,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     loop {
       if (move_cutoff + 1) < chess_lines.len()
         && chess_lines[move_cutoff + 1].eval.is_some()
-        && (best_eval - chess_lines[move_cutoff + 1].eval.unwrap()).abs() < 0.2
+        && (best_eval - chess_lines[move_cutoff + 1].eval.unwrap()).abs() < 0.15
       {
         move_cutoff += 1;
       } else {

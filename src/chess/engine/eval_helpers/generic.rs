@@ -2,6 +2,7 @@ use crate::chess::engine::eval_helpers::pawn::*;
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
+use crate::chess::model::piece_moves::*;
 
 use log::*;
 
@@ -154,6 +155,77 @@ pub fn get_outposts(game_state: &GameState, color: Color) -> u64 {
   }
 
   outposts
+}
+
+/// Checks if a bishop or knight has a reachable outpost (going there in 1 move)
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `index` -      Index of the square on the board
+///
+/// ### Return value
+///
+///  True if the piece on the square is a knight or bishop and has a reachable outpost.
+///
+pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
+  let piece = game_state.board.squares[index];
+  let color;
+  match piece {
+    WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP => color = Color::Black,
+    _ => return false,
+  }
+
+  let outposts = get_outposts(game_state, color);
+
+  let piece_destinations = match piece {
+    WHITE_KNIGHT | BLACK_KNIGHT => {
+      let same_side_pieces = game_state.board.get_color_mask(color);
+      get_knight_moves(same_side_pieces, 0, index)
+    },
+    WHITE_BISHOP | BLACK_BISHOP => {
+      let same_side_pieces = game_state.board.get_color_mask(color);
+      let opponent_pieces = game_state.board.get_color_mask(Color::opposite(color));
+      get_bishop_moves(same_side_pieces, opponent_pieces, index)
+    },
+    _ => 0,
+  };
+
+  if piece_destinations & outposts > 0 {
+    return true;
+  }
+
+  return false;
+}
+
+/// Checks if a bishop or knight is sitting on an outpost
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `index` -      Index of the square on the board
+///
+/// ### Return value
+///
+/// True if the piece on the square is a knight or bishop is located on an outpost
+/// False otherwise
+///
+pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool {
+  let piece = game_state.board.squares[index];
+  let color;
+  match piece {
+    WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP => color = Color::Black,
+    _ => return false,
+  }
+
+  let outposts = get_outposts(game_state, color);
+  if 1 << index & outposts > 0 {
+    return true;
+  }
+
+  return false;
 }
 
 /// Checks if a piece is hanging

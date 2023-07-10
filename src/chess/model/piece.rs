@@ -46,6 +46,15 @@ impl Color {
       Color::White => Color::Black,
     }
   }
+
+  /// Returns -1.0 for black color and +1.0 for white, which can be used in
+  /// evaluations
+  pub fn score_factor(color: Self) -> f32 {
+    match color {
+      Color::Black => -1.0,
+      Color::White => 1.0,
+    }
+  }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -78,7 +87,6 @@ impl Piece {
   }
 
   /// Indicates the material value of a piece.
-  #[allow(dead_code)]
   pub fn material_value_from_u8(piece: u8) -> f32 {
     match piece {
       WHITE_KING => 100.0,

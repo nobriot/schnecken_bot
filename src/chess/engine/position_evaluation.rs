@@ -12,15 +12,17 @@ use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 // Constants
-const PIECE_AFFINITY_FACTOR: f32 = 0.05;
+const PIECE_AFFINITY_FACTOR: f32 = 0.005;
 const PAWN_ISLAND_FACTOR: f32 = 0.02;
-const PASSED_PAWN_FACTOR: f32 = 0.5;
-const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.7;
+const PASSED_PAWN_FACTOR: f32 = 0.2;
+const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
 const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
-const BACKWARDS_PAWN_FACTOR: f32 = 0.11;
+const BACKWARDS_PAWN_FACTOR: f32 = 0.01;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.02;
 const ROOK_FILE_FACTOR: f32 = 0.03;
+const HANGING_FACTOR: f32 = 0.1;
+const REACHABLE_OUTPOST: f32 = 0.08;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -190,6 +192,21 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   }
   score -= capture_gain;
   */
+
+  /*
+
+  for i in 0..64 {
+    if is_hanging(game_state, i) == true {
+      score += HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
+    }
+    if has_reachable_outpost(game_state, i) == true {
+      score +=
+        REACHABLE_OUTPOST * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+    }
+    if occupies_reachable_outpost(game_state, i) == true {
+      score += 1.8 * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+    }
+  } */
 
   // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
   let white_heatmap = game_state.get_heatmap(Color::White, false);
