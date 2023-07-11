@@ -1,3 +1,4 @@
+use crate::chess;
 use serde::{Deserialize, Serialize};
 
 // Reasons for declining a challenge
@@ -15,11 +16,26 @@ pub const DECLINE_VARIANT: &str = "variant";
 pub const DECLINE_LATER: &str = "later";
 pub const DECLINE_TIME_CONTROL: &str = "timeControl";
 
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Color {
-  White,
-  Black,
+/// Game information contained for GameStart / GameFinish events
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GameStart {
+  #[serde(rename = "gameId")]
+  pub game_id: String,
+  pub color: chess::model::piece::Color,
+  pub fen: Option<String>,
+  #[serde(rename = "hasMoved")]
+  pub has_moved: bool,
+  #[serde(rename = "isMyTurn")]
+  pub is_my_turn: bool,
+  #[serde(rename = "lastMove")]
+  pub last_move: Option<String>,
+  #[serde(rename = "fullId")]
+  pub speed: String,
+  pub rated: bool,
+  pub opponent: Player,
+  #[serde(rename = "secondsLeft")]
+  pub seconds_left: usize,
+  //pub winner: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Debug)]

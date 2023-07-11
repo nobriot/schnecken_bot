@@ -1,4 +1,5 @@
 use log::*;
+use serde::{Deserialize, Serialize};
 
 // -----------------------------------------------------------------------------
 //  Constants
@@ -33,7 +34,8 @@ pub const BLACK_PAWN: u8 = 12;
 // -----------------------------------------------------------------------------
 //  Strucs/Enums
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Color {
   White,
   Black,

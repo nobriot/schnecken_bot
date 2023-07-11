@@ -1,11 +1,25 @@
 use log::*;
+use serde_json::Value as JsonValue;
 use std::fs;
+use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
 
 use crate::chess;
+use crate::chess::model::game_state::START_POSITION_FEN;
 use crate::chess::model::piece::Color;
 use crate::lichess;
 use crate::lichess::api::*;
-use serde_json::Value as JsonValue;
+
+// -----------------------------------------------------------------------------
+//  Macros
+
+/// Executes an async function synchronously
+macro_rules! execute_sync {
+  ($func:expr) => {
+    let _ = Runtime::new().unwrap().block_on($func);
+  };
+}
 
 // Constants
 const DEFAULT_USERNAME: &str = "schnecken_bot";
@@ -15,7 +29,7 @@ const LICHESS_PLAYERS_FILE_NAME: &str = "/assets/players_we_like.txt";
 pub struct BotState {
   pub api: LichessApi,
   pub username: String,
-  pub games: Vec<BotGame>,
+  pub games: Arc<Mutex<Vec<BotGame>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -28,19 +42,17 @@ pub struct GameClock {
 
 #[derive(Debug, Clone)]
 pub struct BotGame {
-  // Color played by the bot in the ongoing game
+  /// Color played by the bot in the ongoing game
   pub color: Color,
-  // Start FEN
+  /// Start FEN
   pub start_fen: String,
-  // Full Lichess Game ID
-  pub full_id: String,
-  // Short Lichess Game ID, used in URLs
+  /// Short Lichess Game ID, used in URLs
   pub id: String,
-  // Whether it got started, ever
+  /// Whether it got started, ever
   pub has_moved: bool,
-  // If it is our turn or not
+  /// If it is our turn or not
   pub is_my_turn: bool,
-  // list of moves with algebraic notation: "e2e4 e7e5 d2d4 f8b4 .."
+  /// list of moves with algebraic notation: "e2e4 e7e5 d2d4 f8b4 .."
   pub move_list: String,
   pub rated: bool,
   pub clock: GameClock,
@@ -64,7 +76,7 @@ impl BotState {
     BotState {
       api: api,
       username: username,
-      games: Vec::new(),
+      games: Arc::new(Mutex::new(Vec::new())),
     }
   }
 
@@ -77,29 +89,71 @@ impl BotState {
     // Okay this is quite ugly, not sure how to do better :-D
     let api_clone = self.api.clone();
     let bot_clone = self.clone();
-    tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
+    let handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
+
+    let bot_clone = self.clone();
+    tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
+
     // Start a thread that sends challenges with a given interval:
     // tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
   }
 
-  pub fn add_game(&mut self, game: &BotGame) {
-    for existing_game in &self.games {
-      if existing_game.full_id == game.full_id {
-        debug!("Game ID {} already in the cache. Ignoring", game.full_id);
-        return;
+  /// Checks if the stream_incoming_events has died and restarts it if that's the case.
+  ///
+  /// ### Arguments
+  ///
+  /// * `handle` Thread handle that is supported to stream incoming streams
+  /// * `bot`    Reference to the bot, so that we can use the API
+  ///
+  async fn restart_incoming_streams(mut handle: JoinHandle<Result<(), ()>>, bot: &BotState) {
+    // Start streaming incoming events again if it stopped
+    loop {
+      tokio::time::sleep(tokio::time::Duration::from_millis(4000)).await;
+
+      // Check if the thread has finished executing
+      if handle.is_finished() == true {
+        warn!("Event stream died! Restarting it");
+        // The thread has finished, restart it
+        let api_clone = bot.api.clone();
+        let bot_clone = bot.clone();
+        handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
       }
     }
-    debug!("Adding Game ID {} in the cache", game.full_id);
-    self.games.push(game.clone());
   }
 
-  pub fn remove_game(&mut self, game_full_id: &str) {
-    for i in 0..self.games.len() {
-      if self.games[i].full_id == game_full_id {
-        self.games.remove(i);
+  pub fn add_game(&self, game: BotGame) {
+    // Wait to get our Mutex:
+    let mut binding = self.games.lock().unwrap();
+    let games: &mut Vec<BotGame> = binding.as_mut();
+
+    for i in 0..games.len() {
+      if games[i].id == game.id {
+        debug!("Game ID {} already in the cache. Ignoring", game.id);
         return;
       }
     }
+    debug!("Adding Game ID {} in the cache", &game.id);
+    let game_id = game.id.clone();
+    games.push(game);
+    // Stream the game in a separate thread.
+    let api_clone = self.api.clone();
+    let bot_clone = self.clone();
+    tokio::spawn(async move { api_clone.stream_game_state(&bot_clone, &game_id).await });
+  }
+
+  pub fn remove_game(&self, game_id: &str) {
+    // Wait to get our Mutex:
+    let mut binding = self.games.lock().unwrap();
+    let games: &mut Vec<BotGame> = binding.as_mut();
+
+    for i in 0..games.len() {
+      if games[i].id == game_id {
+        debug!("Removing Game ID {} as it is completed", game_id);
+        games.remove(i);
+        return;
+      }
+    }
+    debug!("Could not removing Game ID {} as it is now known.", game_id);
   }
 
   //----------------------------------------------------------------------------
@@ -111,19 +165,51 @@ impl BotState {
   ///
   /// * `json_value` - JSON payload received in the HTTP stream.
   ///
-  fn on_game_start(self, json_value: JsonValue) {
-    // Game started, we add it to our games and stream the game events
-    if json_value["gameId"].as_str().is_none() {
-      warn!("Received game start without a Game ID.");
-      return;
-    }
-
-    // Stream the game in a separate thread.
-    let clone = self.clone();
+  fn on_game_start(&self, game: lichess::types::GameStart) {
+    // Write a hello message
+    let game_id = game.game_id.clone();
+    let api_clone = self.api.clone();
     tokio::spawn(async move {
-      clone
-        .api
-        .stream_game_state(&self, json_value["gameId"].as_str().unwrap())
+      api_clone
+        .write_in_chat(game_id.as_str(), "Hey! Have fun!")
+        .await
+    });
+
+    // Game started, we add it to our games and stream the game events
+    let bot_game: BotGame = BotGame {
+      color: game.color,
+      start_fen: game.fen.unwrap_or(String::from(START_POSITION_FEN)),
+      id: game.game_id,
+      has_moved: game.has_moved,
+      is_my_turn: game.is_my_turn,
+      move_list: game.last_move.unwrap_or(String::new()),
+      rated: game.rated,
+      clock: GameClock {
+        white_time: game.seconds_left,
+        white_increment: 0,
+        black_time: game.seconds_left,
+        black_increment: 0,
+      },
+    };
+
+    self.add_game(bot_game);
+  }
+
+  /// Handles incoming gameFinish  events
+  ///
+  /// ### Arguments
+  ///
+  /// * `json_value` - JSON payload received in the HTTP stream.
+  ///
+  fn on_game_end(&self, game: lichess::types::GameStart) {
+    // We are not playing on this game anymore
+    self.remove_game(&game.game_id);
+
+    // Write a goodbye message
+    let api_clone = self.api.clone();
+    tokio::spawn(async move {
+      api_clone
+        .write_in_chat(&game.game_id, "Thanks for playing!")
         .await
     });
   }
@@ -134,12 +220,13 @@ impl BotState {
   ///
   /// * `json_value` - JSON payload received in the HTTP stream.
   ///
-  async fn on_incoming_challenge(self, json_value: JsonValue) {
+  fn on_incoming_challenge(&self, json_value: JsonValue) {
     // Check if it is a challenge generated by us.
     let challenger_id = json_value["challenger"]["id"]
       .as_str()
-      .unwrap_or("schnecken_bot");
-    if challenger_id == "schnecken_bot" {
+      .unwrap_or(self.username.as_str());
+    if challenger_id == self.username.as_str() {
+      debug!("Ignoring notification of our own challenge");
       return;
     }
 
@@ -147,9 +234,7 @@ impl BotState {
     let challenger = json_value["challenger"]["name"]
       .as_str()
       .unwrap_or("Unknown challenger");
-    let challenger_rating = json_value["challenger"]["rating"]
-      .as_str()
-      .unwrap_or("unknown rating");
+    let challenger_rating = json_value["challenger"]["rating"].as_u64().unwrap_or(0);
     let variant = json_value["variant"]["key"]
       .as_str()
       .unwrap_or("Unknown variant");
@@ -162,20 +247,24 @@ impl BotState {
     info!("{challenger} would like to play with us! Challenge {challenge_id}");
     info!("{} is rated {} ", challenger, challenger_rating);
 
+    // We do not play non-standard for now
     if variant != "standard" {
       info!("Ignoring challenge for variant {variant}. We play only standard for now.");
+      let api_clone = self.api.clone();
       tokio::spawn(async move {
-        self
-          .api
+        api_clone
           .decline_challenge(&challenge_id, lichess::types::DECLINE_VARIANT)
           .await
       });
       return;
-    } else if time_control_type != "clock" {
+    }
+
+    // We do not play infinitely long games either
+    if time_control_type != "clock" {
       info!("Ignoring non-real-time challenge.");
+      let api_clone = self.api.clone();
       tokio::spawn(async move {
-        self
-          .api
+        api_clone
           .decline_challenge(&challenge_id, lichess::types::DECLINE_TIME_CONTROL)
           .await
       });
@@ -183,11 +272,11 @@ impl BotState {
     }
 
     // Do not take several games at a time for now:
-    if self.already_playing().await == true {
+    if self.games.lock().unwrap().len() > 0 {
       info!("Ignoring challenge as we are already playing");
+      let api_clone = self.api.clone();
       tokio::spawn(async move {
-        self
-          .api
+        api_clone
           .decline_challenge(&challenge_id, lichess::types::DECLINE_LATER)
           .await
       });
@@ -195,7 +284,8 @@ impl BotState {
     }
 
     // Else we just accept.
-    tokio::spawn(async move { self.api.accept_challenge(&challenge_id).await });
+    let api = self.api.clone();
+    tokio::spawn(async move { api.accept_challenge(&challenge_id).await });
   }
 
   //----------------------------------------------------------------------------
@@ -313,24 +403,34 @@ impl EventStreamHandler for BotState {
       return;
     }
 
+    debug!("Event Stream payload: \n{}", json_value);
+
     match json_value["type"].as_str().unwrap() {
       "gameStart" => {
         info!("New game Started!");
-        let clone = self.clone();
-        tokio::spawn(async move { clone.on_game_start(json_value["game"].clone()) });
+        let result: Result<lichess::types::GameStart, serde_json::Error> =
+          serde_json::from_value(json_value["game"].clone());
+        if result.is_err() {
+          let error = result.unwrap_err();
+          warn!("Error deserializing GameStart event data !! {:?}", error);
+        } else {
+          self.on_game_start(result.unwrap());
+        }
       },
       "gameFinish" => {
         info!("Game finished! ");
+        let result: Result<lichess::types::GameStart, serde_json::Error> =
+          serde_json::from_value(json_value["game"].clone());
+        if result.is_err() {
+          let error = result.unwrap_err();
+          warn!("Error deserializing gameFinish event data !! {:?}", error);
+        } else {
+          self.on_game_end(result.unwrap());
+        }
       },
       "challenge" => {
         info!("Incoming challenge!");
-        let clone = self.clone();
-
-        tokio::spawn(async move {
-          clone
-            .on_incoming_challenge(json_value["challenge"].clone())
-            .await
-        });
+        self.on_incoming_challenge(json_value["challenge"].to_owned());
       },
       "challengeCanceled" => {
         info!("Challenge cancelled ");
