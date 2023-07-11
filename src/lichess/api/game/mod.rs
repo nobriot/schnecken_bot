@@ -140,13 +140,27 @@ impl LichessApi {
   pub async fn claim_victory(&self, game_id: &str) -> Result<(), ()> {
     info!("Attempting to claim victory for game id {}", game_id);
     let api_endpoint: String = String::from(format!("board/game/{game_id}/claim-victory"));
+    let body: String = String::from(format!("gameId={}", encode(game_id)));
     let _json_response: JsonValue;
-    if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
+    if let Ok(json) = self.lichess_post(&api_endpoint, body.as_str()).await {
       _json_response = json;
     } else {
       return Err(());
     }
 
     Ok(())
+  }
+
+  /// Claims victory for a game where the opponent left after a timeout
+  ///
+  /// ### Arguments
+  ///
+  /// * `timeout` Number of seconds to wait before claiming victory
+  /// * `game_id` Game ID on which we are claiming victory
+  ///
+  ///
+  pub async fn claim_victory_after_timeout(&self, timeout: u64, game_id: &str) {
+    tokio::time::sleep(tokio::time::Duration::from_secs(timeout + 1)).await;
+    let _ = self.claim_victory(game_id).await;
   }
 }

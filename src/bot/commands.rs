@@ -25,7 +25,7 @@ pub trait BotCommands {
 // -----------------------------------------------------------------------------
 // Helper functions
 fn print_help() {
-  println!("Welcome ! You can use the following commands:");
+  println!("Welcome ! You can use the following commands:\n\n");
   println!(
     "{} or {} - Attempts to play with one of our favorite players",
     PLAY_COMMAND, P_COMMAND

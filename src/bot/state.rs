@@ -430,6 +430,7 @@ impl EventStreamHandler for BotState {
       },
       "challenge" => {
         info!("Incoming challenge!");
+        //FIXME: Serialize this with serde JSON too.
         self.on_incoming_challenge(json_value["challenge"].to_owned());
       },
       "challengeCanceled" => {
@@ -489,8 +490,21 @@ impl GameStreamHandler for BotState {
         debug!("{}", json_value);
       },
       "opponentGone" => {
-        info!("Opponent gone! We'll just claim victory now, you chicken!");
-        debug!("{}", json_value);
+        let gone = json_value["gone"].as_bool().unwrap_or(false);
+        if gone == true {
+          info!("Opponent gone! We'll just claim victory now, you chicken!");
+          let claim_win = json_value["claimWinInSeconds"].as_u64();
+          if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
+            let api_clone = self.api.clone();
+            tokio::spawn(async move {
+              api_clone
+                .claim_victory_after_timeout(timeout, &game_id.clone())
+                .await
+            });
+          }
+        } else {
+          info!("Opponent is back!");
+        }
       },
       other => {
         // Ignore other events
