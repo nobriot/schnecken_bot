@@ -576,11 +576,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
 
   // Try to evaluate ourselves.
   info!("Using {suggested_time_ms} ms to find a move");
-  let deadline = Instant::now()
-    + Duration::new(
-      suggested_time_ms / 1000,
-      (suggested_time_ms % 1000) as u32 * 1_000_000,
-    );
+  let deadline = Instant::now() + Duration::from_millis(suggested_time_ms);
 
   if let Ok(chess_lines) = select_best_move(game_state, deadline) {
     display_lines(0, &chess_lines);

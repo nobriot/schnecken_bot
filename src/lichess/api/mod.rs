@@ -294,11 +294,3 @@ impl LichessApi {
     Ok(())
   }
 } // impl LichessApi
-
-// Returns if a game is ongoing and if it is our turn, if it is our turn, how many seconds we have left.
-pub async fn game_is_ongoing(_game_id: &str) -> (bool, bool, u64) {
-  //https://lichess.org/api/account/playing
-
-  // Replaced with get_ongoing_games
-  panic!("Replaced with get_ongoing_games");
-}

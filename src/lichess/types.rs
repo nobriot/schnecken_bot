@@ -1,5 +1,6 @@
-use crate::chess;
 use serde::{Deserialize, Serialize};
+
+use crate::chess::model::piece::Color;
 
 // Reasons for declining a challenge
 /*
@@ -21,7 +22,7 @@ pub const DECLINE_TIME_CONTROL: &str = "timeControl";
 pub struct GameStart {
   #[serde(rename = "gameId")]
   pub game_id: String,
-  pub color: chess::model::piece::Color,
+  pub color: Color,
   pub fen: Option<String>,
   #[serde(rename = "hasMoved")]
   pub has_moved: bool,
@@ -38,6 +39,70 @@ pub struct GameStart {
   //pub winner: Option<String>
 }
 
+/// Game state object received during the games
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GameState {
+  pub moves: String,
+  pub wtime: usize,
+  pub btime: usize,
+  pub winc: usize,
+  pub binc: usize,
+  pub status: GameStatus,
+  pub winner: Option<Color>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum GameStatus {
+  Started,
+  Aborted,
+  Mate,
+  Stalemate,
+  Timeout,
+  Resign,
+  Draw,
+  Outoftime,
+  Cheat,
+  NoStart,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Challenge {
+  pub id: String,
+  pub challenger: Challenger,
+  #[serde(rename = "destUser")]
+  pub destination_user: Challenger,
+  pub rated: bool,
+  pub variant: Variant,
+  #[serde(rename = "timeControl")]
+  pub time_control: TimeControl,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Challenger {
+  pub id: String,
+  pub name: String,
+  pub online: bool,
+  pub rating: usize,
+  pub title: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TimeControl {
+  pub increment: usize,
+  pub limit: usize,
+  pub show: String,
+  #[serde(rename = "type")]
+  pub control_type: TimeControlType,
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TimeControlType {
+  Clock,
+  Correspondence,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clock {
   initial: i32,
@@ -49,24 +114,20 @@ pub struct Clock {
 pub struct Player {
   id: String,
   username: String,
-  rating: i32,
+  rating: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Result {
-  winner: Option<String>,
-  status: String,
-  clock: Option<Clock>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Speed {
+  Bullet,
   Blitz,
   Rapid,
   Classical,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Perf {
   Bullet,
   Blitz,
@@ -74,8 +135,16 @@ pub enum Perf {
   Classical,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Variant {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Variant {
+  pub key: VariantKey,
+  pub name: String,
+  pub short: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum VariantKey {
   Standard,
   Chess960,
   KingOfTheHill,
@@ -84,18 +153,4 @@ pub enum Variant {
   Atomic,
   Horde,
   RacingKings,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum Status {
-  Started,
-  Aborted,
-  Mate,
-  Stalemate,
-  Timeout,
-  Resign,
-  Draw,
-  Outoftime,
-  Cheat,
-  NoStart,
 }

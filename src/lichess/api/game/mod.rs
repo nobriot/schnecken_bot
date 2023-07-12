@@ -61,8 +61,9 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   ///
   pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
+    info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = String::from(format!("bot/game/{game_id}/chat"));
-    let body: String = String::from(format!("room=player&text={}", encode(message)));
+    let body: String = String::from(format!("room=spectator&text={}", encode(message)));
 
     let result = self.lichess_post(&endpoint, &body).await;
 
