@@ -15,7 +15,7 @@ impl LichessApi {
   /// True if the player is online, false otherwise
   ///
   pub async fn is_online(&self, user_id: &str) -> bool {
-    let endpoint: String = String::from(format!("users/status?ids={}", user_id));
+    let endpoint: String = format!("users/status?ids={}", user_id);
     let result = self.lichess_get(&endpoint).await;
 
     if let Err(error) = result {
@@ -24,6 +24,6 @@ impl LichessApi {
     }
 
     let json_object: JsonValue = result.unwrap();
-    return json_object[0]["online"].as_bool().unwrap_or(false);
+    json_object[0]["online"].as_bool().unwrap_or(false)
   }
 }

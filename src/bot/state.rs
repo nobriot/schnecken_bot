@@ -107,7 +107,7 @@ impl BotState {
       tokio::time::sleep(tokio::time::Duration::from_millis(4000)).await;
 
       // Check if the thread has finished executing
-      if handle.is_finished() == true {
+      if handle.is_finished() {
         warn!("Event stream died! Restarting it");
         // The thread has finished, restart it
         let api_clone = bot.api.clone();
@@ -299,7 +299,7 @@ impl BotState {
 
     let game = game.unwrap();
 
-    if game.is_my_turn == false {
+    if !game.is_my_turn {
       info!("Not our turn for Game ID {game_id}. Waiting.");
       return Ok(());
     }
@@ -388,7 +388,7 @@ impl BotState {
         },
       }
 
-      if game.is_my_turn == true {
+      if game.is_my_turn {
         let clone = self.clone();
         let game_id_clone = String::from(game_id);
         tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
@@ -410,7 +410,7 @@ impl BotState {
     let players = player_list.lines();
 
     for username in players {
-      if self.api.is_online(username).await == true {
+      if self.api.is_online(username).await {
         info!("{username} is online. Sending a challenge!");
         if let Err(()) = self.api.send_challenge(username).await {
           info!("Error sending a challenge to {username}");
@@ -524,7 +524,7 @@ impl GameStreamHandler for BotState {
       },
       "opponentGone" => {
         let gone = json_value["gone"].as_bool().unwrap_or(false);
-        if gone == true {
+        if gone {
           info!("Opponent gone! We'll just claim victory as soon as possible!");
           if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
             let api_clone = self.api.clone();

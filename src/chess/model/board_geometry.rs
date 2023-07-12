@@ -19,7 +19,7 @@ pub fn get_king_distance(king_position: usize, destination: usize) -> usize {
   let (df, dr) = Board::index_to_fr(destination);
 
   // basically the distance will be the max of file/rank difference.
-  return max(sf.abs_diff(df), sr.abs_diff(dr));
+  max(sf.abs_diff(df), sr.abs_diff(dr))
 }
 
 // -----------------------------------------------------------------------------

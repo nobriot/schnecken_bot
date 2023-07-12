@@ -36,6 +36,7 @@ pub const BLACK_PAWN: u8 = 12;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[repr(u8)]
 pub enum Color {
   White,
   Black,
@@ -69,6 +70,7 @@ pub enum PieceType {
   Knight,
   Pawn,
 }
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Piece {
   p_type: PieceType,
@@ -111,11 +113,11 @@ impl Piece {
   #[allow(dead_code)]
   pub fn color_from_u8(piece: u8) -> Color {
     match piece {
-      WHITE_KING..=WHITE_PAWN => return Color::White,
-      BLACK_KING..=BLACK_PAWN => return Color::Black,
+      WHITE_KING..=WHITE_PAWN => Color::White,
+      BLACK_KING..=BLACK_PAWN => Color::Black,
       _ => {
         warn!("Returning a color for an empty square! ");
-        return Color::Black;
+        Color::Black
       },
     }
   }
@@ -142,82 +144,57 @@ impl Piece {
 
   /// Converts a u8 into a piece, reverse of as_u8.
   pub fn from_u8(value: u8) -> Result<Self, ()> {
-    let piece: Piece;
-    match value {
-      WHITE_KING => {
-        piece = Piece {
-          p_type: PieceType::King,
-          color: Color::White,
-        };
+    let piece: Piece = match value {
+      WHITE_KING => Piece {
+        p_type: PieceType::King,
+        color: Color::White,
       },
-      WHITE_QUEEN => {
-        piece = Piece {
-          p_type: PieceType::Queen,
-          color: Color::White,
-        };
+      WHITE_QUEEN => Piece {
+        p_type: PieceType::Queen,
+        color: Color::White,
       },
-      WHITE_ROOK => {
-        piece = Piece {
-          p_type: PieceType::Rook,
-          color: Color::White,
-        };
+      WHITE_ROOK => Piece {
+        p_type: PieceType::Rook,
+        color: Color::White,
       },
-      WHITE_BISHOP => {
-        piece = Piece {
-          p_type: PieceType::Bishop,
-          color: Color::White,
-        };
+      WHITE_BISHOP => Piece {
+        p_type: PieceType::Bishop,
+        color: Color::White,
       },
-      WHITE_KNIGHT => {
-        piece = Piece {
-          p_type: PieceType::Knight,
-          color: Color::White,
-        };
+      WHITE_KNIGHT => Piece {
+        p_type: PieceType::Knight,
+        color: Color::White,
       },
-      WHITE_PAWN => {
-        piece = Piece {
-          p_type: PieceType::Pawn,
-          color: Color::White,
-        };
+      WHITE_PAWN => Piece {
+        p_type: PieceType::Pawn,
+        color: Color::White,
       },
-      BLACK_KING => {
-        piece = Piece {
-          p_type: PieceType::King,
-          color: Color::Black,
-        };
+      BLACK_KING => Piece {
+        p_type: PieceType::King,
+        color: Color::Black,
       },
-      BLACK_QUEEN => {
-        piece = Piece {
-          p_type: PieceType::Queen,
-          color: Color::Black,
-        };
+      BLACK_QUEEN => Piece {
+        p_type: PieceType::Queen,
+        color: Color::Black,
       },
-      BLACK_ROOK => {
-        piece = Piece {
-          p_type: PieceType::Rook,
-          color: Color::Black,
-        };
+      BLACK_ROOK => Piece {
+        p_type: PieceType::Rook,
+        color: Color::Black,
       },
-      BLACK_BISHOP => {
-        piece = Piece {
-          p_type: PieceType::Bishop,
-          color: Color::Black,
-        };
+      BLACK_BISHOP => Piece {
+        p_type: PieceType::Bishop,
+        color: Color::Black,
       },
-      BLACK_KNIGHT => {
-        piece = Piece {
-          p_type: PieceType::Knight,
-          color: Color::Black,
-        };
+      BLACK_KNIGHT => Piece {
+        p_type: PieceType::Knight,
+        color: Color::Black,
       },
-      BLACK_PAWN => {
-        piece = Piece {
-          p_type: PieceType::Pawn,
-          color: Color::Black,
-        };
+      BLACK_PAWN => Piece {
+        p_type: PieceType::Pawn,
+        color: Color::Black,
       },
       _ => return Err(()),
-    }
+    };
     Ok(piece)
   }
 
@@ -253,82 +230,57 @@ impl Piece {
   }
 
   pub fn from_char(c: char) -> Result<Self, ()> {
-    let piece: Piece;
-    match c {
-      'K' => {
-        piece = Piece {
-          p_type: PieceType::King,
-          color: Color::White,
-        };
+    let piece: Piece = match c {
+      'K' => Piece {
+        p_type: PieceType::King,
+        color: Color::White,
       },
-      'Q' => {
-        piece = Piece {
-          p_type: PieceType::Queen,
-          color: Color::White,
-        };
+      'Q' => Piece {
+        p_type: PieceType::Queen,
+        color: Color::White,
       },
-      'R' => {
-        piece = Piece {
-          p_type: PieceType::Rook,
-          color: Color::White,
-        };
+      'R' => Piece {
+        p_type: PieceType::Rook,
+        color: Color::White,
       },
-      'B' => {
-        piece = Piece {
-          p_type: PieceType::Bishop,
-          color: Color::White,
-        };
+      'B' => Piece {
+        p_type: PieceType::Bishop,
+        color: Color::White,
       },
-      'N' => {
-        piece = Piece {
-          p_type: PieceType::Knight,
-          color: Color::White,
-        };
+      'N' => Piece {
+        p_type: PieceType::Knight,
+        color: Color::White,
       },
-      'P' => {
-        piece = Piece {
-          p_type: PieceType::Pawn,
-          color: Color::White,
-        };
+      'P' => Piece {
+        p_type: PieceType::Pawn,
+        color: Color::White,
       },
-      'k' => {
-        piece = Piece {
-          p_type: PieceType::King,
-          color: Color::Black,
-        };
+      'k' => Piece {
+        p_type: PieceType::King,
+        color: Color::Black,
       },
-      'q' => {
-        piece = Piece {
-          p_type: PieceType::Queen,
-          color: Color::Black,
-        };
+      'q' => Piece {
+        p_type: PieceType::Queen,
+        color: Color::Black,
       },
-      'r' => {
-        piece = Piece {
-          p_type: PieceType::Rook,
-          color: Color::Black,
-        };
+      'r' => Piece {
+        p_type: PieceType::Rook,
+        color: Color::Black,
       },
-      'b' => {
-        piece = Piece {
-          p_type: PieceType::Bishop,
-          color: Color::Black,
-        };
+      'b' => Piece {
+        p_type: PieceType::Bishop,
+        color: Color::Black,
       },
-      'n' => {
-        piece = Piece {
-          p_type: PieceType::Knight,
-          color: Color::Black,
-        };
+      'n' => Piece {
+        p_type: PieceType::Knight,
+        color: Color::Black,
       },
-      'p' => {
-        piece = Piece {
-          p_type: PieceType::Pawn,
-          color: Color::Black,
-        };
+      'p' => Piece {
+        p_type: PieceType::Pawn,
+        color: Color::Black,
       },
       _ => return Err(()),
-    }
+    };
     Ok(piece)
   }
 
@@ -387,11 +339,17 @@ impl Piece {
   /// True if is it a piece, false in any other case
   ///
   pub fn is_piece(u: u8) -> bool {
-    match u {
-      WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | BLACK_QUEEN | BLACK_ROOK
-      | BLACK_BISHOP | BLACK_KNIGHT => true,
-      _ => false,
-    }
+    matches!(
+      u,
+      WHITE_QUEEN
+        | WHITE_ROOK
+        | WHITE_BISHOP
+        | WHITE_KNIGHT
+        | BLACK_QUEEN
+        | BLACK_ROOK
+        | BLACK_BISHOP
+        | BLACK_KNIGHT
+    )
   }
 
   /// Convenience function that takes a u8 and returns a char, without converting

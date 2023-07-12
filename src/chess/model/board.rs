@@ -13,7 +13,7 @@ pub const INVALID_SQUARE: u8 = 255;
 /// Checks if a file/rank value is within bounds, else returns the rvalue.
 macro_rules! fr_bounds_or_return {
   ($file:expr, $rvalue:expr) => {
-    if $file < 1 || $file > 8 {
+    if !(1..=8).contains(&$file) {
       return $rvalue;
     }
   };
@@ -29,7 +29,7 @@ pub struct Board {
   pub squares: [u8; 64],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Move {
   // Source square of a move (value from 0 to 63)
   pub src: u8,
@@ -97,7 +97,7 @@ pub fn string_to_square(string: &str) -> u8 {
   match string.chars().nth(1) {
     // a does not add value to the square index
     Some('1') => {},
-    Some('2') => square_value += 1 * 8,
+    Some('2') => square_value += 8,
     Some('3') => square_value += 2 * 8,
     Some('4') => square_value += 3 * 8,
     Some('5') => square_value += 4 * 8,
@@ -149,7 +149,7 @@ impl Board {
     debug_assert!(file <= 8);
     debug_assert!(rank > 0);
     debug_assert!(rank <= 8);
-    return (file - 1) + (rank - 1) * 8;
+    (file - 1) + (rank - 1) * 8
   }
 
   /// Converts a board index into Rank / File.
@@ -161,7 +161,7 @@ impl Board {
   ///
   pub fn index_to_fr(index: usize) -> (usize, usize) {
     debug_assert!(index < 64);
-    return (index % 8 + 1, index / 8 + 1);
+    (index % 8 + 1, index / 8 + 1)
   }
 
   /// Returns the piece currently set at the board file/rank a board index into Rank / File.
@@ -170,7 +170,7 @@ impl Board {
   /// * `rank`: [1..8]
   ///
   pub fn get_piece(&self, file: usize, rank: usize) -> u8 {
-    return self.squares[Board::fr_to_index(file, rank)];
+    self.squares[Board::fr_to_index(file, rank)]
   }
 
   /// Applies a move on the board.
@@ -248,19 +248,15 @@ impl Board {
   // Verifies if the move is a castling move
   pub fn is_castle(self, chess_move: &Move) -> bool {
     if self.squares[chess_move.src as usize] == WHITE_KING {
-      if chess_move.src == 4 && chess_move.dest == 2 {
-        return true;
-      } else if chess_move.src == 4 && chess_move.dest == 6 {
+      if chess_move.src == 4 && (chess_move.dest == 2 || chess_move.dest == 6) {
         return true;
       }
     } else if self.squares[chess_move.src as usize] == BLACK_KING {
-      if chess_move.src == 60 && chess_move.dest == 62 {
-        return true;
-      } else if chess_move.src == 60 && chess_move.dest == 58 {
+      if chess_move.src == 60 && (chess_move.dest == 62 || chess_move.dest == 58) {
         return true;
       }
     }
-    return false;
+    false
   }
 
   /// Checks if there is a piece on a square
@@ -298,7 +294,7 @@ impl Board {
     error!("No black king ?? ");
     println!("Board: {}", self);
 
-    return INVALID_SQUARE;
+    INVALID_SQUARE
   }
 
   /// Finds the square with a white king on it.
@@ -309,7 +305,7 @@ impl Board {
       }
     }
     error!("No white king ?? ");
-    return INVALID_SQUARE;
+    INVALID_SQUARE
   }
 
   /// Return a board bismask with squares set to 1 when they
@@ -412,7 +408,7 @@ impl Move {
     }
   }
 
-  /// Converts a move to the algebraic notation, e.g.
+  /// Converts a move to the algebraic notation, e.g. a3f3
   pub fn to_string(&self) -> String {
     if self.promotion != NO_PIECE {
       let mut move_string = square_to_string(self.src) + &square_to_string(self.dest);
@@ -474,10 +470,10 @@ impl Move {
   }
 
   pub fn string_to_vec(string: &str) -> Vec<Move> {
-    let move_list: Vec<&str> = string.split(" ").collect();
+    let move_list: Vec<&str> = string.split(' ').collect();
     let mut chess_moves: Vec<Move> = Vec::new();
     for move_string in move_list {
-      if move_string != "" {
+      if !move_string.is_empty() {
         chess_moves.push(Move::from_string(move_string));
       }
     }

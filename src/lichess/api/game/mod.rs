@@ -18,7 +18,7 @@ impl LichessApi {
   /// Result indicating if we had error requesting a game abort
   ///
   pub async fn abort_game(&self, game_id: &str) -> Result<(), ()> {
-    let api_endpoint: String = String::from(format!("bot/game/{game_id}/abort"));
+    let api_endpoint: String = format!("bot/game/{game_id}/abort");
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
@@ -43,7 +43,7 @@ impl LichessApi {
   /// Result indicating if we had error requesting a game abort
   ///
   pub async fn resign_game(&self, game_id: &str) -> Result<(), ()> {
-    let api_endpoint: String = String::from(format!("bot/game/{game_id}/resign"));
+    let api_endpoint: String = format!("bot/game/{game_id}/resign");
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
@@ -62,8 +62,8 @@ impl LichessApi {
   ///
   pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
     info!("Sending message on Game ID {game_id} - {message}");
-    let endpoint: String = String::from(format!("bot/game/{game_id}/chat"));
-    let body: String = String::from(format!("room=spectator&text={}", encode(message)));
+    let endpoint: String = format!("bot/game/{game_id}/chat");
+    let body: String = format!("room=spectator&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
 
@@ -73,8 +73,6 @@ impl LichessApi {
         game_id, error
       );
     }
-
-    return;
   }
 
   /// Makes a move on a Game
@@ -97,9 +95,8 @@ impl LichessApi {
       "Trying chess move {} on game id {} - Draw offer: {}",
       chess_move, game_id, offer_draw
     );
-    let api_endpoint: String = String::from(format!(
-      "bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}"
-    ));
+    let api_endpoint: String =
+      format!("bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}");
 
     let json_response: JsonValue;
     let mut retries = 0;
@@ -113,6 +110,7 @@ impl LichessApi {
         break;
       }
 
+      warn!("Move was not accepted by Lichess. {:?}", move_result);
       if retries > 10 {
         error!("Something is not working with making moves");
         return false;
@@ -120,11 +118,14 @@ impl LichessApi {
     }
 
     if json_response["ok"].as_bool().is_none() {
-      warn!("Lichess refused our move! :'( - We're so bad");
+      error!(
+        "Lichess refused our move! :'( - We're so bad - Error {:?}",
+        json_response
+      );
       return false;
     }
 
-    return json_response["ok"].as_bool().unwrap();
+    json_response["ok"].as_bool().unwrap()
   }
 
   /// Claims victory for a game where the opponent left
@@ -140,8 +141,8 @@ impl LichessApi {
   ///
   pub async fn claim_victory(&self, game_id: &str) -> Result<(), ()> {
     info!("Attempting to claim victory for game id {}", game_id);
-    let api_endpoint: String = String::from(format!("board/game/{game_id}/claim-victory"));
-    let body: String = String::from(format!("gameId={}", encode(game_id)));
+    let api_endpoint: String = format!("board/game/{game_id}/claim-victory");
+    let body: String = format!("gameId={}", encode(game_id));
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, body.as_str()).await {
       _json_response = json;

@@ -33,8 +33,8 @@ impl LichessApi {
   ///
   pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), ()> {
     info!("Accepting challenge ID {challenge_id}");
-    let api_endpoint: String = String::from(format!("challenge/{}/accept", challenge_id));
-    if let Err(_) = self.lichess_post(&api_endpoint, "").await {
+    let api_endpoint: String = format!("challenge/{}/accept", challenge_id);
+    if self.lichess_post(&api_endpoint, "").await.is_err() {
       return Err(());
     }
 
@@ -55,10 +55,10 @@ impl LichessApi {
   ///
   pub async fn decline_challenge(&self, challenge_id: &str, reason: &str) -> Result<(), ()> {
     info!("Declining challenge ID {challenge_id}");
-    let api_endpoint: String = String::from(format!("challenge/{}/decline", challenge_id));
-    let body: String = String::from(format!("reason={}", encode(reason)));
+    let api_endpoint: String = format!("challenge/{}/decline", challenge_id);
+    let body: String = format!("reason={}", encode(reason));
 
-    if let Ok(_) = self.lichess_post(&api_endpoint, &body).await {
+    if self.lichess_post(&api_endpoint, &body).await.is_ok() {
       Ok(())
     } else {
       Err(())
@@ -76,12 +76,16 @@ impl LichessApi {
   /// Result
   ///
   pub async fn send_challenge(&self, player: &str) -> Result<(), ()> {
-    let api_endpoint: String = String::from(format!("challenge/{}", player));
+    let api_endpoint: String = format!("challenge/{}", player);
     // Let's hardcode this to 3+0 for now.
     // FIXME: We should have Clock parameter.
     let body_parameters =
       "rated=true&clock.limit=180&clock.increment=0&color=random&variant=standard";
-    if let Ok(_) = self.lichess_post(&api_endpoint, body_parameters).await {
+    if self
+      .lichess_post(&api_endpoint, body_parameters)
+      .await
+      .is_ok()
+    {
       Ok(())
     } else {
       Err(())

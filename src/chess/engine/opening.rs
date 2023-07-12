@@ -33,10 +33,10 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
     * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
 
-  if is_king_xrayed(game_state, Color::White) == true {
+  if is_king_xrayed(game_state, Color::White) {
     score -= KING_XRAY_FACTOR;
   }
-  if is_king_xrayed(game_state, Color::Black) == true {
+  if is_king_xrayed(game_state, Color::Black) {
     score += KING_XRAY_FACTOR;
   }
   if is_king_too_adventurous(game_state, Color::White) {
@@ -52,5 +52,5 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
 
   // TOOD: Update this
-  return score + default_position_evaluation(game_state);
+  score + default_position_evaluation(game_state)
 }

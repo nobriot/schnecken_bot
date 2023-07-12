@@ -10,7 +10,7 @@ use crate::chess::model::game_state::GamePhase;
 // How large do we want the cache to grow before we purge it.
 const DEFAULT_CACHE_MAX_SIZE: usize = 100_000_000;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PositionCache {
   // List of moves available for a position
   pub move_list: Option<Vec<Move>>,
@@ -18,16 +18,6 @@ pub struct PositionCache {
   pub eval: Option<f32>,
   // game phase for a position
   pub game_phase: Option<GamePhase>,
-}
-
-impl Default for PositionCache {
-  fn default() -> Self {
-    PositionCache {
-      move_list: None,
-      eval: None,
-      game_phase: None,
-    }
-  }
 }
 
 // Short alias for the engine cache
@@ -47,8 +37,8 @@ impl EngineCache {
   fn clip_fen(fen: &str) -> String {
     let mut clipped_fen = String::new();
     let fen_parts: Vec<&str> = fen.split(' ').collect();
-    for i in 0..4 {
-      clipped_fen.push_str(fen_parts[i]);
+    for part in fen_parts.iter().take(4) {
+      clipped_fen.push_str(part);
     }
     clipped_fen
   }
@@ -91,8 +81,8 @@ impl EngineCache {
       .clone();
   }
 
-  pub fn set_move_list(&self, fen: &str, move_list: &Vec<Move>) {
-    if self.has_fen(fen) == false {
+  pub fn set_move_list(&self, fen: &str, move_list: &[Move]) {
+    if !self.has_fen(fen) {
       self.add(fen, PositionCache::default());
     }
 
@@ -102,7 +92,7 @@ impl EngineCache {
       .unwrap()
       .get_mut(EngineCache::clip_fen(fen).as_str())
     {
-      entry.move_list = Some(move_list.clone());
+      entry.move_list = Some(move_list.to_owned());
     } else {
       error!("Error updating move list in the cache for {fen}");
     }
@@ -119,7 +109,7 @@ impl EngineCache {
   }
 
   pub fn set_eval(&self, fen: &str, eval: f32) {
-    if self.has_fen(fen) == false {
+    if !self.has_fen(fen) {
       self.add(fen, PositionCache::default());
     }
 
@@ -146,7 +136,7 @@ impl EngineCache {
   }
 
   pub fn set_game_phase(&self, fen: &str, game_phase: GamePhase) {
-    if self.has_fen(fen) == false {
+    if !self.has_fen(fen) {
       self.add(fen, PositionCache::default());
     }
 

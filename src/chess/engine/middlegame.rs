@@ -37,5 +37,5 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
 
   // TOOD: Update this
-  return score + default_position_evaluation(game_state);
+  score + default_position_evaluation(game_state)
 }

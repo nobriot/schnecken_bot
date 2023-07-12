@@ -37,7 +37,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   for file in 1..=8 {
     match game_state.board.get_piece(file, rank) {
       WHITE_ROOK | BLACK_ROOK => {
-        if first_rook_found == true {
+        if first_rook_found {
           // We just found the second rook, we are happy!
           return score;
         } else {
@@ -48,7 +48,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
       NO_PIECE => {},
       _ => {
         // Rooks are not connected!
-        if first_rook_found == true {
+        if first_rook_found {
           score -= 1;
           return score;
         }

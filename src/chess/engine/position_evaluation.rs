@@ -46,7 +46,7 @@ fn get_free_piece_value(game_state: &GameState) -> f32 {
   let ss_heatmap = game_state.get_heatmap(game_state.side_to_play, false);
 
   for i in 0..64 {
-    if game_state.board.has_piece_with_color(i, op_color) == true {
+    if game_state.board.has_piece_with_color(i, op_color) {
       if ss_heatmap[i as usize] > 0
         && op_heatmap[i as usize] == 0
         && highest_free_piece_value.abs()
@@ -70,7 +70,7 @@ fn find_most_interesting_capture(game_state: &GameState) -> f32 {
     game_state.get_heatmap_with_sources(game_state.side_to_play, false);
 
   for i in 0..64 {
-    if game_state.board.has_piece_with_color(i, op_color) == false {
+    if !game_state.board.has_piece_with_color(i, op_color) {
       continue;
     }
     if ss_heatmap[i as usize] == 0 {
@@ -131,7 +131,7 @@ fn find_most_interesting_capture(game_state: &GameState) -> f32 {
   }
   //println!("Highest value gain: {highest_value_gain}");
   if game_state.side_to_play == Color::White {
-    highest_value_gain = highest_value_gain * -1.0;
+    highest_value_gain *= -1.0;
   }
   highest_value_gain
 }
@@ -162,8 +162,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       - get_number_of_protected_pawns(game_state, Color::Black) as f32);
 
   score += BACKWARDS_PAWN_FACTOR
-    * (mask_sum(get_backwards_pawns(&game_state, Color::Black)) as f32
-      - mask_sum(get_backwards_pawns(&game_state, Color::White)) as f32);
+    * (mask_sum(get_backwards_pawns(game_state, Color::Black)) as f32
+      - mask_sum(get_backwards_pawns(game_state, Color::White)) as f32);
 
   // Evaluate the quality of our rooks:
   if are_rooks_connected(game_state, Color::White) {
@@ -174,8 +174,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   }
 
   score += ROOK_FILE_FACTOR
-    * (get_rooks_file_score(&game_state, Color::Black)
-      - get_rooks_file_score(&game_state, Color::White));
+    * (get_rooks_file_score(game_state, Color::Black)
+      - get_rooks_file_score(game_state, Color::White));
 
   if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
     score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
@@ -196,14 +196,14 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   /*
 
   for i in 0..64 {
-    if is_hanging(game_state, i) == true {
+    if is_hanging(game_state, i) {
       score += HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
     }
-    if has_reachable_outpost(game_state, i) == true {
+    if has_reachable_outpost(game_state, i)  {
       score +=
         REACHABLE_OUTPOST * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
     }
-    if occupies_reachable_outpost(game_state, i) == true {
+    if occupies_reachable_outpost(game_state, i) {
       score += 1.8 * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
     }
   } */
@@ -262,7 +262,7 @@ pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
       },
     }
   }
-  return true;
+  true
 }
 
 pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
@@ -275,7 +275,7 @@ pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
   }
 
   // We need to find 2 occurences of the same as the current to make it a 3 fold repetition
-  return repetition_count >= 2;
+  repetition_count >= 2
 }
 
 /// Evaluates a position and  tells if it seems to be game over or not
@@ -284,10 +284,10 @@ pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
-  if game_state.available_moves_computed == false {
+  if !game_state.available_moves_computed {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
   }
-  if game_state.available_moves_computed == true && game_state.move_list.len() == 0 {
+  if game_state.available_moves_computed && game_state.move_list.is_empty() {
     match (game_state.side_to_play, game_state.checks) {
       (_, 0) => return (0.0, true),
       (Color::Black, _) => return (200.0, true),
@@ -299,18 +299,18 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
     return (0.0, true);
   }
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
-  if is_game_over_by_insufficient_material(game_state) == true {
+  if is_game_over_by_insufficient_material(game_state) {
     debug!("game over by insufficient material detected");
     return (0.0, true);
   }
 
   // Check the 3-fold repetitions
-  if is_game_over_by_repetition(game_state) == true {
+  if is_game_over_by_repetition(game_state) {
     debug!("3-fold repetition detected");
     return (0.0, true);
   }
 
-  return (0.0, false);
+  (0.0, false)
 }
 
 /// Evaluates a position and returns a score and if the game is over.
@@ -321,19 +321,19 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
 pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   // Check if the evaluation is due to a game over:
   let (mut score, game_over) = is_game_over(game_state);
-  if game_over == true {
+  if game_over {
     return (score, game_over);
   }
 
   if game_state.game_phase.is_some() {
     match game_state.game_phase.unwrap() {
-      GamePhase::Opening => score = get_opening_position_evaluation(&game_state),
-      GamePhase::Middlegame => score = get_middlegame_position_evaluation(&game_state),
-      GamePhase::Endgame => score = get_endgame_position_evaluation(&game_state),
+      GamePhase::Opening => score = get_opening_position_evaluation(game_state),
+      GamePhase::Middlegame => score = get_middlegame_position_evaluation(game_state),
+      GamePhase::Endgame => score = get_endgame_position_evaluation(game_state),
     }
   } else {
     warn!("Evaluating a position in an unknown game phase");
-    score = default_position_evaluation(&game_state);
+    score = default_position_evaluation(game_state);
   }
 
   (score, false)

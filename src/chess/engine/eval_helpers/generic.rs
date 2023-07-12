@@ -121,9 +121,9 @@ pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
   }
 
   match (white_pawn, black_pawn) {
-    (true, false) => return true,
-    (false, true) => return true,
-    (_, _) => return false,
+    (true, false) => true,
+    (false, true) => true,
+    (_, _) => false,
   }
 }
 
@@ -196,7 +196,7 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
     return true;
   }
 
-  return false;
+  false
 }
 
 /// Checks if a bishop or knight is sitting on an outpost
@@ -213,19 +213,18 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 ///
 pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool {
   let piece = game_state.board.squares[index];
-  let color;
-  match piece {
-    WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
-    BLACK_KNIGHT | BLACK_BISHOP => color = Color::Black,
+  let color = match piece {
+    WHITE_KNIGHT | WHITE_BISHOP => Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP => Color::Black,
     _ => return false,
-  }
+  };
 
   let outposts = get_outposts(game_state, color);
   if 1 << index & outposts > 0 {
     return true;
   }
 
-  return false;
+  false
 }
 
 /// Checks if a piece is hanging
@@ -243,23 +242,21 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
 pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
   let piece = game_state.board.squares[index];
 
-  let color;
-  match piece {
+  let color = match piece {
     NO_PIECE | BLACK_KING | WHITE_KING => return false,
-    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => color = Color::White,
-    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => color = Color::Black,
+    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => Color::Black,
     p => {
       warn!("Unknown piece onthe board! {p}");
       return false;
     },
-  }
+  };
 
-  let bitmap;
-  if color == Color::White {
-    bitmap = game_state.white_bitmap;
+  let bitmap = if color == Color::White {
+    game_state.white_bitmap
   } else {
-    bitmap = game_state.black_bitmap;
-  }
+    game_state.black_bitmap
+  };
 
   if bitmap.is_none() {
     warn!("Unknown color bitmap, we won't know if pieces are hanging");
@@ -270,7 +267,7 @@ pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
     return false;
   }
 
-  return true;
+  true
 }
 
 // -----------------------------------------------------------------------------

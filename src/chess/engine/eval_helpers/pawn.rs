@@ -51,7 +51,7 @@ pub fn can_become_protected(game_state: &GameState, index: usize) -> bool {
     }
   }
 
-  return false;
+   false
 }
 
 /// Returns a board mask with backwards pawns for a color
@@ -158,10 +158,9 @@ pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize
 ///
 pub fn is_protected(game_state: &GameState, index: usize) -> bool {
   // Same side pawn
-  let ss_pawn;
-  match game_state.board.squares[index] {
-    WHITE_PAWN => ss_pawn = WHITE_PAWN,
-    BLACK_PAWN => ss_pawn = BLACK_PAWN,
+  let ss_pawn = match game_state.board.squares[index] {
+    WHITE_PAWN => WHITE_PAWN,
+    BLACK_PAWN => BLACK_PAWN,
     _ => return false,
   };
 
@@ -175,7 +174,7 @@ pub fn is_protected(game_state: &GameState, index: usize) -> bool {
     rank += 1;
   }
   // Would be strange here, (there should be no pawn on the edge of the board)
-  if (rank > 8) || (rank < 1) {
+  if !(1..=8).contains(&rank) {
     debug_assert!(false, "There should be no pawn in such positions");
     return false;
   }
@@ -193,7 +192,7 @@ pub fn is_protected(game_state: &GameState, index: usize) -> bool {
     }
   }
 
-  return false;
+  false
 }
 
 /// Determine if a square on the board is protected by a pawn of a certain color
@@ -225,7 +224,7 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: usize, color: 
     rank += 1;
   }
   // 1st rank can be defended by white pawns, and same for 8th rank/black pawns
-  if (rank > 8) || (rank < 1) {
+  if !(1..=8).contains(&rank) {
     return false;
   }
 
@@ -242,7 +241,7 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: usize, color: 
     }
   }
 
-  return false;
+  false
 }
 
 /// Determine if a pawn on the board is passed.
@@ -259,17 +258,9 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: usize, color: 
 ///
 pub fn is_passed(game_state: &GameState, index: usize) -> bool {
   // Same side pawn
-  let ss_pawn;
-  let op_pawn;
-  match game_state.board.squares[index] {
-    WHITE_PAWN => {
-      ss_pawn = WHITE_PAWN;
-      op_pawn = BLACK_PAWN;
-    },
-    BLACK_PAWN => {
-      ss_pawn = BLACK_PAWN;
-      op_pawn = WHITE_PAWN;
-    },
+  let (ss_pawn, op_pawn) = match game_state.board.squares[index] {
+    WHITE_PAWN => (WHITE_PAWN, BLACK_PAWN),
+    BLACK_PAWN => (BLACK_PAWN, WHITE_PAWN),
     _ => return false,
   };
 
@@ -284,7 +275,7 @@ pub fn is_passed(game_state: &GameState, index: usize) -> bool {
     } else {
       rank -= 1;
     }
-    if (rank > 8) || (rank < 1) {
+    if !(1..=8).contains(&rank) {
       return true;
     }
 

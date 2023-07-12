@@ -1,8 +1,27 @@
-// Array of u64 (board bitmasks bitmasks indicating if a knight can move from a square to another)
+//------------------------------------------------------------------------------
+// Macros
+/// Checks if a file/rank value is within bounds, else breaks
+macro_rules! fr_bounds_or_break {
+  ($file:expr, $rank:expr) => {
+    if !(0..=7).contains(&$rank) || !(0..=7).contains(&$file) {
+      break;
+    }
+  };
+}
+
+/// Checks if a file/rank value is within bounds, else continues
+macro_rules! fr_bounds_or_continue {
+  ($file:expr, $rank:expr) => {
+    if !(0..=7).contains(&$rank) || !(0..=7).contains(&$file) {
+      continue;
+    }
+  };
+}
 
 // Knights can always go at the same "jumps", regardless of the board.
 // So we store this as a const table.
 /// Possible knight moves from a square.
+/// Array of u64 (board bitmasks bitmasks indicating if a knight can move from a square to another)
 pub const KNIGHT_MOVES: [u64; 64] = [
   0x0000000000020400,
   0x0000000000050800,
@@ -157,7 +176,7 @@ pub const KING_MOVES: [u64; 64] = [
 ///
 pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> u64 {
   // Knight just cannot go where we have same side pieces
-  return KNIGHT_MOVES[square] & (!same_side_pieces);
+  KNIGHT_MOVES[square] & (!same_side_pieces)
 }
 
 /// Computes the list of possible destinations when a piece can "repeat" a
@@ -194,9 +213,7 @@ fn get_moves_from_offsets(
       file += file_offset;
 
       // Did we go too far ?
-      if rank < 0 || rank > 7 || file < 0 || file > 7 {
-        break;
-      }
+      fr_bounds_or_break!(file, rank);
 
       let destination_bitmask: u64 = 1 << (rank * 8 + file);
       if destination_bitmask & same_side_pieces != 0 {
@@ -209,7 +226,7 @@ fn get_moves_from_offsets(
       if (destination_bitmask & opponent_pieces) != 0 {
         break;
       }
-      if recursion == false {
+      if !recursion {
         break;
       }
     }
@@ -226,13 +243,13 @@ fn get_moves_from_offsets(
 /// * `square` - Start square for the knight
 ///
 pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
-  return get_moves_from_offsets(
+  get_moves_from_offsets(
     &BISHOP_MOVE_OFFSETS,
     true,
     same_side_pieces,
     opponent_pieces,
     square,
-  );
+  )
 }
 
 /// Returns the list of possible Rook moves
@@ -244,13 +261,13 @@ pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usi
 /// * `square` - Start square for the knight
 ///
 pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
-  return get_moves_from_offsets(
+  get_moves_from_offsets(
     &ROOK_MOVE_OFFSETS,
     true,
     same_side_pieces,
     opponent_pieces,
     square,
-  );
+  )
 }
 
 /// Returns the list of possible Queen moves
@@ -263,8 +280,8 @@ pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize
 ///
 pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
   // A queen can do what bishops and rooks can do.
-  return get_rook_moves(same_side_pieces, opponent_pieces, square)
-    | get_bishop_moves(same_side_pieces, opponent_pieces, square);
+  get_rook_moves(same_side_pieces, opponent_pieces, square)
+    | get_bishop_moves(same_side_pieces, opponent_pieces, square)
 }
 
 /// Returns a bitmask of the king possible destination squares.
@@ -277,7 +294,7 @@ pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usiz
 ///
 pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> u64 {
   // Knight just cannot go where we have same side pieces
-  return KING_MOVES[square] & (!same_side_pieces);
+  KING_MOVES[square] & (!same_side_pieces)
 }
 
 /// Returns a bitmask of the white pawn possible destination squares.
@@ -323,9 +340,7 @@ pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
     let file = inital_file + file_offset;
 
     // Did we go too far ?
-    if rank < 0 || rank > 7 || file < 0 || file > 7 {
-      continue;
-    }
+    fr_bounds_or_continue!(file, rank);
 
     // Now we know it is a valid destination, add it to the list:
     let destination_bitmask: u64 = 1 << (rank * 8 + file);
@@ -380,9 +395,7 @@ pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
     let file = inital_file + file_offset;
 
     // Did we go too far ?
-    if rank < 0 || rank > 7 || file < 0 || file > 7 {
-      continue;
-    }
+    fr_bounds_or_continue!(file, rank);
 
     // Now we know it is a valid destination, add it to the list:
     let destination_bitmask: u64 = 1 << (rank * 8 + file);

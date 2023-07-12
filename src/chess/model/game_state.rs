@@ -20,7 +20,7 @@ pub struct CastlingRights {
   pub q: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum GamePhase {
   Opening,
   Middlegame,
@@ -88,32 +88,31 @@ pub fn print_mask(mask: u64) {
 impl GameState {
   /// Takes a full FEN notation and converts it into a Game State
   pub fn from_string(fen: &str) -> Self {
-    let fen_parts: Vec<&str> = fen.split(" ").collect();
+    let fen_parts: Vec<&str> = fen.split(' ').collect();
     if fen_parts.len() < 6 {
       error!("Fen too small to generate a game state");
       return GameState::default();
     }
 
     let board = Board::from_string(fen_parts[0]);
-    let side_to_move;
-    if fen_parts[1] == "w" {
-      side_to_move = Color::White;
+    let side_to_move = if fen_parts[1] == "w" {
+      Color::White
     } else {
-      side_to_move = Color::Black;
-    }
+      Color::Black
+    };
+    
     let casting_rights = CastlingRights {
-      K: fen_parts[2].contains("K"),
-      Q: fen_parts[2].contains("Q"),
-      k: fen_parts[2].contains("k"),
-      q: fen_parts[2].contains("q"),
+      K: fen_parts[2].contains('K'),
+      Q: fen_parts[2].contains('Q'),
+      k: fen_parts[2].contains('k'),
+      q: fen_parts[2].contains('q'),
     };
 
-    let en_passant_square;
-    if fen_parts[3] != "-" {
-      en_passant_square = string_to_square(fen_parts[3]);
+    let en_passant_square = if fen_parts[3] != "-" {
+      string_to_square(fen_parts[3])
     } else {
-      en_passant_square = INVALID_SQUARE;
-    }
+      INVALID_SQUARE
+    };
 
     let ply: u8 = fen_parts[4].parse::<u8>().unwrap_or(0);
     let move_count: u8 = fen_parts[5].parse::<u8>().unwrap_or(0);
@@ -152,22 +151,22 @@ impl GameState {
     }
     fen.push(' ');
 
-    if self.castling_rights.K == true {
+    if self.castling_rights.K {
       fen.push('K');
     }
-    if self.castling_rights.Q == true {
+    if self.castling_rights.Q {
       fen.push('Q');
     }
-    if self.castling_rights.k == true {
+    if self.castling_rights.k {
       fen.push('k');
     }
-    if self.castling_rights.q == true {
+    if self.castling_rights.q {
       fen.push('q');
     }
-    if self.castling_rights.K == false
-      && self.castling_rights.Q == false
-      && self.castling_rights.q == false
-      && self.castling_rights.k == false
+    if !self.castling_rights.K
+      && !self.castling_rights.Q
+      && !self.castling_rights.q
+      && !self.castling_rights.k
     {
       fen.push('-');
     }
@@ -195,24 +194,23 @@ impl GameState {
       WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
       WHITE_KNIGHT | BLACK_KNIGHT => get_knight_moves(ssp, op, source_square),
       WHITE_PAWN => {
-        let pawn_targets;
-        if self.en_passant_square != INVALID_SQUARE {
-          pawn_targets = op | (1 << self.en_passant_square);
+        let pawn_targets = if self.en_passant_square != INVALID_SQUARE {
+          op | (1 << self.en_passant_square)
         } else {
-          pawn_targets = op;
-        }
+          op
+        };
         if (source_square / 8) == 6 {
           promotion = true;
         }
         get_white_pawn_moves(ssp, pawn_targets, source_square)
       },
       BLACK_PAWN => {
-        let pawn_targets;
-        if self.en_passant_square != INVALID_SQUARE {
-          pawn_targets = op | (1 << self.en_passant_square);
+        let pawn_targets = if self.en_passant_square != INVALID_SQUARE {
+          op | (1 << self.en_passant_square)
         } else {
-          pawn_targets = op;
-        }
+          op
+        };
+
         if (source_square / 8) == 1 {
           promotion = true;
         }
@@ -250,9 +248,9 @@ impl GameState {
 
     // To get the heatmap, we assume that any other piece on the board
     // is opposite color, as if we could capture everything
-    op = ssp | op;
+    op |= ssp;
 
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
@@ -287,7 +285,7 @@ impl GameState {
   pub fn get_color_bitmap_with_xrays(&self, color: Color) -> u64 {
     let mut bitmap: u64 = 0;
 
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
@@ -318,9 +316,9 @@ impl GameState {
 
     // To get the heatmap, we assume that any other piece on the board
     // is opposite color, as if we could capture everything
-    op = ssp | op;
+    op |= ssp;
 
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
@@ -356,9 +354,9 @@ impl GameState {
 
     // To get the heatmap, we assume that any other piece on the board
     // is opposite color, as if we could capture everything
-    op = ssp | op;
+    op |= ssp;
 
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
@@ -376,7 +374,7 @@ impl GameState {
 
   // Get all the possible moves in a position
   pub fn get_moves(&mut self) -> &Vec<Move> {
-    if self.available_moves_computed == true {
+    if self.available_moves_computed {
       return &self.move_list;
     }
 
@@ -396,7 +394,7 @@ impl GameState {
     let op = self.board.get_color_mask(Color::Black);
 
     // Only generate moves if we have a piece on the square
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self
         .board
         .has_piece_with_color(source_square as u8, Color::White)
@@ -428,7 +426,7 @@ impl GameState {
     }
 
     let black_bitmap = self.get_color_bitmap(Color::Black);
-    if self.castling_rights.K == true
+    if self.castling_rights.K
       && self.checks == 0
       && !self.board.has_piece(5)
       && !self.board.has_piece(6)
@@ -441,7 +439,7 @@ impl GameState {
         promotion: NO_PIECE,
       });
     }
-    if self.castling_rights.Q == true
+    if self.castling_rights.Q
       && self.checks == 0
       && !self.board.has_piece(1)
       && !self.board.has_piece(2)
@@ -464,10 +462,8 @@ impl GameState {
       let new_black_bitmap = new_game_state.get_color_bitmap(Color::Black);
 
       let king_square = new_game_state.board.get_white_king_square();
-      if king_square == INVALID_SQUARE {
-        illegal_moves.push(m);
-      } else if (1 << king_square) & new_black_bitmap != 0 {
-        // We're in check, illegal move
+      if king_square == INVALID_SQUARE || ((1 << king_square) & new_black_bitmap != 0) {
+        // We're in check or king disappeared, illegal move
         illegal_moves.push(m);
       }
     }
@@ -491,7 +487,7 @@ impl GameState {
     let op = self.board.get_color_mask(Color::White);
 
     // Only generate moves if we have a piece on the square
-    for source_square in 0..64 as usize {
+    for source_square in 0..64_usize {
       if !self
         .board
         .has_piece_with_color(source_square as u8, Color::Black)
@@ -524,7 +520,7 @@ impl GameState {
     // Now check castling.
     let white_bitmap = self.get_color_bitmap(Color::White);
 
-    if self.castling_rights.k == true
+    if self.castling_rights.k
       && self.checks == 0
       && !self.board.has_piece(62)
       && !self.board.has_piece(61)
@@ -537,7 +533,7 @@ impl GameState {
         promotion: NO_PIECE,
       });
     }
-    if self.castling_rights.q == true
+    if self.castling_rights.q
       && self.checks == 0
       && !self.board.has_piece(59)
       && !self.board.has_piece(58)
@@ -560,10 +556,8 @@ impl GameState {
       let new_white_bitmap = new_game_state.get_color_bitmap(Color::White);
 
       let king_square = new_game_state.board.get_black_king_square();
-      if king_square == INVALID_SQUARE {
-        illegal_moves.push(m);
-      } else if (1 << king_square) & new_white_bitmap != 0 {
-        // We're in check, illegal move
+      if king_square == INVALID_SQUARE || ((1 << king_square) & new_white_bitmap != 0) {
+        // We're in check or disappeared, illegal move
         illegal_moves.push(m);
       }
     }
@@ -694,7 +688,7 @@ impl GameState {
     self.update_checks();
 
     // Compute the list of legal moves if we need it
-    if compute_legal_moves == true {
+    if compute_legal_moves {
       let _ = self.get_moves();
     }
   }
@@ -713,14 +707,14 @@ impl GameState {
 
     let moves: Vec<&str> = move_list.split(' ').collect();
     for chess_move in moves {
-      self.apply_move(&Move::from_string(&chess_move), false);
+      self.apply_move(&Move::from_string(chess_move), false);
     }
   }
 
   // Determine the game phrase and update it.
   pub fn update_game_phase(&mut self) {
     // Do not recalculate when we calculated already
-    if let Some(_) = self.game_phase {
+    if self.game_phase.is_some() {
       return;
     }
 
@@ -751,7 +745,6 @@ impl GameState {
 
     if material_count < 17 {
       self.game_phase = Some(GamePhase::Endgame);
-      return;
     } else if development_index > 2 {
       self.game_phase = Some(GamePhase::Opening);
     } else {

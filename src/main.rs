@@ -27,7 +27,7 @@ async fn main_loop() -> Result<()> {
   // Check that the Lichess Token is okay:
   let api_token =
     fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME)?;
-  if api_token.len() == 0 {
+  if api_token.is_empty() {
     error!("Error reading the API token. Make sure that you have added a token file.");
     return Err(anyhow!("Missing API Token"));
   }
@@ -46,7 +46,7 @@ async fn main_loop() -> Result<()> {
 
     schnecken_bot.execute_command(input.trim(), &mut exit_requested);
 
-    if true == exit_requested {
+    if exit_requested {
       info!("Exiting the Lichess bot... ");
       break;
     }

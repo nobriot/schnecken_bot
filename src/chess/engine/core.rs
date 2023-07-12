@@ -27,7 +27,7 @@ pub struct ChessLine {
 impl ChessLine {
   pub fn get_depth(&self) -> usize {
     //println!("get_depth");
-    if self.variations.len() == 0 {
+    if self.variations.is_empty() {
       return 1;
     }
     let mut depth: usize = 2;
@@ -63,7 +63,7 @@ impl ChessLine {
     self
       .game_state
       .move_list
-      .sort_by(|a, b| best_move_potential(&fen, &a, &b));
+      .sort_by(|a, b| best_move_potential(&fen, a, b));
   }
 
   // Checks the engine cache if we know the move list, else derives the
@@ -102,7 +102,7 @@ impl ChessLine {
   fn get_eval_with_cache(&mut self) {
     // Check if we reach a game over state first.
     let (eval, game_over) = is_game_over(&self.game_state);
-    if game_over == true {
+    if game_over {
       self.eval = Some(eval);
       self.game_over = true;
       return;
@@ -119,7 +119,7 @@ impl ChessLine {
         let (eval, game_over) = evaluate_position(&self.game_state);
         self.eval = Some(eval);
         self.game_over = game_over;
-        if game_over == false {
+        if !game_over {
           get_engine_cache().set_eval(fen_str, eval);
         }
       }
@@ -137,11 +137,11 @@ impl ChessLine {
   ///
   pub fn evaluate(&mut self, evaluate_all: bool, deadline: Instant) {
     //println!("Evaluate");
-    if Instant::now() > deadline || self.game_over == true {
+    if Instant::now() > deadline || self.game_over {
       return;
     }
 
-    if self.eval.is_none() || (self.variations.len() == 0 && self.permutation == false) {
+    if self.eval.is_none() || (self.variations.is_empty() && !self.permutation) {
       // Check if we computed the same position before
       self.get_moves_with_cache();
       self.get_game_state_with_cache();
@@ -150,7 +150,7 @@ impl ChessLine {
     }
 
     for i in 0..self.variations.len() {
-      if evaluate_all == true {
+      if evaluate_all {
         self.variations[i].evaluate(evaluate_all, deadline);
       } else {
         // Check if the variation is "active", else skip for now
@@ -166,7 +166,7 @@ impl ChessLine {
     }
 
     // When we just did a evaluate all, we want to already back-propagate / prune at depth n-1
-    if evaluate_all == true {
+    if evaluate_all {
       for i in 0..self.variations.len() {
         if self.variations[i].eval.is_none() {
           return;
@@ -183,7 +183,7 @@ impl ChessLine {
   pub fn back_propagate_evaluations(&mut self) {
     //println!("back_propagate_evaluations");
     // Assuming here that everything is evaluated and that it is sorted.
-    if self.variations.len() == 0 {
+    if self.variations.is_empty() {
       return;
     }
 
@@ -205,7 +205,7 @@ impl ChessLine {
       } else {
         self.eval = self.variations[0].eval;
       }
-      if self.eval.is_some() && self.game_over == false {
+      if self.eval.is_some() && !self.game_over {
         let fen = self.game_state.to_string();
         let fen_str = fen.as_str();
         get_engine_cache().set_eval(fen_str, self.eval.unwrap());
@@ -223,13 +223,13 @@ impl ChessLine {
     }
 
     // Do not touch non-permutations!
-    if self.permutation == false {
+    if !self.permutation {
       return;
     }
 
     let fen = self.game_state.to_string();
     let fen_str = fen.as_str();
-    if get_engine_cache().has_fen(fen_str) == true {
+    if get_engine_cache().has_fen(fen_str) {
       self.eval = get_engine_cache().get_eval(fen_str);
     } else {
       warn!("Permutation not found in the cache. Eval update will be skipped");
@@ -240,21 +240,17 @@ impl ChessLine {
   /// variations stopped.
   pub fn add_next_moves(&mut self, deadline: Instant) -> bool {
     //println!("add_next_moves");
-    if self.game_over == true
-      || self.permutation == true
-      || self.eval.is_none()
-      || Instant::now() > deadline
-    {
+    if self.game_over || self.permutation || self.eval.is_none() || Instant::now() > deadline {
       return false;
     }
 
-    if self.game_state.move_list.len() == 0 {
+    if self.game_state.move_list.is_empty() {
       self.get_moves_with_cache();
       self.sort_moves();
     }
 
     let mut moves_added = false;
-    if self.variations.len() == 0 {
+    if self.variations.is_empty() {
       for m in &self.game_state.move_list {
         let mut new_game_state = self.game_state.clone();
         new_game_state.apply_move(m, false);
@@ -286,7 +282,7 @@ impl ChessLine {
       break;
     }
 
-    if self.variations.len() == 0 || self.variations[0].eval.is_none() {
+    if self.variations.is_empty() || self.variations[0].eval.is_none() {
       return;
     }
 
@@ -446,13 +442,13 @@ pub fn select_best_move(
 
   // Get the list of moves to assess:
   let _ = game_state.get_moves();
-  if game_state.move_list.len() == 0 {
+  if game_state.move_list.is_empty() {
     return Err(());
   }
   let fen = game_state.to_string();
   game_state
     .move_list
-    .sort_by(|a, b| best_move_potential(&fen, &a, &b));
+    .sort_by(|a, b| best_move_potential(&fen, a, b));
 
   // Add all the moves to the chess lines:
   for m in &game_state.move_list {
@@ -492,8 +488,8 @@ pub fn select_best_move(
   let mut top_moves = chess_lines.len();
   loop {
     // Check if we have been thinking too much:
-    if Instant::now() > deadline || search_complete == true {
-      if chess_lines.len() == 0 {
+    if Instant::now() > deadline || search_complete {
+      if chess_lines.is_empty() {
         return Err(());
       } else {
         sort_chess_lines(game_state.side_to_play, &mut chess_lines);
@@ -506,10 +502,10 @@ pub fn select_best_move(
     for i in 0..top_moves {
       moves_added |= chess_lines[i].add_next_moves(deadline);
     }
-    if moves_added == false && evaluate_all == false {
+    if !moves_added && !evaluate_all {
       evaluate_all = true;
       continue;
-    } else if moves_added == false && evaluate_all == true {
+    } else if !moves_added && evaluate_all {
       top_moves += 1;
       if top_moves > chess_lines.len() {
         top_moves = chess_lines.len()
@@ -552,10 +548,10 @@ pub fn select_best_move(
 
     // Check if we found a winning sequence:
     let mut current_line = &chess_lines[0];
-    while current_line.variations.len() != 0 {
+    while !current_line.variations.is_empty() {
       current_line = &current_line.variations[0];
     }
-    if current_line.game_over == true {
+    if current_line.game_over {
       search_complete = true;
     }
 
@@ -602,13 +598,12 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     }
 
     // Select a move amongs the best moves:
-    let index;
-    if move_cutoff > 1 {
+    let index = if move_cutoff > 1 {
       let mut rng = rand::thread_rng();
-      index = rng.gen_range(0..move_cutoff);
+      rng.gen_range(0..move_cutoff)
     } else {
-      index = move_cutoff;
-    }
+      move_cutoff
+    };
     debug!("Playing {index}th best move");
 
     return Ok(chess_lines[index].chess_move.to_string());
@@ -617,7 +612,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
   // Fallback on playing a random move:
   warn!("Eval went wrong. Playing a random move!");
   let move_list = game_state.get_moves();
-  if move_list.len() == 0 {
+  if move_list.is_empty() {
     warn!("Cannot compute any move from fen: {fen}");
     return Err(());
   }
@@ -631,13 +626,13 @@ pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
   if number_of_lines == 0 || number_of_lines > chess_lines.len() {
     number_of_lines = chess_lines.len();
   }
-  for i in 0..number_of_lines {
+  for (i, line) in chess_lines.iter().enumerate().take(number_of_lines) {
     let mut moves: String = String::new();
-    let mut current_line = &chess_lines[i];
+    let mut current_line = line;
     moves += current_line.chess_move.to_string().as_str();
     moves += " ";
 
-    while current_line.variations.len() != 0 {
+    while !current_line.variations.is_empty() {
       current_line = &current_line.variations[0];
       moves += current_line.chess_move.to_string().as_str();
       moves += " ";
@@ -707,7 +702,7 @@ mod tests {
 
     game_state
       .move_list
-      .sort_by(|a, b| best_move_potential(&String::from(fen), &a, &b));
+      .sort_by(|a, b| best_move_potential(&String::from(fen), a, b));
 
     assert_eq!("c2b3", game_state.move_list[0].to_string());
     assert_eq!("d4b3", game_state.move_list[1].to_string());

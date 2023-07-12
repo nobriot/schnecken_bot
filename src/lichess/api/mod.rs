@@ -86,7 +86,7 @@ impl LichessApi {
       .header("Authorization", format!("Bearer {}", self.token))
       .header("Accept", "application/x-ndjson")
       .header("Content-Type", "application/x-www-form-urlencoded")
-      .body(format!("{}", body))
+      .body(body.to_string())
       .send()
       .await
   }
@@ -106,7 +106,6 @@ impl LichessApi {
   /// Result with a JSON value received in the API response.
   ///
   pub async fn lichess_get(&self, api_endpoint: &str) -> Result<JsonValue, ()> {
-    debug!("Lichess get request at {}{}", API_BASE_URL, api_endpoint);
     let response_result = self.get(api_endpoint).await;
 
     if let Err(error) = response_result {
@@ -125,17 +124,15 @@ impl LichessApi {
     }
 
     let json_value_result = serde_json::from_str(&response_text_result.unwrap());
-    let json_object;
-
-    match json_value_result {
-      Ok(object) => json_object = object,
+    let json_object = match json_value_result {
+      Ok(object) => object,
       Err(error) => {
         warn!(
           "Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}"
         );
         return Err(());
       },
-    }
+    };
 
     debug!("Lichess get answer: {}", json_object);
     Ok(json_object)
@@ -169,17 +166,15 @@ impl LichessApi {
 
     //debug!("Lichess post answer: {:?}", response_text_result);
     let json_value_result = serde_json::from_str(&response_text_result.unwrap());
-    let json_object;
-
-    match json_value_result {
-      Ok(object) => json_object = object,
+    let json_object = match json_value_result {
+      Ok(object) => object,
       Err(error) => {
         warn!(
           "Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}"
         );
         return Ok(JsonValue::Null);
       },
-    }
+    };
 
     debug!("Lichess post answer: {}", json_object);
     Ok(json_object)

@@ -51,7 +51,7 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   let black_material = get_material_score(game_state, Color::Black);
   score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
 
-  return score + default_position_evaluation(game_state);
+  score + default_position_evaluation(game_state)
 }
 
 /// Checks if it is a King-Queen vs King endgame
@@ -68,7 +68,7 @@ fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
       WHITE_KING => {},
       BLACK_KING => {},
       WHITE_QUEEN => {
-        if queen_found == true && queen_color == Color::Black {
+        if queen_found && queen_color == Color::Black {
           return false;
         } else {
           queen_color = Color::White;
@@ -76,7 +76,7 @@ fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
         }
       },
       BLACK_QUEEN => {
-        if queen_found == true && queen_color == Color::White {
+        if queen_found && queen_color == Color::White {
           return false;
         } else {
           queen_color = Color::Black;
@@ -88,7 +88,7 @@ fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
     }
   }
 
-  return true;
+   true
 }
 
 /// Checks if it is a King-Queen vs King endgame
@@ -105,7 +105,7 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
       WHITE_KING => {},
       BLACK_KING => {},
       WHITE_ROOK => {
-        if rook_found == true && rook_color == Color::Black {
+        if rook_found && rook_color == Color::Black {
           return false;
         } else {
           rook_color = Color::White;
@@ -113,7 +113,7 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
         }
       },
       BLACK_ROOK => {
-        if rook_found == true && rook_color == Color::White {
+        if rook_found && rook_color == Color::White {
           return false;
         } else {
           rook_color = Color::Black;
@@ -125,7 +125,7 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
     }
   }
 
-  return true;
+   true
 }
 
 /// Checks if it is a King and pawns endgame
@@ -142,7 +142,7 @@ fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
     }
   }
 
-  return true;
+   true
 }
 
 /// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
@@ -259,7 +259,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     score = -score;
   }
 
-  return score;
+   score
 }
 
 // -----------------------------------------------------------------------------

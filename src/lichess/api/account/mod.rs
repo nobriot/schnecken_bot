@@ -13,7 +13,7 @@ impl LichessApi {
   /// Result with JSON value (containing account information) in case of success.
   ///
   pub async fn get_profile(&self) -> Result<JsonValue, ()> {
-    return self.lichess_get("account").await;
+    self.lichess_get("account").await
   }
 
   /// Fetches our username from Lichess
@@ -27,9 +27,9 @@ impl LichessApi {
     let json = self.lichess_get("account").await?;
 
     if json["id"].as_str().is_none() {
-      return Err(());
+      Err(())
     } else {
-      return Ok(String::from(json["id"].as_str().unwrap()));
+      Ok(String::from(json["id"].as_str().unwrap()))
     }
   }
 
@@ -41,6 +41,6 @@ impl LichessApi {
   /// Result with JSON value in case of success.
   ///
   pub async fn get_ongoing_games(&self) -> Result<JsonValue, ()> {
-    return self.lichess_get("account/playing").await;
+    self.lichess_get("account/playing").await
   }
 }

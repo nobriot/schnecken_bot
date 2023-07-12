@@ -39,13 +39,13 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   //print_mask(op_heatmap);
 
   for file_offset in -1..2 {
-    for rank_offset in -1..2 as isize {
+    for rank_offset in -1..2_isize {
       if file_offset == 0 && rank_offset == 0 {
         continue;
       }
       let file = king_file as isize + file_offset;
       let rank = king_rank as isize + rank_offset;
-      if file < 1 || file > 8 || rank < 1 || rank > 8 {
+      if !(1..=8).contains(&file) || !(1..=8).contains(&rank) {
         continue;
       }
       let square = Board::fr_to_index(file as usize, rank as usize);
@@ -63,7 +63,7 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
     return 1.0;
   }
 
-  return attacked_squares as f32 / total_squares as f32;
+  attacked_squares as f32 / total_squares as f32
 }
 
 /// Checks if the king is x-rayed in some way
@@ -85,7 +85,7 @@ pub fn is_king_xrayed(game_state: &GameState, color: Color) -> bool {
   };
 
   let opponent_mask = game_state.get_color_bitmap_with_xrays(Color::opposite(color));
-  return (1 << king_position) & opponent_mask == 0;
+  (1 << king_position) & opponent_mask == 0
 }
 
 /// Checks if the king is way too adventurous (noticed that the engine likes to walk)
