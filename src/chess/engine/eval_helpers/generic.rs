@@ -227,7 +227,7 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
   false
 }
 
-/// Checks if a piece is hanging
+/// Checks if a piece or pawn is hanging
 ///
 /// ### Arguments
 ///
@@ -263,11 +263,53 @@ pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
     return false;
   }
 
-  if (1 << index & bitmap.unwrap()) > 0 {
+  if ((1 << index) & bitmap.unwrap()) > 0 {
     return false;
   }
 
   true
+}
+
+/// Checks if a piece or pawn is attacked by enemy pieces
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `index` -      Index of the square on the board
+///
+/// ### Return value
+///
+/// True if the square contains a piece or pawn (knight, bishop, rook, queen or pawn)
+/// that is attacked by enemy pieces
+/// False otherwise
+///
+pub fn is_attacked(game_state: &GameState, index: usize) -> bool {
+  let color = match game_state.board.squares[index] {
+    NO_PIECE | BLACK_KING | WHITE_KING => return false,
+    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => Color::Black,
+    p => {
+      error!("Unknown piece onthe board! {p}");
+      return false;
+    },
+  };
+
+  let bitmap = if color == Color::White {
+    game_state.black_bitmap
+  } else {
+    game_state.white_bitmap
+  };
+
+  if bitmap.is_none() {
+    warn!("Unknown color bitmap, we won't know if pieces are under attack");
+    return false;
+  }
+
+  if (bitmap.unwrap() & (1 << index)) > 0 {
+    return true;
+  }
+
+  false
 }
 
 // -----------------------------------------------------------------------------

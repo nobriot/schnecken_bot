@@ -68,12 +68,12 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
 
 /// Checks if the king is x-rayed in some way
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the number of pawn islands
 ///
-/// # Returns
+/// ### Returns
 ///
 /// The number of squares surrounding the king attacked by enemy pieces
 /// divided by the total number of squares around the king.
@@ -88,16 +88,18 @@ pub fn is_king_xrayed(game_state: &GameState, color: Color) -> bool {
   (1 << king_position) & opponent_mask == 0
 }
 
-/// Checks if the king is way too adventurous (noticed that the engine likes to walk)
+/// Checks if the king is way too adventurous
+///
+/// Noticed that the engine likes to walk
 /// the king up the board, but it should not do that unless opponent has no more
 /// major pieces
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the number of pawn islands
 ///
-/// # Returns
+/// ### Returns
 ///
 /// True if the king has left its home rank and major enemy pieces are still here.
 ///

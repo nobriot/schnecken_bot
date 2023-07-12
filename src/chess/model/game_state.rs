@@ -254,6 +254,7 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
+      // FIXME: Pawns are shown as attacking the squares in front of them.
       let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
