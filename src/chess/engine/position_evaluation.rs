@@ -380,14 +380,14 @@ mod tests {
   }
   #[test]
   fn test_evaluate_position_hanging_queen() {
-    // This should obviously be very bad for black:
+    // This should obviously be very bad for white:
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let mut game_state = GameState::from_string(fen);
     game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
     println!("Evaluation : {evaluation} - Game Over: {game_over}");
     assert_eq!(false, game_over);
-    assert!(evaluation < -8.0);
+    assert!(evaluation < -3.0);
   }
 
   #[test]

@@ -149,7 +149,7 @@ impl BotState {
         return;
       }
     }
-    debug!("Could not removing Game ID {} as it is now known.", game_id);
+    debug!("Could not remove Game ID {} as it is now known.", game_id);
   }
 
   //----------------------------------------------------------------------------
@@ -394,9 +394,6 @@ impl BotState {
         tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
         return;
       }
-    } else {
-      //warn!("Cannot find our cached game for Game ID {game_id}. Won't play");
-      return;
     }
   }
 
@@ -450,6 +447,10 @@ impl EventStreamHandler for BotState {
       },
       "gameFinish" => {
         info!("Game finished! ");
+        // FIXME: I have seen that sometimes we get a game update where it's not finished (Status = Started)
+        // But then the server decides it's a 3-fold repetition.
+        // then get a game finish, but we started computing the next move
+        // and POST trying to make a move even though the game is over.
         let result: Result<lichess::types::GameStart, serde_json::Error> =
           serde_json::from_value(json_value["game"].clone());
         if result.is_err() {

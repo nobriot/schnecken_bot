@@ -1,6 +1,16 @@
 use log::*;
 use serde_json::Value as JsonValue;
 
+/// Parses a string to a Vector of JSON values.
+///
+/// ### Aguments
+///
+/// * `string_value` The ND-JSON string
+///
+/// ### Returns
+///
+/// A vector of serde_json::Value. Can be empty.
+///
 pub fn parse_string_to_nd_json(string_value: &str) -> Vec<JsonValue> {
   let mut result: Vec<JsonValue> = Vec::new();
 
@@ -33,7 +43,6 @@ mod tests {
         
         \n\r
         ";
-    // Some eval values, from strongest to weakest (from white perspective)
     let result = parse_string_to_nd_json(test_string);
     assert_eq!(0, result.len());
   }
@@ -46,7 +55,6 @@ mod tests {
                 {"value": 2}
                 {"value": 3}
                 "#;
-    // Some eval values, from strongest to weakest (from white perspective)
     let result = parse_string_to_nd_json(test_string);
     assert_eq!(3, result.len());
   }
@@ -59,7 +67,6 @@ mod tests {
         {"value": 2
         {"value": 3}
         "#;
-    // Some eval values, from strongest to weakest (from white perspective)
     let result = parse_string_to_nd_json(test_string);
     assert_eq!(1, result.len());
   }

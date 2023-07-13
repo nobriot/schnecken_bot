@@ -3,7 +3,6 @@ use crate::chess::engine::eval_helpers::generic::*;
 use crate::chess::engine::eval_helpers::king::*;
 use crate::chess::engine::eval_helpers::mobility::*;
 use crate::chess::engine::square_affinity::*;
-use crate::chess::model::game_state::print_mask;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
 
@@ -18,7 +17,7 @@ const HANGING_PENALTY: f32 = 0.1;
 const HANGING_FACTOR: f32 = 0.5;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.01;
+const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Gives a score based on the position in the opening
 ///
@@ -83,6 +82,8 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Piece square table:
+    /*
+     */
     match game_state.board.squares[i] {
       WHITE_KING => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_KING[i] as f32,
       WHITE_QUEEN => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_QUEEN[i] as f32,
@@ -98,8 +99,6 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
       BLACK_PAWN => score -= SQUARE_TABLE_FACTOR * OpeningSquareTable::BLACK_PAWN[i] as f32,
       _ => {},
     }
-    /*
-     */
   }
 
   // Basic material count
@@ -115,14 +114,15 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::chess::model::game_state::print_mask;
 
   #[test]
   fn evaluate_opening_positions() {
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let game_state = GameState::from_string(fen);
     let eval = get_opening_position_evaluation(&game_state);
-    //print_mask(game_state.white_bitmap.unwrap());
-    //print_mask(game_state.black_bitmap.unwrap());
+    print_mask(game_state.white_bitmap.unwrap());
+    print_mask(game_state.black_bitmap.unwrap());
     println!("Evaluation: {eval}");
     assert!(-2.0 > eval);
   }
@@ -133,9 +133,12 @@ mod tests {
     let game_state = GameState::from_string(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
+    print_mask(game_state.white_bitmap.unwrap());
+    print_mask(game_state.black_bitmap.unwrap());
+
     println!("Evaluation: {eval}");
-    assert!(-1.0 < eval);
-    assert!(1.0 > eval);
+    assert!(-0.01 < eval);
+    assert!(0.01 > eval);
   }
 
   #[test]
@@ -150,12 +153,59 @@ mod tests {
 
   #[test]
   fn evaluate_material_over_development() {
-    // Here black is under-developed, but they are a knigh up. We want the material to prevail:
+    // Here black is under-developed, but they are a knight up. We want the material to prevail:
     let fen = "r1bqkbnr/pppppppp/2n5/8/2B1P3/1P3N2/PBPP1PPP/R2QK2R w KQkq - 3 8";
     let game_state = GameState::from_string(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(1.0 < eval);
+    assert!(eval < -1.0);
+  }
+
+  #[test]
+  fn evaluate_white_rook_on_second_rank() {
+    // Historically the bot liked to place the rook on the 2nd rank for white / 7th for black, seems like a bug to me
+    let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPPR/RNBQKBN1 b Qkq - 2 2";
+    let game_state = GameState::from_string(fen);
+    let eval_1 = get_opening_position_evaluation(&game_state);
+
+    let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPP1/RNBQKBNR b Qkq - 9 6";
+    let game_state = GameState::from_string(fen);
+    let eval_2 = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: {eval_1} vs {eval_2}");
+    assert!(eval_1 < eval_2);
+  }
+
+  #[test]
+  fn evaluate_castle_better_than_non_castle() {
+    // Here we are not castled.
+    let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
+    let game_state = GameState::from_string(fen);
+    let eval_1 = get_opening_position_evaluation(&game_state);
+
+    // Here we are castled
+    let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w kq - 6 5";
+    let game_state = GameState::from_string(fen);
+    let eval_2 = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: {eval_1} vs {eval_2}");
+    assert!(eval_1 < eval_2);
+  }
+
+  #[test]
+  fn evaluate_adventurous_king() {
+    // Here we are not castled.
+    let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
+    let game_state = GameState::from_string(fen);
+    let eval_1 = get_opening_position_evaluation(&game_state);
+
+    // Here the king is trying king of the hill
+    let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPPKPPP/R1BQ3R w kq - 6 5";
+    let game_state = GameState::from_string(fen);
+    let eval_2 = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: {eval_1} vs {eval_2}");
+    assert!(eval_1 > eval_2);
   }
 }

@@ -299,11 +299,17 @@ pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usiz
 
 /// Returns a bitmask of the white pawn possible destination squares.
 ///
-/// # Arguments
+/// NOTE: Make sure to add the en-passant square in the oppponent pieces board mask
+///
+/// ### Arguments
 ///
 /// * `same_side_pieces` - boardmask of the same side pieces
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
+///
+/// ### Returns
+///
+/// Board mask with squares where the pawn can go.
 ///
 pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
   let inital_rank = (square / 8) as isize;
@@ -352,13 +358,53 @@ pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
   destinations
 }
 
-/// Returns a bitmask of the white pawn possible destination squares.
+/// Returns a bitmask of the white pawn possible capture squares.
+/// (even if there are no pieces on that square)
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `same_side_pieces` - boardmask of the same side pieces
 /// * `opponent_pieces` - boardmask of the opponent pieces
-/// * `square` - Start square for the knight
+/// * `square` -          Start square for the white pawn
+///
+/// ### Returns
+///
+/// Board mask with squares where the pawn can capture.
+///
+pub fn get_white_pawn_captures(square: usize) -> u64 {
+  let inital_rank = (square / 8) as isize;
+  let inital_file = (square % 8) as isize;
+  let mut destinations: u64 = 0;
+
+  // Check if it can capture
+  let capture_offsets: [(isize, isize); 2] = [(1, 1), (-1, 1)];
+  for (file_offset, rank_offset) in capture_offsets {
+    let rank = inital_rank + rank_offset;
+    let file = inital_file + file_offset;
+
+    // Did we go too far ?
+    fr_bounds_or_continue!(file, rank);
+
+    // Now we know it is a valid destination, add it to the list:
+    destinations |= 1 << (rank * 8 + file);
+  }
+
+  destinations
+}
+
+/// Returns a bitmask of the black pawn possible destination squares.
+///
+/// NOTE: Make sure to add the en-passant square in the oppponent pieces board mask
+///
+/// ### Arguments
+///
+/// * `same_side_pieces` -  boardmask of the same side pieces
+/// * `opponent_pieces` -   boardmask of the opponent pieces
+/// * `square` -            Start square for the black pawn
+///
+/// ### Returns
+///
+/// Board mask with squares where the pawn can go.
 ///
 pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
   let inital_rank = (square / 8) as isize;
@@ -402,6 +448,40 @@ pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
     if destination_bitmask & opponent_pieces != 0 {
       destinations |= destination_bitmask;
     }
+  }
+
+  destinations
+}
+
+/// Returns a bitmask of the black pawn possible capture squares.
+/// (even if there are no pieces on that square)
+///
+/// ### Arguments
+///
+/// * `same_side_pieces` - boardmask of the same side pieces
+/// * `opponent_pieces` - boardmask of the opponent pieces
+/// * `square` -          Start square for the black pawn
+///
+/// ### Returns
+///
+/// Board mask with squares where the pawn can capture.
+///
+pub fn get_black_pawn_captures(square: usize) -> u64 {
+  let inital_rank = (square / 8) as isize;
+  let inital_file = (square % 8) as isize;
+  let mut destinations: u64 = 0;
+
+  // Check if it can capture
+  let capture_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
+  for (file_offset, rank_offset) in capture_offsets {
+    let rank = inital_rank + rank_offset;
+    let file = inital_file + file_offset;
+
+    // Did we go too far ?
+    fr_bounds_or_continue!(file, rank);
+
+    // Now we know it is a valid destination, add it to the list:
+    destinations |= 1 << (rank * 8 + file);
   }
 
   destinations

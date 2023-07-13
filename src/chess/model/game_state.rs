@@ -100,7 +100,7 @@ impl GameState {
     } else {
       Color::Black
     };
-    
+
     let casting_rights = CastlingRights {
       K: fen_parts[2].contains('K'),
       Q: fen_parts[2].contains('Q'),
@@ -254,8 +254,15 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      // FIXME: Pawns are shown as attacking the squares in front of them.
-      let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
+      let destinations = if self.board.squares[source_square] == WHITE_PAWN {
+        get_white_pawn_captures(source_square)
+      } else if self.board.squares[source_square] == BLACK_PAWN {
+        get_black_pawn_captures(source_square)
+      } else {
+        let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
+        destinations
+      };
+
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           bitmap |= 1 << i;
