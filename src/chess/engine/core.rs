@@ -571,7 +571,10 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
   }
 
   // Try to evaluate ourselves.
-  info!("Using {suggested_time_ms} ms to find a move");
+  info!(
+    "Using {suggested_time_ms} ms to find a move for position {}",
+    game_state.to_string()
+  );
   let deadline = Instant::now() + Duration::from_millis(suggested_time_ms);
 
   if let Ok(chess_lines) = select_best_move(game_state, deadline) {
@@ -1079,5 +1082,18 @@ mod tests {
     let deadline = Instant::now() + Duration::new(0, 855_000_000);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     assert_eq!("a7a8Q", chess_lines[0].chess_move.to_string());
+  }
+
+  #[test]
+  fn capture_to_be_up_the_exchange() {
+    // Game: https://lichess.org/L4ANgIdY/
+    let fen = "6nr/1n1k2pp/p3p3/3pPqB1/2p2P1P/brN2R2/4B3/R1Q4K w - - 33 43";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(5000);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("a1a3", chess_lines[0].chess_move.to_string());
   }
 }

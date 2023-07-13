@@ -1,7 +1,7 @@
 use crate::chess::engine::eval_helpers::generic::*;
 use crate::chess::engine::eval_helpers::king::*;
 use crate::chess::engine::eval_helpers::mobility::*;
-use crate::chess::engine::position_evaluation::default_position_evaluation;
+use crate::chess::engine::eval_helpers::rook::get_rooks_file_score;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -16,6 +16,7 @@ const HANGING_PENALTY: f32 = 0.1;
 const HANGING_FACTOR: f32 = 0.5;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
+const ROOKS_FILE_BONUS: f32 = 0.3;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Gives a score based on the position in the middlegame
@@ -46,6 +47,11 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   if is_king_too_adventurous(game_state, Color::Black) {
     score += KING_TOO_ADVENTUROUS_PENALTY;
   }
+
+  // Check if rooks are placed on interesting files
+  score += ROOKS_FILE_BONUS
+    * (get_rooks_file_score(game_state, Color::White) as f32
+      - get_rooks_file_score(game_state, Color::Black) as f32);
 
   for i in 0..64 {
     // We are excited about hanging pieces when it's our turn :-)
@@ -119,5 +125,45 @@ mod tests {
 
     println!("Evaluation: {eval}");
     assert!(-1.0 > eval);
+  }
+
+  #[test]
+  fn evaluate_outposts() {
+    // Compare 3 position, one with nothing, one with the reachable outpost and one with the outpost:
+    let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp3/2N1P2P/PP3PPN/R1BQKB1R w KQkq - 8 11";
+    let game_state = GameState::from_string(fen);
+    let eval_nothing = get_middlegame_position_evaluation(&game_state);
+
+    let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp1N1/2N1P2P/PP3PP1/R1BQKB1R w KQkq - 3 9";
+    let game_state = GameState::from_string(fen);
+    let eval_reachable_outpost = get_middlegame_position_evaluation(&game_state);
+
+    let fen = "r1bqk2r/ppp2ppp/2n2n2/3pN3/1bPPp3/2N1P2P/PP3PP1/R1BQKB1R w KQkq - 0 7";
+    let game_state = GameState::from_string(fen);
+    let eval_outpost = get_middlegame_position_evaluation(&game_state);
+
+    println!("Evaluation: Nothing: {eval_nothing} - Reachable outpost: {eval_reachable_outpost} - Outpost: {eval_outpost}");
+    assert!(eval_reachable_outpost > eval_nothing);
+    assert!(eval_outpost > eval_reachable_outpost);
+  }
+
+  #[test]
+  fn evaluate_well_placed_rooks() {
+    // Compare 3 position, one with rook on closed file, half open and then open file
+    let fen = "6k1/5ppp/6p1/8/8/8/5PPP/5RK1 w - - 0 12";
+    let game_state = GameState::from_string(fen);
+    let eval_closed = get_middlegame_position_evaluation(&game_state);
+
+    let fen = "6k1/5ppp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
+    let game_state = GameState::from_string(fen);
+    let eval_half_open = get_middlegame_position_evaluation(&game_state);
+
+    let fen = "6k1/4p1pp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
+    let game_state = GameState::from_string(fen);
+    let eval_open = get_middlegame_position_evaluation(&game_state);
+
+    println!("Evaluation: closed: {eval_closed} - half open: {eval_half_open} - open: {eval_open}");
+    assert!(eval_open > eval_half_open);
+    assert!(eval_half_open > eval_closed);
   }
 }
