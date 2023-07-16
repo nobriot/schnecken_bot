@@ -165,6 +165,15 @@ impl ChessLine {
       }
     }
 
+    // Check if we just evaluated some bad capture
+    self
+      .variations
+      .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+
+    if !evaluate_all {
+      // TODO: Check if we just had a bad capture going up the variations. If that's the case, evaluate all instead.
+    }
+
     // When we just did a evaluate all, we want to already back-propagate / prune at depth n-1
     if evaluate_all {
       for i in 0..self.variations.len() {
@@ -172,9 +181,6 @@ impl ChessLine {
           return;
         }
       }
-      self
-        .variations
-        .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
       self.prune_lines();
     }
   }
@@ -575,6 +581,8 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
     "Using {suggested_time_ms} ms to find a move for position {}",
     game_state.to_string()
   );
+  game_state.update_game_phase();
+  debug!("Game is in the {:?} phase", game_state.game_phase);
   let deadline = Instant::now() + Duration::from_millis(suggested_time_ms);
 
   if let Ok(chess_lines) = select_best_move(game_state, deadline) {

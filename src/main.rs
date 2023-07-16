@@ -14,7 +14,7 @@ const API_TOKEN_FILE_NAME: &str = "/assets/lichess_api_token.txt";
 
 // Main function
 fn main() {
-  env_logger::init();
+  env_logger::builder().format_timestamp_millis().init();
   let rt = tokio::runtime::Runtime::new().unwrap();
 
   match rt.block_on(main_loop()) {

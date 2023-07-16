@@ -284,6 +284,15 @@ impl Board {
     }
   }
 
+  /// Checks if a king is on the square
+  pub fn has_king(&self, square: usize) -> bool {
+    match self.squares[square as usize] {
+      WHITE_KING => true,
+      BLACK_KING => true,
+      _ => false,
+    }
+  }
+
   /// Finds the square with a black king on it.
   pub fn get_black_king_square(&self) -> u8 {
     for i in 0..64 {

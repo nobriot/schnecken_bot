@@ -1,6 +1,7 @@
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
+use crate::chess::model::piece_moves::get_black_pawn_captures;
 
 // State to track pawn islands
 #[derive(PartialEq)]
@@ -51,7 +52,7 @@ pub fn can_become_protected(game_state: &GameState, index: usize) -> bool {
     }
   }
 
-   false
+  false
 }
 
 /// Returns a board mask with backwards pawns for a color
@@ -470,6 +471,66 @@ pub fn get_holes(game_state: &GameState, color: Color) -> u64 {
   }
 
   holes
+}
+
+/// Computes the values of the pieces that a pawn attacks.
+///
+/// ### Argument
+/// * `game_state`: A GameState object representing a position, side to play, etc.
+/// * `i`         : Index of the square on the board
+///
+/// ### Returns
+///
+/// Zero if there is no pawn on the square
+/// The value of attacked enemy pieces if it attacks them.
+///
+pub fn pawn_attack(game_state: &GameState, i: usize) -> f32 {
+  let mut value: f32 = 0.0;
+
+  // If we have no pawn on the square, return immediately.
+  let color = if game_state.board.squares[i] == WHITE_PAWN {
+    Color::White
+  } else if game_state.board.squares[i] == BLACK_PAWN {
+    Color::Black
+  } else {
+    return value;
+  };
+
+  // Check if controlled by op_pawns:
+  let (file, mut rank) = Board::index_to_fr(i);
+  match color {
+    Color::White => rank += 1,
+    Color::Black => rank -= 1,
+  }
+  if rank > 8 || rank == 0 {
+    return value;
+  }
+
+  // Check on the left side:
+  if file > 1 {
+    let s = Board::fr_to_index(file - 1, rank);
+    if game_state
+      .board
+      .has_piece_with_color(s as u8, Color::opposite(color))
+      && !game_state.board.has_king(s)
+    {
+      value += Piece::material_value_from_u8(game_state.board.squares[s]);
+    }
+  }
+
+  // Check on the right side:
+  if file < 8 {
+    let s = Board::fr_to_index(file + 1, rank);
+    if game_state
+      .board
+      .has_piece_with_color(s as u8, Color::opposite(color))
+      && !game_state.board.has_king(s)
+    {
+      value += Piece::material_value_from_u8(game_state.board.squares[s]);
+    }
+  }
+
+  value.abs()
 }
 
 // -----------------------------------------------------------------------------

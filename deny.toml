@@ -1,0 +1,18 @@
+[licenses]
+unlicensed = "warn"
+allow-osi-fsf-free = "both"
+copyleft = "deny"
+default = "warn"
+unused-allowed-license = "warn"
+confidence-threshold = 0.95
+deny = ["GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0", "LGPL-2.0"]
+allow = [
+  "MIT",
+  "MIT-0",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "MPL-2.0",
+  "Unicode-DFS-2016",
+  "CC0-1.0",
+]

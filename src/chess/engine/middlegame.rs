@@ -1,7 +1,9 @@
 use crate::chess::engine::eval_helpers::generic::*;
 use crate::chess::engine::eval_helpers::king::*;
 use crate::chess::engine::eval_helpers::mobility::*;
-use crate::chess::engine::eval_helpers::rook::get_rooks_file_score;
+use crate::chess::engine::eval_helpers::pawn::*;
+use crate::chess::engine::eval_helpers::knight::*;
+use crate::chess::engine::eval_helpers::rook::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -53,9 +55,13 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::White) as f32
       - get_rooks_file_score(game_state, Color::Black) as f32);
 
-  for i in 0..64 {
+  for i in 0..64_usize {
     // We are excited about hanging pieces when it's our turn :-)
     // Here it could probably be better.
+    if !game_state.board.has_piece(i as u8) {
+      continue;
+    }
+    let score_factor = Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
     /*
      */
     if is_hanging(game_state, i) {
@@ -64,24 +70,27 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
           == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
       {
         score -= HANGING_FACTOR
-          * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]))
+          * score_factor
           * Piece::material_value_from_u8(game_state.board.squares[i]);
       } else {
         // We usually are not the most fan of hanging pieces
-        score -=
-          HANGING_PENALTY * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+        score -= HANGING_PENALTY * score_factor;
       }
     }
     // Check if we have some good positional stuff
     if has_reachable_outpost(game_state, i) {
-      score += REACHABLE_OUTPOST_BONUS
-        * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+      score += REACHABLE_OUTPOST_BONUS * score_factor;
     }
     if occupies_reachable_outpost(game_state, i) {
-      score +=
-        OUTPOST_BONUS * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+      score += OUTPOST_BONUS * score_factor;
     }
 
+    // Pawn forks
+    score += score_factor * pawn_attack(game_state, i) / 3.1;
+    let value = knight_attack(game_state, i);
+    if value.abs() > 3.0 {
+      score += score_factor * (value - 3.0) / 2.0;
+    }
     // Piece square table:
     /*
      */

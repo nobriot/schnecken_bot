@@ -368,7 +368,8 @@ impl BotState {
     if let Some(game) = games.get_mut(game_index) {
       if game_state.status != lichess::types::GameStatus::Started {
         debug!("Game ID {game_id} is not started. Removing it from our list");
-        self.remove_game(game_id);
+        //self.remove_game(game_id);
+        //FIXME: Find out why the bot would stall at that point if we try to remove from the list.
         return;
       }
       game.move_list = game_state.moves;
@@ -431,7 +432,7 @@ impl EventStreamHandler for BotState {
       return;
     }
 
-    debug!("Event Stream payload: \n{}", json_value);
+    //debug!("Event Stream payload: \n{}", json_value);
 
     match json_value["type"].as_str().unwrap() {
       "gameStart" => {
@@ -510,7 +511,7 @@ impl GameStreamHandler for BotState {
         tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
       },
       "gameState" => {
-        debug!("Game state update received: {}", json_value);
+        //debug!("Game state update received: {}", json_value);
         let result: Result<lichess::types::GameState, serde_json::Error> =
           serde_json::from_value(json_value);
         if result.is_err() {

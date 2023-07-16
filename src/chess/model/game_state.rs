@@ -726,6 +726,11 @@ impl GameState {
       return;
     }
 
+    if self.move_count > 30 {
+      self.game_phase = Some(GamePhase::Endgame);
+      return;
+    }
+
     // Basic material count, disregarding pawns.
     let mut material_count: usize = 0;
     let mut development_index: usize = 0;
