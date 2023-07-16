@@ -1,9 +1,12 @@
+use super::helpers::bishop::*;
+use super::helpers::generic::*;
+use super::helpers::king::*;
+use super::helpers::knight::*;
+use super::helpers::mobility::*;
+use super::helpers::pawn::*;
+use super::position::HEATMAP_SCORES;
+use super::position::default_position_evaluation;
 use crate::chess::engine::development::get_development_score;
-use crate::chess::engine::eval_helpers::generic::*;
-use crate::chess::engine::eval_helpers::king::*;
-use crate::chess::engine::eval_helpers::knight::*;
-use crate::chess::engine::eval_helpers::mobility::*;
-use crate::chess::engine::eval_helpers::pawn::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -14,11 +17,6 @@ const PIECE_MOBILITY_FACTOR: f32 = 0.05;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_XRAY_FACTOR: f32 = 0.05;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
-const MATERIAL_COUNT_FACTOR: f32 = 1.0;
-const HANGING_PENALTY: f32 = 0.1;
-const HANGING_FACTOR: f32 = 0.5;
-const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
-const OUTPOST_BONUS: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Gives a score based on the position in the opening
@@ -55,43 +53,7 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   }
 
   for i in 0..64_usize {
-    // We are excited about hanging pieces when it's our turn :-)
-    // Here it could probably be better.
-    if !game_state.board.has_piece(i as u8) {
-      continue;
-    }
-    let score_factor = Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
-    /*
-     */
-    if is_hanging(game_state, i) {
-      if is_attacked(game_state, i)
-        && (game_state.side_to_play
-          == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
-      {
-        score -= HANGING_FACTOR
-          * score_factor
-          * Piece::material_value_from_u8(game_state.board.squares[i]);
-      } else {
-        // We usually are not the most fan of hanging pieces
-        score -= HANGING_PENALTY * score_factor;
-      }
-    }
-    // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i) {
-      score += REACHABLE_OUTPOST_BONUS * score_factor;
-    }
-    if occupies_reachable_outpost(game_state, i) {
-      score += OUTPOST_BONUS * score_factor;
-    }
-
-    score += score_factor * pawn_attack(game_state, i) / 3.1;
-    let value = knight_attack(game_state, i);
-    if value.abs() > 3.0 {
-      score += score_factor * (value - 3.0) / 2.0;
-    }
     // Piece square table:
-    /*
-     */
     match game_state.board.squares[i] {
       WHITE_KING => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_KING[i] as f32,
       WHITE_QUEEN => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_QUEEN[i] as f32,
@@ -109,12 +71,7 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
     }
   }
 
-  // Basic material count
-  let white_material = get_material_score(game_state, Color::White);
-  let black_material = get_material_score(game_state, Color::Black);
-  score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
-
-  score
+  score + default_position_evaluation(game_state)
 }
 
 //------------------------------------------------------------------------------
@@ -235,6 +192,23 @@ mod tests {
     println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} vs {eval_pawn_2_attacks}");
     assert!(eval_nothing > eval_pawn_1_attack);
     assert!(eval_pawn_1_attack > eval_pawn_2_attacks);
+
+    // Try from the other side (white pawns attacking black pieces)
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
+    let game_state = GameState::from_string(fen);
+    let eval_nothing = get_opening_position_evaluation(&game_state);
+
+    let fen = "rnbq1rk1/pp2bppp/3p4/2p3n1/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
+    let game_state = GameState::from_string(fen);
+    let eval_pawn_1_attack = get_opening_position_evaluation(&game_state);
+
+    let fen = "rnbq1rk1/pp3ppp/3p4/2p1b1n1/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
+    let game_state = GameState::from_string(fen);
+    let eval_pawn_2_attacks = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} vs {eval_pawn_2_attacks}");
+    assert!(eval_nothing < eval_pawn_1_attack);
+    assert!(eval_pawn_1_attack < eval_pawn_2_attacks);
   }
 
   #[test]

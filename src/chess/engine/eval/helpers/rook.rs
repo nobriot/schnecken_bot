@@ -1,4 +1,4 @@
-use crate::chess::engine::eval_helpers::generic::*;
+use super::generic::*;
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;

@@ -1,7 +1,6 @@
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::get_black_pawn_captures;
 
 // State to track pawn islands
 #[derive(PartialEq)]
@@ -646,7 +645,7 @@ mod tests {
     );
   }
 
-  use crate::chess::engine::eval_helpers::generic::mask_sum;
+  use super::super::generic::mask_sum;
 
   #[test]
   fn test_backwards_pawns() {
@@ -674,5 +673,62 @@ mod tests {
     let mask = get_holes(&game_state, Color::Black);
     print_mask(mask);
     assert_eq!(10, mask_sum(mask));
+  }
+
+  #[test]
+  fn test_pawn_attack() {
+    // Black pawn attacking white pieces:
+    let fen = "rnbq1rk1/ppp1bppp/3p1n2/8/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 7 9";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      assert_eq!(0.0, pawn_attack(&game_state, i));
+    }
+
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      if i != 34 {
+        assert_eq!(0.0, pawn_attack(&game_state, i));
+      } else {
+        assert_eq!(3.0, pawn_attack(&game_state, i));
+      }
+    }
+
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      if i != 34 {
+        assert_eq!(0.0, pawn_attack(&game_state, i));
+      } else {
+        assert_eq!(6.0, pawn_attack(&game_state, i));
+      }
+    }
+
+    // White pawn attacking black pieces:
+    let fen = "rnbq1rk1/pp2bppp/n2p4/2p5/8/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      assert_eq!(0.0, pawn_attack(&game_state, i));
+    }
+
+    let fen = "rnbq1rk1/pp2bppp/3p4/2p5/1n6/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      if i != 18 {
+        assert_eq!(0.0, pawn_attack(&game_state, i));
+      } else {
+        assert_eq!(3.0, pawn_attack(&game_state, i));
+      }
+    }
+
+    let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      if i != 18 {
+        assert_eq!(0.0, pawn_attack(&game_state, i));
+      } else {
+        assert_eq!(6.05, pawn_attack(&game_state, i));
+      }
+    }
   }
 }

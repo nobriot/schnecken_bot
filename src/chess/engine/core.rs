@@ -4,9 +4,11 @@ use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 // From our module
-use crate::chess::engine::cache::get_engine_cache;
-use crate::chess::engine::position_evaluation::*;
-use crate::chess::engine::theory::*;
+use super::cache::get_engine_cache;
+use super::eval::position::*;
+use super::theory::*;
+
+// From other modules
 use crate::chess::model::board::Move;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;

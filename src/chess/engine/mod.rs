@@ -1,10 +1,6 @@
+pub mod cache;
 pub mod core;
 pub mod development;
-pub mod endgame;
-pub mod eval_helpers;
-pub mod middlegame;
-pub mod opening;
-pub mod position_evaluation;
+pub mod eval;
 pub mod square_affinity;
 pub mod theory;
-pub mod cache;

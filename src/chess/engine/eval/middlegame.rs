@@ -1,9 +1,12 @@
-use crate::chess::engine::eval_helpers::generic::*;
-use crate::chess::engine::eval_helpers::king::*;
-use crate::chess::engine::eval_helpers::mobility::*;
-use crate::chess::engine::eval_helpers::pawn::*;
-use crate::chess::engine::eval_helpers::knight::*;
-use crate::chess::engine::eval_helpers::rook::*;
+use super::helpers::bishop::*;
+use super::helpers::generic::*;
+use super::helpers::king::*;
+use super::helpers::knight::*;
+use super::helpers::mobility::*;
+use super::helpers::pawn::*;
+use super::helpers::rook::*;
+use super::position::default_position_evaluation;
+use super::position::HEATMAP_SCORES;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -56,40 +59,8 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
       - get_rooks_file_score(game_state, Color::Black) as f32);
 
   for i in 0..64_usize {
-    // We are excited about hanging pieces when it's our turn :-)
-    // Here it could probably be better.
     if !game_state.board.has_piece(i as u8) {
       continue;
-    }
-    let score_factor = Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
-    /*
-     */
-    if is_hanging(game_state, i) {
-      if is_attacked(game_state, i)
-        && (game_state.side_to_play
-          == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
-      {
-        score -= HANGING_FACTOR
-          * score_factor
-          * Piece::material_value_from_u8(game_state.board.squares[i]);
-      } else {
-        // We usually are not the most fan of hanging pieces
-        score -= HANGING_PENALTY * score_factor;
-      }
-    }
-    // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i) {
-      score += REACHABLE_OUTPOST_BONUS * score_factor;
-    }
-    if occupies_reachable_outpost(game_state, i) {
-      score += OUTPOST_BONUS * score_factor;
-    }
-
-    // Pawn forks
-    score += score_factor * pawn_attack(game_state, i) / 3.1;
-    let value = knight_attack(game_state, i);
-    if value.abs() > 3.0 {
-      score += score_factor * (value - 3.0) / 2.0;
     }
     // Piece square table:
     /*
@@ -111,11 +82,7 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
     }
   }
 
-  let white_material = get_material_score(game_state, Color::White);
-  let black_material = get_material_score(game_state, Color::Black);
-  score += MATERIAL_COUNT_FACTOR * (white_material - black_material);
-
-  score
+  score + default_position_evaluation(game_state)
 }
 
 //------------------------------------------------------------------------------

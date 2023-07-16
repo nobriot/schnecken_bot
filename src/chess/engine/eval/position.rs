@@ -1,146 +1,55 @@
 use log::*;
 
 // From our module
-use super::eval_helpers::rook::*;
-use crate::chess::engine::endgame::*;
-use crate::chess::engine::eval_helpers::generic::*;
-use crate::chess::engine::eval_helpers::pawn::*;
-use crate::chess::engine::middlegame::*;
-use crate::chess::engine::opening::*;
-use crate::chess::engine::square_affinity::*;
+use super::endgame::get_endgame_position_evaluation;
+use super::helpers::bishop::*;
+use super::helpers::generic::*;
+use super::helpers::knight::*;
+use super::helpers::pawn::*;
+use super::helpers::rook::*;
+use super::middlegame::get_middlegame_position_evaluation;
+use super::opening::get_opening_position_evaluation;
+
+// From another crate
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
 // Constants
-const PIECE_AFFINITY_FACTOR: f32 = 0.005;
-const PAWN_ISLAND_FACTOR: f32 = 0.02;
+const PAWN_ISLAND_FACTOR: f32 = 0.01;
 const PASSED_PAWN_FACTOR: f32 = 0.2;
 const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
 const PROTECTED_PAWN_FACTOR: f32 = 0.05;
-const CLOSENESS_TO_PROMOTION_PAWN_FACTOR: f32 = 0.1;
-const BACKWARDS_PAWN_FACTOR: f32 = 0.01;
-const CONNECTED_ROOKS_FACTOR: f32 = 0.02;
-const ROOK_FILE_FACTOR: f32 = 0.03;
-const HANGING_FACTOR: f32 = 0.1;
-const REACHABLE_OUTPOST: f32 = 0.08;
+const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
+const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
+const ROOK_FILE_FACTOR: f32 = 0.015;
+const HANGING_FACTOR: f32 = 0.2;
+const HANGING_PENALTY: f32 = 0.1;
+const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
+const OUTPOST_BONUS: f32 = 0.9;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
 pub const HEATMAP_SCORES: [f32; 64] = [
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 1st row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 2nd row
-  0.01, 0.01, 0.03, 0.03, 0.03, 0.03, 0.01, 0.01, // 3rd row
-  0.01, 0.01, 0.03, 0.04, 0.04, 0.03, 0.01, 0.01, // 4th row
-  0.01, 0.01, 0.03, 0.04, 0.04, 0.03, 0.01, 0.01, // 5th row
-  0.01, 0.01, 0.03, 0.03, 0.03, 0.03, 0.01, 0.01, // 6th row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 7th row
-  0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, // 8th row
+  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 1st row
+  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 2nd row
+  0.005, 0.005, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, // 3rd row
+  0.005, 0.01, 0.015, 0.02, 0.02, 0.015, 0.01, 0.005, // 4th row
+  0.005, 0.01, 0.015, 0.02, 0.02, 0.015, 0.01, 0.005, // 5th row
+  0.005, 0.005, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, // 6th row
+  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 7th row
+  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 8th row
 ];
 
-fn get_free_piece_value(game_state: &GameState) -> f32 {
-  let mut highest_free_piece_value: f32 = 0.0;
-  //println!("Side to play: {}", game_state.side_to_play);
-  let op_color = Color::opposite(game_state.side_to_play);
-  //println!("Opposite side : {}", op_color);
-  let op_heatmap = game_state.get_heatmap(op_color, false);
-  let ss_heatmap = game_state.get_heatmap(game_state.side_to_play, false);
-
-  for i in 0..64 {
-    if game_state.board.has_piece_with_color(i, op_color) {
-      if ss_heatmap[i as usize] > 0
-        && op_heatmap[i as usize] == 0
-        && highest_free_piece_value.abs()
-          < Piece::material_value_from_u8(game_state.board.squares[i as usize]).abs()
-      {
-        highest_free_piece_value =
-          Piece::material_value_from_u8(game_state.board.squares[i as usize]);
-      }
-    }
-  }
-  //println!("Free piece value: {highest_free_piece_value}");
-  highest_free_piece_value
-}
-
-fn find_most_interesting_capture(game_state: &GameState) -> f32 {
-  let mut highest_value_gain: f32 = 0.0;
-  let op_color = Color::opposite(game_state.side_to_play);
-  //println!("Opposite side : {}", op_color);
-  let (op_heatmap, op_sources) = game_state.get_heatmap_with_sources(op_color, false);
-  let (ss_heatmap, ss_sources) =
-    game_state.get_heatmap_with_sources(game_state.side_to_play, false);
-
-  for i in 0..64 {
-    if !game_state.board.has_piece_with_color(i, op_color) {
-      continue;
-    }
-    if ss_heatmap[i as usize] == 0 {
-      continue;
-    }
-
-    let target_value = Piece::material_value_from_u8(game_state.board.squares[i as usize]).abs();
-    // Same number or less attackers than defenders.
-    // Check if we have a lesser value piece that can capture a higher value piece.
-    if ss_heatmap[i as usize] <= op_heatmap[i as usize] {
-      let mut min_value_attacker = 200.0;
-      for j in 0..64 {
-        if ((1 << j) & ss_sources[i as usize] != 0)
-          && min_value_attacker
-            > Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs()
-        {
-          min_value_attacker =
-            Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs();
-        }
-      }
-      if (min_value_attacker < target_value)
-        && (target_value - min_value_attacker) > highest_value_gain
-      {
-        highest_value_gain = target_value - min_value_attacker;
-      }
-    } else if ss_heatmap[i as usize] >= op_heatmap[i as usize] {
-      // Let's just calculate the gain if we chop everything (in ascending piece value order)
-      let mut defender_values: Vec<f32> = Vec::new();
-      defender_values.push(target_value);
-      let mut attacker_values: Vec<f32> = Vec::new();
-      for j in 0..64 {
-        if (1 << j) & ss_sources[i as usize] != 0 {
-          attacker_values
-            .push(Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs());
-        }
-        if (1 << j) & op_sources[i as usize] != 0 {
-          defender_values
-            .push(Piece::material_value_from_u8(game_state.board.squares[j as usize]).abs());
-        }
-      }
-      defender_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-      attacker_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-      for chop_stop in 1..attacker_values.len() {
-        let mut defender_sum = target_value;
-        let mut attacker_sum = 0.0;
-        for j in 1..=chop_stop {
-          attacker_sum += attacker_values[j];
-          if j > 1 {
-            defender_sum += attacker_values[j - 1];
-          }
-        }
-        if (attacker_sum < defender_sum) && (defender_sum - attacker_sum) > highest_value_gain {
-          highest_value_gain = defender_sum - attacker_sum;
-        }
-      }
-    }
-  }
-  //println!("Highest value gain: {highest_value_gain}");
-  if game_state.side_to_play == Color::White {
-    highest_value_gain *= -1.0;
-  }
-  highest_value_gain
-}
-
-/// Default way to look at a position if we are not in a special situation.
+/// Default way to look at a position regardless of the game phase
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
+///
+/// ### Returns
+///
+/// Score assigned to the position, applicable in all game phases
+///
 pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
@@ -177,75 +86,75 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
-  if game_state.game_phase.unwrap_or(GamePhase::Opening) == GamePhase::Endgame {
-    score += CLOSENESS_TO_PROMOTION_PAWN_FACTOR
-      * (get_distance_left_for_closest_pawn_to_promotion(game_state, Color::Black) as f32
-        - get_distance_left_for_closest_pawn_to_promotion(game_state, Color::White) as f32);
-  }
-
-  // Find the highest free piece, if any:
-  /*
-  let mut capture_gain = get_free_piece_value(game_state);
-  if capture_gain == 0.0 {
-    // Divide the capture gain by 2, so it stays more interesting to actually capture than to just have a capture possibility.
-    capture_gain = find_most_interesting_capture(game_state) / 2.0;
-  }
-  score -= capture_gain;
-  */
-
-  /*
-
-  for i in 0..64 {
-    if is_hanging(game_state, i) {
-      score += HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
-    }
-    if has_reachable_outpost(game_state, i)  {
-      score +=
-        REACHABLE_OUTPOST * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
-    }
-    if occupies_reachable_outpost(game_state, i) {
-      score += 1.8 * Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
-    }
-  } */
-
   // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
   let white_heatmap = game_state.get_heatmap(Color::White, false);
   let black_heatmap = game_state.get_heatmap(Color::Black, false);
 
-  for i in 0..64 {
+  for i in 0..64_usize {
     score += HEATMAP_SCORES[i] * white_heatmap[i] as f32;
     score -= HEATMAP_SCORES[i] * black_heatmap[i] as f32;
-  }
 
-  // Piece affinity offsets, do not apply this in the endgame
-  if game_state.game_phase.unwrap_or(GamePhase::Endgame) != GamePhase::Endgame {
-    for i in 0..64 {
-      match game_state.board.squares[i] {
-        WHITE_KING => score += PIECE_AFFINITY_FACTOR * WHITE_KING_SQUARE_AFFINITY[i] as f32,
-        WHITE_QUEEN => score += PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
-        WHITE_ROOK => score += PIECE_AFFINITY_FACTOR * WHITE_ROOK_SQUARE_AFFINITY[i] as f32,
-        WHITE_BISHOP => score += PIECE_AFFINITY_FACTOR * WHITE_BISHOP_SQUARE_AFFINITY[i] as f32,
-        WHITE_KNIGHT => score += PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
-        WHITE_PAWN => score += PIECE_AFFINITY_FACTOR * WHITE_PAWN_SQUARE_AFFINITY[i] as f32,
-        BLACK_KING => score -= PIECE_AFFINITY_FACTOR * BLACK_KING_SQUARE_AFFINITY[i] as f32,
-        BLACK_QUEEN => score -= PIECE_AFFINITY_FACTOR * QUEEN_SQUARE_AFFINITY[i] as f32,
-        BLACK_ROOK => score -= PIECE_AFFINITY_FACTOR * BLACK_ROOK_SQUARE_AFFINITY[i] as f32,
-        BLACK_BISHOP => score -= PIECE_AFFINITY_FACTOR * BLACK_BISHOP_SQUARE_AFFINITY[i] as f32,
-        BLACK_KNIGHT => score -= PIECE_AFFINITY_FACTOR * KNIGHT_SQUARE_AFFINITY[i] as f32,
-        BLACK_PAWN => score -= PIECE_AFFINITY_FACTOR * BLACK_PAWN_SQUARE_AFFINITY[i] as f32,
-        _ => {},
+    if !game_state.board.has_piece(i as u8) {
+      continue;
+    }
+    let score_factor = Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+    /*
+     */
+    // We are excited about hanging pieces when it's our turn :-)
+    // Here it could probably be better.
+    if is_hanging(game_state, i) {
+      if is_attacked(game_state, i)
+        && (game_state.side_to_play
+          == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
+      {
+        score -= HANGING_FACTOR
+          * score_factor
+          * Piece::material_value_from_u8(game_state.board.squares[i]);
+      } else {
+        // We usually are not the most fan of hanging pieces
+        score -= HANGING_PENALTY * score_factor;
       }
     }
+    // Check if we have some good positional stuff
+    if has_reachable_outpost(game_state, i) {
+      score += REACHABLE_OUTPOST_BONUS * score_factor;
+    }
+    if occupies_reachable_outpost(game_state, i) {
+      score += OUTPOST_BONUS * score_factor;
+    }
+
+    // Piece attacks
+    score += score_factor * pawn_attack(game_state, i) / 3.1;
+    let value = knight_attack(game_state, i);
+    if value.abs() > 3.0 {
+      score += score_factor * (value - 3.0) / 2.3;
+    }
+    let value = bishop_attack(game_state, i);
+    if value.abs() > 3.1 {
+      score += score_factor * (value - 3.1) / 2.3;
+    }
   }
+
+  // Basic material count
+  let white_material = get_material_score(game_state, Color::White);
+  let black_material = get_material_score(game_state, Color::Black);
+  score += white_material - black_material;
+
   // Return our score
   score
 }
 
 /// Determines if a position is a game over due to insufficient material or not
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object reference representing a position, side to play, etc.
+///
+/// ### Returns
+///
+/// True if is it a game over (draw) by insufficient material
+/// false otherwise
+///
 pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
   let mut minor_piece_count = 0;
   for i in 0..64 {
@@ -280,9 +189,19 @@ pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
 
 /// Evaluates a position and  tells if it seems to be game over or not
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
+///
+/// ### Returns
+///
+/// * f32 -> Score assigned to the position (+200.0 for white win, -200.0 for black win, 0.0 for draw)
+///       Can be ignored if the `bool` is false.
+///
+/// * bool -> True if it is a game over (checkmate, stalemate, repetitions, etc.) All cases included
+/// false if the game is ongoing and must be evaluated manually
+///
+///
 pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
   if !game_state.available_moves_computed {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
@@ -315,9 +234,13 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
 
 /// Evaluates a position and returns a score and if the game is over.
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
+///
+/// ### Returns
+///
+/// Score assigned to the position.
 pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
   // Check if the evaluation is due to a game over:
   let (mut score, game_over) = is_game_over(game_state);
@@ -345,7 +268,6 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
 #[cfg(test)]
 mod tests {
   use crate::chess::model::board::Move;
-  use crate::chess::model::game_state;
 
   use super::*;
   #[test]
