@@ -1,5 +1,6 @@
 // Internal crates
 use crate::lichess::api::LichessApi;
+use crate::lichess::types::Clock;
 
 // External crates
 use log::*;
@@ -70,19 +71,20 @@ impl LichessApi {
   /// ### Parameters
   ///
   /// * `player`: Username of the player to challenge
+  /// * `clock`:  Clock settings (set clock.initial for time, and clock.increment for the increment)
   ///
   /// ### Returns
   ///
   /// Result
   ///
-  pub async fn send_challenge(&self, player: &str) -> Result<(), ()> {
+  pub async fn send_challenge(&self, player: &str, clock: &Clock) -> Result<(), ()> {
     let api_endpoint: String = format!("challenge/{}", player);
-    // Let's hardcode this to 3+0 for now.
-    // FIXME: We should have Clock parameter.
-    let body_parameters =
-      "rated=true&clock.limit=180&clock.increment=0&color=random&variant=standard";
+    let body_parameters = format!(
+      "rated=true&clock.limit={}&clock.increment={}&color=random&variant=standard",
+      clock.initial, clock.increment
+    );
     if self
-      .lichess_post(&api_endpoint, body_parameters)
+      .lichess_post(&api_endpoint, body_parameters.as_str())
       .await
       .is_ok()
     {

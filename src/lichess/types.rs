@@ -105,9 +105,9 @@ pub enum TimeControlType {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clock {
-  initial: i32,
-  increment: i32,
-  totaltime: Option<i32>,
+  pub initial: i32,
+  pub increment: i32,
+  pub totaltime: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

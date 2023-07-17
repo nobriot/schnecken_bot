@@ -1106,4 +1106,43 @@ mod tests {
     display_lines(5, &chess_lines[0].variations);
     assert_eq!("a1a3", chess_lines[0].chess_move.to_string());
   }
+
+  #[test]
+  fn capture_the_free_piece() {
+    // Game: https://lichess.org/PVxISRua
+    let fen = "2krr3/1pp3pp/5b2/P1n1pp2/5P2/2P3P1/N3PBRP/4K3 w - - 0 31";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(1434);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("f2c5", chess_lines[0].chess_move.to_string());
+  }
+
+  #[test]
+  fn capture_the_hanging_piece() {
+    // Game: https://lichess.org/4T57NamT
+    let fen = "r2qk2r/2p2pp1/p3p2p/n2p1b2/1b1P1P2/2P1PN2/PP4PP/R1B1KB1n w Qkq - 0 15";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(7863);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("c3b4", chess_lines[0].chess_move.to_string());
+  }
+
+  #[test]
+  fn save_the_last_knight() {
+    // Game: https://lichess.org/iavzLpKc
+    let fen = "4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(7863);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("c3d5", chess_lines[0].chess_move.to_string());
+  }
 }

@@ -1,4 +1,5 @@
 use log::*;
+use rand::Rng;
 use serde_json::Value as JsonValue;
 use std::fs;
 use std::sync::{Arc, Mutex};
@@ -10,6 +11,7 @@ use crate::chess::model::game_state::START_POSITION_FEN;
 use crate::chess::model::piece::Color;
 use crate::lichess;
 use crate::lichess::api::*;
+use crate::lichess::types::Clock;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -91,7 +93,8 @@ impl BotState {
     tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
 
     // Start a thread that sends challenges with a given interval:
-    // tokio::spawn(async { lichess::api::send_challenges_with_interval(3600).await });
+    let bot_clone = self.clone();
+    tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 3600).await });
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's the case.
@@ -113,6 +116,20 @@ impl BotState {
         let api_clone = bot.api.clone();
         let bot_clone = bot.clone();
         handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
+      }
+    }
+  }
+
+  async fn send_challenges_with_interval(bot: &BotState, interval: u64) {
+    // Start streaming incoming events again if it stopped
+    loop {
+      tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
+
+      // Check if we are playing, if not, send a challenge:
+      // Do not take several games at a time for now:
+      if bot.games.lock().unwrap().is_empty() {
+        info!("Let's challenge somebody");
+        bot.challenge_somebody().await;
       }
     }
   }
@@ -404,13 +421,32 @@ impl BotState {
     let player_list =
       fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + LICHESS_PLAYERS_FILE_NAME)
         .unwrap();
+    let clock_setting = rand::thread_rng().gen_range(0..3);
+    let clock: Clock = match clock_setting {
+      0 => Clock {
+        initial: 60,
+        increment: 0,
+        totaltime: None,
+      },
+      1 => Clock {
+        initial: 180,
+        increment: 0,
+        totaltime: None,
+      },
+      _ => Clock {
+        initial: 600,
+        increment: 0,
+        totaltime: None,
+      },
+    };
+
     //let parameters = serde_json::json!({ "rated": true, "clock" : {"limit":180,"increment":0}, "color":"random", "variant":"standard" });
     let players = player_list.lines();
 
     for username in players {
       if self.api.is_online(username).await {
         info!("{username} is online. Sending a challenge!");
-        if let Err(()) = self.api.send_challenge(username).await {
+        if let Err(()) = self.api.send_challenge(username, &clock).await {
           info!("Error sending a challenge to {username}");
           continue;
         }
