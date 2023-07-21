@@ -1145,4 +1145,17 @@ mod tests {
     display_lines(5, &chess_lines[0].variations);
     assert_eq!("c3d5", chess_lines[0].chess_move.to_string());
   }
+
+  #[test]
+  fn king_should_capture_too() {
+    // Game: https://lichess.org/adsFtw5A/black#77
+    let fen = "8/ppp3kR/b7/3P1p2/3P1q2/PP6/6P1/3R2K1 b - - 0 39";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(1308);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("g7h7", chess_lines[0].chess_move.to_string());
+  }
 }

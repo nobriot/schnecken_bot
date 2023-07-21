@@ -29,7 +29,10 @@ In order to compile, run, just run
 cargo run
 ```
 
-It should compile and run the program.
+I have not tried to check dependencies, it may give you an error message
+if some libraries are not present on your system... Just follow the error messages.
+
+Once it compiles, you should be good to go, run the program and what your bot play.
 
 ### UCI engine
 
