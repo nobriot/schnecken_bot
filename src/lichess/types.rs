@@ -154,3 +154,21 @@ pub enum VariantKey {
   Horde,
   RacingKings,
 }
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+pub struct ChatMessage {
+  pub room: ChatRoom,
+  pub text: String,
+  #[serde(rename = "type")]
+  pub message_type: String,
+  pub username: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatRoom {
+  Spectator,
+  Player,
+}
+
+

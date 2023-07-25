@@ -1,3 +1,5 @@
+use super::generic::*;
+
 use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
@@ -495,6 +497,12 @@ pub fn pawn_attack(game_state: &GameState, i: usize) -> f32 {
     return value;
   };
 
+  // If the knight is attacked by the opponent and not defended, we do not even
+  // consider anything here:
+  if is_hanging(game_state, i) && is_attacked(game_state, i) {
+    return value;
+  }
+
   // Check if controlled by op_pawns:
   let (file, mut rank) = Board::index_to_fr(i);
   match color {
@@ -511,9 +519,12 @@ pub fn pawn_attack(game_state: &GameState, i: usize) -> f32 {
     if game_state
       .board
       .has_piece_with_color(s as u8, Color::opposite(color))
-      && !game_state.board.has_king(s)
     {
-      value += Piece::material_value_from_u8(game_state.board.squares[s]);
+      if !game_state.board.has_king(s) {
+        value += Piece::material_value_from_u8(game_state.board.squares[s]);
+      } else {
+        value += 1.0 * Color::score_factor(Color::opposite(color));
+      }
     }
   }
 
@@ -523,9 +534,12 @@ pub fn pawn_attack(game_state: &GameState, i: usize) -> f32 {
     if game_state
       .board
       .has_piece_with_color(s as u8, Color::opposite(color))
-      && !game_state.board.has_king(s)
     {
-      value += Piece::material_value_from_u8(game_state.board.squares[s]);
+      if !game_state.board.has_king(s) {
+        value += Piece::material_value_from_u8(game_state.board.squares[s]);
+      } else {
+        value += 1.0 * Color::score_factor(Color::opposite(color));
+      }
     }
   }
 

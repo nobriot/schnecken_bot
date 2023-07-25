@@ -4,8 +4,8 @@ use super::helpers::king::*;
 use super::helpers::knight::*;
 use super::helpers::mobility::*;
 use super::helpers::pawn::*;
-use super::position::HEATMAP_SCORES;
 use super::position::default_position_evaluation;
+use super::position::HEATMAP_SCORES;
 use crate::chess::engine::development::get_development_score;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
@@ -215,6 +215,40 @@ mod tests {
   fn evaluate_bishop_pin() {
     // https://lichess.org/7oeMxsbq
     let fen = "r6r/1p1k1npp/pBp2pn1/5b1B/8/2P5/PP2RPPP/5KNR b - - 13 18";
-    todo!("We did not find the good move on that game: ");
+    let game_state = GameState::from_string(fen);
+    let eval_no_pin = get_opening_position_evaluation(&game_state);
+
+    let fen = "r6r/1p1k1npp/pBp2pn1/7B/8/2Pb4/PP2RPPP/5KNR w - - 14 19";
+    let game_state = GameState::from_string(fen);
+    let eval_pin = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: no pin {eval_no_pin} vs pin {eval_pin}");
+    assert!(eval_pin < eval_no_pin);
+    assert!(eval_pin < 0.5);
+  }
+
+  #[test]
+  fn evaluate_hanging_knight() {
+    let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/nPPP1PPP/RNB1KB1R w KQkq - 0 9";
+    let game_state = GameState::from_string(fen);
+    let eval = get_opening_position_evaluation(&game_state);
+    println!("Evaluation: {eval}");
+    assert!(eval > 4.5);
+
+    // Capturing should be evaluated slightly better:
+    let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/RPPP1PPP/1NB1KB1R b Kkq - 0 9";
+    let game_state = GameState::from_string(fen);
+    let eval_captured = get_opening_position_evaluation(&game_state);
+    println!("Evaluation: hanging: {eval} - vs captured: {eval_captured}");
+    assert!(eval_captured > eval);
+  }
+
+  #[test]
+  fn evaluate_piece_down_in_opening() {
+    let fen = "r1bqkb1r/1ppppp1p/p7/8/1n2Q3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 8";
+    let game_state = GameState::from_string(fen);
+    let eval = get_opening_position_evaluation(&game_state);
+    println!("Evaluation: {eval}");
+    assert!(eval > 3.0);
   }
 }

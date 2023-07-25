@@ -341,6 +341,30 @@ impl Board {
     board_mask
   }
 
+  /// Return a board bismask with squares set to 1 when they
+  /// have a piece with a certain color, which is not a major piece (rook and queens excluded)
+  pub fn get_color_mask_without_major_pieces(&self, color: Color) -> u64 {
+    let mut board_mask = 0;
+
+    for i in 0..64 {
+      match self.squares[i as usize] {
+        NO_PIECE => {},
+        WHITE_KING | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
+          if color == Color::White {
+            board_mask |= 1 << i;
+          }
+        },
+        BLACK_KING | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
+          if color == Color::Black {
+            board_mask |= 1 << i;
+          }
+        },
+        _ => {},
+      }
+    }
+    board_mask
+  }
+
   /// Converts first substring of a FEN (with the pieces) to a board
   pub fn from_string(string: &str) -> Self {
     let mut board = Board::new();

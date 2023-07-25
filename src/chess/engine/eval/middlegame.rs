@@ -1,26 +1,16 @@
-use super::helpers::bishop::*;
-use super::helpers::generic::*;
 use super::helpers::king::*;
-use super::helpers::knight::*;
 use super::helpers::mobility::*;
-use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::position::default_position_evaluation;
-use super::position::HEATMAP_SCORES;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.1;
 const KING_DANGER_FACTOR: f32 = 0.3;
-const MATERIAL_COUNT_FACTOR: f32 = 1.0;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 1.5;
 
 const KING_XRAY_FACTOR: f32 = 0.05;
-const HANGING_PENALTY: f32 = 0.1;
-const HANGING_FACTOR: f32 = 0.5;
-const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
-const OUTPOST_BONUS: f32 = 0.9;
 const ROOKS_FILE_BONUS: f32 = 0.3;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 

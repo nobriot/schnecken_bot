@@ -15,6 +15,25 @@ use crate::chess::model::piece::*;
 
 const PRUNE_CUTOFF: f32 = 6.0;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnalysisMode {
+  KillerMoves,
+  /// We looked only at active moves so far. (checks, captures, promotions)
+  ActiveMoves,
+  /// We looked at all the resulting positions at that depth
+  AllMoves,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BranchState {
+  // Branch is actived, should be treated normally
+  Active,
+  // Branch is pruned, we do not look at it for now.
+  Pruned,
+  /// Branch is not fully analyzed and so far it looks bad for the playing side
+  Refutation,
+}
+
 #[derive(Debug, Clone)]
 pub struct ChessLine {
   pub game_state: GameState,
@@ -24,6 +43,7 @@ pub struct ChessLine {
   pub eval: Option<f32>,
   pub game_over: bool,
   pub permutation: bool, // Stop evaluating or calculating stuff for permutations
+  pub state: BranchState,
 }
 
 impl ChessLine {
@@ -132,12 +152,10 @@ impl ChessLine {
   ///
   /// ### Arguments
   ///
-  /// * `evaluate_all`:
-  ///   If true, evaluate all moves.
-  ///   If false, evaluates only "active" moves (checks, captures, promotions)
+  /// * `mode`:
   /// * `deadline`: Timestamp at which, we have to return and stop evaluating
   ///
-  pub fn evaluate(&mut self, evaluate_all: bool, deadline: Instant) {
+  pub fn evaluate(&mut self, mode: AnalysisMode, deadline: Instant) {
     //println!("Evaluate");
     if Instant::now() > deadline || self.game_over {
       return;
@@ -152,8 +170,8 @@ impl ChessLine {
     }
 
     for i in 0..self.variations.len() {
-      if evaluate_all {
-        self.variations[i].evaluate(evaluate_all, deadline);
+      if mode == AnalysisMode::AllMoves {
+        self.variations[i].evaluate(mode, deadline);
       } else {
         // Check if the variation is "active", else skip for now
         if self.game_state.board.squares[self.variations[i].chess_move.dest as usize] != NO_PIECE
@@ -162,27 +180,19 @@ impl ChessLine {
           || self.variations[i].chess_move.promotion == WHITE_QUEEN
           || self.variations[i].chess_move.promotion == BLACK_QUEEN
         {
-          self.variations[i].evaluate(evaluate_all, deadline);
+          self.variations[i].evaluate(mode, deadline);
         }
       }
     }
 
-    // Check if we just evaluated some bad capture
-    self
-      .variations
-      .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
-
-    if !evaluate_all {
-      // TODO: Check if we just had a bad capture going up the variations. If that's the case, evaluate all instead.
-    }
-
     // When we just did a evaluate all, we want to already back-propagate / prune at depth n-1
-    if evaluate_all {
+    if mode == AnalysisMode::AllMoves {
       for i in 0..self.variations.len() {
         if self.variations[i].eval.is_none() {
           return;
         }
       }
+      self.back_propagate_evaluations();
       self.prune_lines();
     }
   }
@@ -221,6 +231,62 @@ impl ChessLine {
     }
   }
 
+  pub fn mark_bad_variations(&mut self) {
+    // Pruned branches should not be touched.
+    if self.state == BranchState::Pruned || self.variations.is_empty() {
+      return;
+    }
+
+    if self.eval.is_some()
+      && self.variations[0].eval.is_some()
+      && !self.variations[0].variations.is_empty()
+    {
+      // Make sure to sort first:
+      self
+        .variations
+        .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+      self.variations[0]
+        .variations
+        .sort_by(|a, b| best_evaluation(a, b, Color::opposite(self.game_state.side_to_play)));
+
+      if !self.variations.is_empty()
+        && !self.variations[0].variations.is_empty()
+        && self.variations[0].variations[0].eval.is_some()
+        && (self.eval.unwrap() - self.variations[0].variations[0].eval.unwrap()).abs() > 1.0
+      {
+        //println!("Marking a bad variation");
+        self.variations[0].state = BranchState::Refutation;
+        self.variations[0].variations[0].state = BranchState::Refutation;
+      }
+    }
+
+    // Go deeper too
+    for i in 0..self.variations.len() {
+      self.variations[i].mark_bad_variations();
+    }
+  }
+
+  pub fn refute_bad_variations(&mut self) {
+    // Go at the end of the line:
+    if !self.variations.is_empty() {
+      self.variations[0].refute_bad_variations();
+    }
+
+    // Check if we are in a bad capture leaf node
+    if self.variations.is_empty() || self.variations[0].state != BranchState::Refutation {
+      return;
+    }
+
+    // Evaluate all leaves for that set of moves:
+    //println!("Fixing a bad variation");
+    for i in 0..self.variations.len() {
+      self.variations[i].get_moves_with_cache();
+      self.variations[i].get_game_state_with_cache();
+      self.variations[i].get_eval_with_cache();
+      self.variations[i].state = BranchState::Active;
+    }
+  }
+
   /// Go around along variations and checks the latest cache data to update
   /// permutation evaluations.
   pub fn update_permutations_eval(&mut self) {
@@ -248,7 +314,12 @@ impl ChessLine {
   /// variations stopped.
   pub fn add_next_moves(&mut self, deadline: Instant) -> bool {
     //println!("add_next_moves");
-    if self.game_over || self.permutation || self.eval.is_none() || Instant::now() > deadline {
+    if self.game_over
+      || self.permutation
+      || self.state == BranchState::Pruned
+      || self.eval.is_none()
+      || Instant::now() > deadline
+    {
       return false;
     }
 
@@ -269,6 +340,7 @@ impl ChessLine {
           eval: None,
           game_over: false,
           permutation: false,
+          state: BranchState::Active,
         };
         self.variations.push(chess_line);
         moves_added = true;
@@ -295,29 +367,15 @@ impl ChessLine {
     }
 
     // Do not remove what is not evaluated yet
-    let mut stop_prune_index = self.variations.len();
+    let best_evaluation = self.variations[0].eval.unwrap();
     for i in 0..self.variations.len() {
       if self.variations[i].eval.is_none() {
-        stop_prune_index = i;
         break;
       }
-    }
-
-    // Now we can compare evaluations.
-    let best_evaluation = self.variations[0].eval.unwrap();
-    let mut start_prune_index = self.variations.len();
-    for i in 1..stop_prune_index {
       if (best_evaluation - self.variations[i].eval.unwrap()).abs() > PRUNE_CUTOFF {
-        start_prune_index = i;
-        break;
+        self.variations[i].state = BranchState::Pruned;
       }
     }
-    if start_prune_index == self.variations.len() {
-      return;
-    }
-
-    // Remove from start to stop:
-    self.variations.drain(start_prune_index..stop_prune_index);
   }
 }
 
@@ -469,6 +527,7 @@ pub fn select_best_move(
       eval: None,
       game_over: false,
       permutation: false,
+      state: BranchState::Active,
     };
     chess_lines.push(chess_line);
   }
@@ -478,7 +537,7 @@ pub fn select_best_move(
   let initial_deadline = Instant::now() + Duration::new(1, 0);
   for i in 0..chess_lines.len() {
     chess_lines[i].sort_moves();
-    chess_lines[i].evaluate(true, initial_deadline);
+    chess_lines[i].evaluate(AnalysisMode::AllMoves, initial_deadline);
   }
 
   if chess_lines.len() <= 1 {
@@ -492,7 +551,7 @@ pub fn select_best_move(
   // Now loop the process:
   //display_lines(0, &chess_lines);
   let mut search_complete = false;
-  let mut evaluate_all = false;
+  let mut mode = AnalysisMode::ActiveMoves;
   let mut top_moves = chess_lines.len();
   loop {
     // Check if we have been thinking too much:
@@ -510,28 +569,39 @@ pub fn select_best_move(
     for i in 0..top_moves {
       moves_added |= chess_lines[i].add_next_moves(deadline);
     }
-    if !moves_added && !evaluate_all {
-      evaluate_all = true;
+    if !moves_added && mode != AnalysisMode::AllMoves {
+      mode = AnalysisMode::AllMoves;
       continue;
-    } else if !moves_added && evaluate_all {
+    } else if !moves_added && mode == AnalysisMode::AllMoves {
       top_moves += 1;
       if top_moves > chess_lines.len() {
         top_moves = chess_lines.len()
       }
-      // println!("We are stuck! ");
+      println!("We are stuck! ");
       // This condition should happen only 1 time in a row.
     }
 
     // Evaluate lines
     for i in 0..top_moves {
-      chess_lines[i].evaluate(evaluate_all, deadline);
+      chess_lines[i].evaluate(mode, deadline);
     }
 
     // Go around once more to find permutations and update them too
     for i in 0..top_moves {
       chess_lines[i].update_permutations_eval();
     }
-    // Rank the moves by eval
+
+    // Fix bad variations
+    for i in 0..top_moves {
+      chess_lines[i].mark_bad_variations();
+      chess_lines[i].refute_bad_variations();
+    }
+
+    // Go around once more to find permutations and update them too
+    for i in 0..top_moves {
+      chess_lines[i].update_permutations_eval();
+    }
+    // Rank the moves by eval again
     for i in 0..top_moves {
       chess_lines[i].back_propagate_evaluations();
     }
@@ -563,8 +633,8 @@ pub fn select_best_move(
       search_complete = true;
     }
 
-    // By default try looping with evaluate_all = false
-    evaluate_all = false;
+    // By default try looping with ActiveMoves only
+    mode = AnalysisMode::ActiveMoves;
   } // loop
 }
 
@@ -645,7 +715,7 @@ pub fn display_lines(mut number_of_lines: usize, chess_lines: &Vec<ChessLine>) {
     moves += current_line.chess_move.to_string().as_str();
     moves += " ";
 
-    while !current_line.variations.is_empty() {
+    while !current_line.variations.is_empty() && current_line.variations[0].eval.is_some() {
       current_line = &current_line.variations[0];
       moves += current_line.chess_move.to_string().as_str();
       moves += " ";
@@ -864,6 +934,7 @@ mod tests {
       eval: None,
       game_over: false,
       permutation: false,
+      state: BranchState::Active,
     };
 
     let _ = chess_line.game_state.get_moves();
@@ -875,7 +946,7 @@ mod tests {
   }
 
   #[test]
-  fn test_dont_hang_pieces() {
+  fn test_dont_hang_pieces_1() {
     /* Got this in a game, hanging a knight, after thinking for 16_000 ms :
      Line 0 Eval: 0.79999995 - f8h6 d5e4 d7d5 e4d3
      Line 1 Eval: -0.30000085 - e4f6 d5d3
@@ -888,6 +959,7 @@ mod tests {
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
+    println!("Game state: {:?}", game_state.game_phase);
     display_lines(0, &chess_lines);
     let best_move = chess_lines[0].chess_move.to_string();
     if "e4f6" != best_move && "e4d6" != best_move {
@@ -949,6 +1021,8 @@ mod tests {
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
     display_lines(0, &chess_lines);
+    println!("-------------------------------");
+    display_lines(0, &chess_lines[17].variations);
     // This should be quite obvious to find, it's the only move that saves the bishop
     if "f5e4" != chess_lines[0].chess_move.to_string() {
       assert!(false, "Come on, the only good move is f5e4")
@@ -1127,7 +1201,7 @@ mod tests {
     let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::from_millis(7863);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
-    display_lines(5, &chess_lines);
+    display_lines(0, &chess_lines);
     println!("----------------------------------");
     display_lines(5, &chess_lines[0].variations);
     assert_eq!("c3b4", chess_lines[0].chess_move.to_string());

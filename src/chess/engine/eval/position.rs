@@ -22,7 +22,7 @@ const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.015;
-const HANGING_FACTOR: f32 = 0.2;
+const HANGING_FACTOR: f32 = 0.5;
 const HANGING_PENALTY: f32 = 0.1;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
@@ -107,9 +107,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
         && (game_state.side_to_play
           == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
       {
-        score -= HANGING_FACTOR
-          * score_factor
-          * Piece::material_value_from_u8(game_state.board.squares[i]);
+        score -= HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
       } else {
         // We usually are not the most fan of hanging pieces
         score -= HANGING_PENALTY * score_factor;
@@ -129,12 +127,17 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if value.abs() > 3.0 {
       score += score_factor * (value - 3.0) / 2.3;
     }
-    let value = bishop_attack(game_state, i);
+    let value = bishop_attack_with_pins(game_state, i);
     if value.abs() > 3.1 {
-      score += score_factor * (value - 3.1) / 2.3;
+      score += score_factor * (value - 3.1) / 1.9;
+    } else {
+      let value = bishop_attack(game_state, i);
+      if value.abs() > 3.1 {
+        score += score_factor * (value - 3.1) / 2.3;
+      }
     }
   }
-
+  
   // Basic material count
   let white_material = get_material_score(game_state, Color::White);
   let black_material = get_material_score(game_state, Color::Black);

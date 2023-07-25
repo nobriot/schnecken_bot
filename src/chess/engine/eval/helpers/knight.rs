@@ -1,7 +1,9 @@
-use crate::chess::model::board::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
+
+use super::generic::is_attacked;
+use super::generic::is_hanging;
 
 /// Computes the values of the pieces that a knight attacks.
 ///
@@ -18,7 +20,7 @@ use crate::chess::model::piece_moves::*;
 pub fn knight_attack(game_state: &GameState, i: usize) -> f32 {
   let mut value: f32 = 0.0;
 
-  // If we have no bishop on the square, return immediately.
+  // If we have no knight on the square, return immediately.
   let color = if game_state.board.squares[i] == WHITE_KNIGHT {
     Color::White
   } else if game_state.board.squares[i] == BLACK_KNIGHT {
@@ -26,6 +28,12 @@ pub fn knight_attack(game_state: &GameState, i: usize) -> f32 {
   } else {
     return value;
   };
+
+  // If the knight is attacked by the opponent and not defended, we do not even
+  // consider anything here:
+  if is_hanging(game_state, i) && is_attacked(game_state, i) {
+    return value;
+  }
 
   let destinations = get_knight_moves(0, 0, i);
 
@@ -72,5 +80,11 @@ mod tests {
     assert_eq!(0.0, knight_attack(&game_state, 0));
     assert_eq!(0.0, knight_attack(&game_state, 1));
     assert_eq!(10.0, knight_attack(&game_state, 35));
+
+    let fen = "2kr1b1r/ppp2ppp/2nqp3/6P1/4B3/2nP1N1P/PPP1PP2/R1BQK2R w KQ - 2 13";
+    let game_state = GameState::from_string(fen);
+    for i in 0..64 {
+      assert_eq!(0.0, knight_attack(&game_state, i));
+    }
   }
 }

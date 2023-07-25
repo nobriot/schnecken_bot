@@ -296,6 +296,24 @@ impl BotState {
 
   //----------------------------------------------------------------------------
   // Game Stream handlers
+  /// Processses incoming messages.
+  fn on_incoming_message(&self, game_id: &str, message: lichess::types::ChatMessage) {
+    info!(
+      "Incoming message from {} on GameID {}: {}",
+      message.username, game_id, message.text
+    );
+
+    // Test the bots and see if they answer here:
+    if message.text.contains("type !help") {
+      let api_clone = self.api.clone();
+      let game_id_clone = String::from(game_id);
+      tokio::spawn(async move {
+        api_clone
+          .write_in_chat_room(game_id_clone.as_str(), message.room, "!help")
+          .await
+      });
+    }
+  }
 
   async fn play_on_game(&self, game_id: &str) -> Result<(), ()> {
     let mut binding = self.games.lock().unwrap();
@@ -421,14 +439,14 @@ impl BotState {
     let player_list =
       fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + LICHESS_PLAYERS_FILE_NAME)
         .unwrap();
-    let clock_setting = rand::thread_rng().gen_range(0..3);
+    let clock_setting = rand::thread_rng().gen_range(0..40);
     let clock: Clock = match clock_setting {
-      0 => Clock {
+      0..=15 => Clock {
         initial: 60,
         increment: 0,
         totaltime: None,
       },
-      1 => Clock {
+      16..=35 => Clock {
         initial: 180,
         increment: 0,
         totaltime: None,
@@ -558,7 +576,14 @@ impl GameStreamHandler for BotState {
         }
       },
       "chatLine" => {
-        info!("Incoming Message: {}", json_value);
+        let result: Result<lichess::types::ChatMessage, serde_json::Error> =
+          serde_json::from_value(json_value);
+        if result.is_err() {
+          let error = result.unwrap_err();
+          warn!("Error deserializing ChatLine data !! {:?}", error);
+        } else {
+          self.on_incoming_message(game_id.as_str(), result.unwrap());
+        }
       },
       "opponentGone" => {
         let gone = json_value["gone"].as_bool().unwrap_or(false);
