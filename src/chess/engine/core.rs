@@ -134,17 +134,19 @@ impl ChessLine {
     if self.eval.is_none() {
       let fen = self.game_state.to_string();
       let fen_str = fen.as_str();
+      /*
       if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
         self.eval = Some(evaluation);
         self.permutation = true;
       } else {
-        let (eval, game_over) = evaluate_position(&self.game_state);
-        self.eval = Some(eval);
-        self.game_over = game_over;
-        if !game_over {
-          get_engine_cache().set_eval(fen_str, eval);
-        }
+        */
+      let (eval, game_over) = evaluate_position(&self.game_state);
+      self.eval = Some(eval);
+      self.game_over = game_over;
+      if !game_over {
+        get_engine_cache().set_eval(fen_str, eval);
       }
+      // }
     }
   }
 
@@ -587,9 +589,11 @@ pub fn select_best_move(
     }
 
     // Go around once more to find permutations and update them too
-    for i in 0..top_moves {
-      chess_lines[i].update_permutations_eval();
-    }
+    /*
+        for i in 0..top_moves {
+          chess_lines[i].update_permutations_eval();
+        }
+    */
 
     // Fix bad variations
     for i in 0..top_moves {
@@ -598,9 +602,11 @@ pub fn select_best_move(
     }
 
     // Go around once more to find permutations and update them too
+    /*
     for i in 0..top_moves {
       chess_lines[i].update_permutations_eval();
     }
+    */
     // Rank the moves by eval again
     for i in 0..top_moves {
       chess_lines[i].back_propagate_evaluations();
@@ -886,7 +892,7 @@ mod tests {
   // Did not capture the knight, it was very obvious to capture.
   // Spent 2900 ms to come up with this crap: d7d5
   #[test]
-  fn capture_the_damn_knight() {
+  fn capture_the_damn_knight_1() {
     let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
     let mut game_state = GameState::from_string(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
@@ -1231,5 +1237,18 @@ mod tests {
     println!("----------------------------------");
     display_lines(5, &chess_lines[0].variations);
     assert_eq!("g7h7", chess_lines[0].chess_move.to_string());
+  }
+
+  #[test]
+  fn capture_the_damn_knight_2() {
+    // Game: https://lichess.org/LE9CQViG/
+    let fen = "2r1r3/5k1p/p2bp3/B1np1p2/PP3N2/3RP1R1/8/7K w - - 0 39";
+    let mut game_state = GameState::from_string(fen);
+    let deadline = Instant::now() + Duration::from_millis(1069);
+    let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
+    display_lines(5, &chess_lines);
+    println!("----------------------------------");
+    display_lines(5, &chess_lines[0].variations);
+    assert_eq!("b4c5", chess_lines[0].chess_move.to_string());
   }
 }

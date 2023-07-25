@@ -1,5 +1,9 @@
 ZE_ROOK
+bobandi
+TemporAI
+knucklefish
 sargon-1ply
+pawnrobot
 dlvc-bot
 FlounderBot
 HardRok

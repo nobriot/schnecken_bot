@@ -141,6 +141,45 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
   false
 }
 
+/// Returns true if the king does not seem castled and has lost his castling rights
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
+///
+/// ### Returns
+///
+/// True if the king is not on a castling destination square and has no castling rights
+///
+pub fn are_casling_rights_lost(game_state: &GameState, color: Color) -> bool {
+  match color {
+    Color::White => {
+      if game_state.castling_rights.K || game_state.castling_rights.Q {
+        return false;
+      }
+    },
+    Color::Black => {
+      if game_state.castling_rights.k || game_state.castling_rights.q {
+        return false;
+      }
+    },
+  }
+
+  let king_square = match color {
+    Color::White => game_state.board.get_white_king_square(),
+    Color::Black => game_state.board.get_black_king_square(),
+  };
+
+  if color == Color::White && (king_square != 2 && king_square != 6) {
+    return true;
+  } else if color == Color::Black && (king_square != 62 && king_square != 58) {
+    return true;
+  }
+
+  false
+}
+
 // -----------------------------------------------------------------------------
 //  Tests
 

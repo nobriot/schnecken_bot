@@ -18,6 +18,7 @@ const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_XRAY_FACTOR: f32 = 0.05;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
+const CASTLING_PENATLY: f32 = 1.0;
 
 /// Gives a score based on the position in the opening
 ///
@@ -50,6 +51,13 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   }
   if is_king_too_adventurous(game_state, Color::Black) {
     score += KING_TOO_ADVENTUROUS_PENALTY;
+  }
+
+  if are_casling_rights_lost(game_state, Color::White) {
+    score -= CASTLING_PENATLY;
+  }
+  if are_casling_rights_lost(game_state, Color::Black) {
+    score += CASTLING_PENATLY;
   }
 
   for i in 0..64_usize {
