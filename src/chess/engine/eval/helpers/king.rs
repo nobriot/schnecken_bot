@@ -155,12 +155,12 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
 pub fn are_casling_rights_lost(game_state: &GameState, color: Color) -> bool {
   match color {
     Color::White => {
-      if game_state.castling_rights.K || game_state.castling_rights.Q {
+      if game_state.board.castling_rights.K || game_state.board.castling_rights.Q {
         return false;
       }
     },
     Color::Black => {
-      if game_state.castling_rights.k || game_state.castling_rights.q {
+      if game_state.board.castling_rights.k || game_state.board.castling_rights.q {
         return false;
       }
     },
@@ -190,22 +190,22 @@ mod tests {
   #[test]
   fn test_get_king_danger_score() {
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0.0, get_king_danger_score(&game_state, Color::Black));
     assert_eq!(0.0, get_king_danger_score(&game_state, Color::White));
 
     let fen = "1r1qk1nr/p2bppbp/6p1/1p2N3/3p1P2/1Q4P1/PP1PP1BP/R1B1K2R b KQk - 0 12";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(2.0 / 5.0, get_king_danger_score(&game_state, Color::Black));
     assert_eq!(0.0 / 5.0, get_king_danger_score(&game_state, Color::White));
 
     let fen = "6k1/4pp1p/2n3p1/P7/8/6P1/3P1QKP/2q5 b - - 1 33";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(1.0 / 5.0, get_king_danger_score(&game_state, Color::Black));
     assert_eq!(3.0 / 8.0, get_king_danger_score(&game_state, Color::White));
 
     let fen = "8/4ppkp/2n3p1/P7/8/6P1/3P1QKP/2q5 w - - 2 34";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(2.0 / 8.0, get_king_danger_score(&game_state, Color::Black));
     assert_eq!(3.0 / 8.0, get_king_danger_score(&game_state, Color::White));

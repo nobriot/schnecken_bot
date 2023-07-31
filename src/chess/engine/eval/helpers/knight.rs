@@ -64,25 +64,25 @@ mod tests {
   #[test]
   fn test_knight_attack() {
     let fen = "rq3b1r/pp1nkp2/2n1p2p/2pp3p/Q4P2/P1PPPb2/1P1N2P1/R1B1KBR1 w Q - 0 17";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0.0, knight_attack(&game_state, 0));
     assert_eq!(0.0, knight_attack(&game_state, 1));
     assert_eq!(3.05, knight_attack(&game_state, 11));
 
     let fen = "1r3b2/ppqnkpr1/2n4p/2ppp2p/Q1P2P2/P1NPP3/1P4P1/R1B1KBR1 w Q - 0 22";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0.0, knight_attack(&game_state, 0));
     assert_eq!(0.0, knight_attack(&game_state, 1));
     assert_eq!(1.0, knight_attack(&game_state, 18));
 
     let fen = "1r3b2/ppqnkpr1/2n4p/2pNp2p/Q1P2P2/P2PP3/1P4P1/R1B1KBR1 b Q - 0 22";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0.0, knight_attack(&game_state, 0));
     assert_eq!(0.0, knight_attack(&game_state, 1));
     assert_eq!(10.0, knight_attack(&game_state, 35));
 
     let fen = "2kr1b1r/ppp2ppp/2nqp3/6P1/4B3/2nP1N1P/PPP1PP2/R1BQK2R w KQ - 2 13";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       assert_eq!(0.0, knight_attack(&game_state, i));
     }

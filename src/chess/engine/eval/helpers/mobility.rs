@@ -120,12 +120,12 @@ mod tests {
   #[test]
   fn test_mobility_area() {
     let fen = "rnbqk1nr/pppppppp/8/8/1b6/3P4/PPPQPPPP/RNBK1BNR b KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(46, mask_sum(get_mobility_area(&game_state, Color::White)));
     assert_eq!(44, mask_sum(get_mobility_area(&game_state, Color::Black)));
 
     let fen = "r1bq2nr/pppppppp/P7/2kn1P2/1b6/3P1N1P/1PPQP1P1/RNBK1B1R b KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     //print_mask(get_mobility_area(&game_state, Color::White));
     assert_eq!(47, mask_sum(get_mobility_area(&game_state, Color::White)));
     assert_eq!(43, mask_sum(get_mobility_area(&game_state, Color::Black)));
@@ -134,12 +134,12 @@ mod tests {
   #[test]
   fn test_piece_mobility() {
     let fen = "rnbqk1nr/pppppppp/8/8/1b6/3P4/PPPQPPPP/RNBK1BNR b KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(10, get_piece_mobility(&game_state, Color::White));
     assert_eq!(8, get_piece_mobility(&game_state, Color::Black));
 
     let fen = "r1bq2nr/pppppppp/P7/2kn1P2/1b6/3P1N1P/1PPQP1P1/RNBK1B1R b KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(21, get_piece_mobility(&game_state, Color::White));
     assert_eq!(11, get_piece_mobility(&game_state, Color::Black));
   }

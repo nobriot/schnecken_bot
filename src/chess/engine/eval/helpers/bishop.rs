@@ -149,7 +149,7 @@ mod tests {
   #[test]
   fn test_bishop_attack() {
     let fen = "8/2q3r1/8/4B3/8/2k3n1/8/1K2R3 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 36 {
         assert_eq!(0.0, bishop_attack(&game_state, i));
@@ -159,7 +159,7 @@ mod tests {
     }
 
     let fen = "8/2Q3R1/8/4b3/8/2K3N1/8/1k2r3 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 36 {
         assert_eq!(0.0, bishop_attack(&game_state, i));
@@ -172,7 +172,7 @@ mod tests {
   #[test]
   fn test_bishop_attack_with_pins() {
     let fen = "4r3/6R1/8/4b3/3Q4/2K3N1/8/1k6 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 36 {
         assert_eq!(0.0, bishop_attack_with_pins(&game_state, i));
@@ -182,7 +182,7 @@ mod tests {
     }
 
     let fen = "8/6R1/5Q2/3K4/8/6N1/1b6/1k6 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 9 {
         assert_eq!(0.0, bishop_attack_with_pins(&game_state, i));

@@ -70,56 +70,56 @@ mod tests {
   fn get_development_score_test() {
     // Not developed at all
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(0, get_development_score(&game_state, Color::Black));
     assert_eq!(0, get_development_score(&game_state, Color::White));
 
     // 1 piece developed
     let fen = "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(1, get_development_score(&game_state, Color::Black));
     assert_eq!(1, get_development_score(&game_state, Color::White));
 
     // 2 pieces developed
     let fen = "rn1qkb1r/pppppppp/5n2/5b2/2B5/5N2/PPPPPPPP/RNBQK2R w KQkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(2, get_development_score(&game_state, Color::Black));
     assert_eq!(2, get_development_score(&game_state, Color::White));
 
     // 3 pieces developed
     let fen = "r2qkb1r/pppppppp/2n2n2/5b2/2B5/2N2N2/PPPPPPPP/R1BQK2R w KQkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(3, get_development_score(&game_state, Color::Black));
     assert_eq!(3, get_development_score(&game_state, Color::White));
 
     // 4 pieces developed
     let fen = "r3kb1r/pppppppp/1qn2n2/5b2/2B5/2N2NQ1/PPPPPPPP/R1B1K2R w KQkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(4, get_development_score(&game_state, Color::Black));
     assert_eq!(4, get_development_score(&game_state, Color::White));
 
     // 5 pieces developed - no rook connection
     let fen = "r3k2r/ppppppbp/1qn2np1/5b2/2B5/1PN2NQ1/PBPPPPPP/R3K2R w KQkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(5, get_development_score(&game_state, Color::Black));
     assert_eq!(5, get_development_score(&game_state, Color::White));
 
     // Full development
     let fen = "r4rk1/ppppppbp/1qn2np1/5b2/2B5/1PN2NQ1/PBPPPPPP/2KR3R w - - 4 3";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(6, get_development_score(&game_state, Color::White));
     assert_eq!(6, get_development_score(&game_state, Color::Black));
 
     // We crashed during a game here, with a black piece in white's camp:
     let fen = "1bqk1nr/pppp1ppp/2n5/3Pp3/4P3/8/PPP1KPPP/RNBQbBNR w kq - 3 5";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_development_score(&game_state, Color::White));
     assert_eq!(2, get_development_score(&game_state, Color::Black));
   }

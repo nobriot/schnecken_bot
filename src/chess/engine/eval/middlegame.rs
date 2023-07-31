@@ -86,7 +86,7 @@ mod tests {
   fn evaluate_material_advantage() {
     // Middlegame, we do not compute any development advantage anymore.
     let fen = "r1bqkbnr/pppppppp/2n5/8/2B1P3/1P3N2/PBPP1PPP/R2QK2R w KQkq - 3 8";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_middlegame_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
@@ -97,15 +97,15 @@ mod tests {
   fn evaluate_outposts() {
     // Compare 3 position, one with nothing, one with the reachable outpost and one with the outpost:
     let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp3/2N1P2P/PP3PPN/R1BQKB1R w KQkq - 8 11";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_nothing = get_middlegame_position_evaluation(&game_state);
 
     let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp1N1/2N1P2P/PP3PP1/R1BQKB1R w KQkq - 3 9";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_reachable_outpost = get_middlegame_position_evaluation(&game_state);
 
     let fen = "r1bqk2r/ppp2ppp/2n2n2/3pN3/1bPPp3/2N1P2P/PP3PP1/R1BQKB1R w KQkq - 0 7";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_outpost = get_middlegame_position_evaluation(&game_state);
 
     println!("Evaluation: Nothing: {eval_nothing} - Reachable outpost: {eval_reachable_outpost} - Outpost: {eval_outpost}");
@@ -117,15 +117,15 @@ mod tests {
   fn evaluate_well_placed_rooks() {
     // Compare 3 position, one with rook on closed file, half open and then open file
     let fen = "6k1/5ppp/6p1/8/8/8/5PPP/5RK1 w - - 0 12";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_closed = get_middlegame_position_evaluation(&game_state);
 
     let fen = "6k1/5ppp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_half_open = get_middlegame_position_evaluation(&game_state);
 
     let fen = "6k1/4p1pp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_open = get_middlegame_position_evaluation(&game_state);
 
     println!("Evaluation: closed: {eval_closed} - half open: {eval_half_open} - open: {eval_open}");

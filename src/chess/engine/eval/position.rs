@@ -104,7 +104,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     // Here it could probably be better.
     if is_hanging(game_state, i) {
       if is_attacked(game_state, i)
-        && (game_state.side_to_play
+        && (game_state.board.side_to_play
           == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
       {
         score -= HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
@@ -137,7 +137,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       }
     }
   }
-  
+
   // Basic material count
   let white_material = get_material_score(game_state, Color::White);
   let black_material = get_material_score(game_state, Color::Black);
@@ -210,7 +210,7 @@ pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
   }
   if game_state.available_moves_computed && game_state.move_list.is_empty() {
-    match (game_state.side_to_play, game_state.checks) {
+    match (game_state.board.side_to_play, game_state.checks) {
       (_, 0) => return (0.0, true),
       (Color::Black, _) => return (200.0, true),
       (Color::White, _) => return (-200.0, true),
@@ -277,7 +277,7 @@ mod tests {
   fn test_evaluate_position() {
     // This is a forced checkmate in 2:
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let (evaluation, game_over) = evaluate_position(&game_state);
     assert_eq!(false, game_over);
     println!("Evaluation {evaluation}");
@@ -287,7 +287,7 @@ mod tests {
   fn test_evaluate_position_checkmate_in_one() {
     // This is a forced checkmate in 1:
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let (evaluation, game_over) = evaluate_position(&game_state);
     assert_eq!(false, game_over);
     println!("Evaluation {evaluation}");
@@ -297,7 +297,7 @@ mod tests {
   fn test_evaluate_position_checkmate() {
     // This is a "game over" position
     let fen = "1n4nr/5ppp/8/1P1Np3/1P6/4kP2/1B1NP1PP/R3KB1R b KQ - 2 37";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
     assert_eq!(true, game_over);
@@ -307,7 +307,7 @@ mod tests {
   fn test_evaluate_position_hanging_queen() {
     // This should obviously be very bad for white:
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
     println!("Evaluation : {evaluation} - Game Over: {game_over}");
@@ -319,7 +319,7 @@ mod tests {
   fn test_evaluate_position_queen_standoff() {
     // This should obviously be okay because queen is defended and attacked by a queen.
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
     assert_eq!(false, game_over);
@@ -339,7 +339,7 @@ mod tests {
     Line 4 Eval: 7.7650003 - e8c6 a8c6 b8c6 f1e1
      */
     let fen = "Qn2q2r/2p2pb1/p2k1n1p/5Bp1/8/2NP4/PPPB1PPP/R4RK1 b - - 0 15";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
     let (evaluation, game_over) = evaluate_position(&game_state);
     assert_eq!(false, game_over);
@@ -350,26 +350,26 @@ mod tests {
   #[test]
   fn test_game_over_insufficient_material() {
     let fen = "8/4nk2/8/8/8/2K5/8/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(true, is_game_over_by_insufficient_material(&game_state));
 
     let fen = "8/5k2/8/8/8/2KB4/8/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(true, is_game_over_by_insufficient_material(&game_state));
 
     let fen = "8/4nk2/8/8/8/2KB4/8/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, is_game_over_by_insufficient_material(&game_state));
 
     let fen = "8/4nk2/8/8/8/2KR4/8/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, is_game_over_by_insufficient_material(&game_state));
   }
 
   #[test]
   fn test_game_over_threefold_repetition_1() {
     let fen = "8/8/8/5P2/Q1k2KP1/8/p7/8 b - - 1 87";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     assert_eq!(false, is_game_over_by_repetition(&game_state));
 
     game_state.apply_move(&Move::from_string("c4c3"), false);
@@ -417,7 +417,7 @@ mod tests {
   fn test_game_over_threefold_repetition_2() {
     // This three-fold repetition was not understood during the game: https://lichess.org/oBjYp62P/white
     let fen = "r2q1b1r/1pp1pkpp/2n1p3/p2p4/3PnB2/2NQ1NP1/PPP1PP1P/R3K2R w KQ - 2 9";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.apply_move(&Move::from_string("c3e4"), false);
     game_state.apply_move(&Move::from_string("d5e4"), false);
     game_state.apply_move(&Move::from_string("f3g5"), false);

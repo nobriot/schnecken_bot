@@ -92,7 +92,7 @@ mod tests {
   #[test]
   fn evaluate_opening_positions() {
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
     print_mask(game_state.white_bitmap.unwrap());
     print_mask(game_state.black_bitmap.unwrap());
@@ -103,7 +103,7 @@ mod tests {
   #[test]
   fn evaluate_start_position() {
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
     print_mask(game_state.white_bitmap.unwrap());
@@ -117,7 +117,7 @@ mod tests {
   #[test]
   fn evaluate_better_development() {
     let fen = "rnbqkb1r/pppppppp/5n2/8/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 6 4";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
@@ -128,7 +128,7 @@ mod tests {
   fn evaluate_material_over_development() {
     // Here black is under-developed, but they are a knight up. We want the material to prevail:
     let fen = "r1bqkbnr/pppppppp/2n5/8/2B1P3/1P3N2/PBPP1PPP/R2QK2R w KQkq - 3 8";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
@@ -139,11 +139,11 @@ mod tests {
   fn evaluate_white_rook_on_second_rank() {
     // Historically the bot liked to place the rook on the 2nd rank for white / 7th for black, seems like a bug to me
     let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPPR/RNBQKBN1 b Qkq - 2 2";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_1 = get_opening_position_evaluation(&game_state);
 
     let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPP1/RNBQKBNR b Qkq - 9 6";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_2 = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval_1} vs {eval_2}");
@@ -154,12 +154,12 @@ mod tests {
   fn evaluate_castle_better_than_non_castle() {
     // Here we are not castled.
     let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_1 = get_opening_position_evaluation(&game_state);
 
     // Here we are castled
     let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQ1RK1 w kq - 6 5";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_2 = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval_1} vs {eval_2}");
@@ -170,12 +170,12 @@ mod tests {
   fn evaluate_adventurous_king() {
     // Here we are not castled.
     let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_1 = get_opening_position_evaluation(&game_state);
 
     // Here the king is trying king of the hill
     let fen = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPPKPPP/R1BQ3R w kq - 6 5";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_2 = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval_1} vs {eval_2}");
@@ -186,15 +186,15 @@ mod tests {
   fn evaluate_pawn_attack() {
     // Pawn attacking pieces with pawns is kinda good
     let fen = "rnbq1rk1/ppp1bppp/3p1n2/8/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 7 9";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_nothing = get_opening_position_evaluation(&game_state);
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_pawn_1_attack = get_opening_position_evaluation(&game_state);
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_pawn_2_attacks = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} vs {eval_pawn_2_attacks}");
@@ -203,15 +203,15 @@ mod tests {
 
     // Try from the other side (white pawns attacking black pieces)
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_nothing = get_opening_position_evaluation(&game_state);
 
     let fen = "rnbq1rk1/pp2bppp/3p4/2p3n1/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_pawn_1_attack = get_opening_position_evaluation(&game_state);
 
     let fen = "rnbq1rk1/pp3ppp/3p4/2p1b1n1/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_pawn_2_attacks = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} vs {eval_pawn_2_attacks}");
@@ -223,11 +223,11 @@ mod tests {
   fn evaluate_bishop_pin() {
     // https://lichess.org/7oeMxsbq
     let fen = "r6r/1p1k1npp/pBp2pn1/5b1B/8/2P5/PP2RPPP/5KNR b - - 13 18";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_no_pin = get_opening_position_evaluation(&game_state);
 
     let fen = "r6r/1p1k1npp/pBp2pn1/7B/8/2Pb4/PP2RPPP/5KNR w - - 14 19";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_pin = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: no pin {eval_no_pin} vs pin {eval_pin}");
@@ -238,14 +238,14 @@ mod tests {
   #[test]
   fn evaluate_hanging_knight() {
     let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/nPPP1PPP/RNB1KB1R w KQkq - 0 9";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
     assert!(eval > 4.5);
 
     // Capturing should be evaluated slightly better:
     let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/RPPP1PPP/1NB1KB1R b Kkq - 0 9";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval_captured = get_opening_position_evaluation(&game_state);
     println!("Evaluation: hanging: {eval} - vs captured: {eval_captured}");
     assert!(eval_captured > eval);
@@ -254,7 +254,7 @@ mod tests {
   #[test]
   fn evaluate_piece_down_in_opening() {
     let fen = "r1bqkb1r/1ppppp1p/p7/8/1n2Q3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 8";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
     assert!(eval > 3.0);

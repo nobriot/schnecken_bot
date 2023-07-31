@@ -263,7 +263,7 @@ mod tests {
   fn test_get_king_vs_queen_or_rook_score() {
     // Simple position, the king is boxed with 12 squares and the kings are 4 steps apart.
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     //println!("{}", game_state.board);
     let expected_score = -(64.0 - 12.0 + 7.0 - 4.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
@@ -271,19 +271,19 @@ mod tests {
     // Another one from white's perpective
     // King is on a controlled rank, so it will go either side it likes.
     let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let expected_score = 64.0 - 40.0 + 7.0 - 2.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // From a game with another bot:
     let fen = "8/1k6/6Q1/5K2/8/8/8/8 w - - 7 80";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let expected_score = 64.0 - 12.0 + 7.0 - 4.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Check if the incentive to box the king better is good:
     let fen = "8/1k6/3Q4/5K2/8/8/8/8 b - - 8 80";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let expected_score = 64.0 - 6.0 + 7.0 - 4.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }

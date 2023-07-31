@@ -1,12 +1,12 @@
-ZE_ROOK
+sargon-1ply
 bobandi
 TemporAI
 knucklefish
-sargon-1ply
 pawnrobot
 dlvc-bot
 FlounderBot
 HardRok
+ZE_ROOK
 ELO_1500
 maia1
 sargon-2ply

@@ -1,4 +1,5 @@
 use crate::chess::model::piece::*;
+use crate::chess::model::piece::*;
 use log::*;
 
 // -----------------------------------------------------------------------------
@@ -6,6 +7,9 @@ use log::*;
 
 /// Numerical value used to represent an invalid square
 pub const INVALID_SQUARE: u8 = 255;
+
+/// Default start position FEN
+const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 // -----------------------------------------------------------------------------
 //  Macros
@@ -27,6 +31,9 @@ pub(crate) use fr_bounds_or_return;
 #[derive(Debug, Clone, Copy)]
 pub struct Board {
   pub squares: [u8; 64],
+  pub side_to_play: Color,
+  pub castling_rights: CastlingRights,
+  pub en_passant_square: u8,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -37,6 +44,15 @@ pub struct Move {
   pub dest: u8,
   // Piece to spawn in case of promotion. Encoded using piece constants (NO_PIECE, WHITE_QUEEN, etc.)
   pub promotion: u8,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(non_snake_case)]
+pub struct CastlingRights {
+  pub K: bool,
+  pub Q: bool,
+  pub k: bool,
+  pub q: bool,
 }
 
 // -----------------------------------------------------------------------------
@@ -133,7 +149,12 @@ pub fn board_mask_to_string(mask: u64) -> String {
 impl Board {
   /// Initialize a board with no piece, all zeroes
   fn new() -> Self {
-    Board { squares: [0u8; 64] }
+    Board {
+      squares: [0u8; 64],
+      side_to_play: Color::White,
+      castling_rights: CastlingRights::default(),
+      en_passant_square: INVALID_SQUARE,
+    }
   }
 
   /// Converts Rank / File into a board index
@@ -181,42 +202,62 @@ impl Board {
     // Check if we just castled, we need to move the rooks around!
     if self.squares[chess_move.src as usize] == WHITE_KING {
       if chess_move.src == 4 && chess_move.dest == 2 {
-        let m = Move {
-          src: 0,
-          dest: 3,
-          promotion: NO_PIECE,
-        };
-        self.apply_move(&m);
+        self.squares[0] = NO_PIECE;
+        self.squares[3] = WHITE_ROOK;
       } else if chess_move.src == 4 && chess_move.dest == 6 {
-        let m = Move {
-          src: 7,
-          dest: 5,
-          promotion: NO_PIECE,
-        };
-        self.apply_move(&m);
+        self.squares[7] = NO_PIECE;
+        self.squares[5] = WHITE_ROOK;
       }
     } else if self.squares[chess_move.src as usize] == BLACK_KING {
       if chess_move.src == 60 && chess_move.dest == 62 {
-        let m = Move {
-          src: 63,
-          dest: 61,
-          promotion: NO_PIECE,
-        };
-        self.apply_move(&m);
+        self.squares[63] = NO_PIECE;
+        self.squares[61] = BLACK_ROOK;
       } else if chess_move.src == 60 && chess_move.dest == 58 {
-        let m = Move {
-          src: 56,
-          dest: 59,
-          promotion: NO_PIECE,
-        };
-        self.apply_move(&m);
+        self.squares[56] = NO_PIECE;
+        self.squares[59] = BLACK_ROOK;
       }
     }
 
-    if self.squares[chess_move.dest as usize] == WHITE_KING
-      || self.squares[chess_move.dest as usize] == BLACK_KING
+    // Update castling rights. (just look if something from the rook/king moved)
+    match chess_move.src {
+      0 => self.castling_rights.Q = false,
+      4 => {
+        self.castling_rights.K = false;
+        self.castling_rights.Q = false
+      },
+      7 => self.castling_rights.K = false,
+      56 => self.castling_rights.q = false,
+      60 => {
+        self.castling_rights.k = false;
+        self.castling_rights.q = false
+      },
+      63 => self.castling_rights.k = false,
+      _ => {},
+    }
+    match chess_move.dest {
+      0 => self.castling_rights.Q = false,
+      4 => {
+        self.castling_rights.K = false;
+        self.castling_rights.Q = false
+      },
+      7 => self.castling_rights.K = false,
+      56 => self.castling_rights.q = false,
+      60 => {
+        self.castling_rights.k = false;
+        self.castling_rights.q = false
+      },
+      63 => self.castling_rights.k = false,
+      _ => {},
+    }
+
+    // Check if we have a en passant square
+    if (self.squares[chess_move.src as usize] == WHITE_PAWN
+      || self.squares[chess_move.src as usize] == BLACK_PAWN)
+      && (chess_move.dest as isize - chess_move.src as isize).abs() == 16
     {
-      warn!("Capturing a king seems wrong... ");
+      self.en_passant_square = (chess_move.dest + chess_move.src) / 2;
+    } else {
+      self.en_passant_square = INVALID_SQUARE;
     }
 
     // Check if this is some en-passant action: PAWN is moving diagonally while the destination square is empty:
@@ -235,7 +276,7 @@ impl Board {
       }
     }
 
-    // No apply the initial move
+    // Now apply the initial move
     if chess_move.promotion != NO_PIECE {
       self.squares[chess_move.dest as usize] = chess_move.promotion;
     } else {
@@ -243,6 +284,13 @@ impl Board {
     }
 
     self.squares[chess_move.src as usize] = NO_PIECE;
+
+    // Update the side to play:
+    if self.side_to_play == Color::White {
+      self.side_to_play = Color::Black;
+    } else {
+      self.side_to_play = Color::White;
+    }
   }
 
   // Verifies if the move is a castling move
@@ -366,12 +414,19 @@ impl Board {
   }
 
   /// Converts first substring of a FEN (with the pieces) to a board
-  pub fn from_string(string: &str) -> Self {
+  pub fn from_fen(fen: &str) -> Self {
     let mut board = Board::new();
     let mut rank = 7;
     let mut file = 0;
 
-    for c in string.chars() {
+    let fen_parts: Vec<&str> = fen.split(' ').collect();
+    if fen_parts.len() < 6 {
+      error!("FEN string too small to generate a board");
+      return board;
+    }
+
+    // First set of chars is the board squares.
+    for c in fen_parts[0].chars() {
       match c {
         'K' | 'Q' | 'R' | 'B' | 'N' | 'P' | 'k' | 'q' | 'r' | 'b' | 'n' | 'p' => {
           board.squares[(rank * 8 + file) as usize] = Piece::char_to_u8(c).unwrap();
@@ -395,6 +450,25 @@ impl Board {
         _ => {},
       }
     }
+
+    board.side_to_play = if fen_parts[1] == "w" {
+      Color::White
+    } else {
+      Color::Black
+    };
+
+    board.castling_rights = CastlingRights {
+      K: fen_parts[2].contains('K'),
+      Q: fen_parts[2].contains('Q'),
+      k: fen_parts[2].contains('k'),
+      q: fen_parts[2].contains('q'),
+    };
+
+    board.en_passant_square = if fen_parts[3] != "-" {
+      string_to_square(fen_parts[3])
+    } else {
+      INVALID_SQUARE
+    };
 
     board
   }
@@ -431,16 +505,6 @@ impl Board {
 }
 
 impl Move {
-  /// Initialize a board with no piece, all zeroes
-  #[allow(dead_code)]
-  pub fn new() -> Self {
-    Move {
-      src: 0,
-      dest: 0,
-      promotion: NO_PIECE,
-    }
-  }
-
   /// Converts a move to the algebraic notation, e.g. a3f3
   pub fn to_string(&self) -> String {
     if self.promotion != NO_PIECE {
@@ -531,6 +595,12 @@ impl std::fmt::Display for Board {
   }
 }
 
+impl Default for Board {
+  fn default() -> Self {
+    Board::from_fen(START_POSITION_FEN)
+  }
+}
+
 impl std::fmt::Display for Move {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(self.to_string().as_str())
@@ -547,12 +617,28 @@ impl Default for Move {
   }
 }
 
+impl Default for CastlingRights {
+  fn default() -> Self {
+    CastlingRights {
+      K: true,
+      Q: true,
+      k: true,
+      q: true,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
   #[test]
   fn display_board() {
-    let mut board = Board { squares: [0; 64] };
+    let mut board = Board {
+      squares: [0; 64],
+      side_to_play: Color::White,
+      castling_rights: CastlingRights::default(),
+      en_passant_square: INVALID_SQUARE,
+    };
     board.squares[0] = WHITE_ROOK;
     board.squares[1] = WHITE_KNIGHT;
     board.squares[2] = WHITE_BISHOP;
@@ -648,11 +734,11 @@ mod tests {
 
   #[test]
   fn from_string() {
-    let mut board = Board::from_string("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR");
+    let mut board = Board::from_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR");
     println!("Board: {}", board);
 
     let test_fen = "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
-    board = Board::from_string(test_fen);
+    board = Board::from_fen(test_fen);
     println!("Board: {}", board);
 
     assert_eq!(
@@ -661,7 +747,7 @@ mod tests {
     );
 
     let test_fen_2 = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    board = Board::from_string(test_fen_2);
+    board = Board::from_fen(test_fen_2);
     println!("Board: {}", board);
 
     assert_eq!(
@@ -673,7 +759,7 @@ mod tests {
   #[test]
   fn apply_move() {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let mut board = Board::from_string(fen);
+    let mut board = Board::from_fen(fen);
     println!("Board: {}", board);
 
     // Try and capture a piece
@@ -774,7 +860,7 @@ mod tests {
   #[test]
   fn test_get_piece() {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let board = Board::from_string(fen);
+    let board = Board::from_fen(fen);
     assert_eq!(BLACK_ROOK, board.get_piece(2, 3));
     assert_eq!(WHITE_KING, board.get_piece(6, 4));
     assert_eq!(BLACK_KING, board.get_piece(7, 7));

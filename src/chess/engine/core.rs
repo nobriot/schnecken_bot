@@ -75,13 +75,13 @@ impl ChessLine {
     }
     self
       .variations
-      .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+      .sort_by(|a, b| best_evaluation(a, b, self.game_state.board.side_to_play));
   }
 
   // Sort moves based on their potential/interesting-ness
   pub fn sort_moves(&mut self) {
     //println!("sort_moves");
-    let fen = self.game_state.to_string();
+    let fen = self.game_state.to_fen();
     self
       .game_state
       .move_list
@@ -91,7 +91,7 @@ impl ChessLine {
   // Checks the engine cache if we know the move list, else derives the
   // list of moves from the game state
   fn get_moves_with_cache(&mut self) {
-    let fen = self.game_state.to_string();
+    let fen = self.game_state.to_fen();
     let fen_str = fen.as_str();
 
     // Check if we computed the same position before
@@ -106,7 +106,7 @@ impl ChessLine {
   }
 
   fn get_game_state_with_cache(&mut self) {
-    let fen = self.game_state.to_string();
+    let fen = self.game_state.to_fen();
     let fen_str = fen.as_str();
 
     if let Some(game_phase) = get_engine_cache().get_game_phase(fen_str) {
@@ -132,7 +132,7 @@ impl ChessLine {
 
     // Never evaluated before
     if self.eval.is_none() {
-      let fen = self.game_state.to_string();
+      let fen = self.game_state.to_fen();
       let fen_str = fen.as_str();
       /*
       if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
@@ -215,7 +215,7 @@ impl ChessLine {
     // Make sure to sort before back-propagating.
     self
       .variations
-      .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+      .sort_by(|a, b| best_evaluation(a, b, self.game_state.board.side_to_play));
 
     if self.variations[0].eval.is_some() {
       if self.variations[0].eval.unwrap() > 100.0 {
@@ -226,7 +226,7 @@ impl ChessLine {
         self.eval = self.variations[0].eval;
       }
       if self.eval.is_some() && !self.game_over {
-        let fen = self.game_state.to_string();
+        let fen = self.game_state.to_fen();
         let fen_str = fen.as_str();
         get_engine_cache().set_eval(fen_str, self.eval.unwrap());
       }
@@ -246,10 +246,10 @@ impl ChessLine {
       // Make sure to sort first:
       self
         .variations
-        .sort_by(|a, b| best_evaluation(a, b, self.game_state.side_to_play));
+        .sort_by(|a, b| best_evaluation(a, b, self.game_state.board.side_to_play));
       self.variations[0]
         .variations
-        .sort_by(|a, b| best_evaluation(a, b, Color::opposite(self.game_state.side_to_play)));
+        .sort_by(|a, b| best_evaluation(a, b, Color::opposite(self.game_state.board.side_to_play)));
 
       if !self.variations.is_empty()
         && !self.variations[0].variations.is_empty()
@@ -303,7 +303,7 @@ impl ChessLine {
       return;
     }
 
-    let fen = self.game_state.to_string();
+    let fen = self.game_state.to_fen();
     let fen_str = fen.as_str();
     if get_engine_cache().has_fen(fen_str) {
       self.eval = get_engine_cache().get_eval(fen_str);
@@ -440,10 +440,10 @@ pub fn best_evaluation(a: &ChessLine, b: &ChessLine, s: Color) -> Ordering {
 /// 5. Tempos
 /// All the rest ?
 pub fn best_move_potential(fen: &String, a: &Move, b: &Move) -> Ordering {
-  let game_state = GameState::from_string(fen.as_str());
-  let mut game_state_a = GameState::from_string(fen.as_str());
+  let game_state = GameState::from_fen(fen.as_str());
+  let mut game_state_a = GameState::from_fen(fen.as_str());
   game_state_a.apply_move(a, false);
-  let mut game_state_b = GameState::from_string(fen.as_str());
+  let mut game_state_b = GameState::from_fen(fen.as_str());
   game_state_b.apply_move(b, false);
 
   match (game_state_a.checks, game_state_b.checks) {
@@ -513,7 +513,7 @@ pub fn select_best_move(
   if game_state.move_list.is_empty() {
     return Err(());
   }
-  let fen = game_state.to_string();
+  let fen = game_state.to_fen();
   game_state
     .move_list
     .sort_by(|a, b| best_move_potential(&fen, a, b));
@@ -548,7 +548,7 @@ pub fn select_best_move(
   }
 
   // Rank the moves by eval
-  sort_chess_lines(game_state.side_to_play, &mut chess_lines);
+  sort_chess_lines(game_state.board.side_to_play, &mut chess_lines);
 
   // Now loop the process:
   //display_lines(0, &chess_lines);
@@ -561,7 +561,7 @@ pub fn select_best_move(
       if chess_lines.is_empty() {
         return Err(());
       } else {
-        sort_chess_lines(game_state.side_to_play, &mut chess_lines);
+        sort_chess_lines(game_state.board.side_to_play, &mut chess_lines);
         return Ok(chess_lines);
       }
     }
@@ -612,7 +612,7 @@ pub fn select_best_move(
       chess_lines[i].back_propagate_evaluations();
     }
 
-    sort_chess_lines(game_state.side_to_play, &mut chess_lines);
+    sort_chess_lines(game_state.board.side_to_play, &mut chess_lines);
 
     // Prune branches with low evaluations
     for i in 0..top_moves {
@@ -645,7 +645,7 @@ pub fn select_best_move(
 }
 
 pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<String, ()> {
-  let fen = game_state.to_string();
+  let fen = game_state.to_fen();
   // Check if it is a known position
   if let Some(moves) = get_theory_moves(&fen) {
     info!("We are in theory! Easy");
@@ -657,7 +657,7 @@ pub fn play_move(game_state: &mut GameState, suggested_time_ms: u64) -> Result<S
   // Try to evaluate ourselves.
   info!(
     "Using {suggested_time_ms} ms to find a move for position {}",
-    game_state.to_string()
+    game_state.to_fen()
   );
   game_state.update_game_phase();
   debug!("Game is in the {:?} phase", game_state.game_phase);
@@ -751,7 +751,7 @@ mod tests {
   fn test_sorting_moves() {
     // This is a forced checkmate in 1:
     let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
     assert!(true == game_state.available_moves_computed);
 
@@ -802,7 +802,7 @@ mod tests {
   fn test_select_best_move_checkmate_in_one() {
     // This is a forced checkmate in 1:
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -816,7 +816,7 @@ mod tests {
   fn test_select_best_move_checkmate_in_one_for_black() {
     // This is a forced checkmate in 1:
     let fen = "8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -830,7 +830,7 @@ mod tests {
   fn test_select_best_move_checkmate_in_two() {
     // This is a forced checkmate in 2: c1b2 d4e3 b6d5
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -849,7 +849,7 @@ mod tests {
   fn test_select_best_defensive_move() {
     // Only good defense is : h8f8
     let fen = "r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(5, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -864,7 +864,7 @@ mod tests {
   #[test]
   fn test_select_pawn_capture() {
     let fen = "r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(2, 10000000);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -879,7 +879,7 @@ mod tests {
   #[test]
   fn evaluate_checkmate_with_castle() {
     let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(0, 10_000_000);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -894,7 +894,7 @@ mod tests {
   #[test]
   fn capture_the_damn_knight_1() {
     let fen = "rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -914,7 +914,7 @@ mod tests {
   #[test]
   fn save_the_queen() {
     let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -934,7 +934,7 @@ mod tests {
     let fen = "rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6";
 
     let mut chess_line = ChessLine {
-      game_state: GameState::from_string(fen),
+      game_state: GameState::from_fen(fen),
       chess_move: Move::default(),
       variations: Vec::new(),
       eval: None,
@@ -961,7 +961,7 @@ mod tests {
      Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
     */
     let fen = "r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -992,7 +992,7 @@ mod tests {
 
     */
     let fen = "2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -1021,7 +1021,7 @@ mod tests {
      Line 4 Eval: -17.860003 - f3e5 f8e7
     */
     let fen = "2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(2, 0);
     assert_eq!(Some(GamePhase::Opening), game_state.game_phase);
     let chess_lines =
@@ -1038,7 +1038,7 @@ mod tests {
   #[test]
   fn king_should_not_disappear() {
     let fen = "8/2p3pk/3p2p1/4r2p/R7/P1N3PP/1B3P2/5K2 b - - 0 40";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(3, 0);
     let chess_lines =
       select_best_move(&mut game_state, deadline).expect("This should not be an error");
@@ -1053,7 +1053,7 @@ mod tests {
   #[test]
   fn test_eval_stalemate_lines() {
     let fen = "8/2k5/6K1/2p1b3/6q1/8/8/8 w - - 4 71";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(15, 0);
     let mut chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(0, &chess_lines);
@@ -1101,7 +1101,7 @@ mod tests {
        Line 4 Eval: 6.391044 - g3g1 / Permutation
     */
     let fen = "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 211_000_000);
     game_state.last_positions.push_back(String::from(
       "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4",
@@ -1141,7 +1141,7 @@ mod tests {
   fn test_do_not_give_material_up() {
     // https://lichess.org/PsC4jC2o
     let fen = "6n1/6pr/4Pk2/1P2bb1p/R2Np3/1P6/4K3/2r5 b - - 2 34";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 377_000_000);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(10, &chess_lines);
@@ -1156,7 +1156,7 @@ mod tests {
   fn find_checkmate_in_two() {
     // https://lichess.org/YVidO7Iw
     let fen = "r1kq1b1r/4ppp1/2p2n2/p1Pp1b2/Q2P1B1p/2N1P3/PP3PPP/3RK1NR w K - 0 15";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 722_000_000);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);
@@ -1168,7 +1168,7 @@ mod tests {
   #[test]
   fn promote_this_pawn() {
     let fen = "8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(0, 855_000_000);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     assert_eq!("a7a8Q", chess_lines[0].chess_move.to_string());
@@ -1178,7 +1178,7 @@ mod tests {
   fn capture_to_be_up_the_exchange() {
     // Game: https://lichess.org/L4ANgIdY/
     let fen = "6nr/1n1k2pp/p3p3/3pPqB1/2p2P1P/brN2R2/4B3/R1Q4K w - - 33 43";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(5000);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);
@@ -1191,7 +1191,7 @@ mod tests {
   fn capture_the_free_piece() {
     // Game: https://lichess.org/PVxISRua
     let fen = "2krr3/1pp3pp/5b2/P1n1pp2/5P2/2P3P1/N3PBRP/4K3 w - - 0 31";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(1434);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);
@@ -1204,7 +1204,7 @@ mod tests {
   fn capture_the_hanging_piece() {
     // Game: https://lichess.org/4T57NamT
     let fen = "r2qk2r/2p2pp1/p3p2p/n2p1b2/1b1P1P2/2P1PN2/PP4PP/R1B1KB1n w Qkq - 0 15";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(7863);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(0, &chess_lines);
@@ -1217,7 +1217,7 @@ mod tests {
   fn save_the_last_knight() {
     // Game: https://lichess.org/iavzLpKc
     let fen = "4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(7863);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);
@@ -1230,7 +1230,7 @@ mod tests {
   fn king_should_capture_too() {
     // Game: https://lichess.org/adsFtw5A/black#77
     let fen = "8/ppp3kR/b7/3P1p2/3P1q2/PP6/6P1/3R2K1 b - - 0 39";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(1308);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);
@@ -1243,7 +1243,7 @@ mod tests {
   fn capture_the_damn_knight_2() {
     // Game: https://lichess.org/LE9CQViG/
     let fen = "2r1r3/5k1p/p2bp3/B1np1p2/PP3N2/3RP1R1/8/7K w - - 0 39";
-    let mut game_state = GameState::from_string(fen);
+    let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::from_millis(1069);
     let chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);

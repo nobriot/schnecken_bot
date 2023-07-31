@@ -94,7 +94,7 @@ impl Engine {
   /// Resets the engine to a default state.
   /// Same as Engine::Default
   pub fn reset(&mut self) {
-    self.position = GameState::from_string(START_POSITION_FEN);
+    self.position = GameState::from_fen(START_POSITION_FEN);
     self.analysis.reset();
     self.cache.clear();
   }
@@ -102,7 +102,7 @@ impl Engine {
   /// Sets a new position
   pub fn set_position(&mut self, fen: &str) {
     self.reset();
-    self.position = GameState::from_string(fen);
+    self.position = GameState::from_fen(fen);
   }
 
   /// Apply a move to the current position

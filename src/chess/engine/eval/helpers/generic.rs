@@ -322,7 +322,7 @@ mod tests {
   #[test]
   fn test_open_files() {
     let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, is_file_open(&game_state, 1));
     assert_eq!(false, is_file_open(&game_state, 2));
     assert_eq!(true, is_file_open(&game_state, 3));
@@ -352,7 +352,7 @@ mod tests {
 
     // Try with another position
     let fen = "2k5/pp2p1p1/4p3/4p3/1r6/K5P1/Pq2B1PP/R6R w - - 5 26";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, is_file_open(&game_state, 1));
     assert_eq!(false, is_file_open(&game_state, 2));
     assert_eq!(true, is_file_open(&game_state, 3));
@@ -374,12 +374,12 @@ mod tests {
   #[test]
   fn test_outposts() {
     let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_outposts(&game_state, Color::White));
     assert_eq!(5497558138880, get_outposts(&game_state, Color::Black));
 
     let fen = "rnbqkbnr/3pp1pp/3N4/p4p2/1pPP4/1P2PN1P/P4PP1/R1BQKB1R b KQkq - 0 4";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     /*
     let outposts = get_outposts(&game_state, Color::White);
     let outposts = get_outposts(&game_state, Color::Black);
@@ -392,14 +392,14 @@ mod tests {
   #[test]
   fn test_is_hanging() {
     let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(false, is_hanging(&game_state, 0));
     assert_eq!(false, is_hanging(&game_state, 7));
     assert_eq!(true, is_hanging(&game_state, 12));
 
     let fen = "r1bq1rk1/5pb1/p3p1p1/3pn3/QP6/3PP1N1/1P1BB1PP/1R3RK1 b - - 2 20";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(false, is_hanging(&game_state, 0));
     assert_eq!(false, is_hanging(&game_state, 1));

@@ -556,7 +556,7 @@ mod tests {
   #[test]
   fn get_islands_for_simple_pawn_structure() {
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(1, get_number_of_pawn_islands(&game_state, Color::Black));
     assert_eq!(1, get_number_of_pawn_islands(&game_state, Color::White));
@@ -565,7 +565,7 @@ mod tests {
   #[test]
   fn get_islands_with_no_pawn() {
     let fen = "8/7k/5n2/4Q3/q7/3N4/3K4/8 b - - 3 51";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(0, get_number_of_pawn_islands(&game_state, Color::Black));
     assert_eq!(0, get_number_of_pawn_islands(&game_state, Color::White));
@@ -574,7 +574,7 @@ mod tests {
   #[test]
   fn get_islands_endgame() {
     let fen = "8/5ppk/5n1p/4QP2/q3P3/p1PN4/2K5/8 w - - 2 51";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::Black));
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::White));
@@ -583,7 +583,7 @@ mod tests {
   #[test]
   fn get_pawn_data_endgame_1() {
     let fen = "6k1/R7/6p1/6P1/7P/8/p5K1/r7 w - - 14 55";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::Black));
     assert_eq!(1, get_number_of_pawn_islands(&game_state, Color::White));
@@ -604,7 +604,7 @@ mod tests {
   #[test]
   fn get_pawn_data_endgame_2() {
     let fen = "8/4kp2/1p6/3pK3/8/8/P1P1P1Pp/8 w - - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(4, get_number_of_pawn_islands(&game_state, Color::White));
     assert_eq!(4, get_number_of_pawn_islands(&game_state, Color::Black));
@@ -633,7 +633,7 @@ mod tests {
   #[test]
   fn get_pawn_data_endgame_3() {
     let fen = "6k1/3p4/2p3pP/1p4P1/8/8/6K1/8 w - - 14 55";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
 
     assert_eq!(1, get_number_of_pawn_islands(&game_state, Color::White));
     assert_eq!(2, get_number_of_pawn_islands(&game_state, Color::Black));
@@ -665,7 +665,7 @@ mod tests {
   fn test_backwards_pawns() {
     // 2 backwards pawn in here: d7 and d4
     let fen = "rnbqkbnr/pp1p3p/2p3p1/2Pp2p1/PP1P4/8/6PP/RNBQKBNR w KQkq - 0 4";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let mask = get_backwards_pawns(&game_state, Color::White);
     print_mask(mask);
     assert_eq!(1, mask_sum(mask));
@@ -680,7 +680,7 @@ mod tests {
   #[test]
   fn test_get_holes() {
     let fen = "r1b2r2/1p4bk/2pR1npn/p6p/2P1PP2/1PN4P/PB2N1B1/5RK1 b - - 0 19";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     let mask = get_holes(&game_state, Color::White);
     print_mask(mask);
     assert_eq!(13, mask_sum(mask));
@@ -693,13 +693,13 @@ mod tests {
   fn test_pawn_attack() {
     // Black pawn attacking white pieces:
     let fen = "rnbq1rk1/ppp1bppp/3p1n2/8/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 7 9";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       assert_eq!(0.0, pawn_attack(&game_state, i));
     }
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 34 {
         assert_eq!(0.0, pawn_attack(&game_state, i));
@@ -709,7 +709,7 @@ mod tests {
     }
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 34 {
         assert_eq!(0.0, pawn_attack(&game_state, i));
@@ -720,13 +720,13 @@ mod tests {
 
     // White pawn attacking black pieces:
     let fen = "rnbq1rk1/pp2bppp/n2p4/2p5/8/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       assert_eq!(0.0, pawn_attack(&game_state, i));
     }
 
     let fen = "rnbq1rk1/pp2bppp/3p4/2p5/1n6/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 18 {
         assert_eq!(0.0, pawn_attack(&game_state, i));
@@ -736,7 +736,7 @@ mod tests {
     }
 
     let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i != 18 {
         assert_eq!(0.0, pawn_attack(&game_state, i));

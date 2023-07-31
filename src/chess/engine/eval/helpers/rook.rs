@@ -113,17 +113,17 @@ mod tests {
   fn test_rooks_connected() {
     // Not developed at all
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, are_rooks_connected(&game_state, Color::Black));
     assert_eq!(false, are_rooks_connected(&game_state, Color::White));
 
     let fen = "r4rk1/pp1q1ppn/3bb2p/2pNp3/2PnP2N/3P2P1/PB3PBP/R2Q1RK1 w - - 5 15";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(true, are_rooks_connected(&game_state, Color::Black));
     assert_eq!(false, are_rooks_connected(&game_state, Color::White));
 
     let fen = "8/p1b3pk/q3bp1p/5Nn1/PR1pP3/2rP2P1/4Q1BP/1R4K1 b - - 0 28";
-    let game_state = GameState::from_string(fen);
+    let game_state = GameState::from_fen(fen);
     assert_eq!(false, are_rooks_connected(&game_state, Color::Black));
     assert_eq!(true, are_rooks_connected(&game_state, Color::White));
   }
