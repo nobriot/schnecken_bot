@@ -796,7 +796,7 @@ mod tests {
     let mut game_state = GameState::from_fen(fen);
     game_state.apply_move(&Move::from_string("a7a5"), false);
 
-    let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq a6 0 13";
+    let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq - 0 13";
     assert_eq!(expected_fen, game_state.to_fen().as_str());
     println!("{}", game_state.to_fen());
 

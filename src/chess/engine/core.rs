@@ -9,8 +9,8 @@ use super::eval::position::*;
 use super::theory::*;
 
 // From other modules
-use crate::chess::model::moves::Move;
 use crate::chess::model::game_state::GameState;
+use crate::chess::model::moves::Move;
 use crate::chess::model::piece::*;
 
 const PRUNE_CUTOFF: f32 = 6.0;
@@ -91,30 +91,24 @@ impl ChessLine {
   // Checks the engine cache if we know the move list, else derives the
   // list of moves from the game state
   fn get_moves_with_cache(&mut self) {
-    let fen = self.game_state.to_fen();
-    let fen_str = fen.as_str();
-
     // Check if we computed the same position before
-    if let Some(cached_moves) = get_engine_cache().get_move_list(fen_str) {
+    if let Some(cached_moves) = get_engine_cache().get_move_list(&self.game_state.board.hash) {
       //println!("Known position {fen}. Using the cache");
       self.game_state.move_list = cached_moves;
       self.game_state.available_moves_computed = true;
     } else {
       //println!("New position {fen}. Computing manually");
-      get_engine_cache().set_move_list(fen_str, self.game_state.get_moves());
+      get_engine_cache().set_move_list(self.game_state.board.hash, self.game_state.get_moves());
     }
   }
 
   fn get_game_state_with_cache(&mut self) {
-    let fen = self.game_state.to_fen();
-    let fen_str = fen.as_str();
-
-    if let Some(game_phase) = get_engine_cache().get_game_phase(fen_str) {
+    if let Some(game_phase) = get_engine_cache().get_game_phase(&self.game_state.board.hash) {
       self.game_state.game_phase = Some(game_phase);
     } else {
       self.game_state.update_game_phase();
       if let Some(phase) = self.game_state.game_phase {
-        get_engine_cache().set_game_phase(fen_str, phase);
+        get_engine_cache().set_game_phase(self.game_state.board.hash, phase);
       }
     }
   }
@@ -132,8 +126,6 @@ impl ChessLine {
 
     // Never evaluated before
     if self.eval.is_none() {
-      let fen = self.game_state.to_fen();
-      let fen_str = fen.as_str();
       /*
       if let Some(evaluation) = get_engine_cache().get_eval(fen_str) {
         self.eval = Some(evaluation);
@@ -144,7 +136,7 @@ impl ChessLine {
       self.eval = Some(eval);
       self.game_over = game_over;
       if !game_over {
-        get_engine_cache().set_eval(fen_str, eval);
+        get_engine_cache().set_eval(self.game_state.board.hash, eval);
       }
       // }
     }
@@ -226,9 +218,7 @@ impl ChessLine {
         self.eval = self.variations[0].eval;
       }
       if self.eval.is_some() && !self.game_over {
-        let fen = self.game_state.to_fen();
-        let fen_str = fen.as_str();
-        get_engine_cache().set_eval(fen_str, self.eval.unwrap());
+        get_engine_cache().set_eval(self.game_state.board.hash, self.eval.unwrap());
       }
     }
   }
@@ -303,10 +293,8 @@ impl ChessLine {
       return;
     }
 
-    let fen = self.game_state.to_fen();
-    let fen_str = fen.as_str();
-    if get_engine_cache().has_fen(fen_str) {
-      self.eval = get_engine_cache().get_eval(fen_str);
+    if get_engine_cache().has_key(self.game_state.board.hash) {
+      self.eval = get_engine_cache().get_eval(&self.game_state.board.hash);
     } else {
       warn!("Permutation not found in the cache. Eval update will be skipped");
     }
