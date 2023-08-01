@@ -1,5 +1,5 @@
-use super::generic::mask_sum;
 use crate::chess::model::board::*;
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
@@ -16,10 +16,10 @@ use crate::chess::model::piece::*;
 ///
 /// Board mask with squares that can be used by a color for their pieces.
 ///
-pub fn get_mobility_area(game_state: &GameState, color: Color) -> u64 {
+pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
   // We start assuming all squares are available, and substract our pawns,
   // king and the squares attacked by enemy pawns.
-  let mut mobility_area: u64 = u64::MAX;
+  let mut mobility_area: BoardMask = u64::MAX;
 
   let pawn = match color {
     Color::White => WHITE_PAWN,
@@ -126,7 +126,7 @@ mod tests {
 
     let fen = "r1bq2nr/pppppppp/P7/2kn1P2/1b6/3P1N1P/1PPQP1P1/RNBK1B1R b KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    //print_mask(get_mobility_area(&game_state, Color::White));
+    //print_board_mask(get_mobility_area(&game_state, Color::White));
     assert_eq!(47, mask_sum(get_mobility_area(&game_state, Color::White)));
     assert_eq!(43, mask_sum(get_mobility_area(&game_state, Color::Black)));
   }

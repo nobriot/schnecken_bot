@@ -11,6 +11,7 @@ use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
 
 // From another crate
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
@@ -270,7 +271,7 @@ pub fn evaluate_position(game_state: &GameState) -> (f32, bool) {
 
 #[cfg(test)]
 mod tests {
-  use crate::chess::model::board::Move;
+  use crate::chess::model::moves::Move;
 
   use super::*;
   #[test]

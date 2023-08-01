@@ -9,7 +9,7 @@ use super::eval::position::*;
 use super::theory::*;
 
 // From other modules
-use crate::chess::model::board::Move;
+use crate::chess::model::moves::Move;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
 

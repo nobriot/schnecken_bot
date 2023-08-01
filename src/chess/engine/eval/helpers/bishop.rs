@@ -1,5 +1,6 @@
 use super::generic::*;
 
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
@@ -41,7 +42,7 @@ pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
   let mut piece_value_2: f32 = 0.0;
 
   for s in 0..64 {
-    if destinations & (1 << s) == 0 {
+    if !square_in_mask!(s, destinations) {
       continue;
     }
     if game_state
@@ -111,7 +112,7 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
   let mut piece_value_2: f32 = 0.0;
 
   for s in 0..64 {
-    if destinations & (1 << s) == 0 {
+    if !square_in_mask!(s, destinations) {
       continue;
     }
     if game_state

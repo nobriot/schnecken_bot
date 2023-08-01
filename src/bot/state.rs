@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::chess;
-use crate::chess::model::board::Move;
+use crate::chess::model::moves::Move;
 use crate::chess::model::game_state::START_POSITION_FEN;
 use crate::chess::model::piece::Color;
 use crate::lichess;

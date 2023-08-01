@@ -1,12 +1,7 @@
-use super::helpers::bishop::*;
-use super::helpers::generic::*;
 use super::helpers::king::*;
-use super::helpers::knight::*;
-use super::helpers::mobility::*;
-use super::helpers::pawn::*;
 use super::position::default_position_evaluation;
-use super::position::HEATMAP_SCORES;
 use crate::chess::engine::development::get_development_score;
+use crate::chess::engine::eval::helpers::mobility::*;
 use crate::chess::engine::square_affinity::*;
 use crate::chess::model::game_state::GameState;
 use crate::chess::model::piece::*;
@@ -87,15 +82,16 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::chess::model::game_state::print_mask;
+  use crate::chess::model::board::*;
+  use crate::chess::model::board_mask::*;
 
   #[test]
   fn evaluate_opening_positions() {
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
-    print_mask(game_state.white_bitmap.unwrap());
-    print_mask(game_state.black_bitmap.unwrap());
+    print_board_mask(game_state.white_bitmap.unwrap());
+    print_board_mask(game_state.black_bitmap.unwrap());
     println!("Evaluation: {eval}");
     assert!(-2.0 > eval);
   }
@@ -106,8 +102,8 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
 
-    print_mask(game_state.white_bitmap.unwrap());
-    print_mask(game_state.black_bitmap.unwrap());
+    print_board_mask(game_state.white_bitmap.unwrap());
+    print_board_mask(game_state.black_bitmap.unwrap());
 
     println!("Evaluation: {eval}");
     assert!(-0.01 < eval);

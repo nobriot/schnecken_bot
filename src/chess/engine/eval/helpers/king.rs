@@ -1,4 +1,5 @@
 use crate::chess::model::board::*;
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
@@ -36,7 +37,7 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
     Color::White => game_state.black_bitmap.unwrap_or(0),
     Color::Black => game_state.white_bitmap.unwrap_or(0),
   };
-  //print_mask(op_heatmap);
+  //print_board_mask(op_heatmap);
 
   for file_offset in -1..2 {
     for rank_offset in -1..2_isize {
@@ -51,7 +52,7 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
       let square = Board::fr_to_index(file as usize, rank as usize);
 
       total_squares += 1;
-      if (1 << square) & op_heatmap != 0 {
+      if square_in_mask!(square, op_heatmap) {
         attacked_squares += 1;
       }
     }

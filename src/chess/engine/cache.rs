@@ -4,7 +4,7 @@ use log::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::chess::model::board::Move;
+use crate::chess::model::moves::*;
 use crate::chess::model::game_state::GamePhase;
 
 // How large do we want the cache to grow before we purge it.

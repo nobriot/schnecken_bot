@@ -1,6 +1,7 @@
 use super::generic::*;
 
 use crate::chess::model::board::*;
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
@@ -58,12 +59,17 @@ pub fn can_become_protected(game_state: &GameState, index: usize) -> bool {
 
 /// Returns a board mask with backwards pawns for a color
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine backwards pawns
-pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> u64 {
-  let mut mask: u64 = 0;
+///
+/// ### Return value
+///
+/// BoardMask indicating which squares have a backwards pawn on it.
+///
+pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
+  let mut mask: BoardMask = 0;
 
   let pawn = match color {
     Color::White => WHITE_PAWN,
@@ -428,8 +434,8 @@ pub fn get_distance_left_for_closest_pawn_to_promotion(
 /// Board mask with the holes for that 8 if no pawn is present, else the number of squares that the closest pawn
 /// has to travel to get promoted
 ///
-pub fn get_holes(game_state: &GameState, color: Color) -> u64 {
-  let mut holes: u64 = 0;
+pub fn get_holes(game_state: &GameState, color: Color) -> BoardMask {
+  let mut holes: BoardMask = 0;
 
   let pawn = match color {
     Color::White => WHITE_PAWN,
@@ -659,7 +665,7 @@ mod tests {
     );
   }
 
-  use super::super::generic::mask_sum;
+  use crate::chess::model::board_mask::*;
 
   #[test]
   fn test_backwards_pawns() {
@@ -667,12 +673,12 @@ mod tests {
     let fen = "rnbqkbnr/pp1p3p/2p3p1/2Pp2p1/PP1P4/8/6PP/RNBQKBNR w KQkq - 0 4";
     let game_state = GameState::from_fen(fen);
     let mask = get_backwards_pawns(&game_state, Color::White);
-    print_mask(mask);
+    print_board_mask(mask);
     assert_eq!(1, mask_sum(mask));
     assert_eq!(1 << 27, mask);
 
     let mask = get_backwards_pawns(&game_state, Color::Black);
-    print_mask(mask);
+    print_board_mask(mask);
     assert_eq!(1, mask_sum(mask));
     assert_eq!(1 << 51, mask)
   }
@@ -682,10 +688,10 @@ mod tests {
     let fen = "r1b2r2/1p4bk/2pR1npn/p6p/2P1PP2/1PN4P/PB2N1B1/5RK1 b - - 0 19";
     let game_state = GameState::from_fen(fen);
     let mask = get_holes(&game_state, Color::White);
-    print_mask(mask);
+    print_board_mask(mask);
     assert_eq!(13, mask_sum(mask));
     let mask = get_holes(&game_state, Color::Black);
-    print_mask(mask);
+    print_board_mask(mask);
     assert_eq!(10, mask_sum(mask));
   }
 

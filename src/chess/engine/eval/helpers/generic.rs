@@ -1,29 +1,11 @@
 use super::pawn::*;
 use crate::chess::model::board::*;
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
 
 use log::*;
-
-/// Makes the sum of a board mask
-///
-/// # Arguments
-///
-/// * `mask` - u64 bitmask representing a board with 0 and 1s.
-///
-/// # Return value
-///
-/// the sum of all bits set to 1.
-pub fn mask_sum(mask: u64) -> usize {
-  let mut sum: usize = 0;
-  for i in 0..64 {
-    if mask >> i & 1 == 1 {
-      sum += 1;
-    }
-  }
-  sum
-}
 
 /// Computes the material score of a side
 ///
@@ -137,20 +119,20 @@ pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
 /// ### Return value
 ///
 /// Board mask with outposts squares
-pub fn get_outposts(game_state: &GameState, color: Color) -> u64 {
-  let mut outposts: u64 = 0;
+pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
+  let mut outposts: BoardMask = 0;
 
   let opponent_holes = get_holes(game_state, Color::opposite(color));
 
   for i in 0..64 {
     // Not a hole, not an outpost
-    if (1 << i) & opponent_holes == 0 {
+    if !square_in_mask!(i, opponent_holes) {
       continue;
     }
 
     // Now to be an outpost we need the hole to be defended by one of our pawns
     if is_square_protected_by_pawn(game_state, i, color) {
-      outposts |= 1 << i;
+      set_square_in_mask!(i, outposts);
     }
   }
 
@@ -383,7 +365,7 @@ mod tests {
     /*
     let outposts = get_outposts(&game_state, Color::White);
     let outposts = get_outposts(&game_state, Color::Black);
-    print_mask(outposts);
+    print_board_mask(outposts);
     */
     assert_eq!(327680, get_outposts(&game_state, Color::Black));
     assert_eq!(8606711808, get_outposts(&game_state, Color::White));

@@ -9,7 +9,7 @@ pub mod theory;
 use cache::EngineCache;
 
 // Chess model
-use super::model::board::Move;
+use super::model::moves::Move;
 use super::model::game_state::GameState;
 use super::model::game_state::START_POSITION_FEN;
 

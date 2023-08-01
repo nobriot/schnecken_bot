@@ -1,12 +1,11 @@
-use super::helpers::bishop::*;
-use super::helpers::generic::*;
+use std::char::MAX;
+
 use super::helpers::king::*;
-use super::helpers::knight::*;
 use super::helpers::mobility::*;
-use super::helpers::pawn::*;
 use super::position::*;
 use crate::chess::model::board::*;
 use crate::chess::model::board_geometry::*;
+use crate::chess::model::board_mask::*;
 use crate::chess::model::game_state::*;
 use crate::chess::model::piece::*;
 
@@ -176,7 +175,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::Black => game_state.board.get_white_king_square(),
   };
   let (king_file, king_rank) = Board::index_to_fr(king_position as usize);
-  let mut king_bitmap: u64 = 0; // Inverted bitmap of where the king can go 0 it can go, 1 it cannot
+  // BoardMask bitmap of where the king can go
+  let mut king_bitmap: BoardMask = 0;
 
   // There is probably something smart to do here.
   // Recursion to find all square sounds expensive when evaluating tons of positions.
@@ -184,7 +184,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   for rank in 1..=8 {
     let mut rank_control = 0;
     for file in 1..=8 {
-      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap != 0 {
+      if square_in_mask!(Board::fr_to_index(file, rank), attacking_bitmap) {
         rank_control += 1;
       }
     }
@@ -200,7 +200,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
         let (_, current_rank) = Board::index_to_fr(i);
         if (current_rank <= rank && king_rank > rank) || (current_rank >= rank && king_rank < rank)
         {
-          king_bitmap |= 1 << i;
+          set_square_in_mask!(i, king_bitmap);
         }
       }
     }
@@ -209,7 +209,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   for file in 1..=8 {
     let mut file_control = 0;
     for rank in 1..=8 {
-      if (1 << Board::fr_to_index(file, rank)) & attacking_bitmap != 0 {
+      if square_in_mask!(Board::fr_to_index(file, rank), attacking_bitmap) {
         file_control += 1;
       }
     }
@@ -222,21 +222,14 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
         let (current_file, _) = Board::index_to_fr(i);
         if (current_file <= file && king_file > file) || (current_file >= file && king_file < file)
         {
-          king_bitmap |= 1 << i;
+          set_square_in_mask!(i, king_bitmap);
         }
       }
     }
   }
-  // Now make the count
-  //print_mask(king_bitmap);
-  let mut available_squares = 0;
-  for i in 0..64 {
-    if (king_bitmap & (1 << i)) == 0 {
-      available_squares += 1;
-    }
-  }
 
-  score += (64 - available_squares) as f32;
+  // Now make the count
+  score += mask_sum(king_bitmap) as f32;
 
   // Now check how many square are available for each king
   score += 7.0

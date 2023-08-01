@@ -2,6 +2,8 @@ use log::*;
 use std::collections::VecDeque;
 
 use crate::chess::model::board::*;
+use crate::chess::model::board_mask::*;
+use crate::chess::model::moves::*;
 use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
@@ -31,9 +33,9 @@ pub struct GameState {
   // Vector of position representing the last x positions
   pub last_positions: VecDeque<String>,
   // Mask of squares controlled by white pieces. None if not determined yet.
-  pub white_bitmap: Option<u64>,
+  pub white_bitmap: Option<BoardMask>,
   // Mask of squares controlled by black pieces. None if not determined yet.
-  pub black_bitmap: Option<u64>,
+  pub black_bitmap: Option<BoardMask>,
 }
 
 // -----------------------------------------------------------------------------
@@ -44,24 +46,6 @@ pub fn print_heatmap(heatmap: &[usize; 64]) {
   for rank in (1..=8).rev() {
     for file in 1..=8 {
       representation += heatmap[Board::fr_to_index(file, rank)].to_string().as_str();
-      representation.push(' ');
-    }
-    representation.push('\n');
-  }
-
-  println!("{representation}");
-}
-
-#[allow(dead_code)]
-pub fn print_mask(mask: u64) {
-  let mut representation = String::from("\n");
-  for rank in (1..=8).rev() {
-    for file in 1..=8 {
-      if (mask >> Board::fr_to_index(file, rank) & 1) == 1 {
-        representation.push('1');
-      } else {
-        representation.push('0');
-      }
       representation.push(' ');
     }
     representation.push('\n');
@@ -151,7 +135,12 @@ impl GameState {
     fen
   }
 
-  pub fn get_piece_destinations(&self, source_square: usize, op: u64, ssp: u64) -> (u64, bool) {
+  pub fn get_piece_destinations(
+    &self,
+    source_square: usize,
+    op: BoardMask,
+    ssp: BoardMask,
+  ) -> (BoardMask, bool) {
     let mut promotion: bool = false;
     let destinations = match self.board.squares[source_square] {
       WHITE_KING | BLACK_KING => get_king_moves(ssp, op, source_square),
@@ -199,14 +188,14 @@ impl GameState {
   /// # Return value
   ///
   /// A bitmask indicating squares under control by the color for that game state.
-  pub fn get_color_bitmap(&mut self, color: Color) -> u64 {
+  pub fn get_color_bitmap(&mut self, color: Color) -> BoardMask {
     if color == Color::White && self.white_bitmap.is_some() {
       return self.white_bitmap.unwrap();
     } else if color == Color::Black && self.black_bitmap.is_some() {
       return self.black_bitmap.unwrap();
     }
 
-    let mut bitmap: u64 = 0;
+    let mut bitmap: BoardMask = 0;
     let opposite_color = Color::opposite(color);
 
     let ssp = self.board.get_color_mask(color);
@@ -256,8 +245,8 @@ impl GameState {
   /// # Return value
   ///
   /// A bitmask indicating squares under control by the color for that game state.
-  pub fn get_color_bitmap_with_xrays(&self, color: Color) -> u64 {
-    let mut bitmap: u64 = 0;
+  pub fn get_color_bitmap_with_xrays(&self, color: Color) -> BoardMask {
+    let mut bitmap: BoardMask = 0;
 
     for source_square in 0..64_usize {
       if !self.board.has_piece_with_color(source_square as u8, color) {
@@ -840,7 +829,7 @@ mod tests {
     for m in &move_list {
       println!("{m}");
     }
-    //print_mask(game_state.white_bitmap.unwrap());
+    //print_board_mask(game_state.white_bitmap.unwrap());
     assert_eq!(8, move_list.len());
   }
 

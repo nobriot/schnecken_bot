@@ -1,3 +1,5 @@
+use super::board_mask::*;
+
 //------------------------------------------------------------------------------
 // Macros
 /// Checks if a file/rank value is within bounds, else breaks
@@ -174,7 +176,7 @@ pub const KING_MOVES: [u64; 64] = [
 ///
 /// Board mask of where the knight can move
 ///
-pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> BoardMask {
   // Knight just cannot go where we have same side pieces
   KNIGHT_MOVES[square] & (!same_side_pieces)
 }
@@ -200,10 +202,10 @@ fn get_moves_from_offsets(
   same_side_pieces: u64,
   opponent_pieces: u64,
   square: usize,
-) -> u64 {
+) -> BoardMask {
   let inital_rank = (square / 8) as isize;
   let inital_file = (square % 8) as isize;
-  let mut destinations: u64 = 0;
+  let mut destinations: BoardMask = 0;
   for (file_offset, rank_offset) in move_offsets {
     let mut rank = inital_rank;
     let mut file = inital_file;
@@ -242,7 +244,7 @@ fn get_moves_from_offsets(
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
 ///
-pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
   get_moves_from_offsets(
     &BISHOP_MOVE_OFFSETS,
     true,
@@ -260,7 +262,7 @@ pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usi
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
 ///
-pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
   get_moves_from_offsets(
     &ROOK_MOVE_OFFSETS,
     true,
@@ -278,7 +280,7 @@ pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
 ///
-pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
   // A queen can do what bishops and rooks can do.
   get_rook_moves(same_side_pieces, opponent_pieces, square)
     | get_bishop_moves(same_side_pieces, opponent_pieces, square)
@@ -292,7 +294,7 @@ pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usiz
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
 ///
-pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> BoardMask {
   // Knight just cannot go where we have same side pieces
   KING_MOVES[square] & (!same_side_pieces)
 }
@@ -311,7 +313,11 @@ pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usiz
 ///
 /// Board mask with squares where the pawn can go.
 ///
-pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_white_pawn_moves(
+  same_side_pieces: u64,
+  opponent_pieces: u64,
+  square: usize,
+) -> BoardMask {
   let inital_rank = (square / 8) as isize;
   let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
@@ -371,7 +377,7 @@ pub fn get_white_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
 ///
 /// Board mask with squares where the pawn can capture.
 ///
-pub fn get_white_pawn_captures(square: usize) -> u64 {
+pub fn get_white_pawn_captures(square: usize) -> BoardMask {
   let inital_rank = (square / 8) as isize;
   let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
@@ -406,7 +412,11 @@ pub fn get_white_pawn_captures(square: usize) -> u64 {
 ///
 /// Board mask with squares where the pawn can go.
 ///
-pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> u64 {
+pub fn get_black_pawn_moves(
+  same_side_pieces: u64,
+  opponent_pieces: u64,
+  square: usize,
+) -> BoardMask {
   let inital_rank = (square / 8) as isize;
   let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
@@ -466,7 +476,7 @@ pub fn get_black_pawn_moves(same_side_pieces: u64, opponent_pieces: u64, square:
 ///
 /// Board mask with squares where the pawn can capture.
 ///
-pub fn get_black_pawn_captures(square: usize) -> u64 {
+pub fn get_black_pawn_captures(square: usize) -> BoardMask {
   let inital_rank = (square / 8) as isize;
   let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
@@ -493,8 +503,8 @@ pub fn get_black_pawn_captures(square: usize) -> u64 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::chess::model::board::board_mask_to_string;
-  use crate::chess::model::board::string_to_square;
+  use crate::chess::model::board_mask::board_mask_to_string;
+  use crate::chess::model::moves::string_to_square;
   #[test]
   fn check_knight_moves() {
     let expected_squares: u64 = (1 << string_to_square("a5"))
