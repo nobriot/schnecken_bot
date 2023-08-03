@@ -7,11 +7,12 @@ use crate::chess::model::moves::*;
 use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
 use crate::chess::model::piece_moves::*;
+use crate::chess::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 /// How many positions do we memorize in the GameState to check for 3-fold repetitions
-pub const LAST_POSITIONS_SIZE: usize = 8;
+pub const LAST_POSITIONS_SIZE: usize = 30;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum GamePhase {
@@ -31,7 +32,7 @@ pub struct GameState {
   // Phase of the game. None if not determined yet
   pub game_phase: Option<GamePhase>,
   // Vector of position representing the last x positions
-  pub last_positions: VecDeque<String>,
+  pub last_positions: VecDeque<BoardHash>,
   // Mask of squares controlled by white pieces. None if not determined yet.
   pub white_bitmap: Option<BoardMask>,
   // Mask of squares controlled by black pieces. None if not determined yet.
@@ -335,6 +336,13 @@ impl GameState {
     (heatmap, heatmap_sources)
   }
 
+  // Sets all the possible moves in a position
+  pub fn set_moves(&mut self, moves: &Vec<Move>) {
+    //self.move_list.clear();
+    self.move_list = moves.clone();
+    self.available_moves_computed = true;
+  }
+
   // Get all the possible moves in a position
   pub fn get_moves(&mut self) -> &Vec<Move> {
     if self.available_moves_computed {
@@ -582,7 +590,7 @@ impl GameState {
     if self.last_positions.len() >= LAST_POSITIONS_SIZE {
       self.last_positions.pop_back();
     }
-    self.last_positions.push_front(self.board.to_string());
+    self.last_positions.push_front(self.board.hash);
 
     // Check the ply count first:
     if self.board.squares[chess_move.dest as usize] != NO_PIECE
@@ -863,8 +871,9 @@ mod tests {
   fn test_copying() {
     let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
     let mut game_state = GameState::from_fen(fen);
-    let last_position = String::from("rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1N w");
-    game_state.last_positions.push_front(last_position);
+    let last_position =
+      Board::from_fen("rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1N w");
+    game_state.last_positions.push_front(last_position.hash);
 
     let mut game_state_copy = game_state.clone();
     game_state.get_moves();

@@ -33,7 +33,7 @@ pub(crate) use fr_bounds_or_return;
 // -----------------------------------------------------------------------------
 //  Structs/Enums
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Board {
   pub squares: [u8; 64],
   pub side_to_play: Color,

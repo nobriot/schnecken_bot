@@ -98,7 +98,8 @@ impl ChessLine {
       self.game_state.available_moves_computed = true;
     } else {
       //println!("New position {fen}. Computing manually");
-      get_engine_cache().set_move_list(self.game_state.board.hash, self.game_state.get_moves());
+      self.game_state.get_moves();
+      get_engine_cache().set_move_list(&self.game_state.board.hash, &self.game_state.move_list);
     }
   }
 
@@ -108,7 +109,7 @@ impl ChessLine {
     } else {
       self.game_state.update_game_phase();
       if let Some(phase) = self.game_state.game_phase {
-        get_engine_cache().set_game_phase(self.game_state.board.hash, phase);
+        get_engine_cache().set_game_phase(&self.game_state.board.hash, phase);
       }
     }
   }
@@ -136,7 +137,7 @@ impl ChessLine {
       self.eval = Some(eval);
       self.game_over = game_over;
       if !game_over {
-        get_engine_cache().set_eval(self.game_state.board.hash, eval);
+        get_engine_cache().set_eval(&self.game_state.board.hash, eval);
       }
       // }
     }
@@ -218,7 +219,7 @@ impl ChessLine {
         self.eval = self.variations[0].eval;
       }
       if self.eval.is_some() && !self.game_over {
-        get_engine_cache().set_eval(self.game_state.board.hash, self.eval.unwrap());
+        get_engine_cache().set_eval(&self.game_state.board.hash, self.eval.unwrap());
       }
     }
   }
@@ -293,7 +294,7 @@ impl ChessLine {
       return;
     }
 
-    if get_engine_cache().has_key(self.game_state.board.hash) {
+    if get_engine_cache().has_key(&self.game_state.board.hash) {
       self.eval = get_engine_cache().get_eval(&self.game_state.board.hash);
     } else {
       warn!("Permutation not found in the cache. Eval update will be skipped");
@@ -1080,6 +1081,7 @@ mod tests {
 
   #[test]
   fn test_avoid_threefold_repetitions() {
+    use crate::chess::model::board::Board;
     /* Looks like we had a permutation bug that lead us into some 3-fold repetitions
      [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms to find a move
        Line 0 Eval: 10.71348 - d1e2 / Permutation
@@ -1091,30 +1093,30 @@ mod tests {
     let fen = "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45";
     let mut game_state = GameState::from_fen(fen);
     let deadline = Instant::now() + Duration::new(1, 211_000_000);
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
-    ));
-    game_state.last_positions.push_back(String::from(
-      "r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5",
-    ));
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    game_state
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
 
     let mut chess_lines = select_best_move(&mut game_state, deadline).expect("This should work");
     display_lines(5, &chess_lines);

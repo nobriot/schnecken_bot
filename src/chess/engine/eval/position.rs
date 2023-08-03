@@ -179,10 +179,9 @@ pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
 }
 
 pub fn is_game_over_by_repetition(game_state: &GameState) -> bool {
-  let current_position = game_state.board.to_string();
   let mut repetition_count = 0;
-  for position in &game_state.last_positions {
-    if current_position.as_str() == position {
+  for hash in &game_state.last_positions {
+    if game_state.board.hash == *hash {
       repetition_count += 1;
     }
   }

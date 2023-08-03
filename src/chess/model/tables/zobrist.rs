@@ -4,20 +4,23 @@ const NUMBER_OF_PIECES: usize = 12;
 const NUMBER_OF_SQUARES: usize = 64;
 const NUMBER_OF_FILES: usize = 8;
 
+/// Type used to store hash values for Boards
+pub type BoardHash = u64;
+
 /// Zobrist value for White King-side castle
-pub const ZOBRIST_WHITE_KING_CASTLE: u64 = 0x867B9A98F53AD791;
+pub const ZOBRIST_WHITE_KING_CASTLE: BoardHash = 0x867B9A98F53AD791;
 /// Zobrist value for White Queen-side castle
-pub const ZOBRIST_WHITE_QUEEN_CASTLE: u64 = 0xC6C47D33AE09EBBB;
+pub const ZOBRIST_WHITE_QUEEN_CASTLE: BoardHash = 0xC6C47D33AE09EBBB;
 /// Zobrist value for Black King-side castle
-pub const ZOBRIST_BLACK_KING_CASTLE: u64 = 0x6494E420BEB3C13A;
+pub const ZOBRIST_BLACK_KING_CASTLE: BoardHash = 0x6494E420BEB3C13A;
 /// Zobrist value for Black Queen-side castle
-pub const ZOBRIST_BLACK_QUEEN_CASTLE: u64 = 0x845FF9C4F0A9381B;
+pub const ZOBRIST_BLACK_QUEEN_CASTLE: BoardHash = 0x845FF9C4F0A9381B;
 
 /// Zobrist value for the side to move
-pub const ZOBRIST_WHITE_TO_MOVE: u64 = 0x9F138E68A0F86C1A;
+pub const ZOBRIST_WHITE_TO_MOVE: BoardHash = 0x9F138E68A0F86C1A;
 
 /// Zobrist value for the en-passant square
-pub const ZOBRIST_EN_PASSANT: [u64; NUMBER_OF_FILES] = [
+pub const ZOBRIST_EN_PASSANT: [BoardHash; NUMBER_OF_FILES] = [
   0xEAE3ED9F7852290D,
   0xEEBC4A04F4164C20,
   0x37CEF8ADE46BE5C1,
@@ -31,7 +34,7 @@ pub const ZOBRIST_EN_PASSANT: [u64; NUMBER_OF_FILES] = [
 /// Zobrist Piece/Square table.
 /// use like this:
 /// ZOBRIST_TABLE[piece][square]
-pub const ZOBRIST_TABLE: [[u64; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
+pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
   [
     0x8755602580A0BB4D,
     0x39AC19B590DAD462,
@@ -840,17 +843,17 @@ mod tests {
   #[test]
   fn generate_zobrist_piece_square_table() {
     let mut rng = rand::thread_rng();
-    let mut zobrist: [[u64; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] =
+    let mut zobrist: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] =
       [[0; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES];
 
     for s in 0..NUMBER_OF_SQUARES {
       for p in 0..NUMBER_OF_PIECES {
-        zobrist[p][s] = rng.gen_range(0..=u64::MAX);
+        zobrist[p][s] = rng.gen_range(0..=BoardHash::MAX);
       }
     }
 
     println!(
-      "pub const ZOBRIST_TABLE:[[u64; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES]  = {:#X?};",
+      "pub const ZOBRIST_TABLE:[[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES]  = {:#X?};",
       zobrist
     );
   }
@@ -862,20 +865,20 @@ mod tests {
     let mut rng = rand::thread_rng();
 
     println!(
-      "pub const ZOBRIST_WHITE_KING_CASTLE:u64 = {:#X?};",
-      rng.gen_range(0..=u64::MAX)
+      "pub const ZOBRIST_WHITE_KING_CASTLE:BoardHash = {:#X?};",
+      rng.gen_range(0..=BoardHash::MAX)
     );
     println!(
-      "pub const ZOBRIST_WHITE_QUEEN_CASTLE:u64 = {:#X?};",
-      rng.gen_range(0..=u64::MAX)
+      "pub const ZOBRIST_WHITE_QUEEN_CASTLE:BoardHash = {:#X?};",
+      rng.gen_range(0..=BoardHash::MAX)
     );
     println!(
-      "pub const ZOBRIST_BLACK_KING_CASTLE:u64 = {:#X?};",
-      rng.gen_range(0..=u64::MAX)
+      "pub const ZOBRIST_BLACK_KING_CASTLE:BoardHash = {:#X?};",
+      rng.gen_range(0..=BoardHash::MAX)
     );
     println!(
-      "pub const ZOBRIST_BLACK_QUEEN_CASTLE:u64 = {:#X?};",
-      rng.gen_range(0..=u64::MAX)
+      "pub const ZOBRIST_BLACK_QUEEN_CASTLE:BoardHash = {:#X?};",
+      rng.gen_range(0..=BoardHash::MAX)
     );
   }
 
@@ -886,8 +889,8 @@ mod tests {
     let mut rng = rand::thread_rng();
 
     println!(
-      "pub const ZOBRIST_WHITE_TO_MOVE:u64 = {:#X?};",
-      rng.gen_range(0..=u64::MAX)
+      "pub const ZOBRIST_WHITE_TO_MOVE:BoardHash = {:#X?};",
+      rng.gen_range(0..=BoardHash::MAX)
     );
   }
 
@@ -896,14 +899,14 @@ mod tests {
   #[test]
   fn generate_zobrist_en_passant() {
     let mut rng = rand::thread_rng();
-    let mut zobrist: [u64; NUMBER_OF_FILES] = [0; NUMBER_OF_FILES];
+    let mut zobrist: [BoardHash; NUMBER_OF_FILES] = [0; NUMBER_OF_FILES];
 
     for f in 0..NUMBER_OF_FILES {
-      zobrist[f] = rng.gen_range(0..=u64::MAX);
+      zobrist[f] = rng.gen_range(0..=BoardHash::MAX);
     }
 
     println!(
-      "pub const ZOBRIST_EN_PASSANT:[[u64; NUMBER_OF_FILES];= {:#X?};",
+      "pub const ZOBRIST_EN_PASSANT:[[BoardHash; NUMBER_OF_FILES];= {:#X?};",
       zobrist
     );
   }

@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::chess;
-use crate::chess::model::moves::Move;
 use crate::chess::model::game_state::START_POSITION_FEN;
+use crate::chess::model::moves::Move;
 use crate::chess::model::piece::Color;
 use crate::lichess;
 use crate::lichess::api::*;
@@ -496,6 +496,7 @@ impl EventStreamHandler for BotState {
         if result.is_err() {
           let error = result.unwrap_err();
           warn!("Error deserializing GameStart event data !! {:?}", error);
+          println!("JSON object: {}", json_value["game"]);
         } else {
           self.on_game_start(result.unwrap());
         }
@@ -511,6 +512,7 @@ impl EventStreamHandler for BotState {
         if result.is_err() {
           let error = result.unwrap_err();
           warn!("Error deserializing gameFinish event data !! {:?}", error);
+          println!("JSON object: {}", json_value["game"]);
         } else {
           self.on_game_end(result.unwrap());
         }
@@ -522,6 +524,7 @@ impl EventStreamHandler for BotState {
         if result.is_err() {
           let error = result.unwrap_err();
           warn!("Error deserializing Challenge event data !! {:?}", error);
+          println!("JSON object: {}", json_value["challenge"]);
         } else {
           self.on_incoming_challenge(result.unwrap());
         }

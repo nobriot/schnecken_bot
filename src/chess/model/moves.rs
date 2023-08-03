@@ -3,7 +3,7 @@ use crate::chess::model::piece::*;
 
 use log::*;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct Move {
   /// Source square of a move (value from 0 to 63)
   pub src: u8,
@@ -102,6 +102,24 @@ pub fn string_to_square(string: &str) -> u8 {
 }
 
 impl Move {
+  /// Converts a move to its reverse, that allows to undo moves on the board
+  /*
+  pub fn invert(&self) -> Move {
+    // Revert promoted pieces to pawns
+    let promotion = match self.promotion {
+      WHITE_BISHOP | WHITE_KNIGHT | WHITE_ROOK | WHITE_QUEEN => WHITE_PAWN,
+      BLACK_BISHOP | BLACK_KNIGHT | BLACK_ROOK | BLACK_QUEEN => BLACK_PAWN,
+      _ => NO_PIECE,
+    };
+
+    Move {
+      src: self.dest,
+      dest: self.src,
+      promotion: promotion,
+    }
+  }
+  */
+
   /// Converts a move to the algebraic notation, e.g. a3f3
   pub fn to_string(&self) -> String {
     if self.promotion != NO_PIECE {
@@ -289,6 +307,4 @@ mod tests {
     assert_eq!(vec[0], m0);
     assert_eq!(vec[1], m1);
   }
-
-
 }
