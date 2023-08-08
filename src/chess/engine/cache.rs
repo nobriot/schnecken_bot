@@ -22,6 +22,8 @@ pub struct PositionCache {
   pub game_phase: Option<GamePhase>,
   // List of variations from a position if a move is played
   pub variations: HashMap<Move, BoardHash>,
+  // Number of checks for the position
+  pub checks: Option<u8>,
 }
 
 pub struct EngineCache {
@@ -30,6 +32,8 @@ pub struct EngineCache {
 }
 
 impl EngineCache {
+  /// Instantiate a new EngineCache object
+  ///
   pub fn new() -> Self {
     EngineCache {
       positions: Arc::new(Mutex::new(HashMap::new())),
@@ -37,6 +41,17 @@ impl EngineCache {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Position cached data
+
+  /// Adds a PositionCache object to a give board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `position_cache` :  Position cache for the board configuration
+  ///
   pub fn add(&self, board: &BoardHash, position_cache: PositionCache) {
     if self.len() > DEFAULT_CACHE_MAX_SIZE {
       // Ideally we should purge old entries
@@ -50,19 +65,53 @@ impl EngineCache {
       .insert(*board, position_cache);
   }
 
+  /// Returns the number of positions saved in the cache.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  ///
+  /// ### Return value
+  ///
+  /// Number of positions saved with a PositionCache in the EngineCache
+  ///
   pub fn len(&self) -> usize {
     return self.positions.lock().unwrap().len();
   }
 
+  /// Erases all the position caches and killer moves
+  ///
   pub fn clear(&self) {
     self.positions.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
   }
 
+  /// Checks if a position has a PositionCache entry
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash has a PositionCache in the EngineCache. False otherwise
+  ///
   pub fn has_key(&self, board: &BoardHash) -> bool {
     return self.positions.lock().unwrap().contains_key(board);
   }
 
+  /// Checks if a position has a known move list
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash has a move list in the PositionCache in the EngineCache. False otherwise
+  ///
   pub fn has_move_list(&self, board: &BoardHash) -> bool {
     return self
       .positions
@@ -74,6 +123,17 @@ impl EngineCache {
       .is_some();
   }
 
+  /// Retrieves the list of legal moves for a position, if present in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// Optional Vector of moves for the board position
+  ///
   pub fn get_move_list(&self, board: &BoardHash) -> Option<Vec<Move>> {
     return self
       .positions
@@ -85,6 +145,14 @@ impl EngineCache {
       .clone();
   }
 
+  /// Configures the list of legal moves for a position in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `move_list` :       List of moves to save in the PositionCache
+  ///
   pub fn set_move_list(&self, board: &BoardHash, move_list: &[Move]) {
     if !self.has_key(board) {
       self.add(board, PositionCache::default());
@@ -97,6 +165,17 @@ impl EngineCache {
     }
   }
 
+  /// Retrieves the evaluation for a position, if present in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// Optional evaluation value
+  ///
   pub fn get_eval(&self, board: &BoardHash) -> Option<f32> {
     return self
       .positions
@@ -107,6 +186,14 @@ impl EngineCache {
       .eval;
   }
 
+  /// Sets the evaluation for a position in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `eval` :            Evaluation for the position to save in the PositionCache
+  ///
   pub fn set_eval(&self, board: &BoardHash, eval: f32) {
     if !self.has_key(board) {
       self.add(board, PositionCache::default());
@@ -119,6 +206,17 @@ impl EngineCache {
     }
   }
 
+  /// Retrieves the game phase for a position, if present in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// Optional game phase value
+  ///
   pub fn get_game_phase(&self, board: &BoardHash) -> Option<GamePhase> {
     return self
       .positions
@@ -129,6 +227,14 @@ impl EngineCache {
       .game_phase;
   }
 
+  /// Sets the game phase for a position in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `game_phase` :      Game phase for the position to save in the PositionCache
+  ///
   pub fn set_game_phase(&self, board: &BoardHash, game_phase: GamePhase) {
     if !self.has_key(board) {
       self.add(board, PositionCache::default());
@@ -141,6 +247,15 @@ impl EngineCache {
     }
   }
 
+  /// Adds a continuation for a position in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `chess_move` :      Chess move applied on the board configuration
+  /// * `resulting_board` : Hash value for the board after the chess move applied on the board configuration
+  ///
   pub fn add_variation(&self, board: &BoardHash, chess_move: &Move, resulting_board: &BoardHash) {
     if !self.has_key(board) {
       self.add(board, PositionCache::default());
@@ -153,6 +268,61 @@ impl EngineCache {
     }
   }
 
+  /// Retrives the number of checks for a board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Candidate move to look up in the EngineCache
+  ///
+  /// ### Return value
+  ///
+  /// True if the `candidate_move` is present in the list of Killer moves
+  ///
+  pub fn get_checks(&self, board: &BoardHash) -> Option<u8> {
+    return self
+      .positions
+      .lock()
+      .unwrap()
+      .get(board)
+      .unwrap_or(&PositionCache::default())
+      .checks;
+  }
+
+  /// Sets the number of checks for a board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Candidate move to look up in the EngineCache
+  /// * `checks` : Number of checks to set in the EngineCache for the position
+  ///
+  pub fn set_checks(&self, board: &BoardHash, checks: u8) {
+    if !self.has_key(board) {
+      self.add(board, PositionCache::default());
+    }
+
+    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
+      entry.checks = Some(checks);
+    } else {
+      error!("Error updating eval in the cache for hash {board}");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Position independant cached data
+
+  /// Gets the list of known continuations for a position in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// HashMap of moves/boards for continuations.
+  ///
   pub fn get_variations(&self, board: &BoardHash) -> HashMap<Move, BoardHash> {
     return self
       .positions
@@ -164,16 +334,41 @@ impl EngineCache {
       .clone();
   }
 
+  /// Adds a killer move in the EngineCache
+  /// This is not dependant on positions, and should be cleared when the engine moves to another position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `killer_move` :     Killer Move to add in the EngineCache
+  ///
   pub fn add_killer_move(&self, killer_move: &Move) {
     self.killer_moves.lock().unwrap().insert(*killer_move);
   }
 
+  /// Removes all killer moves from the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  ///
   pub fn clear_killer_moves(&self) {
     self.killer_moves.lock().unwrap().clear();
   }
 
-  pub fn is_killer_move(&self, killer_move: &Move) -> bool {
-    return self.killer_moves.lock().unwrap().contains(killer_move);
+  /// Checks if a move is a known killer move in the EngineCache
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `candidate_move` :  Candidate move to look up in the EngineCache
+  ///
+  /// ### Return value
+  ///
+  /// True if the `candidate_move` is present in the list of Killer moves
+  ///
+  pub fn is_killer_move(&self, candidate_move: &Move) -> bool {
+    return self.killer_moves.lock().unwrap().contains(candidate_move);
   }
 }
 
@@ -190,7 +385,6 @@ pub fn get_engine_cache() -> &'static EngineCache {
 
 #[cfg(test)]
 mod tests {
-  use std::hash::Hash;
 
   use super::*;
   use crate::chess::model::game_state::GameState;
@@ -228,6 +422,7 @@ mod tests {
     assert_eq!(0, engine_cache.len());
     assert_eq!(false, engine_cache.has_move_list(&game_state.board.hash));
     assert_eq!(None, engine_cache.get_move_list(&game_state.board.hash));
+    assert_eq!(None, engine_cache.get_checks(&game_state.board.hash));
 
     // Now add the data:
     let position_cache = PositionCache {
@@ -235,6 +430,7 @@ mod tests {
       eval: Some(20.0),
       game_phase: Some(GamePhase::Opening),
       variations: HashMap::new(),
+      checks: Some(2),
     };
 
     engine_cache.add(&game_state.board.hash, position_cache);
@@ -250,6 +446,7 @@ mod tests {
       Some(GamePhase::Opening),
       engine_cache.get_game_phase(&game_state.board.hash)
     );
+    assert_eq!(Some(2), engine_cache.get_checks(&game_state.board.hash));
 
     // Add manually:
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/7P b - - 8 43";
@@ -302,5 +499,6 @@ mod tests {
     assert_eq!(false, engine_cache.has_move_list(&game_state.board.hash));
     assert_eq!(None, engine_cache.get_eval(&game_state.board.hash));
     assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
+    assert_eq!(None, engine_cache.get_checks(&game_state.board.hash));
   }
 }
