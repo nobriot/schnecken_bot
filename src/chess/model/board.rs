@@ -146,6 +146,34 @@ impl Board {
     self.squares[Board::fr_to_index(file, rank)]
   }
 
+  /// Checks if a move on the board is a capture
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`: Board to look at
+  /// * `m`:    Reference to a move to examine
+  ///
+  /// ### Return value
+  ///
+  /// True if the move is a capture, false otherwise
+  ///
+  pub fn is_move_a_capture(&self, m: &Move) -> bool {
+    // If a piece is at the destination, it's a capture
+    if self.squares[m.dest as usize] != NO_PIECE {
+      return true;
+    }
+
+    // If a pawn moves to the en-passant square, it's a capture.
+    if self.en_passant_square != INVALID_SQUARE
+      && m.dest == self.en_passant_square
+      && (self.squares[m.src as usize] == WHITE_PAWN || self.squares[m.src as usize] == BLACK_PAWN)
+    {
+      return true;
+    }
+
+    false
+  }
+
   /// Applies a move on the board.
   ///
   /// Very few checks are done here, the caller has to check that the move is

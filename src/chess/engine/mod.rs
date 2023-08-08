@@ -47,6 +47,14 @@ struct Analysis {
   pub depth: usize,
 }
 
+#[derive(Clone, Debug, Default)]
+struct EngineState {
+  /// Indicates if the engine is active at resolving positions
+  pub active: Arc<Mutex<bool>>,
+  /// Indicates that we want the engine to stop resolving positions
+  pub stop_requested: Arc<Mutex<bool>>,
+}
+
 impl Analysis {
   /// Resets the analysis
   pub fn reset(&mut self) {
@@ -71,6 +79,7 @@ impl Default for Analysis {
   }
 }
 
+#[derive(Clone, Debug)]
 pub struct Engine {
   position: GameState,
   /// State of the analysis for the game state.
@@ -79,8 +88,8 @@ pub struct Engine {
   cache: EngineCache,
   /// Engine options
   options: Options,
-  /// Whether the engine is active of not
-  search: Arc<Mutex<bool>>,
+  /// Whether the engine is active of not, and if we want to stop it.
+  state: EngineState,
 }
 
 impl Engine {
@@ -99,7 +108,10 @@ impl Engine {
         max_depth: 0,
         max_time: 0,
       },
-      search: Arc::new(Mutex::new(false)),
+      state: EngineState {
+        active: Arc::new(Mutex::new(false)),
+        stop_requested: Arc::new(Mutex::new(false)),
+      },
     }
   }
 
@@ -109,19 +121,40 @@ impl Engine {
   ///
   /// * True if searching a position, False otherwise
   ///
-  pub fn is_searching(&self) -> bool {
-    return *self.search.lock().unwrap();
+  pub fn is_active(&self) -> bool {
+    return *self.state.active.lock().unwrap();
   }
 
-  /// Helper function that sets the "search" bool value in the engine
+  /// Helper function that sets the "active" bool value in the engine
   ///
   /// ### Arguments
   ///
-  /// * `search`: The new value to apply to search
+  /// * `active`: The new value to apply to active
   ///
-  fn set_search(&self, search: bool) {
-    let mut s = self.search.lock().unwrap();
-    *s = search;
+  fn set_engine_active(&self, active: bool) {
+    let mut s = self.state.active.lock().unwrap();
+    *s = active;
+  }
+
+  /// Checks if the engine has been requested to stop evaluating
+  ///
+  /// ### Return value
+  ///
+  /// * True if the engine should stop searching positions, False otherwise
+  ///
+  pub fn stop_requested(&self) -> bool {
+    return *self.state.stop_requested.lock().unwrap();
+  }
+
+  /// Helper function that sets the "stop_requested" bool value in the engine
+  ///
+  /// ### Arguments
+  ///
+  /// * `stop_requested`: The new value to apply to stop_requested
+  ///
+  fn set_stop_requested(&self, stop_requested: bool) {
+    let mut s = self.state.stop_requested.lock().unwrap();
+    *s = stop_requested;
   }
 
   /// Checks if the engine has been searching a position for too long
@@ -147,10 +180,11 @@ impl Engine {
   /// Resets the engine to a default state.
   /// Same as Engine::Default() or Engine::new()
   pub fn reset(&mut self) {
+    self.stop();
     self.position = GameState::from_fen(START_POSITION_FEN);
     self.analysis.reset();
     self.cache.clear();
-    self.set_search(false);
+    self.set_engine_active(false);
   }
 
   /// Sets a new position
@@ -191,27 +225,44 @@ impl Engine {
   /// Analysis will continue until stopped with the `stop()` method
   pub fn go(&self) {
     // Save the max depth
-    if self.is_searching() {
+    if self.is_active() {
       // we are already searching.
       debug!("We are already evaluating the position.");
       return;
     }
-    self.set_search(true);
+
+    // Mark that we are now active and stop is not requested.
+    self.set_stop_requested(false);
+    self.set_engine_active(true);
 
     // Start searching
-    for i in 1..self.options.max_depth {
-      self.evaluate_positions(self.position.clone(), 1, i, Instant::now());
+    let start_time = Instant::now();
+    let mut i = 1;
+
+    while !self.has_been_searching_too_long(start_time) && !self.stop_requested() {
+      if i != 1 {
+        // Fist iteration solves all the positions, then after we look at captures only
+        self.evaluate_positions(self.position.clone(), true, 1, i, start_time);
+      }
+
+      self.evaluate_positions(self.position.clone(), false, 1, i, start_time);
+      i += 1;
+
+      if self.options.max_depth > 0 && i > self.options.max_depth {
+        break;
+      }
     }
 
     // We are done
-    self.set_search(false);
+    self.set_stop_requested(false);
+    self.set_engine_active(false);
   }
 
   /// Starts analyzing the current position
   ///
   /// Analysis will continue until stopped.
   pub fn stop(&self) {
-    self.set_search(false);
+    self.set_stop_requested(true);
   }
 
   /// Returns the best move
@@ -434,7 +485,8 @@ impl Engine {
   /// ### Arguments
   ///
   /// * `self`: Engine to use to store all the calculations
-  /// * `game_state`: Game state to start from in the evaluation tree
+  /// * `game_state`:    Game state to start from in the evaluation tree
+  /// * `captures_only`: Set this bit to evaluate captures only
   /// * `depth`:      Current depth at which we are in the search
   /// * `max_depth`:  Depth at which to stop
   /// * `start_time`: Time at which we started resolving the chess position
@@ -442,11 +494,17 @@ impl Engine {
   fn evaluate_positions(
     &self,
     game_state: GameState,
+    captures_only: bool,
     depth: usize,
     max_depth: usize,
     start_time: Instant,
   ) {
-    if (depth > max_depth) || !self.is_searching() || self.has_been_searching_too_long(start_time) {
+    if self.stop_requested() || self.has_been_searching_too_long(start_time) {
+      return;
+    }
+
+    if !captures_only && (depth > max_depth) {
+      info!("Reached maximum depth. Stopping search");
       return;
     }
 
@@ -454,6 +512,11 @@ impl Engine {
     Engine::find_move_list(&self.cache, &game_state);
 
     for m in self.cache.get_move_list(&game_state.board.hash).unwrap() {
+      // Skip non-capture if we are resolving captures only
+      if captures_only && !game_state.board.is_move_a_capture(&m) {
+        continue;
+      }
+
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m, false);
 
@@ -491,7 +554,13 @@ impl Engine {
       }
 
       // Recurse until we get to the bottom.
-      self.evaluate_positions(new_game_state, depth + 1, max_depth, start_time);
+      self.evaluate_positions(
+        new_game_state,
+        captures_only,
+        depth + 1,
+        max_depth,
+        start_time,
+      );
     }
 
     // Back propagate from children nodes
@@ -533,7 +602,10 @@ impl Default for Engine {
       position: GameState::default(),
       analysis: Analysis::default(),
       cache: EngineCache::new(),
-      search: Arc::new(Mutex::new(false)),
+      state: EngineState {
+        active: Arc::new(Mutex::new(false)),
+        stop_requested: Arc::new(Mutex::new(false)),
+      },
       options: Options {
         ponder: false,
         max_depth: 1,
@@ -558,7 +630,7 @@ mod tests {
     engine.go();
 
     // println!("engine analysis: {:#?}", engine.analysis.scores);
-
+    engine.print_evaluations();
     let expected_move = Move::from_string("b6d5");
     assert_eq!(expected_move, engine.get_best_move());
   }
@@ -572,7 +644,7 @@ mod tests {
     engine.go();
 
     //println!("engine analysis: {:#?}", engine.analysis.scores);
-
+    engine.print_evaluations();
     let expected_move = Move::from_string("g3g1");
     assert_eq!(expected_move, engine.get_best_move());
   }
@@ -585,6 +657,7 @@ mod tests {
     engine.set_maximum_depth(3);
     engine.go();
 
+    engine.print_evaluations();
     let expected_move = Move::from_string("c1b2");
     assert_eq!(expected_move, engine.get_best_move());
   }
@@ -597,6 +670,7 @@ mod tests {
     engine.set_maximum_depth(3);
     engine.go();
 
+    engine.print_evaluations();
     let expected_move = Move::from_string("h8f8");
     assert_eq!(expected_move, engine.get_best_move());
   }
@@ -632,5 +706,43 @@ mod tests {
 
     let expected_move = Move::from_string("a7a8Q");
     assert_eq!(expected_move, engine.get_best_move());
+  }
+
+  #[test]
+  fn engine_go_and_stop() {
+    let mut engine = Engine::new();
+    engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
+    engine.set_maximum_depth(20);
+
+    let engine_clone = engine.clone();
+    let handle = std::thread::spawn(move || engine_clone.go());
+
+    std::thread::sleep(std::time::Duration::from_millis(10));
+
+    assert_eq!(true, engine.is_active());
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+    engine.stop();
+    assert_eq!(true, engine.is_active());
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    assert_eq!(false, engine.is_active());
+
+    assert_eq!(true, handle.is_finished());
+  }
+
+  #[test]
+  fn engine_bench_positions_per_second() {
+    let mut engine = Engine::new();
+    engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
+    engine.set_search_time_limit(1000);
+    engine.go();
+
+    println!("Engine cache length: {}", engine.cache.len());
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      engine.cache.len() > 1_000_000,
+      "Number of kNPS for engine analysis: {}",
+      engine.cache.len()
+    );
   }
 }

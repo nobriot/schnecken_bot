@@ -26,7 +26,7 @@ pub struct GameState {
   pub checks: u8,
   pub board: Board,
   pub ply: u8,
-  pub move_count: u8,
+  pub move_count: usize,
   pub available_moves_computed: bool,
   pub move_list: Vec<Move>,
   // Phase of the game. None if not determined yet
@@ -69,7 +69,7 @@ impl GameState {
 
     let board = Board::from_fen(fen);
     let ply: u8 = fen_parts[4].parse::<u8>().unwrap_or(0);
-    let move_count: u8 = fen_parts[5].parse::<u8>().unwrap_or(0);
+    let move_count: usize = fen_parts[5].parse::<usize>().unwrap_or(0);
 
     let mut game_state = GameState {
       checks: 0,
@@ -598,7 +598,7 @@ impl GameState {
       || self.board.squares[chess_move.src as usize] == BLACK_PAWN
     {
       self.ply = 0;
-    } else {
+    } else if self.ply < 255 {
       self.ply += 1;
     }
 
@@ -887,5 +887,57 @@ mod tests {
     game_state_copy.last_positions.pop_front();
     assert!(1 == game_state.last_positions.len());
     assert!(0 == game_state_copy.last_positions.len());
+  }
+
+  #[test]
+  fn game_state_bench_move_applications_per_second() {
+    use std::time::{Duration, Instant};
+    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
+    let mut game_state = GameState::from_fen(fen);
+
+    let mut positions_computed = 0;
+    let start_time = Instant::now();
+
+    // Spin at it for 1 second
+    while Instant::now() < (start_time + Duration::from_millis(1000)) {
+      game_state.get_moves();
+      if !game_state.move_list.is_empty() {
+        let m = game_state.move_list[0];
+        game_state.apply_move(&m, false);
+        positions_computed += 1;
+      } else {
+        game_state = GameState::from_fen(fen);
+      }
+    }
+
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      positions_computed > 1_000_000,
+      "Number of kNPS for computing and applying moves: {}",
+      positions_computed
+    );
+  }
+
+  #[test]
+  fn game_state_bench_compute_legal_moves_per_second() {
+    use std::time::{Duration, Instant};
+    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
+
+    let mut positions_computed = 0;
+    let start_time = Instant::now();
+
+    // Spin at it for 1 second
+    while Instant::now() < (start_time + Duration::from_millis(1000)) {
+      let mut game_state = GameState::from_fen(fen);
+      game_state.get_moves();
+      positions_computed += 1;
+    }
+
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      positions_computed > 1_000_000,
+      "Number of kNPS for computing legal moves: {}",
+      positions_computed
+    );
   }
 }

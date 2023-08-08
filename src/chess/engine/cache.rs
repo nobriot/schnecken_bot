@@ -26,6 +26,7 @@ pub struct PositionCache {
   pub checks: Option<u8>,
 }
 
+#[derive(Clone, Debug)]
 pub struct EngineCache {
   positions: Arc<Mutex<HashMap<BoardHash, PositionCache>>>,
   killer_moves: Arc<Mutex<HashSet<Move>>>,
