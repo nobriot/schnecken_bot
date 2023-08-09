@@ -163,12 +163,14 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 
   let piece_destinations = match piece {
     WHITE_KNIGHT | BLACK_KNIGHT => {
-      let same_side_pieces = game_state.board.get_color_mask(color);
+      let same_side_pieces = game_state.board.get_piece_color_mask(color);
       get_knight_moves(same_side_pieces, 0, index)
     },
     WHITE_BISHOP | BLACK_BISHOP => {
-      let same_side_pieces = game_state.board.get_color_mask(color);
-      let opponent_pieces = game_state.board.get_color_mask(Color::opposite(color));
+      let same_side_pieces = game_state.board.get_piece_color_mask(color);
+      let opponent_pieces = game_state
+        .board
+        .get_piece_color_mask(Color::opposite(color));
       get_bishop_moves(same_side_pieces, opponent_pieces, index)
     },
     _ => 0,
@@ -235,17 +237,12 @@ pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
   };
 
   let bitmap = if color == Color::White {
-    game_state.white_bitmap
+    game_state.board.white_masks.control
   } else {
-    game_state.black_bitmap
+    game_state.board.black_masks.control
   };
 
-  if bitmap.is_none() {
-    warn!("Unknown color bitmap, we won't know if pieces are hanging");
-    return false;
-  }
-
-  if ((1 << index) & bitmap.unwrap()) > 0 {
+  if ((1 << index) & bitmap) > 0 {
     return false;
   }
 
@@ -277,17 +274,12 @@ pub fn is_attacked(game_state: &GameState, index: usize) -> bool {
   };
 
   let bitmap = if color == Color::White {
-    game_state.black_bitmap
+    game_state.board.black_masks.control
   } else {
-    game_state.white_bitmap
+    game_state.board.white_masks.control
   };
 
-  if bitmap.is_none() {
-    warn!("Unknown color bitmap, we won't know if pieces are under attack");
-    return false;
-  }
-
-  if (bitmap.unwrap() & (1 << index)) > 0 {
+  if (bitmap & (1 << index)) > 0 {
     return true;
   }
 

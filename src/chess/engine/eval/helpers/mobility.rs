@@ -91,8 +91,10 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
 pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
   let mut mobility: usize = 0;
 
-  let ssp = game_state.board.get_color_mask(color);
-  let op = game_state.board.get_color_mask(Color::opposite(color));
+  let ssp = game_state.board.get_piece_color_mask(color);
+  let op = game_state
+    .board
+    .get_piece_color_mask(Color::opposite(color));
   let mobility_area = get_mobility_area(game_state, color);
 
   for i in 0..64 {
@@ -102,7 +104,7 @@ pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
       && Piece::color(value).unwrap() == color
       && Piece::is_piece(value)
     {
-      let (squares, _) = game_state.get_piece_destinations(i, op, ssp);
+      let (squares, _) = game_state.board.get_piece_destinations(i, op, ssp);
       mobility += mask_sum(squares & mobility_area);
     }
   }

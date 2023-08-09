@@ -33,10 +33,6 @@ pub struct GameState {
   pub game_phase: Option<GamePhase>,
   // Vector of position representing the last x positions
   pub last_positions: VecDeque<BoardHash>,
-  // Mask of squares controlled by white pieces. None if not determined yet.
-  pub white_bitmap: Option<BoardMask>,
-  // Mask of squares controlled by black pieces. None if not determined yet.
-  pub black_bitmap: Option<BoardMask>,
 }
 
 // -----------------------------------------------------------------------------
@@ -80,13 +76,9 @@ impl GameState {
       move_list: Vec::new(),
       game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
-      white_bitmap: None,
-      black_bitmap: None,
     };
     // Determine if we're check / Checkmate
     game_state.update_checks();
-    game_state.get_color_bitmap(Color::White);
-    game_state.get_color_bitmap(Color::Black);
     game_state.update_game_phase();
     game_state
   }
@@ -136,105 +128,6 @@ impl GameState {
     fen
   }
 
-  pub fn get_piece_destinations(
-    &self,
-    source_square: usize,
-    op: BoardMask,
-    ssp: BoardMask,
-  ) -> (BoardMask, bool) {
-    let mut promotion: bool = false;
-    let destinations = match self.board.squares[source_square] {
-      WHITE_KING | BLACK_KING => get_king_moves(ssp, op, source_square),
-      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
-      WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
-      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
-      WHITE_KNIGHT | BLACK_KNIGHT => get_knight_moves(ssp, op, source_square),
-      WHITE_PAWN => {
-        let pawn_targets = if self.board.en_passant_square != INVALID_SQUARE {
-          op | (1 << self.board.en_passant_square)
-        } else {
-          op
-        };
-        if (source_square / 8) == 6 {
-          promotion = true;
-        }
-        get_white_pawn_moves(ssp, pawn_targets, source_square)
-      },
-      BLACK_PAWN => {
-        let pawn_targets = if self.board.en_passant_square != INVALID_SQUARE {
-          op | (1 << self.board.en_passant_square)
-        } else {
-          op
-        };
-
-        if (source_square / 8) == 1 {
-          promotion = true;
-        }
-        get_black_pawn_moves(ssp, pawn_targets, source_square)
-      },
-      _ => 0,
-    };
-
-    (destinations, promotion)
-  }
-
-  /// Computes if a square is under attack by the color for a given game state.
-  /// X-Rays are ignored.
-  ///
-  /// # Arguments
-  ///
-  /// * `self` -   A GameState object representing a position, side to play, etc.
-  /// * `color` -  The color for which we want to determine the bitmap
-  ///
-  /// # Return value
-  ///
-  /// A bitmask indicating squares under control by the color for that game state.
-  pub fn get_color_bitmap(&mut self, color: Color) -> BoardMask {
-    if color == Color::White && self.white_bitmap.is_some() {
-      return self.white_bitmap.unwrap();
-    } else if color == Color::Black && self.black_bitmap.is_some() {
-      return self.black_bitmap.unwrap();
-    }
-
-    let mut bitmap: BoardMask = 0;
-    let opposite_color = Color::opposite(color);
-
-    let ssp = self.board.get_color_mask(color);
-    let mut op = self.board.get_color_mask(opposite_color);
-
-    // To get the heatmap, we assume that any other piece on the board
-    // is opposite color, as if we could capture everything
-    op |= ssp;
-
-    for source_square in 0..64_usize {
-      if !self.board.has_piece_with_color(source_square as u8, color) {
-        continue;
-      }
-      let destinations = if self.board.squares[source_square] == WHITE_PAWN {
-        get_white_pawn_captures(source_square)
-      } else if self.board.squares[source_square] == BLACK_PAWN {
-        get_black_pawn_captures(source_square)
-      } else {
-        let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
-        destinations
-      };
-
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
-          bitmap |= 1 << i;
-        }
-      }
-    }
-
-    if color == Color::White && self.white_bitmap.is_none() {
-      self.white_bitmap = Some(bitmap);
-    } else if color == Color::Black && self.black_bitmap.is_none() {
-      self.black_bitmap = Some(bitmap);
-    }
-
-    bitmap
-  }
-
   /// Computes if a square is under attack by the color for a given game state.
   /// X-Rays are included.
   ///
@@ -253,7 +146,7 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.get_piece_destinations(source_square, 0, 0);
+      let (destinations, _) = self.board.get_piece_destinations(source_square, 0, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           bitmap |= 1 << i;
@@ -273,8 +166,8 @@ impl GameState {
     let (ssp, mut op) = match with_x_rays {
       true => (0, 0),
       false => (
-        self.board.get_color_mask(color),
-        self.board.get_color_mask(opposite_color),
+        self.board.get_piece_color_mask(color),
+        self.board.get_piece_color_mask(opposite_color),
       ),
     };
 
@@ -286,7 +179,7 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
+      let (destinations, _) = self.board.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           heatmap[i] += 1;
@@ -311,8 +204,8 @@ impl GameState {
     let (ssp, mut op) = match with_x_rays {
       true => (0, 0),
       false => (
-        self.board.get_color_mask(color),
-        self.board.get_color_mask(opposite_color),
+        self.board.get_piece_color_mask(color),
+        self.board.get_piece_color_mask(opposite_color),
       ),
     };
 
@@ -324,7 +217,7 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
+      let (destinations, _) = self.board.get_piece_destinations(source_square, op, 0);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           heatmap[i] += 1;
@@ -361,8 +254,8 @@ impl GameState {
   pub fn get_white_moves(&mut self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
-    let ssp = self.board.get_color_mask(Color::White);
-    let op = self.board.get_color_mask(Color::Black);
+    let ssp = self.board.get_piece_color_mask(Color::White);
+    let op = self.board.get_piece_color_mask(Color::Black);
 
     // Only generate moves if we have a piece on the square
     for source_square in 0..64_usize {
@@ -373,7 +266,7 @@ impl GameState {
         continue;
       }
 
-      let (destinations, promotion) = self.get_piece_destinations(source_square, op, ssp);
+      let (destinations, promotion) = self.board.get_piece_destinations(source_square, op, ssp);
 
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
@@ -396,13 +289,12 @@ impl GameState {
       }
     }
 
-    let black_bitmap = self.get_color_bitmap(Color::Black);
     if self.board.castling_rights.K
       && self.checks == 0
       && !self.board.has_piece(5)
       && !self.board.has_piece(6)
-      && (1 << 5) & black_bitmap == 0
-      && (1 << 6) & black_bitmap == 0
+      && !square_in_mask!(5, self.board.black_masks.control)
+      && !square_in_mask!(6, self.board.black_masks.control)
     {
       all_moves.push(Move {
         src: 4u8,
@@ -415,8 +307,8 @@ impl GameState {
       && !self.board.has_piece(1)
       && !self.board.has_piece(2)
       && !self.board.has_piece(3)
-      && (1 << 2) & black_bitmap == 0
-      && (1 << 3) & black_bitmap == 0
+      && !square_in_mask!(2, self.board.black_masks.control)
+      && !square_in_mask!(3, self.board.black_masks.control)
     {
       all_moves.push(Move {
         src: 4u8,
@@ -426,14 +318,16 @@ impl GameState {
     }
 
     // Now we need to remove all the moves where the moving side king is still in check.
+    // FIXME: This is very slow.
     let mut illegal_moves = Vec::new();
     for m in &all_moves {
-      let mut new_game_state = self.clone();
-      new_game_state.apply_move(m, false);
-      let new_black_bitmap = new_game_state.get_color_bitmap(Color::Black);
+      let mut new_board = self.board.clone();
+      new_board.apply_move(m);
 
-      let king_square = new_game_state.board.get_white_king_square();
-      if king_square == INVALID_SQUARE || ((1 << king_square) & new_black_bitmap != 0) {
+      let king_square = new_board.get_white_king_square();
+      if king_square == INVALID_SQUARE
+        || square_in_mask!(king_square, new_board.black_masks.control)
+      {
         // We're in check or king disappeared, illegal move
         illegal_moves.push(m);
       }
@@ -454,8 +348,8 @@ impl GameState {
   pub fn get_black_moves(&mut self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
-    let ssp = self.board.get_color_mask(Color::Black);
-    let op = self.board.get_color_mask(Color::White);
+    let ssp = self.board.get_piece_color_mask(Color::Black);
+    let op = self.board.get_piece_color_mask(Color::White);
 
     // Only generate moves if we have a piece on the square
     for source_square in 0..64_usize {
@@ -466,7 +360,7 @@ impl GameState {
         continue;
       }
 
-      let (destinations, promotion) = self.get_piece_destinations(source_square, op, ssp);
+      let (destinations, promotion) = self.board.get_piece_destinations(source_square, op, ssp);
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           if !promotion {
@@ -489,14 +383,12 @@ impl GameState {
     }
 
     // Now check castling.
-    let white_bitmap = self.get_color_bitmap(Color::White);
-
     if self.board.castling_rights.k
       && self.checks == 0
       && !self.board.has_piece(62)
       && !self.board.has_piece(61)
-      && (1 << 61) & white_bitmap == 0
-      && (1 << 62) & white_bitmap == 0
+      && !square_in_mask!(61, self.board.white_masks.control)
+      && !square_in_mask!(62, self.board.white_masks.control)
     {
       all_moves.push(Move {
         src: 60u8,
@@ -509,8 +401,8 @@ impl GameState {
       && !self.board.has_piece(59)
       && !self.board.has_piece(58)
       && !self.board.has_piece(57)
-      && (1 << 59) & white_bitmap == 0
-      && (1 << 58) & white_bitmap == 0
+      && !square_in_mask!(59, self.board.white_masks.control)
+      && !square_in_mask!(58, self.board.white_masks.control)
     {
       all_moves.push(Move {
         src: 60u8,
@@ -520,14 +412,16 @@ impl GameState {
     }
 
     // Now we need to remove all the moves where the moving side king is still in check.
+    // FIXME: This is very slow.
     let mut illegal_moves = Vec::new();
     for m in &all_moves {
-      let mut new_game_state = self.clone();
-      new_game_state.apply_move(m, false);
-      let new_white_bitmap = new_game_state.get_color_bitmap(Color::White);
+      let mut new_board = self.board.clone();
+      new_board.apply_move(m);
 
-      let king_square = new_game_state.board.get_black_king_square();
-      if king_square == INVALID_SQUARE || ((1 << king_square) & new_white_bitmap != 0) {
+      let king_square = new_board.get_black_king_square();
+      if king_square == INVALID_SQUARE
+        || square_in_mask!(king_square, new_board.white_masks.control)
+      {
         // We're in check or disappeared, illegal move
         illegal_moves.push(m);
       }
@@ -577,8 +471,6 @@ impl GameState {
       },
     }
     // Reset computed assets that need re-computation:
-    self.white_bitmap = None;
-    self.black_bitmap = None;
     if self.game_phase.is_some() && self.game_phase.unwrap() != GamePhase::Endgame {
       self.game_phase = None;
     }
@@ -610,8 +502,6 @@ impl GameState {
     self.board.apply_move(chess_move);
 
     // Check if we have checks
-    self.get_color_bitmap(Color::White);
-    self.get_color_bitmap(Color::Black);
     self.update_checks();
 
     // Compute the list of legal moves if we need it
@@ -727,8 +617,6 @@ impl Default for GameState {
       move_list: Vec::new(),
       game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
-      white_bitmap: None,
-      black_bitmap: None,
     }
   }
 }
@@ -913,7 +801,7 @@ mod tests {
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_computed > 1_000_000,
-      "Number of kNPS for computing and applying moves: {}",
+      "Number of NPS for computing and applying moves: {}",
       positions_computed
     );
   }
@@ -936,7 +824,7 @@ mod tests {
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_computed > 1_000_000,
-      "Number of kNPS for computing legal moves: {}",
+      "Number of NPS for computing legal moves: {}",
       positions_computed
     );
   }

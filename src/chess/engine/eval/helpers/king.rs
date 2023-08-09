@@ -28,14 +28,10 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
 
   let (king_file, king_rank) = Board::index_to_fr(king_position as usize);
   //println!("King coordinates: {king_file} {king_rank} ");
-  if game_state.white_bitmap.is_none() || game_state.black_bitmap.is_none() {
-    warn!("No game state bitmap available. Aborting get_king_danger_score calculation.");
-    return 0.0;
-  }
 
   let op_heatmap = match color {
-    Color::White => game_state.black_bitmap.unwrap_or(0),
-    Color::Black => game_state.white_bitmap.unwrap_or(0),
+    Color::White => game_state.board.black_masks.control,
+    Color::Black => game_state.board.white_masks.control,
   };
   //print_board_mask(op_heatmap);
 

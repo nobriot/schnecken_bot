@@ -2,6 +2,7 @@ use crate::chess::model::board_mask::*;
 use crate::chess::model::castling_rights::*;
 use crate::chess::model::moves::*;
 use crate::chess::model::piece::*;
+use crate::chess::model::piece_moves::*;
 use crate::chess::model::tables::zobrist::*;
 
 use log::*;
@@ -33,6 +34,28 @@ pub(crate) use fr_bounds_or_return;
 // -----------------------------------------------------------------------------
 //  Structs/Enums
 
+// -----------------------------------------------------------------------------
+//  Structs/Enums
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum BoardStatus {
+  Ongoing,
+  Checkmate,
+  Stalemate,
+  Illegal,
+}
+
+/// Masks kept for a color on the board
+/// Note that piece destination mask can be found by doing : control -
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Masks {
+  /// Squares controlled on the board
+  pub control: BoardMask,
+  /// Mask of the pieces on the board
+  pub pieces: BoardMask,
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Board {
   pub squares: [u8; 64],
@@ -40,6 +63,9 @@ pub struct Board {
   pub castling_rights: CastlingRights,
   pub en_passant_square: u8,
   pub hash: u64,
+  //pub status: BoardStatus,
+  pub white_masks: Masks,
+  pub black_masks: Masks,
 }
 
 // -----------------------------------------------------------------------------
@@ -54,8 +80,20 @@ impl Board {
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       hash: 0,
+      //status: BoardStatus::Ongoing,
+      white_masks: Masks {
+        control: 0,
+        pieces: 0,
+      },
+      black_masks: Masks {
+        control: 0,
+        pieces: 0,
+      },
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Hashing helpers
 
   /// Updates the board hash using the Zobrist tables from "scratch"
   fn compute_hash(&mut self) {
@@ -82,18 +120,22 @@ impl Board {
     }
   }
 
+  // Adds/Removes a piece in the board hash value.
   fn update_hash_piece(&mut self, i: usize) {
     self.hash ^= ZOBRIST_TABLE[(self.squares[i] - 1) as usize][i];
   }
 
+  // Toggles the side to play in the board hash value
   fn update_hash_side_to_play(&mut self) {
     self.hash ^= ZOBRIST_WHITE_TO_MOVE;
   }
 
+  // Adds/remove the en-passant square in the board hash value
   fn update_hash_en_passant(&mut self) {
     self.hash ^= ZOBRIST_EN_PASSANT[self.en_passant_square as usize % 8];
   }
 
+  // Adds/Removes castling rights in the board hash value
   fn update_hash_castling_rights(&mut self) {
     if self.castling_rights.K {
       self.hash ^= ZOBRIST_WHITE_KING_CASTLE;
@@ -107,6 +149,131 @@ impl Board {
     if self.castling_rights.q {
       self.hash ^= ZOBRIST_BLACK_QUEEN_CASTLE;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Board masks and piece movement functions
+
+  /// Computes if a square is under attack by the color for a given board position.
+  /// X-Rays are ignored.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -   A GameState object representing a position, side to play, etc.
+  /// * `color` -  The color for which we want to determine the bitmap
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating squares under control by the color for that game state.
+  ///
+  pub fn get_control_boardmask(&self, color: Color) -> BoardMask {
+    let mut bitmap: BoardMask = 0;
+
+    let ssp = self.get_piece_color_mask(color);
+    let mut op = self.get_piece_color_mask(Color::opposite(color));
+
+    // To get the control bitmap, we assume that any other piece on the board
+    // is opposite color, as if we could capture everything
+    op |= ssp;
+
+    for source_square in 0..64_usize {
+      if !self.has_piece_with_color(source_square as u8, color) {
+        continue;
+      }
+      let destinations = if self.squares[source_square] == WHITE_PAWN {
+        get_white_pawn_captures(source_square)
+      } else if self.squares[source_square] == BLACK_PAWN {
+        get_black_pawn_captures(source_square)
+      } else {
+        let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
+        destinations
+      };
+
+      for i in 0..64 {
+        if ((1 << i) & destinations) != 0 {
+          bitmap |= 1 << i;
+        }
+      }
+    }
+
+    bitmap
+  }
+
+  /// Computes from scratch the piece color masks for the current board.
+  /// `self.white_masks.pieces` and `self.black_masks.pieces` are guaranteed to
+  /// be accurate afterwards.
+  ///
+  /// ### Aguments
+  ///
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  ///
+  fn compute_piece_color_masks(&mut self) {
+    for i in 0..64 {
+      match self.squares[i as usize] {
+        NO_PIECE => {},
+        WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
+          set_square_in_mask!(i, self.white_masks.pieces);
+        },
+        BLACK_KING | BLACK_QUEEN | BLACK_ROOK | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
+          set_square_in_mask!(i, self.black_masks.pieces);
+        },
+        _ => {},
+      }
+    }
+  }
+
+  /// Computes the boardmask of the possible destinations for a piece on a square.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  /// * `source_square` -  Square for which we want to know the destinations
+  /// * `op` -             BoardSquare for which we want to know the destinations
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating possible destinations for the piece present on the square.
+  ///
+  pub fn get_piece_destinations(
+    &self,
+    source_square: usize,
+    op: BoardMask,
+    ssp: BoardMask,
+  ) -> (BoardMask, bool) {
+    let mut promotion: bool = false;
+    let destinations = match self.squares[source_square] {
+      WHITE_KING | BLACK_KING => get_king_moves(ssp, op, source_square),
+      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
+      WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
+      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
+      WHITE_KNIGHT | BLACK_KNIGHT => get_knight_moves(ssp, op, source_square),
+      WHITE_PAWN => {
+        let pawn_targets = if self.en_passant_square != INVALID_SQUARE {
+          op | (1 << self.en_passant_square)
+        } else {
+          op
+        };
+        if (source_square / 8) == 6 {
+          promotion = true;
+        }
+        get_white_pawn_moves(ssp, pawn_targets, source_square)
+      },
+      BLACK_PAWN => {
+        let pawn_targets = if self.en_passant_square != INVALID_SQUARE {
+          op | (1 << self.en_passant_square)
+        } else {
+          op
+        };
+
+        if (source_square / 8) == 1 {
+          promotion = true;
+        }
+        get_black_pawn_moves(ssp, pawn_targets, source_square)
+      },
+      _ => 0,
+    };
+
+    (destinations, promotion)
   }
 
   /// Converts Rank / File into a board index
@@ -145,6 +312,9 @@ impl Board {
   pub fn get_piece(&self, file: usize, rank: usize) -> u8 {
     self.squares[Board::fr_to_index(file, rank)]
   }
+
+  // ---------------------------------------------------------------------------
+  // Move related functions
 
   /// Checks if a move on the board is a capture
   ///
@@ -187,24 +357,32 @@ impl Board {
       if chess_move.src == 4 && chess_move.dest == 2 {
         self.update_hash_piece(0);
         self.squares[0] = NO_PIECE;
+        unset_square_in_mask!(0, self.white_masks.pieces);
         self.squares[3] = WHITE_ROOK;
+        set_square_in_mask!(3, self.white_masks.pieces);
         self.update_hash_piece(3);
       } else if chess_move.src == 4 && chess_move.dest == 6 {
         self.update_hash_piece(7);
         self.squares[7] = NO_PIECE;
+        unset_square_in_mask!(7, self.white_masks.pieces);
         self.squares[5] = WHITE_ROOK;
+        set_square_in_mask!(5, self.white_masks.pieces);
         self.update_hash_piece(5);
       }
     } else if self.squares[source] == BLACK_KING {
       if chess_move.src == 60 && chess_move.dest == 62 {
         self.update_hash_piece(63);
         self.squares[63] = NO_PIECE;
+        unset_square_in_mask!(63, self.black_masks.pieces);
         self.squares[61] = BLACK_ROOK;
+        set_square_in_mask!(61, self.black_masks.pieces);
         self.update_hash_piece(61);
       } else if chess_move.src == 60 && chess_move.dest == 58 {
         self.update_hash_piece(56);
         self.squares[56] = NO_PIECE;
+        unset_square_in_mask!(56, self.black_masks.pieces);
         self.squares[59] = BLACK_ROOK;
+        set_square_in_mask!(59, self.black_masks.pieces);
         self.update_hash_piece(59);
       }
     }
@@ -299,6 +477,8 @@ impl Board {
       if target_capture != (INVALID_SQUARE as usize) {
         self.update_hash_piece(target_capture);
         self.squares[target_capture] = NO_PIECE;
+        unset_square_in_mask!(target_capture, self.black_masks.pieces);
+        unset_square_in_mask!(target_capture, self.white_masks.pieces);
       }
     }
 
@@ -312,9 +492,19 @@ impl Board {
     } else {
       self.squares[destination] = self.squares[source];
     }
+    if self.side_to_play == Color::White {
+      set_square_in_mask!(destination, self.white_masks.pieces);
+      unset_square_in_mask!(destination, self.black_masks.pieces);
+    } else {
+      set_square_in_mask!(destination, self.black_masks.pieces);
+      unset_square_in_mask!(destination, self.white_masks.pieces);
+    }
+
     self.update_hash_piece(destination);
     self.update_hash_piece(source);
     self.squares[source] = NO_PIECE;
+    unset_square_in_mask!(source, self.white_masks.pieces);
+    unset_square_in_mask!(source, self.black_masks.pieces);
 
     // Update the side to play:
     if self.side_to_play == Color::White {
@@ -323,6 +513,8 @@ impl Board {
       self.side_to_play = Color::White;
     }
     self.update_hash_side_to_play();
+    self.white_masks.control = self.get_control_boardmask(Color::White);
+    self.black_masks.control = self.get_control_boardmask(Color::Black);
   }
 
   /// Verifies if the move is a castling move based on the board
@@ -375,21 +567,9 @@ impl Board {
   /// True if there is a piece with the given color on that square, false otherwise
   ///
   pub fn has_piece_with_color(&self, square: u8, color: Color) -> bool {
-    match self.squares[square as usize] {
-      NO_PIECE => false,
-      WHITE_KING => color == Color::White,
-      WHITE_QUEEN => color == Color::White,
-      WHITE_ROOK => color == Color::White,
-      WHITE_BISHOP => color == Color::White,
-      WHITE_KNIGHT => color == Color::White,
-      WHITE_PAWN => color == Color::White,
-      BLACK_KING => color == Color::Black,
-      BLACK_QUEEN => color == Color::Black,
-      BLACK_ROOK => color == Color::Black,
-      BLACK_BISHOP => color == Color::Black,
-      BLACK_KNIGHT => color == Color::Black,
-      BLACK_PAWN => color == Color::Black,
-      _ => false,
+    match color {
+      Color::White => square_in_mask!(square, self.white_masks.pieces),
+      Color::Black => square_in_mask!(square, self.black_masks.pieces),
     }
   }
 
@@ -405,8 +585,7 @@ impl Board {
   ///
   pub fn has_king(&self, square: usize) -> bool {
     match self.squares[square as usize] {
-      WHITE_KING => true,
-      BLACK_KING => true,
+      WHITE_KING | BLACK_KING => true,
       _ => false,
     }
   }
@@ -426,7 +605,7 @@ impl Board {
       }
     }
     error!("No black king ?? ");
-    println!("Board: {}", self);
+    //println!("Board (no black king): {}", self);
 
     INVALID_SQUARE
   }
@@ -451,26 +630,11 @@ impl Board {
 
   /// Return a board bismask with squares set to 1 when they
   /// have a piece with a certain color
-  pub fn get_color_mask(&self, color: Color) -> BoardMask {
-    let mut board_mask = 0;
-
-    for i in 0..64 {
-      match self.squares[i as usize] {
-        NO_PIECE => {},
-        WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
-          if color == Color::White {
-            board_mask |= 1 << i;
-          }
-        },
-        BLACK_KING | BLACK_QUEEN | BLACK_ROOK | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
-          if color == Color::Black {
-            board_mask |= 1 << i;
-          }
-        },
-        _ => {},
-      }
+  pub fn get_piece_color_mask(&self, color: Color) -> BoardMask {
+    match color {
+      Color::White => self.white_masks.pieces,
+      Color::Black => self.black_masks.pieces,
     }
-    board_mask
   }
 
   /// Return a board bismask with squares set to 1 when they
@@ -555,6 +719,9 @@ impl Board {
     };
 
     board.compute_hash();
+    board.compute_piece_color_masks();
+    board.white_masks.control = board.get_control_boardmask(Color::White);
+    board.black_masks.control = board.get_control_boardmask(Color::Black);
 
     board
   }
@@ -636,6 +803,14 @@ mod tests {
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       hash: 0,
+      white_masks: Masks {
+        control: 0,
+        pieces: 0,
+      },
+      black_masks: Masks {
+        control: 0,
+        pieces: 0,
+      },
     };
     board.squares[0] = WHITE_ROOK;
     board.squares[1] = WHITE_KNIGHT;

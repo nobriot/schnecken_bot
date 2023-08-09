@@ -22,7 +22,9 @@ const KING_DANGER_FACTOR: f32 = 2.0;
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
-  if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state) {
+  if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state)
+  //|| just_the_opponent_king_left(game_state)
+  {
     //debug!("Queen and/or rook vs King detected");
     return get_king_vs_queen_or_rook_score(game_state);
   }
@@ -117,6 +119,27 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
   true
 }
 
+/// Checks if we just have the opponent king left against us
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine if development is completed.
+///
+fn just_the_opponent_king_left(game_state: &GameState) -> bool {
+  let king = game_state.board.get_black_king_square();
+  if (1 << king) == game_state.board.black_masks.pieces {
+    return true;
+  }
+
+  let king = game_state.board.get_white_king_square();
+  if (1 << king) == game_state.board.white_masks.pieces {
+    return true;
+  }
+
+  false
+}
+
 /// Checks if it is a King and pawns endgame
 ///
 /// # Arguments
@@ -167,8 +190,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   }
 
   let attacking_bitmap = match attacking_side {
-    Color::White => game_state.white_bitmap.unwrap_or(0),
-    Color::Black => game_state.black_bitmap.unwrap_or(0),
+    Color::White => game_state.board.white_masks.control,
+    Color::Black => game_state.board.black_masks.control,
   };
   let king_position = match attacking_side {
     Color::White => game_state.board.get_black_king_square(),

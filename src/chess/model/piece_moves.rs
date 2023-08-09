@@ -369,8 +369,6 @@ pub fn get_white_pawn_moves(
 ///
 /// ### Arguments
 ///
-/// * `same_side_pieces` - boardmask of the same side pieces
-/// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` -          Start square for the white pawn
 ///
 /// ### Returns
@@ -468,8 +466,6 @@ pub fn get_black_pawn_moves(
 ///
 /// ### Arguments
 ///
-/// * `same_side_pieces` - boardmask of the same side pieces
-/// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` -          Start square for the black pawn
 ///
 /// ### Returns

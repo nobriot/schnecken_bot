@@ -667,6 +667,7 @@ mod tests {
     // Only good defense is : h8f8
     let mut engine = Engine::new();
     engine.set_position("r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7");
+    engine.set_search_time_limit(5000);
     engine.set_maximum_depth(3);
     engine.go();
 
@@ -741,7 +742,7 @@ mod tests {
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       engine.cache.len() > 1_000_000,
-      "Number of kNPS for engine analysis: {}",
+      "Number of NPS for engine analysis: {}",
       engine.cache.len()
     );
   }

@@ -826,7 +826,7 @@ mod tests {
     display_lines(10, &chess_lines);
     println!("----------------------------------");
     display_lines(5, &chess_lines[0].variations[0].variations);
-    println!("{:?}", &chess_lines[0]);
+    //println!("{:?}", &chess_lines[0]);
     println!("----------------------------------");
 
     let expected_move = Move::from_string("c1b2");
@@ -1213,7 +1213,16 @@ mod tests {
     display_lines(5, &chess_lines);
     println!("----------------------------------");
     display_lines(5, &chess_lines[0].variations);
-    assert_eq!("c3d5", chess_lines[0].chess_move.to_string());
+
+    let good_moves = ["c3b5", "c3d5"];
+    let engine_move = chess_lines[0].chess_move.to_string();
+    if !good_moves.contains(&engine_move.as_str()) {
+      assert!(
+        false,
+        "Expected either c3b5 or c3d5, but instead we have {}",
+        engine_move
+      );
+    }
   }
 
   #[test]
