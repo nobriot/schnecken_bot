@@ -21,6 +21,16 @@ pub enum GamePhase {
   Endgame,
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[repr(u8)]
+pub enum GameStatus {
+  #[default]
+  Ongoing,
+  WhiteWon,
+  BlackWon,
+  Draw,
+}
+
 #[derive(Clone)]
 pub struct GameState {
   pub checks: u8,
@@ -227,6 +237,51 @@ impl GameState {
     }
 
     (heatmap, heatmap_sources)
+  }
+
+  /// Checks what's the game status based on the game state
+  ///
+  ///
+  pub fn get_game_status(&self) -> GameStatus {
+    if self.available_moves_computed && self.move_list.is_empty() {
+      match (self.board.side_to_play, self.checks) {
+        (_, 0) => return GameStatus::Draw,
+        (Color::Black, _) => return GameStatus::WhiteWon,
+        (Color::White, _) => return GameStatus::BlackWon,
+      }
+    }
+
+    if self.ply >= 100 {
+      debug!("100 Ply detected");
+      return GameStatus::Draw;
+    }
+    // 2 kings, or 1 king + knight or/bishop vs king is game over:
+    if self.board.is_game_over_by_insufficient_material() {
+      debug!("game over by insufficient material detected");
+      return GameStatus::Draw;
+    }
+
+    // Check the 3-fold repetitions
+    if self.is_game_over_by_repetition() {
+      debug!("3-fold repetition detected");
+      return GameStatus::Draw;
+    }
+
+    GameStatus::Ongoing
+  }
+
+  /// Checks if we just made a repetition that triggers a game over situation
+  ///
+  pub fn is_game_over_by_repetition(&self) -> bool {
+    let mut repetition_count = 0;
+    for hash in &self.last_positions {
+      if self.board.hash == *hash {
+        repetition_count += 1;
+      }
+    }
+
+    // We need to find 2 occurences of the same as the current to make it a 3 fold repetition
+    repetition_count >= 2
   }
 
   // Sets all the possible moves in a position

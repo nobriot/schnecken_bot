@@ -33,8 +33,3 @@ I have not tried to check dependencies, it may give you an error message
 if some libraries are not present on your system... Just follow the error messages.
 
 Once it compiles, you should be good to go, run the program and what your bot play.
-
-### UCI engine
-
-One day, *maybe*, I'll separate the Lichess Bot / Engine part into 2 separate
-binaries, so that we can run the Lichess bot with any UCI engine.

@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::chess::model::board::Board;
 use crate::chess::model::game_state::GamePhase;
+use crate::chess::model::game_state::GameStatus;
 use crate::chess::model::moves::*;
 use crate::chess::model::tables::zobrist::BoardHash;
 
@@ -24,11 +25,37 @@ pub struct PositionCache {
   pub variations: HashMap<Move, BoardHash>,
   // Number of checks for the position
   pub checks: Option<u8>,
+  // Whether we reached a board based game-over
+  pub status: Option<GameStatus>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EvalTree {
+  // White's min guaranteed
+  pub alpha: f32,
+  // Black's max guaranteed
+  pub beta: f32,
+}
+
+// -----------------------------------------------------------------------------
+// Default implementations for our EvalTree
+
+impl Default for EvalTree {
+  fn default() -> Self {
+    EvalTree {
+      alpha: f32::MIN,
+      beta: f32::MAX,
+    }
+  }
 }
 
 #[derive(Clone, Debug)]
 pub struct EngineCache {
+  // List of position/board properties that we cache and do not recompute. Including static position eval
   positions: Arc<Mutex<HashMap<BoardHash, PositionCache>>>,
+  // Tree analysis, including alpha/beta, pruned branches, etc.
+  tree: Arc<Mutex<HashMap<BoardHash, EvalTree>>>,
+  // List of killer moves that we've met recently during the analysis
   killer_moves: Arc<Mutex<HashSet<Move>>>,
 }
 
@@ -38,6 +65,7 @@ impl EngineCache {
   pub fn new() -> Self {
     EngineCache {
       positions: Arc::new(Mutex::new(HashMap::new())),
+      tree: Arc::new(Mutex::new(HashMap::new())),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
   }
@@ -84,6 +112,7 @@ impl EngineCache {
   ///
   pub fn clear(&self) {
     self.positions.lock().unwrap().clear();
+    self.tree.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
   }
 
@@ -98,8 +127,23 @@ impl EngineCache {
   ///
   /// True if the board hash has a PositionCache in the EngineCache. False otherwise
   ///
-  pub fn has_key(&self, board: &BoardHash) -> bool {
+  pub fn has_position_key(&self, board: &BoardHash) -> bool {
     return self.positions.lock().unwrap().contains_key(board);
+  }
+
+  /// Checks if a position has a EvalTree entry
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash has a PositionCache in the EngineCache. False otherwise
+  ///
+  pub fn has_tree_key(&self, board: &BoardHash) -> bool {
+    return self.tree.lock().unwrap().contains_key(board);
   }
 
   /// Checks if a position has a known move list
@@ -155,7 +199,7 @@ impl EngineCache {
   /// * `move_list` :       List of moves to save in the PositionCache
   ///
   pub fn set_move_list(&self, board: &BoardHash, move_list: &[Move]) {
-    if !self.has_key(board) {
+    if !self.has_position_key(board) {
       self.add(board, PositionCache::default());
     }
 
@@ -196,7 +240,7 @@ impl EngineCache {
   /// * `eval` :            Evaluation for the position to save in the PositionCache
   ///
   pub fn set_eval(&self, board: &BoardHash, eval: f32) {
-    if !self.has_key(board) {
+    if !self.has_position_key(board) {
       self.add(board, PositionCache::default());
     }
 
@@ -237,7 +281,7 @@ impl EngineCache {
   /// * `game_phase` :      Game phase for the position to save in the PositionCache
   ///
   pub fn set_game_phase(&self, board: &BoardHash, game_phase: GamePhase) {
-    if !self.has_key(board) {
+    if !self.has_position_key(board) {
       self.add(board, PositionCache::default());
     }
 
@@ -258,7 +302,7 @@ impl EngineCache {
   /// * `resulting_board` : Hash value for the board after the chess move applied on the board configuration
   ///
   pub fn add_variation(&self, board: &BoardHash, chess_move: &Move, resulting_board: &BoardHash) {
-    if !self.has_key(board) {
+    if !self.has_position_key(board) {
       self.add(board, PositionCache::default());
     }
 
@@ -299,15 +343,224 @@ impl EngineCache {
   /// * `checks` : Number of checks to set in the EngineCache for the position
   ///
   pub fn set_checks(&self, board: &BoardHash, checks: u8) {
-    if !self.has_key(board) {
+    if !self.has_position_key(board) {
       self.add(board, PositionCache::default());
     }
 
     if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
       entry.checks = Some(checks);
     } else {
-      error!("Error updating eval in the cache for hash {board}");
+      error!("Error updating checks in the cache for hash {board}");
     }
+  }
+
+  /// Gets the game status based on the board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :  Board configuration to look up in the cache
+  ///
+  /// ### Return value
+  ///
+  /// GameStatus that has been saved in the cache, else None.
+  ///
+  pub fn get_game_status(&self, board_hash: &BoardHash) -> Option<GameStatus> {
+    return self
+      .positions
+      .lock()
+      .unwrap()
+      .get(board_hash)
+      .unwrap_or(&PositionCache::default())
+      .status;
+  }
+
+  /// Sets the game status based on the board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :  Board configuration to look up
+  /// * `game_status` : Game status for the board configuration
+  ///
+  pub fn set_game_status(&self, board_hash: &BoardHash, game_status: GameStatus) {
+    if !self.has_position_key(board_hash) {
+      self.add(board_hash, PositionCache::default());
+    }
+
+    if let Some(entry) = self.positions.lock().unwrap().get_mut(board_hash) {
+      entry.status = Some(game_status);
+    } else {
+      error!("Error updating game status in the cache for hash {board_hash}");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alpha-Beta pruning data
+
+  /// Gets the alpha value for the board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  ///
+  /// ### Return value
+  ///
+  /// Alpha value that has been cached, f32::MIN if none.
+  ///
+  pub fn get_alpha(&self, board: &BoardHash) -> f32 {
+    return self
+      .tree
+      .lock()
+      .unwrap()
+      .get(board)
+      .unwrap_or(&EvalTree::default())
+      .alpha;
+  }
+
+  /// Sets the alpha value for the board configuration.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  /// * `alpha` :  Alpha value to save
+  ///
+  ///
+  pub fn set_alpha(&self, board: &BoardHash, alpha: f32) {
+    if !self.has_tree_key(board) {
+      self
+        .tree
+        .lock()
+        .unwrap()
+        .insert(*board, EvalTree::default());
+    }
+
+    if let Some(entry) = self.tree.lock().unwrap().get_mut(board) {
+      entry.alpha = alpha;
+    } else {
+      error!("Error setting alpha value in the cache for hash {board}");
+    }
+  }
+
+  /// Sets the alpha value for the board configuration only if the previous value is higher.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  /// * `alpha` :  Alpha value to compare with the current, replase the current only if it is higher
+  ///
+  ///
+  pub fn update_alpha(&self, board: &BoardHash, alpha: f32) {
+    if !self.has_tree_key(board) {
+      self.set_alpha(board, alpha);
+      return;
+    }
+
+    if let Some(entry) = self.tree.lock().unwrap().get_mut(board) {
+      if entry.alpha < alpha {
+        entry.alpha = alpha;
+      }
+    } else {
+      error!("Error updating alpha value in the cache for hash {board}");
+    }
+  }
+
+  /// Gets the beta value for the board configuration
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  ///
+  /// ### Return value
+  ///
+  /// Beta value that has been cached, f32::MIN if none.
+  ///
+  pub fn get_beta(&self, board: &BoardHash) -> f32 {
+    return self
+      .tree
+      .lock()
+      .unwrap()
+      .get(board)
+      .unwrap_or(&EvalTree::default())
+      .beta;
+  }
+
+  /// Sets the beta value for the board configuration.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  /// * `beta` :   Beta value to save
+  ///
+  ///
+  pub fn set_beta(&self, board: &BoardHash, beta: f32) {
+    if !self.has_tree_key(board) {
+      self
+        .tree
+        .lock()
+        .unwrap()
+        .insert(*board, EvalTree::default());
+    }
+
+    if let Some(entry) = self.tree.lock().unwrap().get_mut(board) {
+      entry.beta = beta;
+    } else {
+      error!("Error updating beta value in the cache for hash {board}");
+    }
+  }
+
+  /// Updates the alpha value for the board configuration only
+  /// if the previous value is lower.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :  Board configuration to look up
+  /// * `beta` :  Beta value to compare with the current, replase the current only if it is lower
+  ///
+  ///
+  pub fn update_beta(&self, board: &BoardHash, beta: f32) {
+    if !self.has_tree_key(board) {
+      self.set_beta(board, beta);
+      return;
+    }
+
+    if let Some(entry) = self.tree.lock().unwrap().get_mut(board) {
+      if entry.beta > beta {
+        entry.beta = beta;
+      }
+    } else {
+      error!("Error updating beta value in the cache for hash {board}");
+    }
+  }
+
+  /// Checks if alpha >= beta for a position, in which case the branch should be pruned
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :        EngineCache
+  /// * `board_hash` :  Board configuration to look up
+  ///
+  /// ### Return value
+  ///
+  /// True if the board position should be pruned, false otherwise
+  ///
+  pub fn is_pruned(&self, board_hash: &BoardHash) -> bool {
+    if !self.has_tree_key(board_hash) {
+      return false;
+    }
+
+    if let Some(entry) = self.tree.lock().unwrap().get_mut(board_hash) {
+      return entry.alpha >= entry.beta;
+    } else {
+      error!("Error comparing alpha/beta values in the cache for hash {board_hash}");
+    }
+    false
   }
 
   // ---------------------------------------------------------------------------
@@ -391,7 +644,7 @@ mod tests {
   use crate::chess::model::game_state::GameState;
 
   #[test]
-  fn test_cache_has_key() {
+  fn test_cache_has_position_key() {
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
@@ -405,11 +658,11 @@ mod tests {
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 0 0";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(true, engine_cache.has_key(&game_state.board.hash));
+    assert_eq!(true, engine_cache.has_position_key(&game_state.board.hash));
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/7P b - - 8 43";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(false, engine_cache.has_key(&game_state.board.hash));
+    assert_eq!(false, engine_cache.has_position_key(&game_state.board.hash));
   }
 
   #[test]
@@ -432,6 +685,7 @@ mod tests {
       game_phase: Some(GamePhase::Opening),
       variations: HashMap::new(),
       checks: Some(2),
+      status: None,
     };
 
     engine_cache.add(&game_state.board.hash, position_cache);
@@ -501,5 +755,43 @@ mod tests {
     assert_eq!(None, engine_cache.get_eval(&game_state.board.hash));
     assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
     assert_eq!(None, engine_cache.get_checks(&game_state.board.hash));
+  }
+
+  #[test]
+  fn test_alpha_beta_cache() {
+    let engine_cache: EngineCache = EngineCache::new();
+
+    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
+    let game_state = GameState::from_fen(fen);
+
+    assert_eq!(f32::MIN, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state.board.hash));
+    assert_eq!(false, engine_cache.is_pruned(&game_state.board.hash));
+
+    let test_alpha: f32 = 3.0;
+    engine_cache.set_alpha(&game_state.board.hash, test_alpha);
+    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state.board.hash));
+    assert_eq!(false, engine_cache.is_pruned(&game_state.board.hash));
+
+    let test_beta: f32 = -343.3;
+    engine_cache.set_beta(&game_state.board.hash, test_beta);
+    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(test_beta, engine_cache.get_beta(&game_state.board.hash));
+    assert_eq!(true, engine_cache.is_pruned(&game_state.board.hash));
+
+    // These values won't be accepted, less good than the previous
+    engine_cache.update_beta(&game_state.board.hash, 0.0);
+    engine_cache.update_alpha(&game_state.board.hash, 0.0);
+    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(test_beta, engine_cache.get_beta(&game_state.board.hash));
+    assert_eq!(true, engine_cache.is_pruned(&game_state.board.hash));
+
+    // These values won't be accepted, less good than the previous
+    engine_cache.set_alpha(&game_state.board.hash, 0.0);
+    engine_cache.set_beta(&game_state.board.hash, 1.0);
+    assert_eq!(0.0, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(1.0, engine_cache.get_beta(&game_state.board.hash));
+    assert_eq!(false, engine_cache.is_pruned(&game_state.board.hash));
   }
 }

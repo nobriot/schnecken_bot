@@ -294,7 +294,7 @@ impl ChessLine {
       return;
     }
 
-    if get_engine_cache().has_key(&self.game_state.board.hash) {
+    if get_engine_cache().has_position_key(&self.game_state.board.hash) {
       self.eval = get_engine_cache().get_eval(&self.game_state.board.hash);
     } else {
       warn!("Permutation not found in the cache. Eval update will be skipped");

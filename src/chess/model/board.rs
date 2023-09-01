@@ -755,6 +755,36 @@ impl Board {
 
     fen
   }
+
+  /// Determines if a position is a game over due to insufficient material or not
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` - A board object reference
+  ///
+  /// ### Returns
+  ///
+  /// True if is it a game over (draw) by insufficient material
+  /// false otherwise
+  ///
+  pub fn is_game_over_by_insufficient_material(&self) -> bool {
+    let mut minor_piece_count = 0;
+    for i in 0..64 {
+      match self.squares[i] {
+        NO_PIECE | WHITE_KING | BLACK_KING => {},
+        WHITE_BISHOP | WHITE_KNIGHT | BLACK_BISHOP | BLACK_KNIGHT => {
+          minor_piece_count += 1;
+          if minor_piece_count > 1 {
+            return false;
+          }
+        },
+        _ => {
+          return false;
+        },
+      }
+    }
+    true
+  }
 }
 
 // -----------------------------------------------------------------------------
