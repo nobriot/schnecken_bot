@@ -267,8 +267,8 @@ impl Engine {
       }
 
       self.evaluate_positions(&self.position.clone(), false, 1, i, start_time);
-      println!("Depth {i} completed");
-      self.print_evaluations();
+      //println!("Depth {i} completed");
+      //self.print_evaluations();
       i += 1;
 
       if self.options.max_depth > 0 && i > self.options.max_depth {
@@ -625,6 +625,7 @@ impl Engine {
     }
 
     if !captures_only && self.cache.is_pruned(&game_state.board.hash) {
+      println!("Skipping {} as it is pruned", game_state.board.hash);
       return;
     }
 
@@ -863,6 +864,7 @@ mod tests {
     engine.set_search_time_limit(855);
     engine.go();
 
+    engine.print_evaluations();
     let expected_move = Move::from_string("a7a8Q");
     assert_eq!(expected_move, engine.get_best_move());
   }
@@ -893,7 +895,7 @@ mod tests {
   #[test]
   fn engine_bench_positions_per_second() {
     let mut engine = Engine::new();
-    engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
+    engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");
     engine.set_search_time_limit(1000);
     engine.go();
 

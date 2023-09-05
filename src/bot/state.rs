@@ -107,12 +107,19 @@ impl BotState {
   async fn restart_incoming_streams(mut handle: JoinHandle<Result<(), ()>>, bot: &BotState) {
     // Start streaming incoming events again if it stopped
     loop {
-      tokio::time::sleep(tokio::time::Duration::from_millis(4000)).await;
+      tokio::time::sleep(tokio::time::Duration::from_millis(60000)).await;
 
       // Check if the thread has finished executing
       if handle.is_finished() {
         warn!("Event stream died! Restarting it");
         // The thread has finished, restart it
+        let api_clone = bot.api.clone();
+        let bot_clone = bot.clone();
+        handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
+      } else if !bot.api.is_online(&bot.username).await {
+        // The thread rarely dies, however, sometimes the HTTP stream stops and we do not receive chunks anymore.
+        // Look up if the bot appears offline, and if so, restart the incoming event stream
+        warn!("Bot seems offline, restarting event stream");
         let api_clone = bot.api.clone();
         let bot_clone = bot.clone();
         handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
