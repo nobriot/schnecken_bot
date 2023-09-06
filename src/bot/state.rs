@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
 use crate::chess;
+use crate::chess::engine::Engine;
 use crate::chess::model::game_state::START_POSITION_FEN;
 use crate::chess::model::moves::Move;
 use crate::chess::model::piece::Color;
@@ -54,6 +55,8 @@ pub struct BotGame {
   pub move_list: String,
   pub rated: bool,
   pub clock: GameClock,
+  // Chess engine instance used to analyze the game
+  pub engine: Engine,
 }
 
 impl BotState {
@@ -210,6 +213,7 @@ impl BotState {
         black_time: game.seconds_left,
         black_increment: 0,
       },
+      engine: Engine::new(),
     };
 
     self.add_game(bot_game);
@@ -347,7 +351,6 @@ impl BotState {
     }
 
     info!("Trying to find a move for game id {game_id}");
-    let moves = &game.move_list;
     let (time_left, mut increment_ms) = match game.color {
       Color::White => (game.clock.white_time, game.clock.white_increment),
       Color::Black => (game.clock.black_time, game.clock.black_increment),
@@ -356,37 +359,34 @@ impl BotState {
     if increment_ms > 60_000 {
       increment_ms = 60_000;
     }
-    let mut game_state = chess::model::game_state::GameState::default();
-    game_state.apply_move_list(moves);
 
     let suggested_time_ms;
     if time_left < 10_000 {
       // Play as quick as possible if we have less than 10 seconds left
-      suggested_time_ms = 30.0;
+      suggested_time_ms = 30;
     } else {
-      suggested_time_ms = (time_left as f64 / 90.0) + (increment_ms) as f64;
+      suggested_time_ms = (time_left / 90) + (increment_ms) as usize;
     }
 
-    if let Ok(chess_move) =
-      &chess::engine::core::play_move(&mut game_state, suggested_time_ms as u64)
-    {
-      info!("Playing move {} for game id {}", chess_move, game_id);
-      let api_clone = self.api.clone();
-      let game_id_clone = String::from(game_id);
-      let chess_move_clone = String::from(chess_move);
-      tokio::spawn(async move {
-        api_clone
-          .make_move(&game_id_clone, &chess_move_clone, false)
-          .await
-      });
-      return Ok(());
-    } else {
-      warn!("Can't find a move... Let's offer draw");
-      let api_clone = self.api.clone();
-      let game_id_clone = String::from(game_id);
-      tokio::spawn(async move { api_clone.make_move(&game_id_clone, "", true).await });
-      return Ok(());
-    }
+    info!(
+      "Using {} ms to find a move for position {}",
+      suggested_time_ms,
+      game.engine.position.to_fen()
+    );
+
+    game.engine.set_search_time_limit(suggested_time_ms);
+    game.engine.go();
+    game.engine.print_evaluations();
+    let api_clone = self.api.clone();
+    let game_id_clone = String::from(game_id);
+    let chess_move_clone = game.engine.get_best_move().to_string();
+    tokio::spawn(async move {
+      api_clone
+        .make_move(&game_id_clone, &chess_move_clone, false)
+        .await
+    });
+
+    return Ok(());
   }
 
   // ------------------------
@@ -421,14 +421,21 @@ impl BotState {
       game.clock.black_increment = game_state.binc;
 
       // Update whether it is our turn
-      let move_count = Move::string_to_vec(game.move_list.as_str()).len();
+      let move_list = Move::string_to_vec(game.move_list.as_str());
       match game.color {
         Color::White => {
-          game.is_my_turn = move_count % 2 == 0;
+          game.is_my_turn = move_list.len() % 2 == 0;
         },
         Color::Black => {
-          game.is_my_turn = move_count % 2 == 1;
+          game.is_my_turn = move_list.len() % 2 == 1;
         },
+      }
+
+      // Make sure the engine knows the latest move:
+      if move_list.len() > game.engine.position.last_moves.len() {
+        for i in game.engine.position.last_moves.len()..move_list.len() {
+          game.engine.apply_move(move_list[i].to_string().as_str());
+        }
       }
 
       if game.is_my_turn {

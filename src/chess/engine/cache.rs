@@ -53,7 +53,7 @@ impl Default for EvalTree {
 pub struct EngineCache {
   // List of position/board properties that we cache and do not recompute. Including static position eval
   positions: Arc<Mutex<HashMap<BoardHash, PositionCache>>>,
-  // Tree analysis, including alpha/beta, pruned branches, etc.
+  // Tree analysis, including alpha/beta
   tree: Arc<Mutex<HashMap<BoardHash, EvalTree>>>,
   // List of killer moves that we've met recently during the analysis
   killer_moves: Arc<Mutex<HashSet<Move>>>,
@@ -586,6 +586,29 @@ impl EngineCache {
       .unwrap_or(&PositionCache::default())
       .variations
       .clone();
+  }
+
+  /// Gets the new board hash from a position after applying a move
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Hash value for the board configuration
+  /// * `chess_move` :      Chess move to apply
+  ///
+  /// ### Return value
+  ///
+  /// Optional BoardHash of the resulting continuation
+  ///
+  pub fn get_variation(&self, board_hash: &BoardHash, chess_move: &Move) -> Option<BoardHash> {
+    let p = &self.positions.lock().unwrap();
+    let default = PositionCache::default();
+    let variations = &p.get(board_hash).unwrap_or(&default).variations;
+
+    if variations.contains_key(chess_move) {
+      return Some(variations[chess_move]);
+    }
+    None
   }
 
   /// Adds a killer move in the EngineCache

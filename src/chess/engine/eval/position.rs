@@ -194,10 +194,10 @@ pub fn is_game_over_by_insufficient_material(game_state: &GameState) -> bool {
 ///
 ///
 pub fn is_game_over(game_state: &GameState) -> (f32, bool) {
-  if !game_state.available_moves_computed {
+  if game_state.move_list.is_none() {
     warn!("Evaluating a position without move list computed, cannot determine if it is a game over position.");
   }
-  if game_state.available_moves_computed && game_state.move_list.is_empty() {
+  if game_state.move_list.is_some() && game_state.move_list.as_ref().unwrap().is_empty() {
     match (game_state.board.side_to_play, game_state.checks) {
       (_, 0) => return (0.0, true),
       (Color::Black, _) => return (200.0, true),

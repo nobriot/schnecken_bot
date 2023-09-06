@@ -16,7 +16,6 @@ use cache::EngineCache;
 use eval::position::evaluate_position;
 
 // Chess model
-use super::model::board::{self, Board};
 use super::model::game_state::GameState;
 use super::model::game_state::GameStatus;
 use super::model::game_state::START_POSITION_FEN;
@@ -84,7 +83,7 @@ impl Default for Analysis {
 
 #[derive(Clone, Debug)]
 pub struct Engine {
-  position: GameState,
+  pub position: GameState,
   /// State of the analysis for the game state.
   analysis: Analysis,
   /// Position cache, used to speed up processing
@@ -293,7 +292,7 @@ impl Engine {
     let score = self.cache.get_eval(&self.position.board.hash);
     if score.is_none() {
       println!("Warn: No score available.");
-      return Move::default();
+      return self.position.move_list.as_ref().unwrap()[0];
     }
 
     let score = score.unwrap();
@@ -309,7 +308,7 @@ impl Engine {
     }
 
     println!("Warn: Cannot find matching score.");
-    return Move::default();
+    return self.position.move_list.as_ref().unwrap()[0];
   }
 
   /// Returns a string of the best move continuation (e.g. d1c3 c2c8 f2g3)
@@ -544,13 +543,27 @@ impl Engine {
       (_, _) => {},
     }
 
-    // FIXME: Try using the cache here to get the number of checks.
-    let mut game_state_a = game_state.clone();
-    game_state_a.apply_move(a, false);
-    let mut game_state_b = game_state.clone();
-    game_state_b.apply_move(b, false);
+    let a_checks = if cache.get_variation(&game_state.board.hash, a).is_none() {
+      let mut game_state_a = game_state.clone();
+      game_state_a.apply_move(a, false);
+      cache.set_checks(&game_state_a.board.hash, game_state_a.checks);
+      game_state_a.checks
+    } else {
+      let variation = cache.get_variation(&game_state.board.hash, a).unwrap();
+      cache.get_checks(&variation).unwrap_or(0)
+    };
 
-    match (game_state_a.checks, game_state_b.checks) {
+    let b_checks = if cache.get_variation(&game_state.board.hash, b).is_none() {
+      let mut game_state_b = game_state.clone();
+      game_state_b.apply_move(b, false);
+      cache.set_checks(&game_state_b.board.hash, game_state_b.checks);
+      game_state_b.checks
+    } else {
+      let variation = cache.get_variation(&game_state.board.hash, b).unwrap();
+      cache.get_checks(&variation).unwrap_or(0)
+    };
+
+    match (a_checks, b_checks) {
       (2, 2) => {},
       (2, _) => return Ordering::Less,
       (_, 2) => return Ordering::Greater,
@@ -575,8 +588,14 @@ impl Engine {
       return Ordering::Greater;
     }
 
+    if a_captured_value > b_captured_value {
+      return Ordering::Less;
+    } else if a_captured_value < b_captured_value {
+      return Ordering::Greater;
+    }
+
     // Single checks
-    match (game_state_a.checks, game_state_b.checks) {
+    match (a_checks, b_checks) {
       (1, _) => return Ordering::Less,
       (_, 1) => return Ordering::Greater,
       (_, _) => {},
@@ -620,7 +639,7 @@ impl Engine {
     }
 
     if !captures_only && (depth > max_depth) {
-      info!("Reached maximum depth. Stopping search");
+      //info!("Reached maximum depth. Stopping search");
       return;
     }
 
@@ -640,6 +659,18 @@ impl Engine {
 
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m, false);
+
+      if self.cache.get_eval(&new_game_state.board.hash).is_some() {
+        // Move forward, we already processed this
+        self.evaluate_positions(
+          &new_game_state,
+          captures_only,
+          depth + 1,
+          max_depth,
+          start_time,
+        );
+        continue;
+      }
 
       // We just computed the number of checks for a position, save it.
       Engine::save_checks(&self.cache, &new_game_state);
@@ -699,15 +730,9 @@ impl Engine {
         _ => self.cache.add_killer_move(&m),
       }
 
-      // No need to look at other moves if we found a checkmate for the side to play:
-      if !self.options.ponder {
-        if (self.position.board.side_to_play == Color::White
-          && new_game_status == GameStatus::WhiteWon)
-          || (self.position.board.side_to_play == Color::Black
-            && new_game_status == GameStatus::BlackWon)
-        {
-          self.stop();
-        }
+      // No need to look at other moves in this variation if we found a checkmate for the side to play:
+      if new_game_status == GameStatus::WhiteWon || new_game_status == GameStatus::BlackWon {
+        break;
       }
 
       // Recurse until we get to the bottom.
@@ -742,6 +767,24 @@ impl Engine {
         }
       }
     }
+
+    // Before back-propagating, check if we are in the capture only mode,
+    // and if so and the evaluation swinged, try to refute a bad capture
+    if captures_only {
+      if let Some(eval) = self.cache.get_eval(&game_state.board.hash) {
+        if (eval - best_eval).abs() > 2.0 {
+          // Recurse until we get to the bottom.
+          println!(
+            "Trying to refute capture on position {}",
+            game_state.to_fen()
+          );
+          self.evaluate_positions(&game_state, false, 1, 2, start_time);
+          // Recursing will take care of the back-propagation, so return here
+          return;
+        }
+      }
+    }
+
     // Save the best child eval to the node above:
     if best_eval != f32::MIN && best_eval != f32::MAX {
       self.cache.set_eval(&game_state.board.hash, best_eval);
@@ -883,6 +926,7 @@ mod tests {
 
     assert_eq!(true, engine.is_active());
     std::thread::sleep(std::time::Duration::from_millis(1000));
+    assert_eq!(true, engine.is_active());
     engine.stop();
     assert_eq!(true, engine.is_active());
 

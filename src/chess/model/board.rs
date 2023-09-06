@@ -37,15 +37,6 @@ pub(crate) use fr_bounds_or_return;
 // -----------------------------------------------------------------------------
 //  Structs/Enums
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[repr(u8)]
-pub enum BoardStatus {
-  Ongoing,
-  Checkmate,
-  Stalemate,
-  Illegal,
-}
-
 /// Masks kept for a color on the board
 /// Note that piece destination mask can be found by doing : control -
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -63,7 +54,6 @@ pub struct Board {
   pub castling_rights: CastlingRights,
   pub en_passant_square: u8,
   pub hash: u64,
-  //pub status: BoardStatus,
   pub white_masks: Masks,
   pub black_masks: Masks,
 }
@@ -80,7 +70,6 @@ impl Board {
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       hash: 0,
-      //status: BoardStatus::Ongoing,
       white_masks: Masks {
         control: 0,
         pieces: 0,
@@ -699,11 +688,7 @@ impl Board {
       }
     }
 
-    board.side_to_play = if fen_parts[1] == "w" {
-      Color::White
-    } else {
-      Color::Black
-    };
+    board.side_to_play = if fen_parts[1] == "w" { Color::White } else { Color::Black };
 
     board.castling_rights = CastlingRights {
       K: fen_parts[2].contains('K'),

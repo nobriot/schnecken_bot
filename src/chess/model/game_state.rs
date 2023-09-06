@@ -37,12 +37,12 @@ pub struct GameState {
   pub board: Board,
   pub ply: u8,
   pub move_count: usize,
-  pub available_moves_computed: bool,
-  pub move_list: Vec<Move>,
+  pub move_list: Option<Vec<Move>>,
   // Phase of the game. None if not determined yet
   pub game_phase: Option<GamePhase>,
-  // Vector of position representing the last x positions
+  // Vector of position representing the last x positions, from the start
   pub last_positions: VecDeque<BoardHash>,
+  pub last_moves: Vec<Move>,
 }
 
 // -----------------------------------------------------------------------------
@@ -82,10 +82,10 @@ impl GameState {
       board: board,
       ply: ply,
       move_count: move_count,
-      available_moves_computed: false,
-      move_list: Vec::new(),
+      move_list: None,
       game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
+      last_moves: Vec::new(),
     };
     // Determine if we're check / Checkmate
     game_state.update_checks();
@@ -243,7 +243,7 @@ impl GameState {
   ///
   ///
   pub fn get_game_status(&self) -> GameStatus {
-    if self.available_moves_computed && self.move_list.is_empty() {
+    if self.move_list.is_some() && self.move_list.as_ref().unwrap().is_empty() {
       match (self.board.side_to_play, self.checks) {
         (_, 0) => return GameStatus::Draw,
         (Color::Black, _) => return GameStatus::WhiteWon,
@@ -287,22 +287,21 @@ impl GameState {
   // Sets all the possible moves in a position
   pub fn set_moves(&mut self, moves: &Vec<Move>) {
     //self.move_list.clear();
-    self.move_list = moves.clone();
-    self.available_moves_computed = true;
+    self.move_list = Some(moves.clone());
   }
 
   // Get all the possible moves in a position
   pub fn get_moves(&mut self) -> &Vec<Move> {
-    if self.available_moves_computed {
-      return &self.move_list;
+    if self.move_list.is_some() {
+      return self.move_list.as_ref().unwrap();
     }
 
     match self.board.side_to_play {
-      Color::White => self.move_list = self.get_white_moves(),
-      Color::Black => self.move_list = self.get_black_moves(),
+      Color::White => self.move_list = Some(self.get_white_moves()),
+      Color::Black => self.move_list = Some(self.get_black_moves()),
     }
-    self.available_moves_computed = true;
-    return &self.move_list;
+
+    return self.move_list.as_ref().unwrap();
   }
 
   // Get all the possible moves for white in a position
@@ -529,8 +528,7 @@ impl GameState {
     if self.game_phase.is_some() && self.game_phase.unwrap() != GamePhase::Endgame {
       self.game_phase = None;
     }
-    self.available_moves_computed = false;
-    self.move_list.clear();
+    self.move_list = None;
     self.checks = 0;
 
     // Save the last position:
@@ -555,6 +553,9 @@ impl GameState {
     }
     // Move the pieces on the board
     self.board.apply_move(chess_move);
+
+    // Save the move we applied.
+    self.last_moves.push(chess_move.clone());
 
     // Check if we have checks
     self.update_checks();
@@ -668,10 +669,10 @@ impl Default for GameState {
       board: Board::from_fen(START_POSITION_FEN),
       ply: 0,
       move_count: 1,
-      available_moves_computed: false,
-      move_list: Vec::new(),
+      move_list: None,
       game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
+      last_moves: Vec::new(),
     }
   }
 }
@@ -821,10 +822,9 @@ mod tests {
     let mut game_state_copy = game_state.clone();
     game_state.get_moves();
 
-    assert_eq!(true, game_state.available_moves_computed);
-    assert_eq!(false, game_state_copy.available_moves_computed);
-    assert!(0 != game_state.move_list.len());
-    assert!(0 == game_state_copy.move_list.len());
+    assert_eq!(true, game_state.move_list.is_some());
+    assert_eq!(false, game_state_copy.move_list.is_some());
+    assert!(0 != game_state.move_list.unwrap().len());
 
     assert!(1 == game_state_copy.last_positions.len());
     game_state_copy.last_positions.pop_front();
@@ -844,8 +844,9 @@ mod tests {
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
       game_state.get_moves();
-      if !game_state.move_list.is_empty() {
-        let m = game_state.move_list[0];
+      let moves = game_state.move_list.as_ref().unwrap();
+      if !moves.is_empty() {
+        let m = moves[0];
         game_state.apply_move(&m, false);
         positions_computed += 1;
       } else {

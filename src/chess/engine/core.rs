@@ -85,6 +85,8 @@ impl ChessLine {
     self
       .game_state
       .move_list
+      .as_mut()
+      .unwrap()
       .sort_by(|a, b| best_move_potential(&fen, a, b));
   }
 
@@ -94,12 +96,14 @@ impl ChessLine {
     // Check if we computed the same position before
     if let Some(cached_moves) = get_engine_cache().get_move_list(&self.game_state.board.hash) {
       //println!("Known position {fen}. Using the cache");
-      self.game_state.move_list = cached_moves;
-      self.game_state.available_moves_computed = true;
+      self.game_state.move_list = Some(cached_moves);
     } else {
       //println!("New position {fen}. Computing manually");
       self.game_state.get_moves();
-      get_engine_cache().set_move_list(&self.game_state.board.hash, &self.game_state.move_list);
+      get_engine_cache().set_move_list(
+        &self.game_state.board.hash,
+        &self.game_state.move_list.as_ref().unwrap(),
+      );
     }
   }
 
@@ -314,14 +318,14 @@ impl ChessLine {
       return false;
     }
 
-    if self.game_state.move_list.is_empty() {
+    if self.game_state.move_list.is_none() {
       self.get_moves_with_cache();
       self.sort_moves();
     }
 
     let mut moves_added = false;
     if self.variations.is_empty() {
-      for m in &self.game_state.move_list {
+      for m in self.game_state.move_list.as_ref().unwrap() {
         let mut new_game_state = self.game_state.clone();
         new_game_state.apply_move(m, false);
         let chess_line = ChessLine {
@@ -499,16 +503,23 @@ pub fn select_best_move(
 
   // Get the list of moves to assess:
   let _ = game_state.get_moves();
-  if game_state.move_list.is_empty() {
+  if game_state
+    .move_list
+    .as_ref()
+    .unwrap_or(&Vec::new())
+    .is_empty()
+  {
     return Err(());
   }
   let fen = game_state.to_fen();
   game_state
     .move_list
+    .as_mut()
+    .unwrap()
     .sort_by(|a, b| best_move_potential(&fen, a, b));
 
   // Add all the moves to the chess lines:
-  for m in &game_state.move_list {
+  for m in game_state.move_list.as_ref().unwrap() {
     let mut new_game_state = game_state.clone();
     new_game_state.apply_move(m, false);
     let chess_line = ChessLine {
@@ -742,7 +753,7 @@ mod tests {
     let fen = "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1";
     let mut game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    assert!(true == game_state.available_moves_computed);
+    assert!(true == game_state.move_list.is_some());
 
     let move_nothing = Move::from_string("e1d1");
     let move_nothing_2 = Move::from_string("h2h3");
@@ -780,11 +791,22 @@ mod tests {
 
     game_state
       .move_list
+      .as_mut()
+      .unwrap()
       .sort_by(|a, b| best_move_potential(&String::from(fen), a, b));
 
-    assert_eq!("c2b3", game_state.move_list[0].to_string());
-    assert_eq!("d4b3", game_state.move_list[1].to_string());
-    assert_eq!("e1g1", game_state.move_list[2].to_string());
+    assert_eq!(
+      "c2b3",
+      game_state.move_list.as_ref().unwrap()[0].to_string()
+    );
+    assert_eq!(
+      "d4b3",
+      game_state.move_list.as_ref().unwrap()[1].to_string()
+    );
+    assert_eq!(
+      "e1g1",
+      game_state.move_list.as_ref().unwrap()[2].to_string()
+    );
   }
 
   #[test]
