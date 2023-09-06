@@ -1,5 +1,4 @@
 pub mod cache;
-pub mod core;
 pub mod development;
 pub mod eval;
 pub mod square_affinity;
@@ -612,6 +611,7 @@ impl Engine {
 
     return Ordering::Equal;
   }
+
   //----------------------------------------------------------------------------
   // Engine Evaluation
 
@@ -789,6 +789,10 @@ impl Engine {
     if best_eval != f32::MIN && best_eval != f32::MAX {
       self.cache.set_eval(&game_state.board.hash, best_eval);
     }
+
+    // Sort the children moves according to their evaluation:
+    // FIXME: This does not work
+    // &self.cache.sort_moves_by_eval(&game_state.board.hash);
   }
 }
 
@@ -950,5 +954,223 @@ mod tests {
       "Number of NPS for engine analysis: {}",
       engine.cache.len()
     );
+  }
+
+  #[test]
+  fn save_the_bishop() {
+    /*
+     [2023-06-26T13:51:05Z DEBUG schnecken_bot::lichess::api] Lichess get answer: {"nowPlaying":[{"color":"white","fen":"2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12","fullId":"AHbg0nGCsiMN","gameId":"AHbg0nGC","hasMoved":true,"isMyTurn":true,"lastMove":"e7e6","opponent":{"id":"sargon-1ply","rating":1233,"username":"BOT sargon-1ply"},"perf":"blitz","rated":true,"secondsLeft":160,"source":"friend","speed":"blitz","status":{"id":20,"name":"started"},"variant":{"key":"standard","name":"Standard"}}]}
+     [2023-06-26T13:51:05Z INFO  schnecken_bot] Trying to find a move for game id AHbg0nGC
+     [2023-06-26T13:51:05Z INFO  schnecken_bot::chess::engine::core] Using 1777 ms to find a move
+     Line 0 Eval: -1.8000004 - f5e6 d6e6 e2e4
+     Line 1 Eval: -4.4000006 - f3g1 e6f5
+     Line 2 Eval: -16.820002 - c2c3 f8e7
+     Line 3 Eval: -17.800003 - a2a3 f8e7
+     Line 4 Eval: -17.860003 - f3e5 f8e7
+    */
+    let mut engine = Engine::new();
+    engine.set_position("2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12");
+    engine.set_search_time_limit(2000);
+    engine.go();
+    engine.print_evaluations();
+    let expected_move = Move::from_string("f5e4");
+    assert_eq!(
+      expected_move,
+      engine.get_best_move(),
+      "Come on, the only good move is f5e4"
+    );
+  }
+
+  #[test]
+  fn test_dont_hang_pieces_1() {
+    /* Got this in a game, hanging a knight, after thinking for 16_000 ms :
+     Line 0 Eval: 0.79999995 - f8h6 d5e4 d7d5 e4d3
+     Line 1 Eval: -0.30000085 - e4f6 d5d3
+     Line 2 Eval: 2.3999996 - b7b5 d5e4 d7d5 e4d3 e7e5 b1c3
+     Line 3 Eval: 2.5499997 - b7b6 d5e4 d7d5 e4d3 e7e5 b1c3
+     Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
+    */
+    let mut engine = Engine::new();
+    engine.set_position("r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7");
+    engine.set_search_time_limit(3000);
+    engine.go();
+    engine.print_evaluations();
+
+    let best_move = engine.get_best_move().to_string();
+
+    if "e4f6" != best_move && "e4d6" != best_move {
+      assert!(
+        false,
+        "Should have been either e4f6 or e4d6, instead we have: {best_move}"
+      );
+    }
+  }
+
+  #[test]
+  fn test_dont_hang_pieces_2() {
+    /*
+      https://lichess.org/zcQesp7F#69
+      Here we blundered a rook playing e2f2
+      2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35
+      Using 1355 ms to find a move
+      Line 0 Eval: -9.860003 - e2f2 g3f2 c8b8 f2g1 c4c3 g1g2 c3c2 g2g1 c2c1Q
+      Line 1 Eval: -9.250003 - e2e5 d4e5 c8b8 g3g2 c4c3 e5e6 c3c2 e6e7 c2c1Q
+      Line 2 Eval: -7.820003 - e2a2 g3f3 a2a3 f3g2
+      Line 3 Eval: -8.105003 - e2h2 g3g4 h2e2
+      Line 4 Eval: -7.9150023 - e2d2 b4b5 d2d4
+      [2023-05-12T06:06:18Z INFO  schnecken_bot] Playing move e2f2 for game id zcQesp7F
+    */
+
+    let mut engine = Engine::new();
+    engine.set_position("2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35");
+    engine.set_search_time_limit(1000);
+    engine.go();
+    engine.print_evaluations();
+    let not_expected_move = Move::from_string("e2f2");
+    assert!(
+      not_expected_move != engine.get_best_move(),
+      "e2f2 should not be played!!"
+    );
+  }
+
+  // From game : https://lichess.org/SKF7qgMu -
+  // Did not capture the knight, it was very obvious to capture.
+  // Spent 2450 ms to come up with this crap: e5f5
+  #[test]
+  fn save_the_queen() {
+    let mut engine = Engine::new();
+    engine.set_position("rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6");
+    engine.set_search_time_limit(2450);
+    engine.go();
+    engine.print_evaluations();
+
+    let best_move = engine.get_best_move().to_string();
+    if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
+      assert!(
+        false,
+        "Should have been either e5g5, e5d4 or e5c3, instead we have: {best_move}"
+      );
+    }
+  }
+
+  // From game : https://lichess.org/47V8eE5x -
+  // Did not capture the knight, it was very obvious to capture.
+  // Spent 2900 ms to come up with this crap: d7d5
+  #[test]
+  fn capture_the_damn_knight_1() {
+    let mut engine = Engine::new();
+    engine.set_position("rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9");
+    engine.set_search_time_limit(2900);
+    engine.go();
+    engine.print_evaluations();
+
+    let best_move = engine.get_best_move().to_string();
+    if "f8f6" != best_move && "g7f6" != best_move {
+      assert!(
+        false,
+        "Should have been either f8f6 or g7f6, instead we have: {best_move}"
+      );
+    }
+  }
+
+  #[test]
+  fn evaluate_checkmate_with_castle() {
+    let mut engine = Engine::new();
+    engine.set_position("8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1");
+    engine.set_search_time_limit(10);
+    engine.go();
+    engine.print_evaluations();
+
+    assert_eq!("e1g1", engine.get_best_move().to_string());
+  }
+
+  // Game https://lichess.org/Xjgkf4pp seemed really off. Testing some of the positions here
+  #[test]
+  fn test_select_pawn_capture() {
+    let mut engine = Engine::new();
+    engine.set_position("r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11");
+    engine.set_search_time_limit(2000);
+    engine.go();
+    engine.print_evaluations();
+
+    assert_eq!("g2f3", engine.get_best_move().to_string());
+  }
+
+  #[test]
+  fn test_select_best_move_checkmate_in_two() {
+    // This is a forced checkmate in 2: c1b2 d4e3 b6d5
+    let mut engine = Engine::new();
+    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
+    engine.set_search_time_limit(5000);
+    engine.go();
+    engine.print_evaluations();
+
+    let expected_move = Move::from_string("c1b2");
+    assert_eq!(expected_move, engine.get_best_move());
+  }
+
+  #[test]
+  fn test_select_best_move_checkmate_in_one() {
+    // This is a forced checkmate in 1:
+    let mut engine = Engine::new();
+    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36");
+    engine.set_search_time_limit(5000);
+    engine.go();
+    engine.print_evaluations();
+    let expected_move = Move::from_string("b6d5");
+    assert_eq!(expected_move, engine.get_best_move());
+  }
+
+  #[test]
+  fn test_avoid_threefold_repetitions() {
+    use crate::chess::model::board::Board;
+    /* Looks like we had a permutation bug that lead us into some 3-fold repetitions
+     [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms to find a move
+       Line 0 Eval: 10.71348 - d1e2 / Permutation
+       Line 1 Eval: 6.581044 - h2h3 / Permutation
+       Line 2 Eval: 6.461045 - g3g2 / Permutation
+       Line 3 Eval: 6.431045 - a1b1 / Permutation
+       Line 4 Eval: 6.391044 - g3g1 / Permutation
+    */
+
+    let mut engine = Engine::new();
+    engine.set_position("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45");
+    engine.set_search_time_limit(1200);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    engine
+      .position
+      .last_positions
+      .push_back(Board::from_fen("r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+
+    engine.go();
+    engine.print_evaluations();
+    assert!(engine.get_best_move() != Move::from_string("d1e2"));
   }
 }

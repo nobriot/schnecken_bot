@@ -1,10 +1,9 @@
-use lazy_static::lazy_static;
 use log::*;
 
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::chess::model::board::Board;
 use crate::chess::model::game_state::GamePhase;
 use crate::chess::model::game_state::GameStatus;
 use crate::chess::model::moves::*;
@@ -647,14 +646,64 @@ impl EngineCache {
   pub fn is_killer_move(&self, candidate_move: &Move) -> bool {
     return self.killer_moves.lock().unwrap().contains(candidate_move);
   }
-}
 
-lazy_static! {
-  static ref ENGINE_CACHE: EngineCache = EngineCache::new();
-}
+  /// Functions used to compare 2 moves by their resulting position evaluation
+  ///
+  /// ### Arguments
+  ///
+  /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
+  /// * `board_hash` Reference to a BoardHash in the cache for which to compare the moves
+  /// * `a`          Move A
+  /// * `b`          Move B
+  ///
+  /// ### Return value
+  ///
+  /// Ordering telling if B is Greater, Equal or Less than A
+  ///
+  fn compare_moves_by_cache_eval(&self, board_hash: &BoardHash, a: &Move, b: &Move) -> Ordering {
+    println!("Get variation a {}", a.to_string());
+    let board_a = self.get_variation(board_hash, a).unwrap_or(0);
+    println!("Get eval a {}", a.to_string());
+    let board_a_eval = self.get_eval(&board_a).unwrap_or(f32::MIN);
 
-pub fn get_engine_cache() -> &'static EngineCache {
-  &ENGINE_CACHE
+    println!("Get variation b {}", b.to_string());
+    let board_b = self.get_variation(board_hash, b).unwrap_or(0);
+    let board_b_eval = self.get_eval(&board_b).unwrap_or(f32::MIN);
+
+    if board_a_eval > board_b_eval {
+      return Ordering::Greater;
+    } else if board_b_eval < board_a_eval {
+      return Ordering::Less;
+    }
+    Ordering::Equal
+  }
+
+  /// Sorts the list of moves based the evaluation of the resulting positions
+  ///
+  /// ### Arguments
+  ///
+  /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
+  /// * `board_hash` BoardHash for which the moves should be ordered
+  /// * `a`          Move A
+  /// * `b`          Move B
+  ///
+  /// ### Return value
+  ///
+  /// Ordering telling if B is Greater, Equal or Less than A
+  ///
+  pub fn sort_moves_by_eval(&self, board_hash: &BoardHash) {
+    if let Some(entry) = self.positions.lock().unwrap().get_mut(board_hash) {
+      if entry.move_list.is_some() {
+        entry
+          .move_list
+          .as_mut()
+          .unwrap()
+          .sort_by(|a, b| self.compare_moves_by_cache_eval(board_hash, a, b));
+      }
+    } else {
+      error!("Error sorting move list in the cache for board {board_hash}");
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -816,5 +865,64 @@ mod tests {
     assert_eq!(0.0, engine_cache.get_alpha(&game_state.board.hash));
     assert_eq!(1.0, engine_cache.get_beta(&game_state.board.hash));
     assert_eq!(false, engine_cache.is_pruned(&game_state.board.hash));
+  }
+
+  #[test]
+  fn test_sorting_moves_by_eval() {
+    use crate::chess::engine::evaluate_position;
+    let engine_cache: EngineCache = EngineCache::new();
+
+    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
+    let mut game_state = GameState::from_fen(fen);
+
+    println!("OK 1");
+
+    // Save a move list
+    let mut move_list = game_state.get_moves().clone();
+    engine_cache.set_move_list(&game_state.board.hash, &move_list);
+    engine_cache.set_checks(&game_state.board.hash, game_state.checks);
+    println!("OK 2");
+
+    for m in engine_cache.get_move_list(&game_state.board.hash).unwrap() {
+      println!("OK move {}", m.to_string());
+
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(&m, false);
+      engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
+      new_game_state.update_game_phase();
+      engine_cache.set_game_phase(
+        &new_game_state.board.hash,
+        new_game_state.game_phase.unwrap(),
+      );
+
+      let (score, _) = evaluate_position(&new_game_state);
+      // FIXME: This will save some 3 fold repetitions and stuff like that in the tree.
+      engine_cache.set_eval(&new_game_state.board.hash, score);
+    }
+
+    // Now try to sort move list by eval:
+    println!("OK 3... sorting");
+
+    assert!(
+      false,
+      "FIXME: Mutex do not allow to read the eval while modifying the move list"
+    );
+    engine_cache.sort_moves_by_eval(&game_state.board.hash);
+    println!("OK 3... sorted");
+
+    let mut last_eval = f32::MIN;
+    for m in engine_cache
+      .get_move_list(&game_state.board.hash)
+      .as_ref()
+      .unwrap()
+    {
+      let new_board = engine_cache
+        .get_variation(&game_state.board.hash, &m)
+        .unwrap_or(0);
+      let new_eval = engine_cache.get_eval(&new_board).unwrap_or(f32::MAX);
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
+      assert!(last_eval < new_eval);
+      last_eval = new_eval;
+    }
   }
 }
