@@ -1,6 +1,7 @@
 use log::*;
 use rand::Rng;
 use serde_json::Value as JsonValue;
+use std::arch::x86_64::_CMP_UNORD_Q;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
@@ -379,10 +380,33 @@ impl BotState {
     game.engine.print_evaluations();
     let api_clone = self.api.clone();
     let game_id_clone = String::from(game_id);
-    let chess_move_clone = game.engine.get_best_move().to_string();
+
+    // Select randomly one of the good moves.
+    let analysis = game.engine.get_line_details();
+    if analysis.is_empty() {
+      error!("Empty result from the engine.");
+    }
+    let best_eval = analysis[0].1;
+    let mut cutoff = 1;
+    while analysis.len() > cutoff {
+      if (best_eval - analysis[cutoff].1).abs() > 0.15 {
+        break;
+      } else {
+        cutoff += 1;
+      }
+    }
+
+    let move_index = rand::thread_rng().gen_range(0..cutoff);
+    info!(
+      "Playing {}th best move ({}) for GameID {}",
+      move_index + 1,
+      analysis[move_index].0,
+      game_id
+    );
+
     tokio::spawn(async move {
       api_clone
-        .make_move(&game_id_clone, &chess_move_clone, false)
+        .make_move(&game_id_clone, &analysis[move_index].0.to_string(), false)
         .await
     });
 
@@ -472,7 +496,6 @@ impl BotState {
       },
     };
 
-    //let parameters = serde_json::json!({ "rated": true, "clock" : {"limit":180,"increment":0}, "color":"random", "variant":"standard" });
     let players = player_list.lines();
 
     for username in players {

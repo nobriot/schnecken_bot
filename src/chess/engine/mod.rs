@@ -106,7 +106,7 @@ impl Engine {
       cache: EngineCache::new(),
       options: Options {
         ponder: false,
-        max_depth: 0,
+        max_depth: 10,
         max_time: 0,
       },
       state: EngineState {
@@ -291,6 +291,22 @@ impl Engine {
     return self.cache.get_move_list(&self.position.board.hash)[0];
   }
 
+  /// Returns the full analysis
+  pub fn get_line_details(&self) -> Vec<(Move, f32)> {
+    let mut analysis: Vec<(Move, f32)> = Vec::new();
+    let move_list = self.cache.get_move_list(&self.position.board.hash);
+
+    for m in move_list {
+      let board_hash = &self.cache.get_variation(&self.position.board.hash, &m);
+      if !self.cache.has_eval(board_hash) {
+        continue;
+      }
+      analysis.push((m, self.cache.get_eval(board_hash)));
+    }
+
+    analysis
+  }
+
   /// Returns a string of the best move continuation (e.g. d1c3 c2c8 f2g3)
   /// based on the board, using the engine cache.
   ///
@@ -303,7 +319,10 @@ impl Engine {
   ///
   /// String containing the list of best moves found by the engine
   ///
-  pub fn get_line_string(&self, board_hash: BoardHash, side_to_play: Color) -> String {
+  pub fn get_line_string(&self, board_hash: BoardHash, side_to_play: Color, ttl: usize) -> String {
+    if ttl == 0 {
+      return String::new();
+    }
     let line_string = String::new();
 
     if !self.cache.has_move_list(&board_hash) {
@@ -322,14 +341,17 @@ impl Engine {
     return best_move.to_string()
       + " "
       + self
-        .get_line_string(best_new_board, Color::opposite(side_to_play))
+        .get_line_string(best_new_board, Color::opposite(side_to_play), ttl - 1)
         .as_str();
   }
 
   /// Prints the evaluation result in the console
   ///
   pub fn print_evaluations(&self) {
-    debug_assert!(!self.cache.has_game_state(&0));
+    debug_assert!(
+      !self.cache.has_game_state(&0),
+      "Cache has been filled for an invalid position"
+    );
     let score = self.cache.get_eval(&self.position.board.hash);
     println!(
       "Score for position {}: {}",
@@ -349,7 +371,8 @@ impl Engine {
         m,
         self.get_line_string(
           board_hash,
-          Color::opposite(self.position.board.side_to_play)
+          Color::opposite(self.position.board.side_to_play),
+          self.options.max_depth,
         )
       );
       i += 1;
@@ -636,37 +659,26 @@ impl Engine {
       );
     }
 
+    // Sort the children moves according to their evaluation:
+    self
+      .cache
+      .sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
+
     // Back propagate from children nodes
-    let move_list = self.cache.get_move_list(&game_state.board.hash);
-    let mut best_eval: f32 = match game_state.board.side_to_play {
-      Color::White => f32::MIN,
-      Color::Black => f32::MAX,
-    };
-    for m in move_list {
-      let board_hash = self.cache.get_variation(&game_state.board.hash, &m);
-      if !self.cache.has_eval(&board_hash) {
-        continue;
-      }
-      let eval = self.cache.get_eval(&board_hash);
-      match game_state.board.side_to_play {
-        Color::White => {
-          if eval > best_eval {
-            best_eval = eval;
-          }
-        },
-        Color::Black => {
-          if eval < best_eval {
-            best_eval = eval;
-          }
-        },
-      }
+    let best_move = self.cache.get_move_list(&self.position.board.hash)[0];
+    let board_hash = self.cache.get_variation(&game_state.board.hash, &best_move);
+    if !self.cache.has_eval(&board_hash) {
+      // Here it's probably because there were no captures in the position and we are in capture only.
+      return;
     }
+
+    let best_eval = self.cache.get_eval(&board_hash);
 
     // Before back-propagating, check if we are in the capture only mode,
     // and if so and the evaluation swinged, try to refute a bad capture
     if captures_only {
       let eval = self.cache.get_eval(&game_state.board.hash);
-      if (eval - best_eval).abs() > 2.0 {
+      if (best_eval - eval).abs() > 2.0 {
         // Recurse until we get to the bottom.
         debug!(
           "Trying to refute capture on position {}",
@@ -677,15 +689,7 @@ impl Engine {
       }
     }
 
-    // Save the best child eval to the node above:
-    if best_eval != f32::MIN && best_eval != f32::MAX {
-      self.cache.set_eval(game_state.board.hash, best_eval);
-    }
-
-    // Sort the children moves according to their evaluation:
-    self
-      .cache
-      .sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
+    self.cache.set_eval(game_state.board.hash, best_eval);
   }
 }
 

@@ -825,7 +825,7 @@ mod tests {
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let mut game_state = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
 
     // Save a move list
     engine_cache.set_move_list(game_state.board.hash, &game_state.get_moves());
@@ -834,7 +834,6 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
-      determine_game_phase(&engine_cache, &game_state);
       evaluate_position(&engine_cache, &new_game_state);
     }
 
@@ -860,6 +859,52 @@ mod tests {
       let new_eval = engine_cache.get_eval(&new_board);
       println!("Move: {} - Eval : {}", m.to_string(), new_eval);
       assert!(last_eval >= new_eval);
+      last_eval = new_eval;
+    }
+
+    // Try again with some moves not evaluated:
+    println!("----------------------------------------------------------------");
+    engine_cache.clear();
+    engine_cache.set_move_list(game_state.board.hash, &game_state.get_moves());
+    let mut i = 0;
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(&m);
+      engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
+      evaluate_position(&engine_cache, &new_game_state);
+      i += 1;
+      if i > 12 {
+        break;
+      }
+    }
+
+    engine_cache.sort_moves_by_eval(&game_state.board.hash, Color::White);
+    let mut last_eval = f32::MAX;
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let new_board = engine_cache.get_variation(&game_state.board.hash, &m);
+      let new_eval = if engine_cache.has_eval(&new_board) {
+        engine_cache.get_eval(&new_board)
+      } else {
+        f32::MIN
+      };
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
+      assert!(last_eval >= new_eval);
+      last_eval = new_eval;
+    }
+
+    // Try again with some moves not evaluated for Black:
+    println!("----------------------------------------------------------------");
+    engine_cache.sort_moves_by_eval(&game_state.board.hash, Color::Black);
+    let mut last_eval = f32::MIN;
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let new_board = engine_cache.get_variation(&game_state.board.hash, &m);
+      let new_eval = if engine_cache.has_eval(&new_board) {
+        engine_cache.get_eval(&new_board)
+      } else {
+        f32::MAX
+      };
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
+      assert!(last_eval <= new_eval);
       last_eval = new_eval;
     }
   }
