@@ -5,28 +5,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::chess::model::game_state::GamePhase;
+use crate::chess::model::game_state::GameState;
 use crate::chess::model::game_state::GameStatus;
 use crate::chess::model::moves::*;
+use crate::chess::model::piece::Color;
 use crate::chess::model::tables::zobrist::BoardHash;
-
-// How large do we want the cache to grow before we purge it.
-const DEFAULT_CACHE_MAX_SIZE: usize = 100_000_000;
-
-#[derive(Debug, Clone, Default)]
-pub struct PositionCache {
-  // List of moves available for a position
-  pub move_list: Option<Vec<Move>>,
-  // Evaluation for a position
-  pub eval: Option<f32>,
-  // game phase for a position
-  pub game_phase: Option<GamePhase>,
-  // List of variations from a position if a move is played
-  pub variations: HashMap<Move, BoardHash>,
-  // Number of checks for the position
-  pub checks: Option<u8>,
-  // Whether we reached a board based game-over
-  pub status: Option<GameStatus>,
-}
 
 #[derive(Debug, Clone)]
 pub struct EvalTree {
@@ -50,8 +33,18 @@ impl Default for EvalTree {
 
 #[derive(Clone, Debug)]
 pub struct EngineCache {
-  // List of position/board properties that we cache and do not recompute. Including static position eval
-  positions: Arc<Mutex<HashMap<BoardHash, PositionCache>>>,
+  // GameState struct saved with a board position.
+  game_states: Arc<Mutex<HashMap<BoardHash, GameState>>>,
+  // List of moves available from a board position
+  move_lists: Arc<Mutex<HashMap<BoardHash, Vec<Move>>>>,
+  // List of variations available from a position
+  variations: Arc<Mutex<HashMap<BoardHash, HashMap<Move, BoardHash>>>>,
+  // Evaluation for a given board configuration
+  evals: Arc<Mutex<HashMap<BoardHash, f32>>>,
+  // Game Status of an actual board.
+  statuses: Arc<Mutex<HashMap<BoardHash, GameStatus>>>,
+  // GamePhases saved with each board configuration
+  phases: Arc<Mutex<HashMap<BoardHash, GamePhase>>>,
   // Tree analysis, including alpha/beta
   tree: Arc<Mutex<HashMap<BoardHash, EvalTree>>>,
   // List of killer moves that we've met recently during the analysis
@@ -63,37 +56,21 @@ impl EngineCache {
   ///
   pub fn new() -> Self {
     EngineCache {
-      positions: Arc::new(Mutex::new(HashMap::new())),
+      game_states: Arc::new(Mutex::new(HashMap::new())),
+      move_lists: Arc::new(Mutex::new(HashMap::new())),
+      variations: Arc::new(Mutex::new(HashMap::new())),
+      evals: Arc::new(Mutex::new(HashMap::new())),
+      statuses: Arc::new(Mutex::new(HashMap::new())),
+      phases: Arc::new(Mutex::new(HashMap::new())),
       tree: Arc::new(Mutex::new(HashMap::new())),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Position cached data
+  // Generic cache functions
 
-  /// Adds a PositionCache object to a give board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `position_cache` :  Position cache for the board configuration
-  ///
-  pub fn add(&self, board: &BoardHash, position_cache: PositionCache) {
-    if self.len() > DEFAULT_CACHE_MAX_SIZE {
-      // Ideally we should purge old entries
-      error!("Clearing the cache due to large size.");
-      self.clear();
-    }
-    self
-      .positions
-      .lock()
-      .unwrap()
-      .insert(*board, position_cache);
-  }
-
-  /// Returns the number of positions saved in the cache.
+  /// Returns the number of game states saved in the cache.
   ///
   /// ### Arguments
   ///
@@ -101,34 +78,383 @@ impl EngineCache {
   ///
   /// ### Return value
   ///
-  /// Number of positions saved with a PositionCache in the EngineCache
+  /// Number of GameState objects saved in the EngineCache
   ///
   pub fn len(&self) -> usize {
-    return self.positions.lock().unwrap().len();
+    return self.game_states.lock().unwrap().len();
   }
 
-  /// Erases all the position caches and killer moves
+  /// Erases everything in the cache
   ///
   pub fn clear(&self) {
-    self.positions.lock().unwrap().clear();
+    self.game_states.lock().unwrap().clear();
+    self.move_lists.lock().unwrap().clear();
+    self.variations.lock().unwrap().clear();
+    self.evals.lock().unwrap().clear();
+    self.statuses.lock().unwrap().clear();
+    self.phases.lock().unwrap().clear();
     self.tree.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
   }
 
-  /// Checks if a position has a PositionCache entry
+  // ---------------------------------------------------------------------------
+  // Game State cached data
+
+  /// Checks if a board position has a cached GameState object
   ///
   /// ### Arguments
   ///
   /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
+  /// * `board_hash` :           Hash value for the board configuration
   ///
   /// ### Return value
   ///
   /// True if the board hash has a PositionCache in the EngineCache. False otherwise
   ///
-  pub fn has_position_key(&self, board: &BoardHash) -> bool {
-    return self.positions.lock().unwrap().contains_key(board);
+  pub fn has_game_state(&self, board_hash: &BoardHash) -> bool {
+    return self.game_states.lock().unwrap().contains_key(board_hash);
   }
+
+  /// Sets  the associated GameState object to a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `game_state` :      GameState object to save
+  ///
+  ///
+  pub fn set_game_state(&self, board_hash: BoardHash, game_state: &GameState) {
+    self
+      .game_states
+      .lock()
+      .unwrap()
+      .insert(board_hash, game_state.clone());
+  }
+
+  /// Gets the cached GameState object for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// A clone of the game state object for the cached boardhash
+  ///
+  pub fn get_game_state(&self, board_hash: &BoardHash) -> GameState {
+    if !self.has_game_state(board_hash) {
+      error!("Looked up a gameState not present in the cache. Returning default");
+      return GameState::default();
+    }
+    self
+      .game_states
+      .lock()
+      .unwrap()
+      .get(board_hash)
+      .unwrap()
+      .clone()
+  }
+
+  // ---------------------------------------------------------------------------
+  // Move lists cached data
+
+  /// Checks if a board position has a known move list
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :           Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash a known move list in the EngineCache. False otherwise
+  ///
+  pub fn has_move_list(&self, board_hash: &BoardHash) -> bool {
+    return self.move_lists.lock().unwrap().contains_key(board_hash);
+  }
+
+  /// Sets the associated Move list to a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `game_state` :      GameState object to save
+  ///
+  ///
+  pub fn set_move_list(&self, board_hash: BoardHash, move_list: &Vec<Move>) {
+    self
+      .move_lists
+      .lock()
+      .unwrap()
+      .insert(board_hash, move_list.clone());
+  }
+
+  /// Gets the cached Move List for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// A clone of the Move List cached for the board position
+  ///
+  pub fn get_move_list(&self, board_hash: &BoardHash) -> Vec<Move> {
+    if !self.has_move_list(board_hash) {
+      error!("Looked up a MoveList not present in the cache. Returning empty move list");
+      return Vec::new();
+    }
+    self
+      .move_lists
+      .lock()
+      .unwrap()
+      .get(board_hash)
+      .unwrap()
+      .clone()
+  }
+
+  // ---------------------------------------------------------------------------
+  // Variations cached data
+
+  /// Checks if the cache knows the resulting variation of applying a move
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `chess_move` :      Move to apply on the board.
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash a known variation using that movein the EngineCache.
+  /// False otherwise
+  ///
+  pub fn has_variation(&self, board_hash: &BoardHash, chess_move: &Move) -> bool {
+    let board_variations = self.variations.lock().unwrap();
+
+    if !board_variations.contains_key(board_hash) {
+      return false;
+    }
+
+    if !board_variations[board_hash].contains_key(chess_move) {
+      return false;
+    }
+
+    true
+  }
+
+  /// Adds the result of applying a move to a board in the cache.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `chess_move` :      Move to apply on the board.
+  /// * `resulting_board` : New board hash after applying the move.
+  ///
+  ///
+  pub fn add_variation(
+    &self,
+    board_hash: &BoardHash,
+    chess_move: &Move,
+    resulting_board: &BoardHash,
+  ) {
+    let mut variations = self.variations.lock().unwrap();
+
+    if !variations.contains_key(board_hash) {
+      variations.insert(*board_hash, HashMap::new());
+    }
+
+    let position_variations = variations.get_mut(board_hash).unwrap();
+    position_variations.insert(*chess_move, *resulting_board);
+  }
+
+  /// Gets the cached the result of applying a move to a board.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `chess_move` :      Move to apply on the board.
+  ///
+  /// ### Return value
+  ///
+  /// BoardHash of the new board configuration. Returns 0 if the variation is unknown.
+  ///
+  pub fn get_variation(&self, board_hash: &BoardHash, chess_move: &Move) -> BoardHash {
+    let variations = self.variations.lock().unwrap();
+
+    if !variations.contains_key(board_hash) || !variations[board_hash].contains_key(chess_move) {
+      return 0;
+    }
+    return variations[board_hash][chess_move];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Evaluation cached data
+
+  /// Checks if a board position has a known static position evaluation
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash a known eval in the EngineCache. False otherwise
+  ///
+  pub fn has_eval(&self, board_hash: &BoardHash) -> bool {
+    return self.evals.lock().unwrap().contains_key(board_hash);
+  }
+
+  /// Sets the associated evaluation to a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `eval` :            Evaluation value to save
+  ///
+  ///
+  pub fn set_eval(&self, board_hash: BoardHash, eval: f32) {
+    self.evals.lock().unwrap().insert(board_hash, eval);
+  }
+
+  /// Gets the cached eval for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// The evaluation of the board. Returns 0 if the evaluation is unknown.
+  ///
+  pub fn get_eval(&self, board_hash: &BoardHash) -> f32 {
+    if !self.has_eval(board_hash) {
+      error!("Looked up an eval without any value for board. Returning 0");
+      return 0.0;
+    }
+    *self.evals.lock().unwrap().get(board_hash).unwrap_or(&0.0)
+  }
+
+  // ---------------------------------------------------------------------------
+  // GameStatus cached data
+
+  /// Checks if a board position has a known game status
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash a known GameStatus in the EngineCache. False otherwise
+  ///
+  pub fn has_status(&self, board_hash: &BoardHash) -> bool {
+    return self.statuses.lock().unwrap().contains_key(board_hash);
+  }
+
+  /// Sets the associated game status to a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `status` :          GameStatus value to save
+  ///
+  pub fn set_status(&self, board_hash: BoardHash, status: GameStatus) {
+    self.statuses.lock().unwrap().insert(board_hash, status);
+  }
+
+  /// Gets the cached GameStatus for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// The evaluation of the board. Returns 0 if the evaluation is unknown.
+  ///
+  pub fn get_status(&self, board_hash: &BoardHash) -> GameStatus {
+    if !self.has_status(board_hash) {
+      error!("Looked up a GameStatus without any value for board. Returning Draw");
+      return GameStatus::Draw;
+    }
+    self
+      .statuses
+      .lock()
+      .unwrap()
+      .get(board_hash)
+      .unwrap_or(&GameStatus::Ongoing)
+      .clone()
+  }
+
+  // ---------------------------------------------------------------------------
+  // GamePhase cached data
+
+  /// Checks if a board position has a known game phase
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// True if the board hash a known GamePhase in the EngineCache. False otherwise
+  ///
+  pub fn has_game_phase(&self, board_hash: &BoardHash) -> bool {
+    return self.phases.lock().unwrap().contains_key(board_hash);
+  }
+
+  /// Sets the associated game phase to a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  /// * `phase` :          GameStatus value to save
+  ///
+  pub fn set_game_phase(&self, board_hash: BoardHash, phase: GamePhase) {
+    self.phases.lock().unwrap().insert(board_hash, phase);
+  }
+
+  /// Gets the cached GamePhase for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board_hash` :      Hash value for the board configuration
+  ///
+  /// ### Return value
+  ///
+  /// The phase associated with of the board. Returns Endgame if the phase is unknown.
+  ///
+  pub fn get_game_phase(&self, board_hash: &BoardHash) -> GamePhase {
+    if !self.has_game_phase(board_hash) {
+      error!("Looked up a GamePhase without any value for board. Returning Endgame");
+      return GamePhase::Endgame;
+    }
+    *self
+      .phases
+      .lock()
+      .unwrap()
+      .get(board_hash)
+      .unwrap_or(&GamePhase::Endgame)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tree cached data
 
   /// Checks if a position has a EvalTree entry
   ///
@@ -143,255 +469,6 @@ impl EngineCache {
   ///
   pub fn has_tree_key(&self, board: &BoardHash) -> bool {
     return self.tree.lock().unwrap().contains_key(board);
-  }
-
-  /// Checks if a position has a known move list
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  ///
-  /// ### Return value
-  ///
-  /// True if the board hash has a move list in the PositionCache in the EngineCache. False otherwise
-  ///
-  pub fn has_move_list(&self, board: &BoardHash) -> bool {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .move_list
-      .is_some();
-  }
-
-  /// Retrieves the list of legal moves for a position, if present in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  ///
-  /// ### Return value
-  ///
-  /// Optional Vector of moves for the board position
-  ///
-  pub fn get_move_list(&self, board: &BoardHash) -> Option<Vec<Move>> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .move_list
-      .clone();
-  }
-
-  /// Configures the list of legal moves for a position in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `move_list` :       List of moves to save in the PositionCache
-  ///
-  pub fn set_move_list(&self, board: &BoardHash, move_list: &[Move]) {
-    if !self.has_position_key(board) {
-      self.add(board, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
-      entry.move_list = Some(move_list.to_owned());
-    } else {
-      error!("Error updating move list in the cache for board {board}");
-    }
-  }
-
-  /// Retrieves the evaluation for a position, if present in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  ///
-  /// ### Return value
-  ///
-  /// Optional evaluation value
-  ///
-  pub fn get_eval(&self, board: &BoardHash) -> Option<f32> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .eval;
-  }
-
-  /// Sets the evaluation for a position in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `eval` :            Evaluation for the position to save in the PositionCache
-  ///
-  pub fn set_eval(&self, board: &BoardHash, eval: f32) {
-    if !self.has_position_key(board) {
-      self.add(board, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
-      entry.eval = Some(eval);
-    } else {
-      error!("Error updating eval in the cache for hash {board}");
-    }
-  }
-
-  /// Retrieves the game phase for a position, if present in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  ///
-  /// ### Return value
-  ///
-  /// Optional game phase value
-  ///
-  pub fn get_game_phase(&self, board: &BoardHash) -> Option<GamePhase> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .game_phase;
-  }
-
-  /// Sets the game phase for a position in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `game_phase` :      Game phase for the position to save in the PositionCache
-  ///
-  pub fn set_game_phase(&self, board: &BoardHash, game_phase: GamePhase) {
-    if !self.has_position_key(board) {
-      self.add(board, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
-      entry.game_phase = Some(game_phase);
-    } else {
-      error!("Error updating Game Phase in the cache for hash {board}");
-    }
-  }
-
-  /// Adds a continuation for a position in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `chess_move` :      Chess move applied on the board configuration
-  /// * `resulting_board` : Hash value for the board after the chess move applied on the board configuration
-  ///
-  pub fn add_variation(&self, board: &BoardHash, chess_move: &Move, resulting_board: &BoardHash) {
-    if !self.has_position_key(board) {
-      self.add(board, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
-      entry.variations.insert(*chess_move, *resulting_board);
-    } else {
-      error!("Error updating Variations in the cache for board {board}");
-    }
-  }
-
-  /// Retrives the number of checks for a board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :  Candidate move to look up in the EngineCache
-  ///
-  /// ### Return value
-  ///
-  /// True if the `candidate_move` is present in the list of Killer moves
-  ///
-  pub fn get_checks(&self, board: &BoardHash) -> Option<u8> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .checks;
-  }
-
-  /// Sets the number of checks for a board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :  Candidate move to look up in the EngineCache
-  /// * `checks` : Number of checks to set in the EngineCache for the position
-  ///
-  pub fn set_checks(&self, board: &BoardHash, checks: u8) {
-    if !self.has_position_key(board) {
-      self.add(board, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board) {
-      entry.checks = Some(checks);
-    } else {
-      error!("Error updating checks in the cache for hash {board}");
-    }
-  }
-
-  /// Gets the game status based on the board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board_hash` :  Board configuration to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// GameStatus that has been saved in the cache, else None.
-  ///
-  pub fn get_game_status(&self, board_hash: &BoardHash) -> Option<GameStatus> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board_hash)
-      .unwrap_or(&PositionCache::default())
-      .status;
-  }
-
-  /// Sets the game status based on the board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board_hash` :  Board configuration to look up
-  /// * `game_status` : Game status for the board configuration
-  ///
-  pub fn set_game_status(&self, board_hash: &BoardHash, game_status: GameStatus) {
-    if !self.has_position_key(board_hash) {
-      self.add(board_hash, PositionCache::default());
-    }
-
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board_hash) {
-      entry.status = Some(game_status);
-    } else {
-      error!("Error updating game status in the cache for hash {board_hash}");
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -565,51 +642,6 @@ impl EngineCache {
   // ---------------------------------------------------------------------------
   // Position independant cached data
 
-  /// Gets the list of known continuations for a position in the EngineCache
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  ///
-  /// ### Return value
-  ///
-  /// HashMap of moves/boards for continuations.
-  ///
-  pub fn get_variations(&self, board: &BoardHash) -> HashMap<Move, BoardHash> {
-    return self
-      .positions
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&PositionCache::default())
-      .variations
-      .clone();
-  }
-
-  /// Gets the new board hash from a position after applying a move
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Hash value for the board configuration
-  /// * `chess_move` :      Chess move to apply
-  ///
-  /// ### Return value
-  ///
-  /// Optional BoardHash of the resulting continuation
-  ///
-  pub fn get_variation(&self, board_hash: &BoardHash, chess_move: &Move) -> Option<BoardHash> {
-    let p = &self.positions.lock().unwrap();
-    let default = PositionCache::default();
-    let variations = &p.get(board_hash).unwrap_or(&default).variations;
-
-    if variations.contains_key(chess_move) {
-      return Some(variations[chess_move]);
-    }
-    None
-  }
-
   /// Adds a killer move in the EngineCache
   /// This is not dependant on positions, and should be cleared when the engine moves to another position
   ///
@@ -653,6 +685,7 @@ impl EngineCache {
   ///
   /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
   /// * `board_hash` Reference to a BoardHash in the cache for which to compare the moves
+  /// * `color`      Side to play. It will order ascending for black, descending for white
   /// * `a`          Move A
   /// * `b`          Move B
   ///
@@ -660,20 +693,35 @@ impl EngineCache {
   ///
   /// Ordering telling if B is Greater, Equal or Less than A
   ///
-  fn compare_moves_by_cache_eval(&self, board_hash: &BoardHash, a: &Move, b: &Move) -> Ordering {
-    println!("Get variation a {}", a.to_string());
-    let board_a = self.get_variation(board_hash, a).unwrap_or(0);
-    println!("Get eval a {}", a.to_string());
-    let board_a_eval = self.get_eval(&board_a).unwrap_or(f32::MIN);
+  fn compare_moves_by_cache_eval(
+    &self,
+    board_hash: &BoardHash,
+    color: Color,
+    a: &Move,
+    b: &Move,
+  ) -> Ordering {
+    let board_a = self.get_variation(board_hash, a);
+    let board_b = self.get_variation(board_hash, b);
 
-    println!("Get variation b {}", b.to_string());
-    let board_b = self.get_variation(board_hash, b).unwrap_or(0);
-    let board_b_eval = self.get_eval(&board_b).unwrap_or(f32::MIN);
+    match (self.has_eval(&board_a), self.has_eval(&board_b)) {
+      (false, false) => return Ordering::Equal,
+      (true, false) => return Ordering::Less,
+      (false, true) => return Ordering::Greater,
+      (_, _) => {},
+    }
+
+    let board_a_eval = self.get_eval(&board_a);
+    let board_b_eval = self.get_eval(&board_b);
+
+    let (greater, less) = match color {
+      Color::White => (Ordering::Less, Ordering::Greater),
+      Color::Black => (Ordering::Greater, Ordering::Less),
+    };
 
     if board_a_eval > board_b_eval {
-      return Ordering::Greater;
-    } else if board_b_eval < board_a_eval {
-      return Ordering::Less;
+      return greater;
+    } else if board_a_eval < board_b_eval {
+      return less;
     }
     Ordering::Equal
   }
@@ -684,22 +732,14 @@ impl EngineCache {
   ///
   /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
   /// * `board_hash` BoardHash for which the moves should be ordered
-  /// * `a`          Move A
-  /// * `b`          Move B
+  /// * `color`      The side to play on the boardhash
   ///
-  /// ### Return value
-  ///
-  /// Ordering telling if B is Greater, Equal or Less than A
-  ///
-  pub fn sort_moves_by_eval(&self, board_hash: &BoardHash) {
-    if let Some(entry) = self.positions.lock().unwrap().get_mut(board_hash) {
-      if entry.move_list.is_some() {
-        entry
-          .move_list
-          .as_mut()
-          .unwrap()
-          .sort_by(|a, b| self.compare_moves_by_cache_eval(board_hash, a, b));
-      }
+  pub fn sort_moves_by_eval(&self, board_hash: &BoardHash, color: Color) {
+    if !self.has_move_list(board_hash) {
+      return;
+    }
+    if let Some(move_list) = self.move_lists.lock().unwrap().get_mut(board_hash) {
+      move_list.sort_by(|a, b| self.compare_moves_by_cache_eval(board_hash, color, a, b));
     } else {
       error!("Error sorting move list in the cache for board {board_hash}");
     }
@@ -713,32 +753,10 @@ impl EngineCache {
 mod tests {
 
   use super::*;
-  use crate::chess::model::game_state::GameState;
+  use crate::chess::{engine::eval::position::determine_game_phase, model::game_state::GameState};
 
   #[test]
-  fn test_cache_has_position_key() {
-    let engine_cache: EngineCache = EngineCache::new();
-
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let game_state = GameState::from_fen(fen);
-    engine_cache.add(&game_state.board.hash, PositionCache::default());
-
-    // Same position, different move number
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 46";
-    let game_state = GameState::from_fen(fen);
-    engine_cache.add(&game_state.board.hash, PositionCache::default());
-
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 0 0";
-    let game_state = GameState::from_fen(fen);
-    assert_eq!(true, engine_cache.has_position_key(&game_state.board.hash));
-
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/7P b - - 8 43";
-    let game_state = GameState::from_fen(fen);
-    assert_eq!(false, engine_cache.has_position_key(&game_state.board.hash));
-  }
-
-  #[test]
-  fn test_cache_get_set_data() {
+  fn test_game_state_data() {
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
@@ -746,87 +764,21 @@ mod tests {
 
     // Empty cache:
     assert_eq!(0, engine_cache.len());
-    assert_eq!(false, engine_cache.has_move_list(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_move_list(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_checks(&game_state.board.hash));
+    assert_eq!(false, engine_cache.has_game_state(&game_state.board.hash));
 
-    // Now add the data:
-    let position_cache = PositionCache {
-      move_list: Some(Vec::new()),
-      eval: Some(20.0),
-      game_phase: Some(GamePhase::Opening),
-      variations: HashMap::new(),
-      checks: Some(2),
-      status: None,
-    };
+    engine_cache.set_game_state(game_state.board.hash, &game_state);
+    assert_eq!(true, engine_cache.has_game_state(&game_state.board.hash));
 
-    engine_cache.add(&game_state.board.hash, position_cache);
-    assert_eq!(1, engine_cache.len());
-
-    // Read the cache
-    assert_eq!(
-      Vec::<Move>::new(),
-      engine_cache.get_move_list(&game_state.board.hash).unwrap()
-    );
-    assert_eq!(Some(20.0), engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(
-      Some(GamePhase::Opening),
-      engine_cache.get_game_phase(&game_state.board.hash)
-    );
-    assert_eq!(Some(2), engine_cache.get_checks(&game_state.board.hash));
-
-    // Add manually:
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/7P b - - 8 43";
-    let game_state = GameState::from_fen(fen);
-    assert_eq!(None, engine_cache.get_move_list(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
-
-    // First the move list
-    let mut move_list = Vec::new();
-    move_list.push(Move::from_string("h3g7"));
-    move_list.push(Move::from_string("a1a8Q"));
-
-    assert_eq!(false, engine_cache.has_move_list(&game_state.board.hash));
-    engine_cache.set_move_list(&game_state.board.hash, &move_list);
-    assert_eq!(true, engine_cache.has_move_list(&game_state.board.hash));
-
-    assert_eq!(
-      move_list,
-      engine_cache.get_move_list(&game_state.board.hash).unwrap()
-    );
-    assert_eq!(None, engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
-
-    // Then the eval:
-    engine_cache.set_eval(&game_state.board.hash, 99.9);
-    assert_eq!(
-      move_list,
-      engine_cache.get_move_list(&game_state.board.hash).unwrap()
-    );
-    assert_eq!(Some(99.9), engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
-
-    // Finally the game phase
-    engine_cache.set_game_phase(&game_state.board.hash, GamePhase::Endgame);
-    assert_eq!(
-      move_list,
-      engine_cache.get_move_list(&game_state.board.hash).unwrap()
-    );
-    assert_eq!(Some(99.9), engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(
-      Some(GamePhase::Endgame),
-      engine_cache.get_game_phase(&game_state.board.hash)
-    );
+    let new_state = engine_cache.get_game_state(&game_state.board.hash);
+    assert_eq!(new_state.move_count, game_state.move_count);
+    assert_eq!(new_state.board, game_state.board);
+    assert_eq!(new_state.checks, game_state.checks);
 
     // Clear the cache:
+    assert_eq!(1, engine_cache.len());
     engine_cache.clear();
     assert_eq!(0, engine_cache.len());
-    assert_eq!(None, engine_cache.get_move_list(&game_state.board.hash));
-    assert_eq!(false, engine_cache.has_move_list(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_eval(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_game_phase(&game_state.board.hash));
-    assert_eq!(None, engine_cache.get_checks(&game_state.board.hash));
+    assert_eq!(false, engine_cache.has_game_state(&game_state.board.hash));
   }
 
   #[test]
@@ -875,53 +827,39 @@ mod tests {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let mut game_state = GameState::from_fen(fen);
 
-    println!("OK 1");
-
     // Save a move list
-    let mut move_list = game_state.get_moves().clone();
-    engine_cache.set_move_list(&game_state.board.hash, &move_list);
-    engine_cache.set_checks(&game_state.board.hash, game_state.checks);
-    println!("OK 2");
+    engine_cache.set_move_list(game_state.board.hash, &game_state.get_moves());
 
-    for m in engine_cache.get_move_list(&game_state.board.hash).unwrap() {
-      println!("OK move {}", m.to_string());
-
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
       let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m, false);
+      new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
-      new_game_state.update_game_phase();
-      engine_cache.set_game_phase(
-        &new_game_state.board.hash,
-        new_game_state.game_phase.unwrap(),
-      );
-
-      let (score, _) = evaluate_position(&new_game_state);
-      // FIXME: This will save some 3 fold repetitions and stuff like that in the tree.
-      engine_cache.set_eval(&new_game_state.board.hash, score);
+      determine_game_phase(&engine_cache, &game_state);
+      evaluate_position(&engine_cache, &new_game_state);
     }
 
     // Now try to sort move list by eval:
-    println!("OK 3... sorting");
-
-    assert!(
-      false,
-      "FIXME: Mutex do not allow to read the eval while modifying the move list"
-    );
-    engine_cache.sort_moves_by_eval(&game_state.board.hash);
-    println!("OK 3... sorted");
+    engine_cache.sort_moves_by_eval(&game_state.board.hash, Color::Black);
 
     let mut last_eval = f32::MIN;
-    for m in engine_cache
-      .get_move_list(&game_state.board.hash)
-      .as_ref()
-      .unwrap()
-    {
-      let new_board = engine_cache
-        .get_variation(&game_state.board.hash, &m)
-        .unwrap_or(0);
-      let new_eval = engine_cache.get_eval(&new_board).unwrap_or(f32::MAX);
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let new_board = engine_cache.get_variation(&game_state.board.hash, &m);
+      let new_eval = engine_cache.get_eval(&new_board);
       println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval < new_eval);
+      assert!(last_eval <= new_eval);
+      last_eval = new_eval;
+    }
+
+    // Try again with White:
+    println!("----------------------------------------------------------------");
+    engine_cache.sort_moves_by_eval(&game_state.board.hash, Color::White);
+
+    let mut last_eval = f32::MAX;
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let new_board = engine_cache.get_variation(&game_state.board.hash, &m);
+      let new_eval = engine_cache.get_eval(&new_board);
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
+      assert!(last_eval >= new_eval);
       last_eval = new_eval;
     }
   }

@@ -37,9 +37,6 @@ pub struct GameState {
   pub board: Board,
   pub ply: u8,
   pub move_count: usize,
-  pub move_list: Option<Vec<Move>>,
-  // Phase of the game. None if not determined yet
-  pub game_phase: Option<GamePhase>,
   // Vector of position representing the last x positions, from the start
   pub last_positions: VecDeque<BoardHash>,
   pub last_moves: Vec<Move>,
@@ -82,14 +79,11 @@ impl GameState {
       board: board,
       ply: ply,
       move_count: move_count,
-      move_list: None,
-      game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
       last_moves: Vec::new(),
     };
     // Determine if we're check / Checkmate
     game_state.update_checks();
-    game_state.update_game_phase();
     game_state
   }
 
@@ -239,37 +233,6 @@ impl GameState {
     (heatmap, heatmap_sources)
   }
 
-  /// Checks what's the game status based on the game state
-  ///
-  ///
-  pub fn get_game_status(&self) -> GameStatus {
-    if self.move_list.is_some() && self.move_list.as_ref().unwrap().is_empty() {
-      match (self.board.side_to_play, self.checks) {
-        (_, 0) => return GameStatus::Draw,
-        (Color::Black, _) => return GameStatus::WhiteWon,
-        (Color::White, _) => return GameStatus::BlackWon,
-      }
-    }
-
-    if self.ply >= 100 {
-      debug!("100 Ply detected");
-      return GameStatus::Draw;
-    }
-    // 2 kings, or 1 king + knight or/bishop vs king is game over:
-    if self.board.is_game_over_by_insufficient_material() {
-      debug!("game over by insufficient material detected");
-      return GameStatus::Draw;
-    }
-
-    // Check the 3-fold repetitions
-    if self.is_game_over_by_repetition() {
-      debug!("3-fold repetition detected");
-      return GameStatus::Draw;
-    }
-
-    GameStatus::Ongoing
-  }
-
   /// Checks if we just made a repetition that triggers a game over situation
   ///
   pub fn is_game_over_by_repetition(&self) -> bool {
@@ -284,28 +247,16 @@ impl GameState {
     repetition_count >= 2
   }
 
-  // Sets all the possible moves in a position
-  pub fn set_moves(&mut self, moves: &Vec<Move>) {
-    //self.move_list.clear();
-    self.move_list = Some(moves.clone());
-  }
-
   // Get all the possible moves in a position
-  pub fn get_moves(&mut self) -> &Vec<Move> {
-    if self.move_list.is_some() {
-      return self.move_list.as_ref().unwrap();
-    }
-
+  pub fn get_moves(&self) -> Vec<Move> {
     match self.board.side_to_play {
-      Color::White => self.move_list = Some(self.get_white_moves()),
-      Color::Black => self.move_list = Some(self.get_black_moves()),
+      Color::White => return self.get_white_moves(),
+      Color::Black => return self.get_black_moves(),
     }
-
-    return self.move_list.as_ref().unwrap();
   }
 
   // Get all the possible moves for white in a position
-  pub fn get_white_moves(&mut self) -> Vec<Move> {
+  pub fn get_white_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
     let ssp = self.board.get_piece_color_mask(Color::White);
@@ -399,7 +350,7 @@ impl GameState {
   }
 
   // Get all the possible moves for black in a position
-  pub fn get_black_moves(&mut self) -> Vec<Move> {
+  pub fn get_black_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
     let ssp = self.board.get_piece_color_mask(Color::Black);
@@ -512,7 +463,7 @@ impl GameState {
     self.checks = opponent_heatmap[king_square as usize] as u8;
   }
 
-  pub fn apply_move(&mut self, chess_move: &Move, compute_legal_moves: bool) -> () {
+  pub fn apply_move(&mut self, chess_move: &Move) -> () {
     // Check if the right side is moving:
     match Piece::color(self.board.squares[chess_move.src as usize]) {
       Some(_) => {},
@@ -524,12 +475,6 @@ impl GameState {
         return;
       },
     }
-    // Reset computed assets that need re-computation:
-    if self.game_phase.is_some() && self.game_phase.unwrap() != GamePhase::Endgame {
-      self.game_phase = None;
-    }
-    self.move_list = None;
-    self.checks = 0;
 
     // Save the last position:
     if self.last_positions.len() >= LAST_POSITIONS_SIZE {
@@ -559,17 +504,12 @@ impl GameState {
 
     // Check if we have checks
     self.update_checks();
-
-    // Compute the list of legal moves if we need it
-    if compute_legal_moves {
-      let _ = self.get_moves();
-    }
   }
 
   // Applies all moves from a vector of moves
   pub fn apply_moves(&mut self, move_list: &Vec<Move>) -> () {
     for chess_move in move_list {
-      self.apply_move(chess_move, false);
+      self.apply_move(chess_move);
     }
   }
 
@@ -580,53 +520,7 @@ impl GameState {
 
     let moves: Vec<&str> = move_list.split(' ').collect();
     for chess_move in moves {
-      self.apply_move(&Move::from_string(chess_move), false);
-    }
-  }
-
-  // Determine the game phrase and update it.
-  pub fn update_game_phase(&mut self) {
-    // Do not recalculate when we calculated already
-    if self.game_phase.is_some() {
-      return;
-    }
-
-    if self.move_count > 30 {
-      self.game_phase = Some(GamePhase::Endgame);
-      return;
-    }
-
-    // Basic material count, disregarding pawns.
-    let mut material_count: usize = 0;
-    let mut development_index: usize = 0;
-    for i in 0..64 {
-      match self.board.squares[i] {
-        WHITE_QUEEN | BLACK_QUEEN => material_count += 9,
-        WHITE_ROOK | BLACK_ROOK => material_count += 5,
-        WHITE_BISHOP | BLACK_BISHOP => material_count += 3,
-        WHITE_KNIGHT | BLACK_KNIGHT => material_count += 3,
-        _ => {},
-      }
-    }
-    for i in 0..8 {
-      match self.board.squares[i] {
-        WHITE_QUEEN | WHITE_BISHOP | WHITE_KNIGHT => development_index += 1,
-        _ => {},
-      }
-    }
-    for i in 56..64 {
-      match self.board.squares[i] {
-        BLACK_QUEEN | BLACK_BISHOP | BLACK_KNIGHT => development_index += 1,
-        _ => {},
-      }
-    }
-
-    if material_count < 17 {
-      self.game_phase = Some(GamePhase::Endgame);
-    } else if development_index > 2 {
-      self.game_phase = Some(GamePhase::Opening);
-    } else {
-      self.game_phase = Some(GamePhase::Middlegame);
+      self.apply_move(&Move::from_string(chess_move));
     }
   }
 }
@@ -669,8 +563,6 @@ impl Default for GameState {
       board: Board::from_fen(START_POSITION_FEN),
       ply: 0,
       move_count: 1,
-      move_list: None,
-      game_phase: None,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
       last_moves: Vec::new(),
     }
@@ -721,23 +613,23 @@ mod tests {
     let mut game_state = GameState::from_fen(fen);
     let move_list = game_state.get_moves();
     println!("List of moves (should include a promotion):\n");
+    assert_eq!(20, move_list.len());
     for m in move_list {
       println!("{m}");
     }
-    assert_eq!(20, move_list.len());
 
     let fen = "r2q1rk1/p2b1ppp/3bpn2/2pP4/2B5/2N2Q2/PP3PPP/R1B2RK1 w - c6 0 14";
     let mut game_state = GameState::from_fen(fen);
     let move_list = game_state.get_moves();
     println!("List of moves (should include a en-passant capture):\n");
+    assert_eq!(42, move_list.len());
     for m in move_list {
       println!("{m}");
     }
-    assert_eq!(42, move_list.len());
 
     // Apply the en-passant move, check that the destination capture pawn is gone.
     let en_passant_move = Move::from_string("d5c6");
-    game_state.apply_move(&en_passant_move, false);
+    game_state.apply_move(&en_passant_move);
     let expected_fen = "r2q1rk1/p2b1ppp/2Pbpn2/8/2B5/2N2Q2/PP3PPP/R1B2RK1 b - - 0 14";
     assert_eq!(expected_fen, game_state.to_fen());
   }
@@ -746,7 +638,7 @@ mod tests {
   fn test_apply_some_moves() {
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
     let mut game_state = GameState::from_fen(fen);
-    game_state.apply_move(&Move::from_string("a7a5"), false);
+    game_state.apply_move(&Move::from_string("a7a5"));
 
     let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq - 0 13";
     assert_eq!(expected_fen, game_state.to_fen().as_str());
@@ -797,21 +689,6 @@ mod tests {
   }
 
   #[test]
-  fn update_game_phase() {
-    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
-    let mut game_state = GameState::from_fen(fen);
-    assert_eq!(Some(GamePhase::Opening), game_state.game_phase);
-
-    let fen = "r3k2r/2qnbppp/p1p5/1p1np3/3PQ3/2P1B1PP/PP1NNP2/R3K2R w KQkq - 4 14";
-    let mut game_state = GameState::from_fen(fen);
-    assert_eq!(Some(GamePhase::Middlegame), game_state.game_phase);
-
-    let fen = "4r1k1/4b1p1/p3p2p/2pR4/2p5/4B1PP/PP3P2/2K5 w - - 0 27";
-    let mut game_state = GameState::from_fen(fen);
-    assert_eq!(Some(GamePhase::Endgame), game_state.game_phase);
-  }
-
-  #[test]
   fn test_copying() {
     let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
     let mut game_state = GameState::from_fen(fen);
@@ -821,10 +698,6 @@ mod tests {
 
     let mut game_state_copy = game_state.clone();
     game_state.get_moves();
-
-    assert_eq!(true, game_state.move_list.is_some());
-    assert_eq!(false, game_state_copy.move_list.is_some());
-    assert!(0 != game_state.move_list.unwrap().len());
 
     assert!(1 == game_state_copy.last_positions.len());
     game_state_copy.last_positions.pop_front();
@@ -843,11 +716,10 @@ mod tests {
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      game_state.get_moves();
-      let moves = game_state.move_list.as_ref().unwrap();
+      let moves = game_state.get_moves();
       if !moves.is_empty() {
         let m = moves[0];
-        game_state.apply_move(&m, false);
+        game_state.apply_move(&m);
         positions_computed += 1;
       } else {
         game_state = GameState::from_fen(fen);

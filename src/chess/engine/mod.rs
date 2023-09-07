@@ -197,16 +197,16 @@ impl Engine {
   ///
   pub fn set_position(&mut self, fen: &str) {
     self.reset();
-    self.position = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
+    self.position = game_state.clone();
+    let move_list = self.position.get_moves();
 
-    if let Some(move_list) = self.cache.get_move_list(&self.position.board.hash) {
-      self.analysis.init_scores(&move_list);
-    } else {
-      let board = self.position.board.clone();
-      let move_list = self.position.get_moves();
-      self.cache.set_move_list(&board.hash, &move_list);
-      self.analysis.init_scores(&move_list);
+    // Compute move list if not known.
+    if !self.cache.has_move_list(&game_state.board.hash) {
+      self.cache.set_move_list(game_state.board.hash, &move_list);
     }
+    // Use the move list for our analysis / score keeping.
+    self.analysis.init_scores(&move_list);
   }
 
   /// Applies a move from the current position
@@ -220,20 +220,20 @@ impl Engine {
     if self.is_active() {
       self.stop();
     }
-    self
-      .position
-      .apply_move(&Move::from_string(chess_move), false);
+    self.position.apply_move(&Move::from_string(chess_move));
+    self.cache.clear_killer_moves();
     self.analysis.reset();
+    let board_hash = self.position.board.hash;
 
-    if let Some(move_list) = self.cache.get_move_list(&self.position.board.hash) {
-      self.position.set_moves(&move_list);
-      self.analysis.init_scores(&move_list);
-    } else {
-      let board = self.position.board.clone();
-      let move_list = self.position.get_moves();
-      self.cache.set_move_list(&board.hash, &move_list);
-      self.analysis.init_scores(&move_list);
+    // Reset the list of scores.
+    let move_list = self.position.get_moves();
+
+    // Compute move list if not known.
+    if !self.cache.has_move_list(&board_hash) {
+      self.cache.set_move_list(board_hash, &move_list);
     }
+    // Use the move list for our analysis / score keeping.
+    self.analysis.init_scores(&move_list);
   }
 
   /// Starts analyzing the current position
@@ -288,26 +288,7 @@ impl Engine {
 
   /// Returns the best move
   pub fn get_best_move(&self) -> Move {
-    let score = self.cache.get_eval(&self.position.board.hash);
-    if score.is_none() {
-      println!("Warn: No score available.");
-      return self.position.move_list.as_ref().unwrap()[0];
-    }
-
-    let score = score.unwrap();
-    let variations = self.cache.get_variations(&self.position.board.hash);
-
-    for (m, board_hash) in variations {
-      if let Some(eval) = self.cache.get_eval(&board_hash) {
-        //println!("Score for move {}: {}", m, eval);
-        if eval == score {
-          return m;
-        }
-      }
-    }
-
-    println!("Warn: Cannot find matching score.");
-    return self.position.move_list.as_ref().unwrap()[0];
+    return self.cache.get_move_list(&self.position.board.hash)[0];
   }
 
   /// Returns a string of the best move continuation (e.g. d1c3 c2c8 f2g3)
@@ -325,39 +306,19 @@ impl Engine {
   pub fn get_line_string(&self, board_hash: BoardHash, side_to_play: Color) -> String {
     let line_string = String::new();
 
-    let variations = self.cache.get_variations(&board_hash);
-    if variations.is_empty() {
+    if !self.cache.has_move_list(&board_hash) {
       return line_string;
     }
 
-    let mut best_eval: f32 = match side_to_play {
-      Color::White => f32::MIN,
-      Color::Black => f32::MAX,
-    };
-    let mut best_move = Move::default();
-    let mut best_new_board: BoardHash = 0;
-
-    for (m, board_hash) in variations {
-      if let Some(eval) = self.cache.get_eval(&board_hash) {
-        match side_to_play {
-          Color::White => {
-            if eval > best_eval {
-              best_eval = eval;
-              best_move = m;
-              best_new_board = board_hash;
-            }
-          },
-          Color::Black => {
-            if eval < best_eval {
-              best_eval = eval;
-              best_move = m;
-              best_new_board = board_hash;
-            }
-          },
-        }
-      }
+    let move_list = self.cache.get_move_list(&board_hash);
+    if move_list.is_empty() {
+      return line_string;
     }
-
+    let best_move = move_list[0];
+    if !self.cache.has_variation(&board_hash, &best_move) {
+      return line_string;
+    }
+    let best_new_board = self.cache.get_variation(&board_hash, &best_move);
     return best_move.to_string()
       + " "
       + self
@@ -368,38 +329,29 @@ impl Engine {
   /// Prints the evaluation result in the console
   ///
   pub fn print_evaluations(&self) {
+    debug_assert!(!self.cache.has_game_state(&0));
     let score = self.cache.get_eval(&self.position.board.hash);
-    if score.is_none() {
-      println!(
-        "Warn: No score available for position. {}",
-        &self.position.board.hash
-      );
-      return;
-    }
-
-    let score = score.unwrap();
     println!(
       "Score for position {}: {}",
       &self.position.board.hash, score
     );
-    let variations = self.cache.get_variations(&self.position.board.hash);
 
+    let move_list = self.cache.get_move_list(&self.position.board.hash);
     let mut i = 0;
-    for (m, board_hash) in variations {
-      if let Some(eval) = self.cache.get_eval(&board_hash) {
-        println!(
-          "Line {:<2}: Eval {:<10} - {} {}",
-          i,
-          eval,
-          m,
-          self.get_line_string(
-            board_hash,
-            Color::opposite(self.position.board.side_to_play)
-          )
-        );
-      } else {
-        println!("Line {:<2}: Eval <None> - {}", i, m);
-      }
+
+    for m in move_list {
+      let board_hash = self.cache.get_variation(&self.position.board.hash, &m);
+      let eval = self.cache.get_eval(&board_hash);
+      println!(
+        "Line {:<2}: Eval {:<10} - {} {}",
+        i,
+        eval,
+        m,
+        self.get_line_string(
+          board_hash,
+          Color::opposite(self.position.board.side_to_play)
+        )
+      );
       i += 1;
     }
   }
@@ -448,63 +400,11 @@ impl Engine {
   fn find_move_list(cache: &EngineCache, game_state: &GameState) {
     // Check that we know the moves:
     if !cache.has_move_list(&game_state.board.hash) {
-      let mut new_game_state = game_state.clone();
-      let mut move_list = new_game_state.get_moves().clone();
+      let mut move_list = game_state.get_moves();
 
       // Sort the moves based on interesting-ness
-      move_list.sort_by(|a, b| Engine::compare_moves(cache, &new_game_state, a, b));
-      cache.set_move_list(&game_state.board.hash, &move_list);
-    }
-  }
-
-  /// Looks at the board and checks what's the game status (ongoing, win, draw)
-  /// and saves it in the cache
-  ///
-  /// ### Arguments
-  ///
-  /// * cache:      EngineCache where the move list is stored at the end.
-  /// * game_state: GameState to evaluate for a Draw/Win/Ongoing
-  ///
-  fn find_game_status(cache: &EngineCache, game_state: &GameState) {
-    if cache.get_game_status(&game_state.board.hash).is_some() {
-      return;
-    }
-
-    let game_status = game_state.get_game_status();
-    cache.set_game_status(&game_state.board.hash, game_status);
-  }
-
-  /// Looks at the cache and makes sure we have known game phrase for a position
-  /// Else it gets computed and saved to the cache
-  ///
-  /// The game_state object also gets modified
-  ///
-  /// ### Arguments
-  ///
-  /// * cache:      EngineCache where the game phase is stored at the end.
-  /// * game_state: GameState to determine the game phase and save it to the cache.
-  ///
-  fn find_game_phase(cache: &EngineCache, game_state: &mut GameState) {
-    if let Some(game_phase) = cache.get_game_phase(&game_state.board.hash) {
-      game_state.game_phase = Some(game_phase);
-    } else {
-      game_state.update_game_phase();
-      if let Some(phase) = game_state.game_phase {
-        cache.set_game_phase(&game_state.board.hash, phase);
-      }
-    }
-  }
-
-  /// Looks at the cache and makes sure we know the number of checks for a board position
-  ///
-  /// ### Arguments
-  ///
-  /// * cache:      EngineCache where the number of checks is stored.
-  /// * game_state: GameState indicating a board configuration
-  ///
-  fn save_checks(cache: &EngineCache, game_state: &GameState) {
-    if cache.get_checks(&game_state.board.hash).is_none() {
-      cache.set_checks(&game_state.board.hash, game_state.checks);
+      move_list.sort_by(|a, b| Engine::compare_moves(cache, &game_state, a, b));
+      cache.set_move_list(game_state.board.hash, &move_list);
     }
   }
 
@@ -542,27 +442,30 @@ impl Engine {
       (_, _) => {},
     }
 
-    let a_checks = if cache.get_variation(&game_state.board.hash, a).is_none() {
-      let mut game_state_a = game_state.clone();
-      game_state_a.apply_move(a, false);
-      cache.set_checks(&game_state_a.board.hash, game_state_a.checks);
-      game_state_a.checks
-    } else {
-      let variation = cache.get_variation(&game_state.board.hash, a).unwrap();
-      cache.get_checks(&variation).unwrap_or(0)
-    };
+    // Check we know the a continuation:
+    if !cache.has_variation(&game_state.board.hash, a)
+      || !cache.has_game_state(&cache.get_variation(&game_state.board.hash, a))
+    {
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(a);
+      cache.add_variation(&game_state.board.hash, a, &new_game_state.board.hash);
+      cache.set_game_state(new_game_state.board.hash, &new_game_state);
+    }
 
-    let b_checks = if cache.get_variation(&game_state.board.hash, b).is_none() {
-      let mut game_state_b = game_state.clone();
-      game_state_b.apply_move(b, false);
-      cache.set_checks(&game_state_b.board.hash, game_state_b.checks);
-      game_state_b.checks
-    } else {
-      let variation = cache.get_variation(&game_state.board.hash, b).unwrap();
-      cache.get_checks(&variation).unwrap_or(0)
-    };
+    // Check we know the b continuation:
+    if !cache.has_variation(&game_state.board.hash, b)
+      || !cache.has_game_state(&cache.get_variation(&game_state.board.hash, b))
+    {
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(b);
+      cache.add_variation(&game_state.board.hash, b, &new_game_state.board.hash);
+      cache.set_game_state(new_game_state.board.hash, &new_game_state);
+    }
 
-    match (a_checks, b_checks) {
+    let a_game_state = cache.get_game_state(&cache.get_variation(&game_state.board.hash, a));
+    let b_game_state = cache.get_game_state(&cache.get_variation(&game_state.board.hash, b));
+
+    match (a_game_state.checks, b_game_state.checks) {
       (2, 2) => {},
       (2, _) => return Ordering::Less,
       (_, 2) => return Ordering::Greater,
@@ -594,7 +497,7 @@ impl Engine {
     }
 
     // Single checks
-    match (a_checks, b_checks) {
+    match (a_game_state.checks, b_game_state.checks) {
       (1, _) => return Ordering::Less,
       (_, 1) => return Ordering::Greater,
       (_, _) => {},
@@ -648,19 +551,26 @@ impl Engine {
       return;
     }
 
-    // Check that we know the moves, so it is safe to unwrap after that:
+    // Check that we know the moves, and make a copy of the board/game_state relation:
     Engine::find_move_list(&self.cache, &game_state);
+    self.cache.set_game_state(game_state.board.hash, game_state);
 
-    for m in self.cache.get_move_list(&game_state.board.hash).unwrap() {
+    for m in self.cache.get_move_list(&game_state.board.hash) {
       // Skip non-capture if we are resolving captures only
       if captures_only && !game_state.board.is_move_a_capture(&m) {
         continue;
       }
 
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m, false);
+      let new_game_state = if self.cache.has_variation(&game_state.board.hash, &m) {
+        let new_board = self.cache.get_variation(&game_state.board.hash, &m);
+        self.cache.get_game_state(&new_board)
+      } else {
+        let mut new_state = game_state.clone();
+        new_state.apply_move(&m);
+        new_state
+      };
 
-      if self.cache.get_eval(&new_game_state.board.hash).is_some() {
+      if self.cache.has_eval(&new_game_state.board.hash) {
         // Move forward, we already processed this
         self.evaluate_positions(
           &new_game_state,
@@ -672,67 +582,48 @@ impl Engine {
         continue;
       }
 
-      // We just computed the number of checks for a position, save it.
-      Engine::save_checks(&self.cache, &new_game_state);
-
+      // Save game state corresponding to the board.
+      self
+        .cache
+        .set_game_state(new_game_state.board.hash, &new_game_state);
       // Add the variation to the parent position
       self
         .cache
         .add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
 
-      // Game phase
-      Engine::find_game_phase(&self.cache, &mut new_game_state);
-
       // Check the new moves from the new position, so that we can detect game-over situations
       Engine::find_move_list(&self.cache, &new_game_state);
-      new_game_state.set_moves(
-        &self
-          .cache
-          .get_move_list(&new_game_state.board.hash)
-          .unwrap(),
-      );
-
-      Engine::find_game_status(&self.cache, &new_game_state);
 
       // Check if we did not evaluate already:
-      if let None = self.cache.get_eval(&new_game_state.board.hash) {
-        // Position evaluation:
-        let (score, _) = evaluate_position(&new_game_state);
-        // FIXME: This will save some 3 fold repetitions and stuff like that in the tree.
-        self.cache.set_eval(&new_game_state.board.hash, score);
+      if !self.cache.has_eval(&new_game_state.board.hash) {
+        // Position evaluation: (will be saved in the cache automatically)
+        evaluate_position(&self.cache, &new_game_state);
       }
 
       // Get the alpha/beta result ppropagated upwards.
       match game_state.board.side_to_play {
         Color::White => self.cache.set_alpha(
           &game_state.board.hash,
-          self
-            .cache
-            .get_eval(&new_game_state.board.hash)
-            .unwrap_or(f32::MIN),
+          self.cache.get_eval(&new_game_state.board.hash),
         ),
         Color::Black => self.cache.set_beta(
           &game_state.board.hash,
-          self
-            .cache
-            .get_eval(&new_game_state.board.hash)
-            .unwrap_or(f32::MAX),
+          self.cache.get_eval(&new_game_state.board.hash),
         ),
       }
 
       // We just found a checkmate/draw
-      let new_game_status = self
-        .cache
-        .get_game_status(&new_game_state.board.hash)
-        .unwrap_or_default();
-      match new_game_status {
-        GameStatus::Ongoing => {},
-        _ => self.cache.add_killer_move(&m),
-      }
+      if self.cache.has_status(&new_game_state.board.hash) {
+        let status = self.cache.get_status(&new_game_state.board.hash);
+        match status {
+          GameStatus::WhiteWon | GameStatus::BlackWon => self.cache.add_killer_move(&m),
+          _ => {},
+        }
 
-      // No need to look at other moves in this variation if we found a checkmate for the side to play:
-      if new_game_status == GameStatus::WhiteWon || new_game_status == GameStatus::BlackWon {
-        break;
+        // No need to look at other moves in this variation if we found a checkmate for the side to play:
+        if status == GameStatus::WhiteWon || status == GameStatus::BlackWon {
+          break;
+        }
       }
 
       // Recurse until we get to the bottom.
@@ -746,53 +637,55 @@ impl Engine {
     }
 
     // Back propagate from children nodes
-    let variations = self.cache.get_variations(&game_state.board.hash);
+    let move_list = self.cache.get_move_list(&game_state.board.hash);
     let mut best_eval: f32 = match game_state.board.side_to_play {
       Color::White => f32::MIN,
       Color::Black => f32::MAX,
     };
-    for (_, board_hash) in variations {
-      if let Some(eval) = self.cache.get_eval(&board_hash) {
-        match game_state.board.side_to_play {
-          Color::White => {
-            if eval > best_eval {
-              best_eval = eval;
-            }
-          },
-          Color::Black => {
-            if eval < best_eval {
-              best_eval = eval;
-            }
-          },
-        }
+    for m in move_list {
+      let board_hash = self.cache.get_variation(&game_state.board.hash, &m);
+      if !self.cache.has_eval(&board_hash) {
+        continue;
+      }
+      let eval = self.cache.get_eval(&board_hash);
+      match game_state.board.side_to_play {
+        Color::White => {
+          if eval > best_eval {
+            best_eval = eval;
+          }
+        },
+        Color::Black => {
+          if eval < best_eval {
+            best_eval = eval;
+          }
+        },
       }
     }
 
     // Before back-propagating, check if we are in the capture only mode,
     // and if so and the evaluation swinged, try to refute a bad capture
     if captures_only {
-      if let Some(eval) = self.cache.get_eval(&game_state.board.hash) {
-        if (eval - best_eval).abs() > 2.0 {
-          // Recurse until we get to the bottom.
-          println!(
-            "Trying to refute capture on position {}",
-            game_state.to_fen()
-          );
-          self.evaluate_positions(&game_state, false, 1, 2, start_time);
-          // Recursing will take care of the back-propagation, so return here
-          return;
-        }
+      let eval = self.cache.get_eval(&game_state.board.hash);
+      if (eval - best_eval).abs() > 2.0 {
+        // Recurse until we get to the bottom.
+        debug!(
+          "Trying to refute capture on position {}",
+          game_state.to_fen()
+        );
+        self.evaluate_positions(&game_state, false, 1, 2, start_time);
+        return;
       }
     }
 
     // Save the best child eval to the node above:
     if best_eval != f32::MIN && best_eval != f32::MAX {
-      self.cache.set_eval(&game_state.board.hash, best_eval);
+      self.cache.set_eval(game_state.board.hash, best_eval);
     }
 
     // Sort the children moves according to their evaluation:
-    // FIXME: This does not work
-    // &self.cache.sort_moves_by_eval(&game_state.board.hash);
+    self
+      .cache
+      .sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
   }
 }
 
