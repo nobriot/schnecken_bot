@@ -382,17 +382,22 @@ impl BotState {
     let game_id_clone = String::from(game_id);
 
     // Select randomly one of the good moves.
-    let analysis = game.engine.get_line_details();
+    let mut analysis = game.engine.get_line_details();
+    let mut cutoff = 1;
     if analysis.is_empty() {
       error!("Empty result from the engine.");
-    }
-    let best_eval = analysis[0].1;
-    let mut cutoff = 1;
-    while analysis.len() > cutoff {
-      if (best_eval - analysis[cutoff].1).abs() > 0.15 {
-        break;
-      } else {
-        cutoff += 1;
+      for m in game.engine.position.get_moves() {
+        analysis.push((m, 0.0));
+      }
+      cutoff = analysis.len();
+    } else {
+      let best_eval = analysis[0].1;
+      while analysis.len() > cutoff {
+        if (best_eval - analysis[cutoff].1).abs() > 0.15 {
+          break;
+        } else {
+          cutoff += 1;
+        }
       }
     }
 

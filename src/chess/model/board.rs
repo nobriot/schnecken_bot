@@ -34,9 +34,6 @@ pub(crate) use fr_bounds_or_return;
 // -----------------------------------------------------------------------------
 //  Structs/Enums
 
-// -----------------------------------------------------------------------------
-//  Structs/Enums
-
 /// Masks kept for a color on the board
 /// Note that piece destination mask can be found by doing : control -
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

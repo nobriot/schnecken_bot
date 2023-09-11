@@ -249,9 +249,19 @@ impl Engine {
     // Mark that we are now active and stop is not requested.
     self.set_stop_requested(false);
     self.set_engine_active(true);
-
-    // Start searching
+    // Start searching... now
     let start_time = Instant::now();
+
+    // If we have only one legal move, we should just give it a score and play it instantaneously.
+    Engine::find_move_list(&self.cache, &self.position);
+    if self.cache.get_move_list(&self.position.board.hash).len() < 2 {
+      self.evaluate_positions(&self.position.clone(), false, 1, 1, start_time);
+      self.set_stop_requested(false);
+      self.set_engine_active(false);
+      return;
+    }
+
+    // Keep track of current depth
     let mut i = 1;
 
     while !self.has_been_searching_too_long(start_time) && !self.stop_requested() {
@@ -1069,5 +1079,18 @@ mod tests {
     engine.go();
     engine.print_evaluations();
     assert!(engine.get_best_move() != Move::from_string("d1e2"));
+  }
+
+  #[test]
+  fn test_only_one_legal_move() {
+    let mut engine = Engine::new();
+    engine.set_position("5k2/R6P/8/2PKB3/1P6/1P1P1N2/5PP1/R7 b - - 0 67");
+    engine.set_search_time_limit(942);
+
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+    assert!(!analysis.is_empty());
+    assert!(engine.get_best_move() == Move::from_string("f8e8"));
   }
 }
