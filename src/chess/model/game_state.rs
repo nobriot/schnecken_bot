@@ -233,9 +233,19 @@ impl GameState {
     (heatmap, heatmap_sources)
   }
 
-  /// Checks if we just made a repetition that triggers a game over situation
+  /// Checks the previous board configuration and checks if we repeated the position
   ///
-  pub fn is_game_over_by_repetition(&self) -> bool {
+  /// ### Arguments
+  ///
+  /// * `self`: GameState reference
+  ///
+  /// ### Return value
+  ///
+  /// Number of repetitions that occurred for the current position.
+  /// Current position is not counted.
+  /// i.e. 0 the position just occured for the first time. 2 means a threefold repetition
+  ///
+  pub fn get_board_repetitions(&self) -> usize {
     let mut repetition_count = 0;
     for hash in &self.last_positions {
       if self.board.hash == *hash {
@@ -243,8 +253,7 @@ impl GameState {
       }
     }
 
-    // We need to find 2 occurences of the same as the current to make it a 3 fold repetition
-    repetition_count >= 2
+    repetition_count
   }
 
   // Get all the possible moves in a position
@@ -257,7 +266,7 @@ impl GameState {
 
   // Get all the possible moves for white in a position
   pub fn get_white_moves(&self) -> Vec<Move> {
-    let mut all_moves = Vec::new();
+    let mut all_moves = Vec::with_capacity(60);
 
     let ssp = self.board.get_piece_color_mask(Color::White);
     let op = self.board.get_piece_color_mask(Color::Black);
@@ -744,8 +753,8 @@ mod tests {
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let mut game_state = GameState::from_fen(fen);
-      game_state.get_moves();
+      let game_state = GameState::from_fen(fen);
+      let _ = game_state.get_moves();
       positions_computed += 1;
     }
 

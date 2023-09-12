@@ -1092,4 +1092,23 @@ mod tests {
     println!("Board computed hash: {}", board.hash);
     assert_eq!(board.hash, after_move);
   }
+
+  #[test]
+  fn test_game_over_insufficient_material() {
+    let fen = "8/4nk2/8/8/8/2K5/8/8 w - - 0 1";
+    let board = Board::from_fen(fen);
+    assert_eq!(true, board.is_game_over_by_insufficient_material());
+
+    let fen = "8/5k2/8/8/8/2KB4/8/8 w - - 0 1";
+    let board = Board::from_fen(fen);
+    assert_eq!(true, board.is_game_over_by_insufficient_material());
+
+    let fen = "8/4nk2/8/8/8/2KB4/8/8 w - - 0 1";
+    let board = Board::from_fen(fen);
+    assert_eq!(false, board.is_game_over_by_insufficient_material());
+
+    let fen = "8/4nk2/8/8/8/2KR4/8/8 w - - 0 1";
+    let board = Board::from_fen(fen);
+    assert_eq!(false, board.is_game_over_by_insufficient_material());
+  }
 }

@@ -45,7 +45,8 @@ pub struct Eval {
 struct Analysis {
   /// Scores assigned to each move starting from the start position
   pub scores: HashMap<Move, Eval>,
-  pub depth: usize,
+  /// Represent how deep the analysis is/was
+  pub depth: Arc<Mutex<usize>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -69,13 +70,51 @@ impl Analysis {
       self.scores.insert(*m, Eval::default());
     }
   }
+
+  /// Sets the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  /// * `depth`:  New depth to set.
+  ///
+  ///
+  pub fn set_depth(&self, depth: usize) {
+    let mut analysis_depth = self.depth.lock().unwrap();
+    *analysis_depth = depth;
+  }
+
+  /// Increments the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  pub fn increment_depth(&self) {
+    let mut analysis_depth = self.depth.lock().unwrap();
+    *analysis_depth += 1;
+  }
+
+  /// Increments the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  /// ### Return value
+  ///
+  /// The value contained in the analysis depth.
+  ///
+  pub fn get_depth(&self) -> usize {
+    self.depth.lock().unwrap().clone()
+  }
 }
 
 impl Default for Analysis {
   fn default() -> Self {
     Analysis {
       scores: HashMap::new(),
-      depth: 0,
+      depth: Arc::new(Mutex::new(0)),
     }
   }
 }
@@ -106,8 +145,8 @@ impl Engine {
       cache: EngineCache::new(),
       options: Options {
         ponder: false,
-        max_depth: 10,
-        max_time: 0,
+        max_depth: 20,
+        max_time: 100,
       },
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
@@ -249,37 +288,35 @@ impl Engine {
     // Mark that we are now active and stop is not requested.
     self.set_stop_requested(false);
     self.set_engine_active(true);
+    self.analysis.set_depth(0);
+
     // Start searching... now
     let start_time = Instant::now();
 
     // If we have only one legal move, we should just give it a score and play it instantaneously.
     Engine::find_move_list(&self.cache, &self.position);
     if self.cache.get_move_list(&self.position.board.hash).len() < 2 {
-      self.evaluate_positions(&self.position.clone(), false, 1, 1, start_time);
+      info!("Single or no move available. Just evaluating quickly");
+      self.search(&self.position.clone(), 1, 1, start_time);
       self.set_stop_requested(false);
       self.set_engine_active(false);
+      self.analysis.set_depth(1);
       return;
     }
 
-    // Keep track of current depth
-    let mut i = 1;
-
     while !self.has_been_searching_too_long(start_time) && !self.stop_requested() {
-      // Fist iteration solves all the positions, then after we look at captures only, then all, and repeat
-      if i != 1 {
-        self.evaluate_positions(&self.position.clone(), true, 1, i, start_time);
-      }
+      self.analysis.increment_depth();
 
-      if self.stop_requested() {
-        break;
-      }
+      self.search(
+        &self.position.clone(),
+        1,
+        self.analysis.get_depth(),
+        start_time,
+      );
 
-      self.evaluate_positions(&self.position.clone(), false, 1, i, start_time);
-      //println!("Depth {i} completed");
-      //self.print_evaluations();
-      i += 1;
-
-      if self.options.max_depth > 0 && i > self.options.max_depth {
+      println!("Depth {} completed", self.analysis.get_depth());
+      self.cache.clear_alpha_beta_values();
+      if self.options.max_depth > 0 && self.analysis.get_depth() > self.options.max_depth {
         break;
       }
     }
@@ -382,7 +419,7 @@ impl Engine {
         self.get_line_string(
           board_hash,
           Color::opposite(self.position.board.side_to_play),
-          self.options.max_depth,
+          self.analysis.get_depth(),
         )
       );
       i += 1;
@@ -393,7 +430,7 @@ impl Engine {
   // Engine Options
 
   /// Configures if the engine should ponder when it finds a winning sequence
-  /// (i.e. continue calculating alterative lines)
+  /// (i.e. continue calculating alternative lines)
   ///
   pub fn set_ponder(&mut self, ponder: bool) {
     self.options.ponder = ponder;
@@ -551,36 +588,28 @@ impl Engine {
   //----------------------------------------------------------------------------
   // Engine Evaluation
 
-  /// Evaluate a position with the configured engine options
+  /// Searchs and evaluate a position with the configured engine options
   ///
   /// ### Arguments
   ///
   /// * `self`: Engine to use to store all the calculations
   /// * `game_state`:    Game state to start from in the evaluation tree
-  /// * `captures_only`: Set this bit to evaluate captures only
   /// * `depth`:      Current depth at which we are in the search
   /// * `max_depth`:  Depth at which to stop
   /// * `start_time`: Time at which we started resolving the chess position
   ///
-  fn evaluate_positions(
-    &self,
-    game_state: &GameState,
-    captures_only: bool,
-    depth: usize,
-    max_depth: usize,
-    start_time: Instant,
-  ) {
+  fn search(&self, game_state: &GameState, depth: usize, max_depth: usize, start_time: Instant) {
     if self.stop_requested() || self.has_been_searching_too_long(start_time) {
       return;
     }
 
-    if !captures_only && (depth > max_depth) {
+    if depth > max_depth {
       //info!("Reached maximum depth. Stopping search");
       return;
     }
 
-    if !captures_only && self.cache.is_pruned(&game_state.board.hash) {
-      println!("Skipping {} as it is pruned", game_state.board.hash);
+    if self.cache.is_pruned(&game_state.board.hash) {
+      println!("Skipping {} as it is pruned", game_state.to_fen());
       return;
     }
 
@@ -589,9 +618,11 @@ impl Engine {
     self.cache.set_game_state(game_state.board.hash, game_state);
 
     for m in self.cache.get_move_list(&game_state.board.hash) {
-      // Skip non-capture if we are resolving captures only
-      if captures_only && !game_state.board.is_move_a_capture(&m) {
-        continue;
+      let mut search_max_depth = max_depth;
+      // If we are looking at a capture, make sure that we analyze possible
+      // recaptures by increasing temporarily the maximum depth
+      if game_state.board.is_move_a_capture(&m) && depth >= max_depth {
+        search_max_depth = depth + 1;
       }
 
       let new_game_state = if self.cache.has_variation(&game_state.board.hash, &m) {
@@ -603,15 +634,11 @@ impl Engine {
         new_state
       };
 
-      if self.cache.has_eval(&new_game_state.board.hash) {
+      if self.cache.has_eval(&new_game_state.board.hash)
+        && self.cache.get_status(&new_game_state.board.hash) == GameStatus::Ongoing
+      {
         // Move forward, we already processed this
-        self.evaluate_positions(
-          &new_game_state,
-          captures_only,
-          depth + 1,
-          max_depth,
-          start_time,
-        );
+        self.search(&new_game_state, depth + 1, max_depth, start_time);
         continue;
       }
 
@@ -630,43 +657,46 @@ impl Engine {
       // Check if we did not evaluate already:
       if !self.cache.has_eval(&new_game_state.board.hash) {
         // Position evaluation: (will be saved in the cache automatically)
-        evaluate_position(&self.cache, &new_game_state);
+        let _ = evaluate_position(&self.cache, &new_game_state);
       }
 
-      // Get the alpha/beta result ppropagated upwards.
-      match game_state.board.side_to_play {
-        Color::White => self.cache.set_alpha(
-          &game_state.board.hash,
-          self.cache.get_eval(&new_game_state.board.hash),
-        ),
-        Color::Black => self.cache.set_beta(
-          &game_state.board.hash,
-          self.cache.get_eval(&new_game_state.board.hash),
-        ),
+      // Check if we just found a checkmate
+      let game_status = self.cache.get_status(&new_game_state.board.hash);
+      // No need to look at other moves in this variation if we found a checkmate for the side to play:
+      if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
+        self.cache.add_killer_move(&m);
+        //println!("Killer move: {}", m);
+        break;
       }
 
-      // We just found a checkmate/draw
-      if self.cache.has_status(&new_game_state.board.hash) {
-        let status = self.cache.get_status(&new_game_state.board.hash);
-        match status {
-          GameStatus::WhiteWon | GameStatus::BlackWon => self.cache.add_killer_move(&m),
-          _ => {},
-        }
-
-        // No need to look at other moves in this variation if we found a checkmate for the side to play:
-        if status == GameStatus::WhiteWon || status == GameStatus::BlackWon {
-          break;
+      // Get the alpha/beta result propagated upwards.
+      if max_depth == depth {
+        match game_state.board.side_to_play {
+          Color::White => {
+            self.cache.set_alpha(
+              &game_state.board.hash,
+              self.cache.get_eval(&new_game_state.board.hash),
+            );
+            self.cache.set_alpha(
+              &new_game_state.board.hash,
+              self.cache.get_eval(&new_game_state.board.hash),
+            );
+          },
+          Color::Black => {
+            self.cache.set_beta(
+              &game_state.board.hash,
+              self.cache.get_eval(&new_game_state.board.hash),
+            );
+            self.cache.set_beta(
+              &new_game_state.board.hash,
+              self.cache.get_eval(&new_game_state.board.hash),
+            );
+          },
         }
       }
 
       // Recurse until we get to the bottom.
-      self.evaluate_positions(
-        &new_game_state,
-        captures_only,
-        depth + 1,
-        max_depth,
-        start_time,
-      );
+      self.search(&new_game_state, depth + 1, search_max_depth, start_time);
     }
 
     // Sort the children moves according to their evaluation:
@@ -675,30 +705,19 @@ impl Engine {
       .sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
 
     // Back propagate from children nodes
-    let best_move = self.cache.get_move_list(&self.position.board.hash)[0];
+    let best_move = self.cache.get_move_list(&game_state.board.hash)[0];
     let board_hash = self.cache.get_variation(&game_state.board.hash, &best_move);
     if !self.cache.has_eval(&board_hash) {
-      // Here it's probably because there were no captures in the position and we are in capture only.
+      error!(
+        "No eval for position {}/{} after move {}",
+        game_state.to_fen(),
+        &game_state.board.hash,
+        best_move
+      );
       return;
     }
 
     let best_eval = self.cache.get_eval(&board_hash);
-
-    // Before back-propagating, check if we are in the capture only mode,
-    // and if so and the evaluation swinged, try to refute a bad capture
-    if captures_only {
-      let eval = self.cache.get_eval(&game_state.board.hash);
-      if (best_eval - eval).abs() > 2.0 {
-        // Recurse until we get to the bottom.
-        debug!(
-          "Trying to refute capture on position {}",
-          game_state.to_fen()
-        );
-        self.evaluate_positions(&game_state, false, 1, 2, start_time);
-        return;
-      }
-    }
-
     self.cache.set_eval(game_state.board.hash, best_eval);
   }
 }
@@ -753,7 +772,7 @@ mod tests {
     // This is a forced checkmate in 1 for black:
     let mut engine = Engine::new();
     engine.set_position("8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55");
-    engine.set_maximum_depth(4);
+    engine.set_maximum_depth(2);
     engine.go();
 
     //println!("engine analysis: {:#?}", engine.analysis.scores);
@@ -767,12 +786,15 @@ mod tests {
     // This is a forced checkmate in 2: c1b2 d4e3 b6d5
     let mut engine = Engine::new();
     engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
+    engine.set_search_time_limit(5000);
     engine.set_maximum_depth(3);
     engine.go();
 
     engine.print_evaluations();
     let expected_move = Move::from_string("c1b2");
     assert_eq!(expected_move, engine.get_best_move());
+    let analysis = engine.get_line_details();
+    assert_eq!(analysis[0].1, 200.0);
   }
 
   #[test]
@@ -826,8 +848,9 @@ mod tests {
   #[test]
   fn engine_go_and_stop() {
     let mut engine = Engine::new();
-    engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
-    engine.set_maximum_depth(20);
+    engine.set_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    engine.set_maximum_depth(0);
+    engine.set_search_time_limit(0);
     engine.set_ponder(true);
 
     let engine_clone = engine.clone();

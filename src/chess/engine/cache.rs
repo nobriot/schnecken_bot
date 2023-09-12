@@ -387,8 +387,8 @@ impl EngineCache {
   ///
   pub fn get_status(&self, board_hash: &BoardHash) -> GameStatus {
     if !self.has_status(board_hash) {
-      error!("Looked up a GameStatus without any value for board. Returning Draw");
-      return GameStatus::Draw;
+      error!("Looked up a GameStatus without any value for board. Returning Ongoing");
+      return GameStatus::Ongoing;
     }
     self
       .statuses
@@ -639,6 +639,17 @@ impl EngineCache {
     false
   }
 
+  /// Clears the alpha/beta stored data
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :        EngineCache
+  ///
+  ///
+  pub fn clear_alpha_beta_values(&self) {
+    self.tree.lock().unwrap().clear();
+  }
+
   // ---------------------------------------------------------------------------
   // Position independant cached data
 
@@ -817,10 +828,14 @@ mod tests {
     assert_eq!(0.0, engine_cache.get_alpha(&game_state.board.hash));
     assert_eq!(1.0, engine_cache.get_beta(&game_state.board.hash));
     assert_eq!(false, engine_cache.is_pruned(&game_state.board.hash));
+
+    engine_cache.clear_alpha_beta_values();
+    assert_eq!(f32::MIN, engine_cache.get_alpha(&game_state.board.hash));
+    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state.board.hash));
   }
 
   #[test]
-  fn test_sorting_moves_by_eval() {
+  fn test_sorting_moves_by_eval_1() {
     use crate::chess::engine::evaluate_position;
     let engine_cache: EngineCache = EngineCache::new();
 
@@ -905,6 +920,37 @@ mod tests {
       };
       println!("Move: {} - Eval : {}", m.to_string(), new_eval);
       assert!(last_eval <= new_eval);
+      last_eval = new_eval;
+    }
+  }
+
+  #[test]
+  fn test_sorting_moves_by_eval_2() {
+    use crate::chess::engine::evaluate_position;
+    let engine_cache: EngineCache = EngineCache::new();
+
+    let fen = "r1bqk2r/ppppbp1p/8/3Bp1pQ/3nP3/3P4/PPPN1PPP/R3K1NR w KQq - 1 8";
+    let game_state = GameState::from_fen(fen);
+
+    // Save a move list
+    engine_cache.set_move_list(game_state.board.hash, &game_state.get_moves());
+
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(&m);
+      engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
+      evaluate_position(&engine_cache, &new_game_state);
+    }
+
+    // Now try to sort move list by eval:
+    engine_cache.sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
+
+    let mut last_eval = f32::MAX;
+    for m in engine_cache.get_move_list(&game_state.board.hash) {
+      let new_board = engine_cache.get_variation(&game_state.board.hash, &m);
+      let new_eval = engine_cache.get_eval(&new_board);
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
+      assert!(last_eval >= new_eval);
       last_eval = new_eval;
     }
   }
