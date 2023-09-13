@@ -166,20 +166,8 @@ impl Board {
       if !self.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let destinations = if self.squares[source_square] == WHITE_PAWN {
-        get_white_pawn_captures(source_square)
-      } else if self.squares[source_square] == BLACK_PAWN {
-        get_black_pawn_captures(source_square)
-      } else {
-        let (destinations, _) = self.get_piece_destinations(source_square, op, 0);
-        destinations
-      };
 
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
-          bitmap |= 1 << i;
-        }
-      }
+      bitmap |= self.get_piece_controlled_squares(source_square, op, 0);
     }
 
     bitmap
@@ -228,7 +216,8 @@ impl Board {
   ) -> (BoardMask, bool) {
     let mut promotion: bool = false;
     let destinations = match self.squares[source_square] {
-      WHITE_KING | BLACK_KING => get_king_moves(ssp, op, source_square),
+      WHITE_KING => get_king_moves(ssp, self.black_masks.control, source_square),
+      BLACK_KING => get_king_moves(ssp, self.white_masks.control, source_square),
       WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
       WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
       WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
@@ -260,6 +249,36 @@ impl Board {
     };
 
     (destinations, promotion)
+  }
+
+  /// Computes the boardmask of the squares controlled by a piece
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  /// * `source_square` -  Square for which we want to know the controlled squares
+  /// * `op` -             BoardSquare for which we want to know the destinations
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating possible destinations for the piece present on the square.
+  ///
+  pub fn get_piece_controlled_squares(
+    &self,
+    source_square: usize,
+    op: BoardMask,
+    ssp: BoardMask,
+  ) -> BoardMask {
+    match self.squares[source_square] {
+      WHITE_KING | BLACK_KING => KING_MOVES[source_square],
+      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
+      WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
+      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
+      WHITE_KNIGHT | BLACK_KNIGHT => KNIGHT_MOVES[source_square],
+      WHITE_PAWN => return get_white_pawn_captures(source_square),
+      BLACK_PAWN => return get_black_pawn_captures(source_square),
+      _ => 0,
+    }
   }
 
   /// Converts Rank / File into a board index

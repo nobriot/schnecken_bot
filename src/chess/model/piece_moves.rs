@@ -164,6 +164,139 @@ pub const KING_MOVES: [u64; 64] = [
   0x40C0000000000000,
 ];
 
+pub const WHITE_PAWN_CONTROL: [u64; 64] = [
+  0x0000000000000200,
+  0x0000000000000500,
+  0x0000000000000A00,
+  0x0000000000001400,
+  0x0000000000002800,
+  0x0000000000005000,
+  0x000000000000A000,
+  0x0000000000004000,
+  0x0000000000020000,
+  0x0000000000050000,
+  0x00000000000A0000,
+  0x0000000000140000,
+  0x0000000000280000,
+  0x0000000000500000,
+  0x0000000000A00000,
+  0x0000000000400000,
+  0x0000000002000000,
+  0x0000000005000000,
+  0x000000000A000000,
+  0x0000000014000000,
+  0x0000000028000000,
+  0x0000000050000000,
+  0x00000000A0000000,
+  0x0000000040000000,
+  0x0000000200000000,
+  0x0000000500000000,
+  0x0000000A00000000,
+  0x0000001400000000,
+  0x0000002800000000,
+  0x0000005000000000,
+  0x000000A000000000,
+  0x0000004000000000,
+  0x0000020000000000,
+  0x0000050000000000,
+  0x00000A0000000000,
+  0x0000140000000000,
+  0x0000280000000000,
+  0x0000500000000000,
+  0x0000A00000000000,
+  0x0000400000000000,
+  0x0002000000000000,
+  0x0005000000000000,
+  0x000A000000000000,
+  0x0014000000000000,
+  0x0028000000000000,
+  0x0050000000000000,
+  0x00A0000000000000,
+  0x0040000000000000,
+  0x0200000000000000,
+  0x0500000000000000,
+  0x0A00000000000000,
+  0x1400000000000000,
+  0x2800000000000000,
+  0x5000000000000000,
+  0xA000000000000000,
+  0x4000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+];
+pub const BLACK_PAWN_CONTROL: [u64; 64] = [
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000002,
+  0x0000000000000005,
+  0x000000000000000A,
+  0x0000000000000014,
+  0x0000000000000028,
+  0x0000000000000050,
+  0x00000000000000A0,
+  0x0000000000000040,
+  0x0000000000000200,
+  0x0000000000000500,
+  0x0000000000000A00,
+  0x0000000000001400,
+  0x0000000000002800,
+  0x0000000000005000,
+  0x000000000000A000,
+  0x0000000000004000,
+  0x0000000000020000,
+  0x0000000000050000,
+  0x00000000000A0000,
+  0x0000000000140000,
+  0x0000000000280000,
+  0x0000000000500000,
+  0x0000000000A00000,
+  0x0000000000400000,
+  0x0000000002000000,
+  0x0000000005000000,
+  0x000000000A000000,
+  0x0000000014000000,
+  0x0000000028000000,
+  0x0000000050000000,
+  0x00000000A0000000,
+  0x0000000040000000,
+  0x0000000200000000,
+  0x0000000500000000,
+  0x0000000A00000000,
+  0x0000001400000000,
+  0x0000002800000000,
+  0x0000005000000000,
+  0x000000A000000000,
+  0x0000004000000000,
+  0x0000020000000000,
+  0x0000050000000000,
+  0x00000A0000000000,
+  0x0000140000000000,
+  0x0000280000000000,
+  0x0000500000000000,
+  0x0000A00000000000,
+  0x0000400000000000,
+  0x0002000000000000,
+  0x0005000000000000,
+  0x000A000000000000,
+  0x0014000000000000,
+  0x0028000000000000,
+  0x0050000000000000,
+  0x00A0000000000000,
+  0x0040000000000000,
+];
+
 /// Returns a bitmask of the knight possible destination squares.
 ///
 /// ### Arguments
@@ -291,12 +424,24 @@ pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usiz
 /// # Arguments
 ///
 /// * `same_side_pieces` - boardmask of the same side pieces
-/// * `opponent_pieces` - boardmask of the opponent pieces
+/// * `opponent_control` - boardmask of the squares controlled by the opponent
 /// * `square` - Start square for the knight
 ///
-pub fn get_king_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> BoardMask {
-  // Knight just cannot go where we have same side pieces
-  KING_MOVES[square] & (!same_side_pieces)
+pub fn get_king_moves(same_side_pieces: u64, opponent_control: u64, square: usize) -> BoardMask {
+  // King cannot go where the opponent controls or where we have pieces ourselves
+  KING_MOVES[square] & (!same_side_pieces) & (!opponent_control)
+}
+
+/// Returns a bitmask of squares controlled by the king.
+///
+/// # Arguments
+///
+/// * `same_side_pieces` - boardmask of the same side pieces
+/// * `opponent_control` - boardmask of the squares controlled by the opponent
+/// * `square` - Start square for the knight
+///
+pub fn get_king_controlled_squares(square: usize) -> BoardMask {
+  KING_MOVES[square]
 }
 
 /// Returns a bitmask of the white pawn possible destination squares.
@@ -346,20 +491,7 @@ pub fn get_white_pawn_moves(
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square
-  let capture_offsets: [(isize, isize); 2] = [(1, 1), (-1, 1)];
-  for (file_offset, rank_offset) in capture_offsets {
-    let rank = inital_rank + rank_offset;
-    let file = inital_file + file_offset;
-
-    // Did we go too far ?
-    fr_bounds_or_continue!(file, rank);
-
-    // Now we know it is a valid destination, add it to the list:
-    let destination_bitmask: u64 = 1 << (rank * 8 + file);
-    if destination_bitmask & opponent_pieces != 0 {
-      destinations |= destination_bitmask;
-    }
-  }
+  destinations |= WHITE_PAWN_CONTROL[square] & opponent_pieces;
 
   destinations
 }
@@ -376,24 +508,7 @@ pub fn get_white_pawn_moves(
 /// Board mask with squares where the pawn can capture.
 ///
 pub fn get_white_pawn_captures(square: usize) -> BoardMask {
-  let inital_rank = (square / 8) as isize;
-  let inital_file = (square % 8) as isize;
-  let mut destinations: u64 = 0;
-
-  // Check if it can capture
-  let capture_offsets: [(isize, isize); 2] = [(1, 1), (-1, 1)];
-  for (file_offset, rank_offset) in capture_offsets {
-    let rank = inital_rank + rank_offset;
-    let file = inital_file + file_offset;
-
-    // Did we go too far ?
-    fr_bounds_or_continue!(file, rank);
-
-    // Now we know it is a valid destination, add it to the list:
-    destinations |= 1 << (rank * 8 + file);
-  }
-
-  destinations
+  WHITE_PAWN_CONTROL[square]
 }
 
 /// Returns a bitmask of the black pawn possible destination squares.
@@ -443,20 +558,7 @@ pub fn get_black_pawn_moves(
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square
-  let capture_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
-  for (file_offset, rank_offset) in capture_offsets {
-    let rank = inital_rank + rank_offset;
-    let file = inital_file + file_offset;
-
-    // Did we go too far ?
-    fr_bounds_or_continue!(file, rank);
-
-    // Now we know it is a valid destination, add it to the list:
-    let destination_bitmask: u64 = 1 << (rank * 8 + file);
-    if destination_bitmask & opponent_pieces != 0 {
-      destinations |= destination_bitmask;
-    }
-  }
+  destinations |= BLACK_PAWN_CONTROL[square] & opponent_pieces;
 
   destinations
 }
@@ -473,24 +575,7 @@ pub fn get_black_pawn_moves(
 /// Board mask with squares where the pawn can capture.
 ///
 pub fn get_black_pawn_captures(square: usize) -> BoardMask {
-  let inital_rank = (square / 8) as isize;
-  let inital_file = (square % 8) as isize;
-  let mut destinations: u64 = 0;
-
-  // Check if it can capture
-  let capture_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
-  for (file_offset, rank_offset) in capture_offsets {
-    let rank = inital_rank + rank_offset;
-    let file = inital_file + file_offset;
-
-    // Did we go too far ?
-    fr_bounds_or_continue!(file, rank);
-
-    // Now we know it is a valid destination, add it to the list:
-    destinations |= 1 << (rank * 8 + file);
-  }
-
-  destinations
+  BLACK_PAWN_CONTROL[square]
 }
 
 // -----------------------------------------------------------------------------
@@ -632,6 +717,30 @@ mod tests {
     println!("pub const KING_MOVES:[u64; 64] = {:#018X?};", king_moves);
   }
 
+  #[ignore]
+  #[test]
+  fn generate_pawn_control() {
+    let mut white_pawn_captures: [u64; 64] = [0; 64];
+    let move_offsets: [(isize, isize); 2] = [(1, 1), (-1, 1)];
+    for i in 0..64 {
+      white_pawn_captures[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+    }
+    println!(
+      "pub const WHITE_PAWN_CONTROL:[u64; 64] = {:#018X?};",
+      white_pawn_captures
+    );
+
+    let mut black_pawn_captures: [u64; 64] = [0; 64];
+    let move_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
+    for i in 0..64 {
+      black_pawn_captures[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+    }
+    println!(
+      "pub const BLACK_PAWN_CONTROL:[u64; 64] = {:#018X?};",
+      black_pawn_captures
+    );
+  }
+
   #[test]
   fn check_king_moves() {
     // Let's take a king on b3, no other pieces
@@ -651,9 +760,8 @@ mod tests {
 
     // Same with captures and blocking pieces
     let same_side_pieces: u64 = 1 << string_to_square("c4");
-    let opponent_pieces: u64 = 1 << string_to_square("a3");
+    let opponent_control: u64 = 1 << string_to_square("a3");
     let expected_squares: u64 = (1 << string_to_square("a2"))
-      | (1 << string_to_square("a3"))
       | (1 << string_to_square("a4"))
       | (1 << string_to_square("b4"))
       | (1 << string_to_square("c3"))
@@ -662,7 +770,7 @@ mod tests {
 
     let calculated_squares = get_king_moves(
       same_side_pieces,
-      opponent_pieces,
+      opponent_control,
       string_to_square("b3") as usize,
     );
 

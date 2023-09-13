@@ -131,12 +131,7 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.board.get_piece_destinations(source_square, 0, 0);
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
-          bitmap |= 1 << i;
-        }
-      }
+      bitmap |= self.board.get_piece_controlled_squares(source_square, 0, 0);
     }
 
     bitmap
@@ -164,7 +159,10 @@ impl GameState {
       if !self.board.has_piece_with_color(source_square as u8, color) {
         continue;
       }
-      let (destinations, _) = self.board.get_piece_destinations(source_square, op, 0);
+      let destinations = self
+        .board
+        .get_piece_controlled_squares(source_square, op, 0);
+
       for i in 0..64 {
         if ((1 << i) & destinations) != 0 {
           heatmap[i] += 1;
@@ -588,7 +586,7 @@ mod tests {
   #[test]
   fn test_get_list_of_moves() {
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
-    let mut game_state = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
     let move_list = game_state.get_moves();
     assert_eq!(37, move_list.len());
     println!("List of moves (should include castling!):\n");
@@ -597,7 +595,7 @@ mod tests {
     }
 
     let fen = "5k2/P7/2p5/1p6/3P2NR/1p2p3/1P4q1/1K6 w - - 0 53";
-    let mut game_state = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
     let move_list = game_state.get_moves();
     println!("List of moves (should include a promotion):\n");
     assert_eq!(20, move_list.len());

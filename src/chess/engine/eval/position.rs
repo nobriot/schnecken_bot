@@ -488,7 +488,6 @@ mod tests {
       let i = rand::thread_rng().gen_range(0..fens.len());
       let game_state = GameState::from_fen(fens[i]);
 
-      // FIXME: Now evaluations are all cached, the number probably does not make sense as it will keep skipping.
       let _ = evaluate_position(&cache, &game_state);
       positions_evaluated += 1;
     }

@@ -5,7 +5,9 @@ use super::board::Board;
 
 /// Unsigned integer representing a Chess-board with squares sets to 0 or 1.
 ///
-/// a1 is bit 0, b1 is bit 1, etc...
+/// - a1 is bit 0
+/// - b1 is bit 1
+/// - etc...
 pub type BoardMask = u64;
 
 // -----------------------------------------------------------------------------
