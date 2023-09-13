@@ -410,7 +410,12 @@ impl Engine {
 
     for m in move_list {
       let board_hash = self.cache.get_variation(&self.position.board.hash, &m);
-      let eval = self.cache.get_eval(&board_hash);
+
+      let eval = if self.cache.has_eval(&board_hash) {
+        self.cache.get_eval(&board_hash)
+      } else {
+        f32::NAN
+      };
       println!(
         "Line {:<2}: Eval {:<10} - {} {}",
         i,
@@ -705,7 +710,17 @@ impl Engine {
       .sort_moves_by_eval(&game_state.board.hash, game_state.board.side_to_play);
 
     // Back propagate from children nodes
-    let best_move = self.cache.get_move_list(&game_state.board.hash)[0];
+    let move_list = self.cache.get_move_list(&game_state.board.hash);
+    if move_list.is_empty() {
+      error!(
+        "Move list is empty for position {}/{}",
+        game_state.to_fen(),
+        &game_state.board.hash,
+      );
+      return;
+    }
+
+    let best_move = move_list[0];
     let board_hash = self.cache.get_variation(&game_state.board.hash, &best_move);
     if !self.cache.has_eval(&board_hash) {
       error!(
@@ -1115,5 +1130,17 @@ mod tests {
     let analysis = engine.get_line_details();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() == Move::from_string("f8e8"));
+  }
+
+  #[test]
+  fn capture_the_bishop() {
+    let mut engine = Engine::new();
+    engine.set_position("rnbqk1nr/pp3ppp/2p5/1Q1p4/1b1Pp3/2N2N2/PPP1PPPP/R1B1KB1R w KQkq - 0 6");
+    engine.set_search_time_limit(1875);
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+    assert!(!analysis.is_empty());
+    assert!(engine.get_best_move() == Move::from_string("b5b4"));
   }
 }

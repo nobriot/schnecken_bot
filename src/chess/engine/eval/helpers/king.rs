@@ -152,12 +152,12 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
 pub fn are_casling_rights_lost(game_state: &GameState, color: Color) -> bool {
   match color {
     Color::White => {
-      if game_state.board.castling_rights.K || game_state.board.castling_rights.Q {
+      if game_state.board.castling_rights.K() || game_state.board.castling_rights.Q() {
         return false;
       }
     },
     Color::Black => {
-      if game_state.board.castling_rights.k || game_state.board.castling_rights.q {
+      if game_state.board.castling_rights.k() || game_state.board.castling_rights.q() {
         return false;
       }
     },

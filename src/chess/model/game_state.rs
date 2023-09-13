@@ -6,7 +6,6 @@ use crate::chess::model::board_mask::*;
 use crate::chess::model::moves::*;
 use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::*;
 use crate::chess::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.
@@ -98,25 +97,7 @@ impl GameState {
     }
     fen.push(' ');
 
-    if self.board.castling_rights.K {
-      fen.push('K');
-    }
-    if self.board.castling_rights.Q {
-      fen.push('Q');
-    }
-    if self.board.castling_rights.k {
-      fen.push('k');
-    }
-    if self.board.castling_rights.q {
-      fen.push('q');
-    }
-    if !self.board.castling_rights.K
-      && !self.board.castling_rights.Q
-      && !self.board.castling_rights.q
-      && !self.board.castling_rights.k
-    {
-      fen.push('-');
-    }
+    fen += self.board.castling_rights.to_fen().as_str();
     fen.push(' ');
 
     if self.board.en_passant_square != INVALID_SQUARE {
@@ -303,7 +284,7 @@ impl GameState {
       }
     }
 
-    if self.board.castling_rights.K
+    if self.board.castling_rights.K()
       && self.checks == 0
       && !self.board.has_piece(5)
       && !self.board.has_piece(6)
@@ -316,7 +297,7 @@ impl GameState {
         promotion: NO_PIECE,
       });
     }
-    if self.board.castling_rights.Q
+    if self.board.castling_rights.Q()
       && self.checks == 0
       && !self.board.has_piece(1)
       && !self.board.has_piece(2)
@@ -397,7 +378,7 @@ impl GameState {
     }
 
     // Now check castling.
-    if self.board.castling_rights.k
+    if self.board.castling_rights.k()
       && self.checks == 0
       && !self.board.has_piece(62)
       && !self.board.has_piece(61)
@@ -410,7 +391,7 @@ impl GameState {
         promotion: NO_PIECE,
       });
     }
-    if self.board.castling_rights.q
+    if self.board.castling_rights.q()
       && self.checks == 0
       && !self.board.has_piece(59)
       && !self.board.has_piece(58)
@@ -545,12 +526,9 @@ impl std::fmt::Debug for GameState {
     )
     .as_str();
     message += format!(
-      "En passant: {} - Castling rights: ({},{},{},{})\n",
+      "En passant: {} - Castling rights: {}\n",
       square_to_string(self.board.en_passant_square),
-      self.board.castling_rights.K,
-      self.board.castling_rights.Q,
-      self.board.castling_rights.k,
-      self.board.castling_rights.q
+      self.board.castling_rights.to_fen(),
     )
     .as_str();
 

@@ -48,8 +48,8 @@ pub struct Masks {
 pub struct Board {
   pub squares: [u8; 64],
   pub side_to_play: Color,
-  pub castling_rights: CastlingRights,
   pub en_passant_square: u8,
+  pub castling_rights: CastlingRights,
   pub hash: u64,
   pub white_masks: Masks,
   pub black_masks: Masks,
@@ -123,16 +123,16 @@ impl Board {
 
   // Adds/Removes castling rights in the board hash value
   fn update_hash_castling_rights(&mut self) {
-    if self.castling_rights.K {
+    if self.castling_rights.K() {
       self.hash ^= ZOBRIST_WHITE_KING_CASTLE;
     }
-    if self.castling_rights.Q {
+    if self.castling_rights.Q() {
       self.hash ^= ZOBRIST_WHITE_QUEEN_CASTLE;
     }
-    if self.castling_rights.k {
+    if self.castling_rights.k() {
       self.hash ^= ZOBRIST_BLACK_KING_CASTLE;
     }
-    if self.castling_rights.q {
+    if self.castling_rights.q() {
       self.hash ^= ZOBRIST_BLACK_QUEEN_CASTLE;
     }
   }
@@ -376,33 +376,21 @@ impl Board {
     // Update castling rights. (just look if something from the rook/king moved)
     self.update_hash_castling_rights();
     match chess_move.src {
-      0 => self.castling_rights.Q = false,
-      4 => {
-        self.castling_rights.K = false;
-        self.castling_rights.Q = false
-      },
-      7 => self.castling_rights.K = false,
-      56 => self.castling_rights.q = false,
-      60 => {
-        self.castling_rights.k = false;
-        self.castling_rights.q = false
-      },
-      63 => self.castling_rights.k = false,
+      0 => self.castling_rights.set_Q(false),
+      4 => self.castling_rights.clear_white_rights(),
+      7 => self.castling_rights.set_K(false),
+      56 => self.castling_rights.set_q(false),
+      60 => self.castling_rights.clear_black_rights(),
+      63 => self.castling_rights.set_k(false),
       _ => {},
     }
     match chess_move.dest {
-      0 => self.castling_rights.Q = false,
-      4 => {
-        self.castling_rights.K = false;
-        self.castling_rights.Q = false
-      },
-      7 => self.castling_rights.K = false,
-      56 => self.castling_rights.q = false,
-      60 => {
-        self.castling_rights.k = false;
-        self.castling_rights.q = false
-      },
-      63 => self.castling_rights.k = false,
+      0 => self.castling_rights.set_Q(false),
+      4 => self.castling_rights.clear_white_rights(),
+      7 => self.castling_rights.set_K(false),
+      56 => self.castling_rights.set_q(false),
+      60 => self.castling_rights.clear_black_rights(),
+      63 => self.castling_rights.set_k(false),
       _ => {},
     }
     self.update_hash_castling_rights();
@@ -687,12 +675,11 @@ impl Board {
 
     board.side_to_play = if fen_parts[1] == "w" { Color::White } else { Color::Black };
 
-    board.castling_rights = CastlingRights {
-      K: fen_parts[2].contains('K'),
-      Q: fen_parts[2].contains('Q'),
-      k: fen_parts[2].contains('k'),
-      q: fen_parts[2].contains('q'),
-    };
+    board.castling_rights = CastlingRights::default();
+    board.castling_rights.set_K(fen_parts[2].contains('K'));
+    board.castling_rights.set_Q(fen_parts[2].contains('Q'));
+    board.castling_rights.set_k(fen_parts[2].contains('k'));
+    board.castling_rights.set_q(fen_parts[2].contains('q'));
 
     board.en_passant_square = if fen_parts[3] != "-" {
       string_to_square(fen_parts[3])
