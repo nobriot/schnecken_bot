@@ -12,6 +12,7 @@ members = ["lichess/"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
+reqwest = { version = "0.11.18", features = ["blocking", "stream"] }
 serde = { version = "1.0.166", features = ["derive"] }
 signal-hook = "0.3.15"
 log = { version = "0.4", features = ["std", "serde"] }
