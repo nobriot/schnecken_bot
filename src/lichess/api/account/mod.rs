@@ -1,5 +1,5 @@
 // Internal crates
-use crate::lichess::api::LichessApi;
+use crate::api::LichessApi;
 
 // External crates
 use serde_json::Value as JsonValue;

@@ -1,6 +1,6 @@
 // Internal crates
-use crate::lichess::api::LichessApi;
-use crate::lichess::types::Clock;
+use crate::api::LichessApi;
+use crate::types::Clock;
 
 // External crates
 use log::*;

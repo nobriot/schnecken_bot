@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::chess::model::piece::Color;
-
 // Reasons for declining a challenge
 /*
 pub const DECLINE_GENERIC: &str = "generic";
@@ -37,6 +35,14 @@ pub struct GameStart {
   #[serde(rename = "secondsLeft")]
   pub seconds_left: usize,
   //pub winner: Option<String>
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[repr(u8)]
+pub enum Color {
+  White,
+  Black,
 }
 
 /// Game state object received during the games
@@ -170,5 +176,3 @@ pub enum ChatRoom {
   Spectator,
   Player,
 }
-
-

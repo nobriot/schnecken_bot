@@ -1,4 +1,4 @@
-use crate::lichess::api::LichessApi;
+use crate::api::LichessApi;
 use serde_json::Value as JsonValue;
 
 use log::*;

@@ -6,6 +6,7 @@ use crate::chess::model::board_mask::*;
 use crate::chess::model::moves::*;
 use crate::chess::model::piece::NO_PIECE;
 use crate::chess::model::piece::*;
+use crate::chess::model::piece_moves::MAXIMUM_LEGAL_MOVES;
 use crate::chess::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.
@@ -245,7 +246,7 @@ impl GameState {
 
   // Get all the possible moves for white in a position
   pub fn get_white_moves(&self) -> Vec<Move> {
-    let mut all_moves = Vec::with_capacity(60);
+    let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
 
     let ssp = self.board.get_piece_color_mask(Color::White);
     let op = self.board.get_piece_color_mask(Color::Black);

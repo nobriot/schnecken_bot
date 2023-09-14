@@ -11,8 +11,8 @@ use futures_util::StreamExt;
 use reqwest;
 use serde_json::Value as JsonValue;
 
-// From the same module:
-use crate::lichess::helpers;
+// From the same library:
+use crate::helpers;
 
 // Constants
 const API_BASE_URL: &'static str = "https://lichess.org/api/";

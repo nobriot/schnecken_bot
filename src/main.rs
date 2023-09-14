@@ -7,7 +7,7 @@ use std::io;
 // Local modules
 mod bot;
 mod chess;
-mod lichess;
+use lichess;
 
 // Constants:
 const API_TOKEN_FILE_NAME: &str = "/assets/lichess_api_token.txt";

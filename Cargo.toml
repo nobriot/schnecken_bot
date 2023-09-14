@@ -2,12 +2,16 @@
 name = "schnecken_bot"
 version = "0.3.1"
 authors = ["Nicolas Woltmann"]
+description = "Lichess bot with integrated engine"
+repository = "https://github.com/nobriot/schnecken_bot"
 edition = "2021"
+license = "MIT"
+keywords = ["bot", "chess", "lichess", "lichess-api", "lichess-bot"]
+default-run = "schnecken_bot"
+members = ["lichess/"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-reqwest = { version = "0.11.18", features = ["blocking", "stream"] }
 serde = { version = "1.0.166", features = ["derive"] }
 signal-hook = "0.3.15"
 log = { version = "0.4", features = ["std", "serde"] }
@@ -24,7 +28,14 @@ futures = "0.3"
 bytes = "1.4.0"
 lazy_static = "1.4.0"
 anyhow = "1.0.71"
+# Our own libraries
+lichess-api = { path = "src/lichess" }
 
 [[bin]]
 name = "schnecken_bot"
 path = "src/main.rs"
+
+# Binaries generating other files
+[[bin]]
+name = "generate_rook_table"
+path = "src/chess/model/bin/generate_rook_table.rs"

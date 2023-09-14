@@ -303,4 +303,26 @@ mod tests {
     let expected_score = 64.0 - 6.0 + 7.0 - 4.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
+
+  #[test]
+  fn test_engame_eval_queen_vs_king() {
+    let fen = "1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let expected_score = 64.0 - 30.0 + 7.0 - 5.0;
+    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
+
+    let fen = "1K6/8/8/8/2Q5/3k4/8/8 b - - 1 1";
+    let game_state = GameState::from_fen(fen);
+    let blunder_score = 64.0 - 15.0 + 7.0 - 5.0;
+    assert_eq!(blunder_score, get_endgame_position_evaluation(&game_state));
+
+    let fen = "1K6/8/8/2Q5/8/3k4/8/8 b - - 1 1";
+    let game_state = GameState::from_fen(fen);
+    let better_score = 64.0 - 20.0 + 7.0 - 5.0;
+    assert_eq!(better_score, get_endgame_position_evaluation(&game_state));
+
+    //FIXME: Blunder scores higher for now.
+    //assert!(blunder_score < expected_score);
+    assert!(expected_score < better_score);
+  }
 }

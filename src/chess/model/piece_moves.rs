@@ -1,4 +1,11 @@
 use super::board_mask::*;
+use crate::chess::model::tables::rook_destinations::*;
+
+// -----------------------------------------------------------------------------
+//  Constants
+
+/// Maximum ever number of legal moves is
+pub const MAXIMUM_LEGAL_MOVES: usize = 218;
 
 //------------------------------------------------------------------------------
 // Macros
@@ -297,6 +304,81 @@ pub const BLACK_PAWN_CONTROL: [u64; 64] = [
   0x0040000000000000,
 ];
 
+/// Array of BoardMasks indicating where the bishop can reach if there were no other pieces on the board
+pub const BISHOP_SPAN: [u64; 64] = [
+  0x8040201008040200,
+  0x0080402010080500,
+  0x0000804020110A00,
+  0x0000008041221400,
+  0x0000000182442800,
+  0x0000010204885000,
+  0x000102040810A000,
+  0x0102040810204000,
+  0x4020100804020002,
+  0x8040201008050005,
+  0x00804020110A000A,
+  0x0000804122140014,
+  0x0000018244280028,
+  0x0001020488500050,
+  0x0102040810A000A0,
+  0x0204081020400040,
+  0x2010080402000204,
+  0x4020100805000508,
+  0x804020110A000A11,
+  0x0080412214001422,
+  0x0001824428002844,
+  0x0102048850005088,
+  0x02040810A000A010,
+  0x0408102040004020,
+  0x1008040200020408,
+  0x2010080500050810,
+  0x4020110A000A1120,
+  0x8041221400142241,
+  0x0182442800284482,
+  0x0204885000508804,
+  0x040810A000A01008,
+  0x0810204000402010,
+  0x0804020002040810,
+  0x1008050005081020,
+  0x20110A000A112040,
+  0x4122140014224180,
+  0x8244280028448201,
+  0x0488500050880402,
+  0x0810A000A0100804,
+  0x1020400040201008,
+  0x0402000204081020,
+  0x0805000508102040,
+  0x110A000A11204080,
+  0x2214001422418000,
+  0x4428002844820100,
+  0x8850005088040201,
+  0x10A000A010080402,
+  0x2040004020100804,
+  0x0200020408102040,
+  0x0500050810204080,
+  0x0A000A1120408000,
+  0x1400142241800000,
+  0x2800284482010000,
+  0x5000508804020100,
+  0xA000A01008040201,
+  0x4000402010080402,
+  0x0002040810204080,
+  0x0005081020408000,
+  0x000A112040800000,
+  0x0014224180000000,
+  0x0028448201000000,
+  0x0050880402010000,
+  0x00A0100804020100,
+  0x0040201008040201,
+];
+
+pub const BOARD_EDGES: BoardMask = 0xFF818181818181FF;
+pub const BOARD_WITHOUT_EDGES: BoardMask = 0x007E7E7E7E7E7E00;
+pub const BOARD_RIGHT_EDGE: BoardMask = 0x8080808080808080;
+pub const BOARD_LEFT_EDGE: BoardMask = 0x0101010101010101;
+pub const BOARD_DOWN_EDGE: BoardMask = 0x00000000000000FF;
+pub const BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
+
 /// Returns a bitmask of the knight possible destination squares.
 ///
 /// ### Arguments
@@ -329,7 +411,7 @@ pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: us
 /// * `square` - Start square for the knight
 /// * `square` - Start square for the knight
 ///
-fn get_moves_from_offsets(
+pub fn get_moves_from_offsets(
   move_offsets: &[(isize, isize)],
   recursion: bool,
   same_side_pieces: u64,
@@ -470,8 +552,7 @@ pub fn get_white_pawn_moves(
   // Check if it can go by 1 :
   if inital_rank < 7 {
     let destination_bitmask: u64 = 1 << ((inital_rank + 1) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0 && (destination_bitmask & opponent_pieces) == 0
-    {
+    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0 {
       destinations |= destination_bitmask;
     }
   }
@@ -480,10 +561,8 @@ pub fn get_white_pawn_moves(
   if inital_rank == 1 {
     let destination_bitmask: u64 = 1 << ((inital_rank + 2) * 8 + inital_file);
     let blocking_bitmask: u64 = 1 << ((inital_rank + 1) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0
-      && (destination_bitmask & opponent_pieces) == 0
-      && (blocking_bitmask & same_side_pieces) == 0
-      && (blocking_bitmask & opponent_pieces) == 0
+    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0
+      && (blocking_bitmask & (same_side_pieces | opponent_pieces)) == 0
     {
       destinations |= destination_bitmask;
     }
@@ -537,8 +616,7 @@ pub fn get_black_pawn_moves(
   // Check if it can go by 1 :
   if inital_rank > 0 {
     let destination_bitmask: u64 = 1 << ((inital_rank - 1) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0 && (destination_bitmask & opponent_pieces) == 0
-    {
+    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0 {
       destinations |= destination_bitmask;
     }
   }
@@ -547,10 +625,8 @@ pub fn get_black_pawn_moves(
   if inital_rank == 6 {
     let destination_bitmask: u64 = 1 << ((inital_rank - 2) * 8 + inital_file);
     let blocking_bitmask: u64 = 1 << ((inital_rank - 1) * 8 + inital_file);
-    if (destination_bitmask & same_side_pieces) == 0
-      && (destination_bitmask & opponent_pieces) == 0
-      && (blocking_bitmask & same_side_pieces) == 0
-      && (blocking_bitmask & opponent_pieces) == 0
+    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0
+      && (blocking_bitmask & (same_side_pieces | opponent_pieces)) == 0
     {
       destinations |= destination_bitmask;
     }

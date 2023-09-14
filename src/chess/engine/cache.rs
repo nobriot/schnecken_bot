@@ -383,7 +383,7 @@ impl EngineCache {
   ///
   /// ### Return value
   ///
-  /// The evaluation of the board. Returns 0 if the evaluation is unknown.
+  /// The gamestatus of the board. Returns Ongoing if the status is unknown.
   ///
   pub fn get_status(&self, board_hash: &BoardHash) -> GameStatus {
     if !self.has_status(board_hash) {

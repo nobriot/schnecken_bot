@@ -1,19 +1,19 @@
 use log::*;
 use rand::Rng;
 use serde_json::Value as JsonValue;
-use std::arch::x86_64::_CMP_UNORD_Q;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
-use crate::chess;
+// Other libraries
+use crate::lichess::api::*;
+use crate::lichess::types::Clock;
+use crate::lichess::types::Color;
+
+// From the same library
 use crate::chess::engine::Engine;
 use crate::chess::model::game_state::START_POSITION_FEN;
 use crate::chess::model::moves::Move;
-use crate::chess::model::piece::Color;
-use crate::lichess;
-use crate::lichess::api::*;
-use crate::lichess::types::Clock;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -43,7 +43,7 @@ pub struct GameClock {
 #[derive(Debug, Clone)]
 pub struct BotGame {
   /// Color played by the bot in the ongoing game
-  pub color: Color,
+  pub color: lichess::types::Color,
   /// Start FEN
   pub start_fen: String,
   /// Short Lichess Game ID, used in URLs

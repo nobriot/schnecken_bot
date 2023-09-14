@@ -1143,4 +1143,22 @@ mod tests {
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() == Move::from_string("b5b4"));
   }
+
+  #[test]
+  fn endgame_evaluation_search() {
+    let mut engine = Engine::new();
+    engine.set_position("1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1");
+    engine.set_search_time_limit(800);
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+
+    // 25 moves.
+    assert_eq!(analysis.len(), 26);
+    let bad_moves = vec![
+      "c7c4", "c7c3", "c7c2", "c7d8", "c7c8", "c7b7", "c7a7", "c7e7", "c7f7", "c7d7", "c7g7",
+      "c7h7", "b8a8", "b8a7",
+    ];
+    assert!(!bad_moves.contains(&engine.get_best_move().to_string().as_str()));
+  }
 }

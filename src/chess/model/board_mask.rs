@@ -34,6 +34,8 @@ macro_rules! square_in_mask {
 
 /// Helper macro that sets a square in a BoardMask
 ///
+/// Use like this: `set_square_in_mask!(square, mask)`
+///
 /// ### Arguments
 ///
 /// * `square` Square value to add to the BoardMask
@@ -46,6 +48,8 @@ macro_rules! set_square_in_mask {
 }
 
 /// Helper macro that removes a square from a BoardMask
+///
+/// Use like this: `unset_square_in_mask!(square, mask)`
 ///
 /// ### Arguments
 ///
