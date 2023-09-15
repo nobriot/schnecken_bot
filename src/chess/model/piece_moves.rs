@@ -410,7 +410,10 @@ pub fn get_white_pawn_moves(
   let mut destinations: u64 = 0;
 
   destinations |= WHITE_PAWN_SINGLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
-  destinations |= WHITE_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  // A pawn has to be able to go by one to go by two
+  if destinations & WHITE_PAWN_SINGLE_JUMP[square] != 0 {
+    destinations |= WHITE_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  }
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square
@@ -456,7 +459,10 @@ pub fn get_black_pawn_moves(
   let mut destinations: u64 = 0;
 
   destinations |= BLACK_PAWN_SINGLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
-  destinations |= BLACK_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  // A pawn has to be able to go by one to go by two
+  if destinations & BLACK_PAWN_SINGLE_JUMP[square] != 0 {
+    destinations |= BLACK_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  }
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square

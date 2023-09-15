@@ -742,4 +742,16 @@ mod tests {
       positions_computed
     );
   }
+
+  #[test]
+  fn test_pawn_double_jump_blocked() {
+    let fen = "5r1k/1P5p/5p1N/4p3/2NpPnp1/3P4/2PB1PPP/R5K1 b - - 0 36";
+    let game_state = GameState::from_fen(fen);
+    let moves = game_state.get_moves();
+    for m in &moves {
+      println!("{m}");
+      assert_ne!("h5h7", m.to_string());
+    }
+    assert_eq!(18, moves.len());
+  }
 }
