@@ -1,5 +1,5 @@
 use super::board_mask::*;
-use crate::chess::model::tables::rook_destinations::*;
+use crate::model::tables::rook_destinations::*;
 
 // -----------------------------------------------------------------------------
 //  Constants
@@ -478,6 +478,9 @@ pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usi
 /// * `square` - Start square for the knight
 ///
 pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
+  /*
+  get_rook_destinations(same_side_pieces, opponent_pieces, square)
+  */
   get_moves_from_offsets(
     &ROOK_MOVE_OFFSETS,
     true,
@@ -660,8 +663,8 @@ pub fn get_black_pawn_captures(square: usize) -> BoardMask {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::chess::model::board_mask::board_mask_to_string;
-  use crate::chess::model::moves::string_to_square;
+  use crate::model::board_mask::board_mask_to_string;
+  use crate::model::moves::string_to_square;
   #[test]
   fn check_knight_moves() {
     let expected_squares: u64 = (1 << string_to_square("a5"))

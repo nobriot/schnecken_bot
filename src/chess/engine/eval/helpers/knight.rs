@@ -1,6 +1,6 @@
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
+use crate::model::piece_moves::*;
 
 use super::generic::is_attacked;
 use super::generic::is_hanging;

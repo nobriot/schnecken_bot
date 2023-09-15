@@ -1,9 +1,9 @@
 use super::generic::*;
 
-use crate::chess::model::board::*;
-use crate::chess::model::board_mask::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
+use crate::model::board::*;
+use crate::model::board_mask::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
 
 // State to track pawn islands
 #[derive(PartialEq)]
@@ -558,6 +558,7 @@ pub fn pawn_attack(game_state: &GameState, i: usize) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::model::board_mask::*;
 
   #[test]
   fn get_islands_for_simple_pawn_structure() {
@@ -664,8 +665,6 @@ mod tests {
       get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black)
     );
   }
-
-  use crate::chess::model::board_mask::*;
 
   #[test]
   fn test_backwards_pawns() {

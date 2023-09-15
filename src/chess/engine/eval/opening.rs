@@ -1,10 +1,10 @@
 use super::helpers::king::*;
 use super::position::default_position_evaluation;
-use crate::chess::engine::development::get_development_score;
-use crate::chess::engine::eval::helpers::mobility::*;
-use crate::chess::engine::square_affinity::*;
-use crate::chess::model::game_state::GameState;
-use crate::chess::model::piece::*;
+use crate::engine::development::get_development_score;
+use crate::engine::eval::helpers::mobility::*;
+use crate::engine::square_affinity::*;
+use crate::model::game_state::GameState;
+use crate::model::piece::*;
 
 // Constants
 const DEVELOPMENT_FACTOR: f32 = 0.30;
@@ -82,8 +82,8 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::chess::model::board::*;
-  use crate::chess::model::board_mask::*;
+  use crate::model::board::*;
+  use crate::model::board_mask::*;
 
   #[test]
   fn evaluate_opening_positions() {

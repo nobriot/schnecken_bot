@@ -26,6 +26,7 @@ pub type BoardMask = u64;
 ///
 /// Evaluates to True if the square is set in the mask. False if not
 ///
+#[macro_export]
 macro_rules! square_in_mask {
   ($square:expr, $mask:expr) => {
     ((1 << $square) & $mask) != 0
@@ -41,6 +42,7 @@ macro_rules! square_in_mask {
 /// * `square` Square value to add to the BoardMask
 /// * `mask`   board mask to modify
 ///
+#[macro_export]
 macro_rules! set_square_in_mask {
   ($square:expr, $mask:expr) => {
     $mask |= 1 << $square;
@@ -56,6 +58,7 @@ macro_rules! set_square_in_mask {
 /// * `square` Square value to revove from the BoardMask
 /// * `mask`   board mask to modify
 ///
+#[macro_export]
 macro_rules! unset_square_in_mask {
   ($square:expr, $mask:expr) => {
     $mask &= !(1 << $square);
@@ -63,9 +66,9 @@ macro_rules! unset_square_in_mask {
 }
 
 // Make the macros public
-pub(crate) use set_square_in_mask;
-pub(crate) use square_in_mask;
-pub(crate) use unset_square_in_mask;
+pub use set_square_in_mask;
+pub use square_in_mask;
+pub use unset_square_in_mask;
 
 // -----------------------------------------------------------------------------
 //  Functions

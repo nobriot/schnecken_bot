@@ -1,5 +1,5 @@
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
 
 /// Gives a score penalty for lack of development.
 /// 6 for full development - 0 for no development

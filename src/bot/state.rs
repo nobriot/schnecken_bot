@@ -5,15 +5,14 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
-// Other libraries
-use crate::lichess::api::*;
-use crate::lichess::types::Clock;
-use crate::lichess::types::Color;
+// Other libraries from our repo
+use lichess::api::*;
+use lichess::types::Clock;
+use lichess::types::Color;
 
-// From the same library
-use crate::chess::engine::Engine;
-use crate::chess::model::game_state::START_POSITION_FEN;
-use crate::chess::model::moves::Move;
+use chess::engine::Engine;
+use chess::model::game_state::START_POSITION_FEN;
+use chess::model::moves::Move;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -422,6 +421,7 @@ impl BotState {
   // Others
 
   /// Checks if any of the players we like is online and sends a challenge.
+  ///
   pub fn update_game_and_play(&self, game_state: lichess::types::GameState, game_id: &str) {
     let mut binding = self.games.lock().unwrap();
     let games: &mut Vec<BotGame> = binding.as_mut();

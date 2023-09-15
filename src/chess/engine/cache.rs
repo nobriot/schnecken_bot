@@ -4,12 +4,12 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::chess::model::game_state::GamePhase;
-use crate::chess::model::game_state::GameState;
-use crate::chess::model::game_state::GameStatus;
-use crate::chess::model::moves::*;
-use crate::chess::model::piece::Color;
-use crate::chess::model::tables::zobrist::BoardHash;
+use crate::model::game_state::GamePhase;
+use crate::model::game_state::GameState;
+use crate::model::game_state::GameStatus;
+use crate::model::moves::*;
+use crate::model::piece::Color;
+use crate::model::tables::zobrist::BoardHash;
 
 #[derive(Debug, Clone)]
 pub struct EvalTree {
@@ -764,7 +764,8 @@ impl EngineCache {
 mod tests {
 
   use super::*;
-  use crate::chess::{engine::eval::position::determine_game_phase, model::game_state::GameState};
+  use crate::engine::eval::position::determine_game_phase;
+  use crate::model::game_state::GameState;
 
   #[test]
   fn test_game_state_data() {
@@ -836,7 +837,7 @@ mod tests {
 
   #[test]
   fn test_sorting_moves_by_eval_1() {
-    use crate::chess::engine::evaluate_position;
+    use crate::engine::evaluate_position;
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
@@ -926,7 +927,7 @@ mod tests {
 
   #[test]
   fn test_sorting_moves_by_eval_2() {
-    use crate::chess::engine::evaluate_position;
+    use crate::engine::evaluate_position;
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "r1bqk2r/ppppbp1p/8/3Bp1pQ/3nP3/3P4/PPPN1PPP/R3K1NR w KQq - 1 8";

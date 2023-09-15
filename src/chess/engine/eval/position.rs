@@ -11,10 +11,9 @@ use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
 
-// From another crate
-use crate::chess::model::board_mask::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
+use crate::model::board_mask::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.01;
@@ -277,15 +276,14 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
     }
   }
 
-  let mut score = 0.0;
   if !cache.has_game_phase(&game_state.board.hash) {
     determine_game_phase(cache, game_state);
   }
-  match cache.get_game_phase(&game_state.board.hash) {
-    GamePhase::Opening => score = get_opening_position_evaluation(game_state),
-    GamePhase::Middlegame => score = get_middlegame_position_evaluation(game_state),
-    GamePhase::Endgame => score = get_endgame_position_evaluation(game_state),
-  }
+  let score = match cache.get_game_phase(&game_state.board.hash) {
+    GamePhase::Opening => get_opening_position_evaluation(game_state),
+    GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
+    GamePhase::Endgame => get_endgame_position_evaluation(game_state),
+  };
 
   //score = default_position_evaluation(game_state);
   cache.set_eval(game_state.board.hash, score);
@@ -298,8 +296,8 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
 
 #[cfg(test)]
 mod tests {
-  use crate::chess::engine::cache::EngineCache;
-  use crate::chess::model::moves::Move;
+  use crate::engine::cache::EngineCache;
+  use crate::model::moves::Move;
 
   use super::*;
   #[test]

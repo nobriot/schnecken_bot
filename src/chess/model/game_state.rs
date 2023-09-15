@@ -1,13 +1,13 @@
 use log::*;
 use std::collections::VecDeque;
 
-use crate::chess::model::board::*;
-use crate::chess::model::board_mask::*;
-use crate::chess::model::moves::*;
-use crate::chess::model::piece::NO_PIECE;
-use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::MAXIMUM_LEGAL_MOVES;
-use crate::chess::model::tables::zobrist::BoardHash;
+use crate::model::board::*;
+use crate::model::board_mask::*;
+use crate::model::moves::*;
+use crate::model::piece::NO_PIECE;
+use crate::model::piece::*;
+use crate::model::piece_moves::MAXIMUM_LEGAL_MOVES;
+use crate::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

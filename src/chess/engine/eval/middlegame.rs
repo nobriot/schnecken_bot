@@ -2,9 +2,9 @@ use super::helpers::king::*;
 use super::helpers::mobility::*;
 use super::helpers::rook::*;
 use super::position::default_position_evaluation;
-use crate::chess::engine::square_affinity::*;
-use crate::chess::model::game_state::GameState;
-use crate::chess::model::piece::*;
+use crate::engine::square_affinity::*;
+use crate::model::game_state::GameState;
+use crate::model::piece::*;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.1;
 const KING_DANGER_FACTOR: f32 = 0.3;

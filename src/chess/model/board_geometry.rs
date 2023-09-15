@@ -1,4 +1,4 @@
-use crate::chess::model::board::*;
+use crate::model::board::*;
 use std::cmp::max;
 
 /// Finds how many moves/squares away is a king from a particular square, regardless

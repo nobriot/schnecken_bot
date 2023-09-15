@@ -296,7 +296,7 @@ impl Engine {
     // If we have only one legal move, we should just give it a score and play it instantaneously.
     Engine::find_move_list(&self.cache, &self.position);
     if self.cache.get_move_list(&self.position.board.hash).len() < 2 {
-      info!("Single or no move available. Just evaluating quickly");
+      debug!("Single or no move available. Just evaluating quickly");
       self.search(&self.position.clone(), 1, 1, start_time);
       self.set_stop_requested(false);
       self.set_engine_active(false);
@@ -1068,7 +1068,7 @@ mod tests {
 
   #[test]
   fn test_avoid_threefold_repetitions() {
-    use crate::chess::model::board::Board;
+    use crate::model::board::Board;
     /* Looks like we had a permutation bug that lead us into some 3-fold repetitions
      [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms to find a move
        Line 0 Eval: 10.71348 - d1e2 / Permutation
@@ -1160,5 +1160,35 @@ mod tests {
       "c7h7", "b8a8", "b8a7",
     ];
     assert!(!bad_moves.contains(&engine.get_best_move().to_string().as_str()));
+  }
+
+  #[test]
+  #[allow(non_snake_case)]
+  fn evaluate_real_game_0BYxLu3V_example_1() {
+    // https://lichess.org/0BYxLu3V has plently of blunders.
+    //
+    let mut engine = Engine::new();
+    engine.set_position("r1b1kbnr/pppp1p1p/4pqp1/8/3nP3/2NQ1N2/PPPP1PPP/R1B1KB1R b KQkq - 7 6");
+    engine.set_search_time_limit(1897);
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+    assert!(!analysis.is_empty());
+    assert!(engine.get_best_move() != Move::from_string("f8d6"));
+  }
+
+  #[test]
+  #[allow(non_snake_case)]
+  fn evaluate_real_game_0BYxLu3V_example_2() {
+    // https://lichess.org/0BYxLu3V has plently of blunders.
+    //
+    let mut engine = Engine::new();
+    engine.set_position("r1b1k1nr/pppp1p1p/3bpqp1/8/3QP3/2N2N2/PPPP1PPP/R1B1KB1R b KQkq - 0 7");
+    engine.set_search_time_limit(1870);
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+    assert!(!analysis.is_empty());
+    assert!(engine.get_best_move() != Move::from_string("d6e5"));
   }
 }

@@ -1,9 +1,9 @@
 use super::pawn::*;
-use crate::chess::model::board::*;
-use crate::chess::model::board_mask::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::*;
+use crate::model::board::*;
+use crate::model::board_mask::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
+use crate::model::piece_moves::*;
 
 use log::*;
 

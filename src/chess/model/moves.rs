@@ -1,5 +1,5 @@
-use crate::chess::model::board::INVALID_SQUARE;
-use crate::chess::model::piece::*;
+use crate::model::board::INVALID_SQUARE;
+use crate::model::piece::*;
 
 use log::*;
 

@@ -1,7 +1,7 @@
 use super::generic::*;
-use crate::chess::model::board::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
+use crate::model::board::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
 
 /// Determine if rooks are connected for a color
 ///

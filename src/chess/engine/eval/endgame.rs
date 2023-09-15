@@ -1,13 +1,11 @@
-use std::char::MAX;
-
 use super::helpers::king::*;
 use super::helpers::mobility::*;
 use super::position::*;
-use crate::chess::model::board::*;
-use crate::chess::model::board_geometry::*;
-use crate::chess::model::board_mask::*;
-use crate::chess::model::game_state::*;
-use crate::chess::model::piece::*;
+use crate::model::board::*;
+use crate::model::board_geometry::*;
+use crate::model::board_mask::*;
+use crate::model::game_state::*;
+use crate::model::piece::*;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;

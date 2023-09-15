@@ -1,9 +1,9 @@
-use crate::chess::model::board_mask::*;
-use crate::chess::model::castling_rights::*;
-use crate::chess::model::moves::*;
-use crate::chess::model::piece::*;
-use crate::chess::model::piece_moves::*;
-use crate::chess::model::tables::zobrist::*;
+use crate::model::board_mask::*;
+use crate::model::castling_rights::*;
+use crate::model::moves::*;
+use crate::model::piece::*;
+use crate::model::piece_moves::*;
+use crate::model::tables::zobrist::*;
 
 use log::*;
 use std::hash::{Hash, Hasher};

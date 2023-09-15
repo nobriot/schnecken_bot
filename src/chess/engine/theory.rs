@@ -39,9 +39,9 @@ pub fn get_theory_moves(fen: &str) -> Option<&Vec<&'static str>> {
 
 #[cfg(test)]
 mod tests {
+  use super::*;
   #[test]
   fn test_theory_lines() {
-    use crate::chess::engine::theory::*;
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let result = get_theory_moves(fen);
     assert_eq!(
@@ -52,7 +52,6 @@ mod tests {
 
   #[test]
   fn test_theory_lines_endgame() {
-    use crate::chess::engine::theory::*;
     let fen = "4r3/pppk4/2p1p2p/6PN/2P2PK1/1Pb4P/P3R3/8 w - - 3 38";
     let result = get_theory_moves(fen);
     assert_eq!(Some(&vec!["h5g3", "h3h4", "e2e3"]), result);

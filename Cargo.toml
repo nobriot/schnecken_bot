@@ -31,12 +31,8 @@ lazy_static = "1.4.0"
 anyhow = "1.0.71"
 # Our own libraries
 lichess-api = { path = "src/lichess" }
+chess = { path = "src/chess" }
 
 [[bin]]
 name = "schnecken_bot"
 path = "src/main.rs"
-
-# Binaries generating other files
-[[bin]]
-name = "generate_rook_table"
-path = "src/chess/model/bin/generate_rook_table.rs"
