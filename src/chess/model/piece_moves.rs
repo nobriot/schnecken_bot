@@ -1,4 +1,5 @@
 use super::board_mask::*;
+use crate::model::tables::pawn_destinations::*;
 use crate::model::tables::rook_destinations::*;
 
 // -----------------------------------------------------------------------------
@@ -14,15 +15,6 @@ macro_rules! fr_bounds_or_break {
   ($file:expr, $rank:expr) => {
     if !(0..=7).contains(&$rank) || !(0..=7).contains(&$file) {
       break;
-    }
-  };
-}
-
-/// Checks if a file/rank value is within bounds, else continues
-macro_rules! fr_bounds_or_continue {
-  ($file:expr, $rank:expr) => {
-    if !(0..=7).contains(&$rank) || !(0..=7).contains(&$file) {
-      continue;
     }
   };
 }
@@ -169,139 +161,6 @@ pub const KING_MOVES: [u64; 64] = [
   0x5070000000000000,
   0xA0E0000000000000,
   0x40C0000000000000,
-];
-
-pub const WHITE_PAWN_CONTROL: [u64; 64] = [
-  0x0000000000000200,
-  0x0000000000000500,
-  0x0000000000000A00,
-  0x0000000000001400,
-  0x0000000000002800,
-  0x0000000000005000,
-  0x000000000000A000,
-  0x0000000000004000,
-  0x0000000000020000,
-  0x0000000000050000,
-  0x00000000000A0000,
-  0x0000000000140000,
-  0x0000000000280000,
-  0x0000000000500000,
-  0x0000000000A00000,
-  0x0000000000400000,
-  0x0000000002000000,
-  0x0000000005000000,
-  0x000000000A000000,
-  0x0000000014000000,
-  0x0000000028000000,
-  0x0000000050000000,
-  0x00000000A0000000,
-  0x0000000040000000,
-  0x0000000200000000,
-  0x0000000500000000,
-  0x0000000A00000000,
-  0x0000001400000000,
-  0x0000002800000000,
-  0x0000005000000000,
-  0x000000A000000000,
-  0x0000004000000000,
-  0x0000020000000000,
-  0x0000050000000000,
-  0x00000A0000000000,
-  0x0000140000000000,
-  0x0000280000000000,
-  0x0000500000000000,
-  0x0000A00000000000,
-  0x0000400000000000,
-  0x0002000000000000,
-  0x0005000000000000,
-  0x000A000000000000,
-  0x0014000000000000,
-  0x0028000000000000,
-  0x0050000000000000,
-  0x00A0000000000000,
-  0x0040000000000000,
-  0x0200000000000000,
-  0x0500000000000000,
-  0x0A00000000000000,
-  0x1400000000000000,
-  0x2800000000000000,
-  0x5000000000000000,
-  0xA000000000000000,
-  0x4000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-];
-pub const BLACK_PAWN_CONTROL: [u64; 64] = [
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000000,
-  0x0000000000000002,
-  0x0000000000000005,
-  0x000000000000000A,
-  0x0000000000000014,
-  0x0000000000000028,
-  0x0000000000000050,
-  0x00000000000000A0,
-  0x0000000000000040,
-  0x0000000000000200,
-  0x0000000000000500,
-  0x0000000000000A00,
-  0x0000000000001400,
-  0x0000000000002800,
-  0x0000000000005000,
-  0x000000000000A000,
-  0x0000000000004000,
-  0x0000000000020000,
-  0x0000000000050000,
-  0x00000000000A0000,
-  0x0000000000140000,
-  0x0000000000280000,
-  0x0000000000500000,
-  0x0000000000A00000,
-  0x0000000000400000,
-  0x0000000002000000,
-  0x0000000005000000,
-  0x000000000A000000,
-  0x0000000014000000,
-  0x0000000028000000,
-  0x0000000050000000,
-  0x00000000A0000000,
-  0x0000000040000000,
-  0x0000000200000000,
-  0x0000000500000000,
-  0x0000000A00000000,
-  0x0000001400000000,
-  0x0000002800000000,
-  0x0000005000000000,
-  0x000000A000000000,
-  0x0000004000000000,
-  0x0000020000000000,
-  0x0000050000000000,
-  0x00000A0000000000,
-  0x0000140000000000,
-  0x0000280000000000,
-  0x0000500000000000,
-  0x0000A00000000000,
-  0x0000400000000000,
-  0x0002000000000000,
-  0x0005000000000000,
-  0x000A000000000000,
-  0x0014000000000000,
-  0x0028000000000000,
-  0x0050000000000000,
-  0x00A0000000000000,
-  0x0040000000000000,
 ];
 
 /// Array of BoardMasks indicating where the bishop can reach if there were no other pieces on the board
@@ -548,28 +407,10 @@ pub fn get_white_pawn_moves(
   opponent_pieces: u64,
   square: usize,
 ) -> BoardMask {
-  let inital_rank = (square / 8) as isize;
-  let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
 
-  // Check if it can go by 1 :
-  if inital_rank < 7 {
-    let destination_bitmask: u64 = 1 << ((inital_rank + 1) * 8 + inital_file);
-    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0 {
-      destinations |= destination_bitmask;
-    }
-  }
-
-  // Check if it can go by 2:
-  if inital_rank == 1 {
-    let destination_bitmask: u64 = 1 << ((inital_rank + 2) * 8 + inital_file);
-    let blocking_bitmask: u64 = 1 << ((inital_rank + 1) * 8 + inital_file);
-    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0
-      && (blocking_bitmask & (same_side_pieces | opponent_pieces)) == 0
-    {
-      destinations |= destination_bitmask;
-    }
-  }
+  destinations |= WHITE_PAWN_SINGLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  destinations |= WHITE_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square
@@ -612,28 +453,10 @@ pub fn get_black_pawn_moves(
   opponent_pieces: u64,
   square: usize,
 ) -> BoardMask {
-  let inital_rank = (square / 8) as isize;
-  let inital_file = (square % 8) as isize;
   let mut destinations: u64 = 0;
 
-  // Check if it can go by 1 :
-  if inital_rank > 0 {
-    let destination_bitmask: u64 = 1 << ((inital_rank - 1) * 8 + inital_file);
-    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0 {
-      destinations |= destination_bitmask;
-    }
-  }
-
-  // Check if it can go by 2:
-  if inital_rank == 6 {
-    let destination_bitmask: u64 = 1 << ((inital_rank - 2) * 8 + inital_file);
-    let blocking_bitmask: u64 = 1 << ((inital_rank - 1) * 8 + inital_file);
-    if (destination_bitmask & (same_side_pieces | opponent_pieces)) == 0
-      && (blocking_bitmask & (same_side_pieces | opponent_pieces)) == 0
-    {
-      destinations |= destination_bitmask;
-    }
-  }
+  destinations |= BLACK_PAWN_SINGLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
+  destinations |= BLACK_PAWN_DOUBLE_JUMP[square] & !(opponent_pieces | same_side_pieces);
 
   // Check if it can capture
   // en passant can be handled by adding a phantom piece on the en passant square
@@ -794,30 +617,6 @@ mod tests {
       king_moves[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
     }
     println!("pub const KING_MOVES:[u64; 64] = {:#018X?};", king_moves);
-  }
-
-  #[ignore]
-  #[test]
-  fn generate_pawn_control() {
-    let mut white_pawn_captures: [u64; 64] = [0; 64];
-    let move_offsets: [(isize, isize); 2] = [(1, 1), (-1, 1)];
-    for i in 0..64 {
-      white_pawn_captures[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
-    }
-    println!(
-      "pub const WHITE_PAWN_CONTROL:[u64; 64] = {:#018X?};",
-      white_pawn_captures
-    );
-
-    let mut black_pawn_captures: [u64; 64] = [0; 64];
-    let move_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
-    for i in 0..64 {
-      black_pawn_captures[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
-    }
-    println!(
-      "pub const BLACK_PAWN_CONTROL:[u64; 64] = {:#018X?};",
-      black_pawn_captures
-    );
   }
 
   #[test]
