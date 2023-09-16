@@ -1,3 +1,5 @@
+use crate::model::board_mask::BoardMask;
+
 // -----------------------------------------------------------------------------
 // Constants
 const K_MASK: u8 = 0b00001000;
@@ -6,6 +8,23 @@ const Q_MASK: u8 = 0b00000100;
 const k_MASK: u8 = 0b00000010;
 #[allow(non_upper_case_globals)]
 const q_MASK: u8 = 0b00000001;
+
+/// Squares that must be free for white kingside castle
+pub const FREE_SQUARE_MASK_WHITE_KINGSIDE: BoardMask = (1 << 5) | (1 << 6);
+/// Squares that must be un-attacked for white kingside castle
+pub const UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE: BoardMask = (1 << 5) | (1 << 6);
+/// Squares that must be free for white queenside castle
+pub const FREE_SQUARE_MASK_WHITE_QUEENSIDE: BoardMask = (1 << 1) | (1 << 2) | (1 << 3);
+/// Squares that must be un-attacked for white queenside castle
+pub const UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE: BoardMask = (1 << 2) | (1 << 3);
+/// Squares that must be free for black kingside castle
+pub const FREE_SQUARE_MASK_BLACK_KINGSIDE: BoardMask = (1 << 61) | (1 << 62);
+/// Squares that must be un-attacked for black kingside castle
+pub const UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE: BoardMask = (1 << 61) | (1 << 62);
+/// Squares that must be free for black queenside castle
+pub const FREE_SQUARE_MASK_BLACK_QUEENSIDE: BoardMask = (1 << 57) | (1 << 58) | (1 << 59);
+/// Squares that must be un-attacked for black queenside castle
+pub const UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE: BoardMask = (1 << 58) | (1 << 59);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[allow(non_snake_case)]

@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 
 use crate::model::board::*;
 use crate::model::board_mask::*;
+use crate::model::castling_rights::*;
 use crate::model::moves::*;
 use crate::model::piece::NO_PIECE;
 use crate::model::piece::*;
@@ -248,7 +249,7 @@ impl GameState {
   pub fn get_white_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
 
-    let ssp = self.board.get_piece_color_mask(Color::White);
+    let mut ssp = self.board.get_piece_color_mask(Color::White);
     let op = self.board.get_piece_color_mask(Color::Black);
 
     // Only generate moves if we have a piece on the square
@@ -262,21 +263,21 @@ impl GameState {
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
-          if !promotion {
-            all_moves.push(Move {
+        if !promotion {
+          all_moves.push(Move {
             src: source_square,
             dest: destination_square,
-              promotion: NO_PIECE,
-            });
-          } else {
-            for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
-              all_moves.push(Move {
+            promotion: NO_PIECE,
+          });
+        } else {
+          for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
+            all_moves.push(Move {
               src: source_square,
               dest: destination_square,
-                promotion: promotion_piece,
-              });
-            }
+              promotion: promotion_piece,
+            });
           }
+        }
 
         // Remove the last bit set to 1:
         destinations &= destinations - 1;
@@ -288,10 +289,10 @@ impl GameState {
 
     if self.board.castling_rights.K()
       && self.checks == 0
-      && !self.board.has_piece(5)
-      && !self.board.has_piece(6)
-      && !square_in_mask!(5, self.board.black_masks.control)
-      && !square_in_mask!(6, self.board.black_masks.control)
+      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
+        & FREE_SQUARE_MASK_WHITE_KINGSIDE)
+        == 0
+      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
     {
       all_moves.push(Move {
         src: 4u8,
@@ -301,11 +302,10 @@ impl GameState {
     }
     if self.board.castling_rights.Q()
       && self.checks == 0
-      && !self.board.has_piece(1)
-      && !self.board.has_piece(2)
-      && !self.board.has_piece(3)
-      && !square_in_mask!(2, self.board.black_masks.control)
-      && !square_in_mask!(3, self.board.black_masks.control)
+      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
+        & FREE_SQUARE_MASK_WHITE_QUEENSIDE)
+        == 0
+      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
     {
       all_moves.push(Move {
         src: 4u8,
@@ -359,21 +359,21 @@ impl GameState {
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
-          if !promotion {
-            all_moves.push(Move {
+        if !promotion {
+          all_moves.push(Move {
             src: source_square,
             dest: destination_square,
-              promotion: NO_PIECE,
-            });
-          } else {
-            for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
-              all_moves.push(Move {
+            promotion: NO_PIECE,
+          });
+        } else {
+          for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
+            all_moves.push(Move {
               src: source_square,
               dest: destination_square,
-                promotion: promotion_piece,
-              });
-            }
+              promotion: promotion_piece,
+            });
           }
+        }
 
         // Remove the last bit set to 1:
         destinations &= destinations - 1;
@@ -386,10 +386,10 @@ impl GameState {
     // Now check castling.
     if self.board.castling_rights.k()
       && self.checks == 0
-      && !self.board.has_piece(62)
-      && !self.board.has_piece(61)
-      && !square_in_mask!(61, self.board.white_masks.control)
-      && !square_in_mask!(62, self.board.white_masks.control)
+      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
+        & FREE_SQUARE_MASK_BLACK_KINGSIDE)
+        == 0
+      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
     {
       all_moves.push(Move {
         src: 60u8,
@@ -399,11 +399,10 @@ impl GameState {
     }
     if self.board.castling_rights.q()
       && self.checks == 0
-      && !self.board.has_piece(59)
-      && !self.board.has_piece(58)
-      && !self.board.has_piece(57)
-      && !square_in_mask!(59, self.board.white_masks.control)
-      && !square_in_mask!(58, self.board.white_masks.control)
+      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
+        & FREE_SQUARE_MASK_BLACK_QUEENSIDE)
+        == 0
+      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
     {
       all_moves.push(Move {
         src: 60u8,
