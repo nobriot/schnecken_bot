@@ -252,35 +252,38 @@ impl GameState {
     let op = self.board.get_piece_color_mask(Color::Black);
 
     // Only generate moves if we have a piece on the square
-    for source_square in 0..64_usize {
-      if !self
-        .board
-        .has_piece_with_color(source_square as u8, Color::White)
-      {
-        continue;
-      }
+    while ssp != 0 {
+      let source_square = ssp.trailing_zeros() as u8;
+      let (mut destinations, promotion) = self.board.get_piece_destinations(
+        source_square as usize,
+        op,
+        self.board.get_piece_color_mask(Color::White),
+      );
 
-      let (destinations, promotion) = self.board.get_piece_destinations(source_square, op, ssp);
-
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
+      while destinations != 0 {
+        let destination_square = destinations.trailing_zeros() as u8;
           if !promotion {
             all_moves.push(Move {
-              src: source_square as u8,
-              dest: i,
+            src: source_square,
+            dest: destination_square,
               promotion: NO_PIECE,
             });
           } else {
             for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
               all_moves.push(Move {
-                src: source_square as u8,
-                dest: i,
+              src: source_square,
+              dest: destination_square,
                 promotion: promotion_piece,
               });
             }
           }
-        }
+
+        // Remove the last bit set to 1:
+        destinations &= destinations - 1;
       }
+
+      // Remove the last bit set to 1:
+      ssp &= ssp - 1;
     }
 
     if self.board.castling_rights.K()
@@ -342,38 +345,42 @@ impl GameState {
   pub fn get_black_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
-    let ssp = self.board.get_piece_color_mask(Color::Black);
+    let mut ssp = self.board.get_piece_color_mask(Color::Black);
     let op = self.board.get_piece_color_mask(Color::White);
 
     // Only generate moves if we have a piece on the square
-    for source_square in 0..64_usize {
-      if !self
-        .board
-        .has_piece_with_color(source_square as u8, Color::Black)
-      {
-        continue;
-      }
+    while ssp != 0 {
+      let source_square = ssp.trailing_zeros() as u8;
+      let (mut destinations, promotion) = self.board.get_piece_destinations(
+        source_square as usize,
+        op,
+        self.board.get_piece_color_mask(Color::Black),
+      );
 
-      let (destinations, promotion) = self.board.get_piece_destinations(source_square, op, ssp);
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
+      while destinations != 0 {
+        let destination_square = destinations.trailing_zeros() as u8;
           if !promotion {
             all_moves.push(Move {
-              src: source_square as u8,
-              dest: i,
+            src: source_square,
+            dest: destination_square,
               promotion: NO_PIECE,
             });
           } else {
             for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
               all_moves.push(Move {
-                src: source_square as u8,
-                dest: i,
+              src: source_square,
+              dest: destination_square,
                 promotion: promotion_piece,
               });
             }
           }
-        }
+
+        // Remove the last bit set to 1:
+        destinations &= destinations - 1;
       }
+
+      // Remove the last bit set to 1:
+      ssp &= ssp - 1;
     }
 
     // Now check castling.
