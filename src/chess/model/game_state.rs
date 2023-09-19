@@ -649,7 +649,7 @@ mod tests {
   #[test]
   fn test_check_legal_moves() {
     let fen = "4B3/p5k1/1pp4p/8/8/P6P/5PP1/2R3K1 b - - 0 37";
-    let mut game_state = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
     let move_list = game_state.get_moves();
     println!("List of moves (should not include moves going into a check square):\n");
     for m in move_list {
@@ -660,13 +660,26 @@ mod tests {
   #[test]
   fn test_check_legal_moves_2() {
     let fen = "rnbqk1nr/ppp2ppp/8/3pp3/B2bP3/8/P1PP1PPP/R3K1NR b - - 0 1";
-    let mut game_state = GameState::from_fen(fen);
-    let move_list = game_state.get_moves().clone();
+    let game_state = GameState::from_fen(fen);
+    let move_list = game_state.get_moves();
     for m in &move_list {
       println!("{m}");
     }
     //print_board_mask(game_state.white_bitmap.unwrap());
     assert_eq!(8, move_list.len());
+  }
+
+  #[test]
+  fn test_legal_moves_3() {
+    let fen = "8/8/2K5/8/R2Q4/8/8/2k5 b - - 28 97";
+    let game_state = GameState::from_fen(fen);
+    let move_list = game_state.get_moves();
+    let legal_moves = vec!["c1c2", "c1b1"];
+    for m in &move_list {
+      println!("{m}");
+      assert!(legal_moves.contains(&m.to_string().as_str()));
+    }
+    assert_eq!(2, move_list.len());
   }
 
   #[test]

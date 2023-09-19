@@ -86,7 +86,8 @@ pub const ROOK_SPAN: [u64; 64] = [
 /// For a given position, this table indicate the BoardMasks indices of
 /// possible blockers for the ROOK_SPAN.
 ///
-///
+/// Blockers on the edge of the board don't matter, because we capture them and
+/// have to stop anyway.
 ///
 ///
 pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = [

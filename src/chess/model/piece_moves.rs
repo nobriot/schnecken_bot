@@ -1,6 +1,5 @@
 use super::board_mask::*;
 use crate::model::tables::pawn_destinations::*;
-use crate::model::tables::rook_destinations::*;
 
 // -----------------------------------------------------------------------------
 //  Constants
@@ -264,7 +263,7 @@ pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: us
 /// ### Arguments
 ///
 /// * `move_offsets` - possible offsets to apply First the file, then the rank
-/// * `recursion` - can the piece continue going in one direction ? true or is it only 1 jump ? false
+/// * `recursion` - can the piece continue going in one direction ? true or is it only 1 jump: false 
 /// * `same_side_pieces` - boardmask of the same side pieces
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight

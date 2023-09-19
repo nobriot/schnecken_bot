@@ -60,9 +60,10 @@ impl Color {
   }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum PieceType {
+  #[default]
   King,
   Queen,
   Rook,

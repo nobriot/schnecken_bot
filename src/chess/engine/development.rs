@@ -122,5 +122,10 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_development_score(&game_state, Color::White));
     assert_eq!(2, get_development_score(&game_state, Color::Black));
+
+    let fen ="rnbqkbnr/p1pp1ppp/8/7Q/p7/2N1Pp2/1PPP1PPP/R1B1KB1R w KQkq - 0 6";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(3, get_development_score(&game_state, Color::White));
+    assert_eq!(0, get_development_score(&game_state, Color::Black));
   }
 }

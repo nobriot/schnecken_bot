@@ -717,6 +717,8 @@ impl Engine {
         game_state.to_fen(),
         &game_state.board.hash,
       );
+      // FIXME: Assume for now that it was a threefold repetition that did not get captured correctly
+      self.cache.set_eval(game_state.board.hash, 0.0);
       return;
     }
 
