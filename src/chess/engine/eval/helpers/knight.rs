@@ -17,13 +17,13 @@ use super::generic::is_hanging;
 /// The value of attacked enemy pieces if it attacks them.
 /// Puts a value of 1.0 for a king check, in case we're forking king + something else.
 ///
-pub fn knight_attack(game_state: &GameState, i: usize) -> f32 {
+pub fn knight_attack(game_state: &GameState, i: u8) -> f32 {
   let mut value: f32 = 0.0;
 
   // If we have no knight on the square, return immediately.
-  let color = if game_state.board.squares[i] == WHITE_KNIGHT {
+  let color = if game_state.board.pieces.get(i as u8) == WHITE_KNIGHT {
     Color::White
-  } else if game_state.board.squares[i] == BLACK_KNIGHT {
+  } else if game_state.board.pieces.get(i as u8) == BLACK_KNIGHT {
     Color::Black
   } else {
     return value;
@@ -35,7 +35,7 @@ pub fn knight_attack(game_state: &GameState, i: usize) -> f32 {
     return value;
   }
 
-  let destinations = get_knight_moves(0, 0, i);
+  let destinations = get_knight_moves(0, 0, i as usize);
 
   // Get the knight destinations
   for s in 0..64 {
@@ -47,7 +47,7 @@ pub fn knight_attack(game_state: &GameState, i: usize) -> f32 {
       .has_piece_with_color(s as u8, Color::opposite(color))
     {
       if !game_state.board.has_king(s) {
-        value += Piece::material_value_from_u8(game_state.board.squares[s]);
+        value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
       } else {
         value += 1.0 * Color::score_factor(Color::opposite(color));
       }

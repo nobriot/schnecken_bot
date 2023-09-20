@@ -57,7 +57,7 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 
   for i in 0..64_usize {
     // Piece square table:
-    match game_state.board.squares[i] {
+    match game_state.board.pieces.get(i as u8) {
       WHITE_KING => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_KING[i] as f32,
       WHITE_QUEEN => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_QUEEN[i] as f32,
       WHITE_ROOK => score += SQUARE_TABLE_FACTOR * OpeningSquareTable::WHITE_ROOK[i] as f32,

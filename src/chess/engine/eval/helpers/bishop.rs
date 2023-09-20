@@ -21,9 +21,9 @@ pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
   let mut value: f32 = 0.0;
 
   // If we have no bishop on the square, return immediately.
-  let color = if game_state.board.squares[i] == WHITE_BISHOP {
+  let color = if game_state.board.pieces.get(i as u8) == WHITE_BISHOP {
     Color::White
-  } else if game_state.board.squares[i] == BLACK_BISHOP {
+  } else if game_state.board.pieces.get(i as u8) == BLACK_BISHOP {
     Color::Black
   } else {
     return value;
@@ -31,7 +31,7 @@ pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
 
   // If the bishop is attacked by the opponent and not defended, we do not even
   // consider anything here:
-  if is_hanging(game_state, i) && is_attacked(game_state, i) {
+  if is_hanging(game_state, i as u8) && is_attacked(game_state, i as u8) {
     return value;
   }
 
@@ -58,9 +58,10 @@ pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
           &mut piece_value_2
         };
 
-        if value_to_update.abs() < Piece::material_value_from_u8(game_state.board.squares[s]).abs()
+        if value_to_update.abs()
+          < Piece::material_value_from_u8(game_state.board.pieces.get(s)).abs()
         {
-          *value_to_update = Piece::material_value_from_u8(game_state.board.squares[s]);
+          *value_to_update = Piece::material_value_from_u8(game_state.board.pieces.get(s));
         }
       } else {
         // 1 pt bonus for attacking the king
@@ -91,9 +92,9 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
   let mut value: f32 = 0.0;
 
   // If we have no bishop on the square, return immediately.
-  let color = if game_state.board.squares[i] == WHITE_BISHOP {
+  let color = if game_state.board.pieces.get(i as u8) == WHITE_BISHOP {
     Color::White
-  } else if game_state.board.squares[i] == BLACK_BISHOP {
+  } else if game_state.board.pieces.get(i as u8) == BLACK_BISHOP {
     Color::Black
   } else {
     return value;
@@ -101,7 +102,7 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
 
   // If the bishop is attacked by the opponent and not defended, we do not even
   // consider anything here:
-  if is_hanging(game_state, i) && is_attacked(game_state, i) {
+  if is_hanging(game_state, i as u8) && is_attacked(game_state, i as u8) {
     return value;
   }
 
@@ -113,7 +114,7 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
   let mut piece_value_1: f32 = 0.0;
   let mut piece_value_2: f32 = 0.0;
 
-  for s in 0..64 {
+  for s in 0..64_u8 {
     if !square_in_mask!(s, destinations) {
       continue;
     }
@@ -128,9 +129,10 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
           &mut piece_value_2
         };
 
-        if value_to_update.abs() < Piece::material_value_from_u8(game_state.board.squares[s]).abs()
+        if value_to_update.abs()
+          < Piece::material_value_from_u8(game_state.board.pieces.get(s)).abs()
         {
-          *value_to_update = Piece::material_value_from_u8(game_state.board.squares[s]);
+          *value_to_update = Piece::material_value_from_u8(game_state.board.pieces.get(s));
         }
       } else {
         // 1 pt bonus for attacking the king

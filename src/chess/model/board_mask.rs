@@ -29,7 +29,7 @@ pub type BoardMask = u64;
 #[macro_export]
 macro_rules! square_in_mask {
   ($square:expr, $mask:expr) => {
-    ((1 << $square) & $mask) != 0
+    (((1 << $square) & $mask) != 0)
   };
 }
 
@@ -45,7 +45,7 @@ macro_rules! square_in_mask {
 #[macro_export]
 macro_rules! set_square_in_mask {
   ($square:expr, $mask:expr) => {
-    $mask |= 1 << $square;
+    $mask |= 1 << $square
   };
 }
 

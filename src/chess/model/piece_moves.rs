@@ -249,6 +249,7 @@ pub const BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
 ///
 /// Board mask of where the knight can move
 ///
+#[inline]
 pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: usize) -> BoardMask {
   // Knight just cannot go where we have same side pieces
   KNIGHT_MOVES[square] & (!same_side_pieces)
@@ -263,7 +264,7 @@ pub fn get_knight_moves(same_side_pieces: u64, _opponent_pieces: u64, square: us
 /// ### Arguments
 ///
 /// * `move_offsets` - possible offsets to apply First the file, then the rank
-/// * `recursion` - can the piece continue going in one direction ? true or is it only 1 jump: false 
+/// * `recursion` - can the piece continue going in one direction ? true or is it only 1 jump: false
 /// * `same_side_pieces` - boardmask of the same side pieces
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
@@ -356,6 +357,7 @@ pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize
 /// * `opponent_pieces` - boardmask of the opponent pieces
 /// * `square` - Start square for the knight
 ///
+#[inline]
 pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
   // A queen can do what bishops and rooks can do.
   get_rook_moves(same_side_pieces, opponent_pieces, square)
@@ -370,6 +372,7 @@ pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usiz
 /// * `opponent_control` - boardmask of the squares controlled by the opponent
 /// * `square` - Start square for the knight
 ///
+#[inline]
 pub fn get_king_moves(same_side_pieces: u64, opponent_control: u64, square: usize) -> BoardMask {
   // King cannot go where the opponent controls or where we have pieces ourselves
   KING_MOVES[square] & (!same_side_pieces) & (!opponent_control)
@@ -383,6 +386,7 @@ pub fn get_king_moves(same_side_pieces: u64, opponent_control: u64, square: usiz
 /// * `opponent_control` - boardmask of the squares controlled by the opponent
 /// * `square` - Start square for the knight
 ///
+#[inline]
 pub fn get_king_controlled_squares(square: usize) -> BoardMask {
   KING_MOVES[square]
 }
@@ -401,6 +405,7 @@ pub fn get_king_controlled_squares(square: usize) -> BoardMask {
 ///
 /// Board mask with squares where the pawn can go.
 ///
+#[inline]
 pub fn get_white_pawn_moves(
   same_side_pieces: u64,
   opponent_pieces: u64,
@@ -432,6 +437,7 @@ pub fn get_white_pawn_moves(
 ///
 /// Board mask with squares where the pawn can capture.
 ///
+#[inline]
 pub fn get_white_pawn_captures(square: usize) -> BoardMask {
   WHITE_PAWN_CONTROL[square]
 }
@@ -450,6 +456,7 @@ pub fn get_white_pawn_captures(square: usize) -> BoardMask {
 ///
 /// Board mask with squares where the pawn can go.
 ///
+#[inline]
 pub fn get_black_pawn_moves(
   same_side_pieces: u64,
   opponent_pieces: u64,
@@ -481,6 +488,7 @@ pub fn get_black_pawn_moves(
 ///
 /// Board mask with squares where the pawn can capture.
 ///
+#[inline]
 pub fn get_black_pawn_captures(square: usize) -> BoardMask {
   BLACK_PAWN_CONTROL[square]
 }

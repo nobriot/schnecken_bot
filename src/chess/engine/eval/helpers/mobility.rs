@@ -39,7 +39,7 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
   };
 
   for i in 0..64 {
-    let value = game_state.board.squares[i];
+    let value = game_state.board.pieces.get(i as u8);
     if pawn == value || king == value || queen == value {
       mobility_area &= !(1 << i);
       continue;
@@ -58,7 +58,7 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
     // Check on the left side:
     if file > 1 {
       let s = Board::fr_to_index(file - 1, rank);
-      if game_state.board.squares[s] == op_pawn {
+      if game_state.board.pieces.get(s) == op_pawn {
         mobility_area &= !(1 << i);
         continue;
       }
@@ -67,7 +67,7 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
     // Check on the right side:
     if file < 8 {
       let s = Board::fr_to_index(file + 1, rank);
-      if game_state.board.squares[s] == op_pawn {
+      if game_state.board.pieces.get(s) == op_pawn {
         mobility_area &= !(1 << i);
         continue;
       }
@@ -98,7 +98,7 @@ pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
   let mobility_area = get_mobility_area(game_state, color);
 
   for i in 0..64 {
-    let value = game_state.board.squares[i];
+    let value = game_state.board.pieces.get(i as u8);
 
     if Piece::color(value).is_some()
       && Piece::color(value).unwrap() == color

@@ -11,12 +11,12 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
     Color::Black => BLACK_ROOK,
   };
 
-  let mut rook_1 = INVALID_SQUARE as usize;
-  let mut rook_2 = INVALID_SQUARE as usize;
+  let mut rook_1 = INVALID_SQUARE;
+  let mut rook_2 = INVALID_SQUARE;
 
-  for i in 0..64 {
-    if game_state.board.squares[i] == rook {
-      if rook_1 == INVALID_SQUARE as usize {
+  for i in 0..64_u8 {
+    if game_state.board.pieces.get(i) == rook {
+      if rook_1 == INVALID_SQUARE {
         rook_1 = i;
       } else {
         rook_2 = i;
@@ -26,12 +26,12 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
   }
 
   // We need the 2 rooks on the board for them to be connected
-  if rook_2 == INVALID_SQUARE as usize {
+  if rook_2 == INVALID_SQUARE {
     return false;
   }
 
-  let (f1, r1) = Board::index_to_fr(rook_1 as usize);
-  let (f2, r2) = Board::index_to_fr(rook_2 as usize);
+  let (f1, r1) = Board::index_to_fr(rook_1);
+  let (f2, r2) = Board::index_to_fr(rook_2);
 
   if f1 != f2 && r1 != r2 {
     // Rooks neither on same file or rank, they cannot be connected
@@ -47,7 +47,7 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
     }
     for rank in (min + 1)..max {
       let i = Board::fr_to_index(f1, rank);
-      if game_state.board.squares[i] != NO_PIECE {
+      if game_state.board.pieces.get(i as u8) != NO_PIECE {
         return false;
       }
     }
@@ -65,7 +65,7 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
 
     for file in (min + 1)..max {
       let i = Board::fr_to_index(file, r1);
-      if game_state.board.squares[i] != NO_PIECE {
+      if game_state.board.pieces.get(i as u8) != NO_PIECE {
         return false;
       }
     }
@@ -89,8 +89,8 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
   };
 
   for i in 0..64 {
-    if game_state.board.squares[i] == rook {
-      let (file, _) = Board::index_to_fr(i as usize);
+    if game_state.board.pieces.get(i as u8) == rook {
+      let (file, _) = Board::index_to_fr(i);
       if is_file_open(game_state, file) {
         score += 1.0;
       } else if is_file_half_open(game_state, file) {

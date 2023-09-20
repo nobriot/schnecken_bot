@@ -50,7 +50,9 @@ pub fn print_heatmap(heatmap: &[usize; 64]) {
   let mut representation = String::from("\n");
   for rank in (1..=8).rev() {
     for file in 1..=8 {
-      representation += heatmap[Board::fr_to_index(file, rank)].to_string().as_str();
+      representation += heatmap[Board::fr_to_index(file, rank) as usize]
+        .to_string()
+        .as_str();
       representation.push(' ');
     }
     representation.push('\n');
@@ -91,7 +93,7 @@ impl GameState {
   pub fn to_fen(&self) -> String {
     let mut fen = String::new();
 
-    fen += self.board.to_string().as_str();
+    fen += self.board.to_fen().as_str();
     fen.push(' ');
     match self.board.side_to_play {
       Color::White => fen.push('w'),
@@ -289,9 +291,7 @@ impl GameState {
 
     if self.board.castling_rights.K()
       && self.checks == 0
-      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
-        & FREE_SQUARE_MASK_WHITE_KINGSIDE)
-        == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
       && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
     {
       all_moves.push(Move {
@@ -302,9 +302,7 @@ impl GameState {
     }
     if self.board.castling_rights.Q()
       && self.checks == 0
-      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
-        & FREE_SQUARE_MASK_WHITE_QUEENSIDE)
-        == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
       && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
     {
       all_moves.push(Move {
@@ -320,10 +318,11 @@ impl GameState {
     for m in &all_moves {
       let mut new_board = self.board.clone();
       new_board.apply_move(m);
-
-      let king_square = new_board.get_white_king_square();
-      if king_square == INVALID_SQUARE
-        || square_in_mask!(king_square, new_board.black_masks.control)
+      if new_board.pieces.white.king == 0
+        || square_in_mask!(
+          new_board.pieces.white.king.trailing_zeros(),
+          new_board.black_masks.control
+        )
       {
         // We're in check or king disappeared, illegal move
         illegal_moves.push(m);
@@ -386,9 +385,7 @@ impl GameState {
     // Now check castling.
     if self.board.castling_rights.k()
       && self.checks == 0
-      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
-        & FREE_SQUARE_MASK_BLACK_KINGSIDE)
-        == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
       && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
     {
       all_moves.push(Move {
@@ -399,9 +396,7 @@ impl GameState {
     }
     if self.board.castling_rights.q()
       && self.checks == 0
-      && ((self.board.white_masks.pieces | self.board.black_masks.pieces)
-        & FREE_SQUARE_MASK_BLACK_QUEENSIDE)
-        == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
       && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
     {
       all_moves.push(Move {
@@ -418,9 +413,11 @@ impl GameState {
       let mut new_board = self.board.clone();
       new_board.apply_move(m);
 
-      let king_square = new_board.get_black_king_square();
-      if king_square == INVALID_SQUARE
-        || square_in_mask!(king_square, new_board.white_masks.control)
+      if new_board.pieces.black.king == 0
+        || square_in_mask!(
+          new_board.pieces.black.king.trailing_zeros(),
+          new_board.white_masks.control
+        )
       {
         // We're in check or disappeared, illegal move
         illegal_moves.push(m);
@@ -459,16 +456,12 @@ impl GameState {
   }
 
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
-    // Check if the right side is moving:
-    match Piece::color(self.board.squares[chess_move.src as usize]) {
-      Some(_) => {},
-      None => {
-        error!(
-          "Input moves with empty source square? {} - board:\n{}",
-          chess_move, self.board
-        );
-        return;
-      },
+    if !square_in_mask!(chess_move.src, self.board.pieces.all()) {
+      error!(
+        "Input moves with empty source square? {} - board:\n{}",
+        chess_move, self.board
+      );
+      return;
     }
 
     // Save the last position:
@@ -478,9 +471,8 @@ impl GameState {
     self.last_positions.push_front(self.board.hash);
 
     // Check the ply count first:
-    if self.board.squares[chess_move.dest as usize] != NO_PIECE
-      || self.board.squares[chess_move.src as usize] == WHITE_PAWN
-      || self.board.squares[chess_move.src as usize] == BLACK_PAWN
+    if square_in_mask!(chess_move.dest, self.board.pieces.all())
+      || square_in_mask!(chess_move.src, self.board.pieces.pawns())
     {
       self.ply = 0;
     } else if self.ply < 255 {
@@ -537,7 +529,7 @@ impl std::fmt::Debug for GameState {
     )
     .as_str();
 
-    message += format!("Board: {}\n", self.board.to_string()).as_str();
+    message += format!("Board: {}\n", self.board.to_fen()).as_str();
 
     message += "last positions:\n";
     for i in 0..self.last_positions.len() {

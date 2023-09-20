@@ -75,6 +75,7 @@ impl PieceMasks {
   ///
   /// A piece set with pieces set on the start position for White.
   ///
+  #[inline]
   pub fn default_white_piece_set() -> Self {
     WHITE_PIECES_DEFAULT_POSITIONS
   }
@@ -86,6 +87,7 @@ impl PieceMasks {
   ///
   /// A piece set with pieces set on the start position for Black.
   ///
+  #[inline]
   pub fn default_black_piece_set() -> Self {
     BLACK_PIECES_DEFAULT_POSITIONS
   }
@@ -99,7 +101,8 @@ impl PieceMasks {
   /// * `square`  Square on which no piece must be present.
   /// * `piece`   Piece to add on the square. E.g. PieceType::Queen
   ///
-  pub fn add_piece(&mut self, square: u8, piece: PieceType) {
+  #[inline]
+  pub fn add(&mut self, square: u8, piece: PieceType) {
     match piece {
       PieceType::King => {
         set_square_in_mask!(square, self.king);
@@ -167,12 +170,51 @@ impl PieceMasks {
   /// * `Some(square)`  Square on which the king is located.
   /// * `None`          No king is present on the board.
   ///
+  #[inline]
   pub fn get_king(&self) -> Option<u8> {
     if self.king == 0 {
       None
     } else {
       Some(self.king.trailing_zeros() as u8)
     }
+  }
+
+  /// Returns true if we have a piece on the square
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceMasks object where we're looking for a king
+  /// * `square`  Square on which we want to check if there is a piece
+  ///
+  /// ### Return value
+  ///
+  /// bool value indicating if we have a piece on the square.
+  ///
+  #[inline]
+  pub fn has_piece(&self, square: u8) -> bool {
+    square_in_mask!(square, self.all())
+  }
+
+  /// Returns a boardmask of all minor pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a minor occupies a square.
+  ///
+  #[inline]
+  pub fn minors(&self) -> BoardMask {
+    self.bishop | self.knight
+  }
+
+  /// Returns a boardmask of all major pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a major occupies a square.
+  ///
+  #[inline]
+  pub fn majors(&self) -> BoardMask {
+    self.rook | self.queen
   }
 
   /// Removes pieces from a square.
@@ -182,7 +224,8 @@ impl PieceMasks {
   /// * `self`    Mutable reference to the PieceMasks object being modified
   /// * `square`  Square on which no piece must be present.
   ///
-  pub fn remove_piece(&mut self, square: u8) {
+  #[inline]
+  pub fn remove(&mut self, square: u8) {
     unset_square_in_mask!(square, self.king);
     unset_square_in_mask!(square, self.queen);
     unset_square_in_mask!(square, self.rook);
@@ -198,7 +241,8 @@ impl PieceMasks {
   /// * `self`    Mutable reference to the PieceMasks object being modified
   /// * `square`  Square on which no piece must be present.
   ///
-  pub fn get_piece(&self, square: u8) -> Option<PieceType> {
+  #[inline]
+  pub fn get(&self, square: u8) -> Option<PieceType> {
     if square_in_mask!(square, self.king) {
       return Some(PieceType::King);
     } else if square_in_mask!(square, self.queen) {
@@ -222,7 +266,8 @@ impl PieceMasks {
   ///
   /// BoardMask with bits set to 1 if a piece occupies a square.
   ///
-  pub fn all_pieces(&self) -> BoardMask {
+  #[inline]
+  pub fn all(&self) -> BoardMask {
     self.king | self.queen | self.rook | self.bishop | self.knight | self.pawn
   }
 }
@@ -273,59 +318,51 @@ impl PieceSet {
     for c in fen_parts[0].chars() {
       match c {
         'K' => {
-          piece_set.white.add_piece(rank * 8 + file, PieceType::King);
+          piece_set.white.add(rank * 8 + file, PieceType::King);
           file += 1;
         },
         'Q' => {
-          piece_set.white.add_piece(rank * 8 + file, PieceType::Queen);
+          piece_set.white.add(rank * 8 + file, PieceType::Queen);
           file += 1;
         },
         'R' => {
-          piece_set.white.add_piece(rank * 8 + file, PieceType::Rook);
+          piece_set.white.add(rank * 8 + file, PieceType::Rook);
           file += 1;
         },
         'B' => {
-          piece_set
-            .white
-            .add_piece(rank * 8 + file, PieceType::Bishop);
+          piece_set.white.add(rank * 8 + file, PieceType::Bishop);
           file += 1;
         },
         'N' => {
-          piece_set
-            .white
-            .add_piece(rank * 8 + file, PieceType::Knight);
+          piece_set.white.add(rank * 8 + file, PieceType::Knight);
           file += 1;
         },
         'P' => {
-          piece_set.white.add_piece(rank * 8 + file, PieceType::Pawn);
+          piece_set.white.add(rank * 8 + file, PieceType::Pawn);
           file += 1;
         },
         'k' => {
-          piece_set.black.add_piece(rank * 8 + file, PieceType::King);
+          piece_set.black.add(rank * 8 + file, PieceType::King);
           file += 1;
         },
         'q' => {
-          piece_set.black.add_piece(rank * 8 + file, PieceType::Queen);
+          piece_set.black.add(rank * 8 + file, PieceType::Queen);
           file += 1;
         },
         'r' => {
-          piece_set.black.add_piece(rank * 8 + file, PieceType::Rook);
+          piece_set.black.add(rank * 8 + file, PieceType::Rook);
           file += 1;
         },
         'b' => {
-          piece_set
-            .black
-            .add_piece(rank * 8 + file, PieceType::Bishop);
+          piece_set.black.add(rank * 8 + file, PieceType::Bishop);
           file += 1;
         },
         'n' => {
-          piece_set
-            .black
-            .add_piece(rank * 8 + file, PieceType::Knight);
+          piece_set.black.add(rank * 8 + file, PieceType::Knight);
           file += 1;
         },
         'p' => {
-          piece_set.black.add_piece(rank * 8 + file, PieceType::Pawn);
+          piece_set.black.add(rank * 8 + file, PieceType::Pawn);
           file += 1;
         },
         '1' => file += 1,
@@ -355,9 +392,14 @@ impl PieceSet {
   /// ### Arguments
   ///
   /// * `self`    Reference to the PieceSet object for which we are reading a square
-  /// * `square`  Square on which no piece must be present.
+  /// * `square`  Square on which we would like to know what piece is on
   ///
-  pub fn get_piece(&self, square: u8) -> u8 {
+  /// ### Return value
+  ///
+  /// u8 representation of the piece, e.g. `WHITE_KING`, `BLACK_PAWN`, `NO_PIECE`, etc.
+  ///
+  #[inline]
+  pub fn get(&self, square: u8) -> u8 {
     if square_in_mask!(square, self.white.king) {
       WHITE_KING
     } else if square_in_mask!(square, self.white.queen) {
@@ -384,6 +426,174 @@ impl PieceSet {
       BLACK_PAWN
     } else {
       NO_PIECE
+    }
+  }
+
+  /// Sets a piece on a square.
+  ///
+  /// Note: We won't check that another piece is marked as present on the same square.
+  /// call `remove(square)` if you are not sure.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceSet object for which we are modifying a square
+  /// * `square`  Square on which we would like to configure which piece is on
+  /// * `piece`   u8 representation of the piece to put on the square, e.g. `WHITE_KING`, `BLACK_PAWN`, `NO_PIECE`, etc.
+  ///
+  #[inline]
+  pub fn set(&mut self, square: u8, piece: u8) {
+    self.remove(square);
+    match piece {
+      WHITE_KING => set_square_in_mask!(square, self.white.king),
+      WHITE_QUEEN => set_square_in_mask!(square, self.white.queen),
+      WHITE_ROOK => set_square_in_mask!(square, self.white.rook),
+      WHITE_BISHOP => set_square_in_mask!(square, self.white.bishop),
+      WHITE_KNIGHT => set_square_in_mask!(square, self.white.knight),
+      WHITE_PAWN => set_square_in_mask!(square, self.white.pawn),
+      BLACK_KING => set_square_in_mask!(square, self.black.king),
+      BLACK_QUEEN => set_square_in_mask!(square, self.black.queen),
+      BLACK_ROOK => set_square_in_mask!(square, self.black.rook),
+      BLACK_BISHOP => set_square_in_mask!(square, self.black.bishop),
+      BLACK_KNIGHT => set_square_in_mask!(square, self.black.knight),
+      BLACK_PAWN => set_square_in_mask!(square, self.black.pawn),
+      _ => {},
+    }
+  }
+
+  /// Makes sure that there is no piece on a square
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceSet object for which we are modifying a square
+  /// * `square`  Square on which no piece must be present.
+  ///
+  #[inline]
+  pub fn remove(&mut self, square: u8) {
+    self.white.remove(square);
+    self.black.remove(square);
+  }
+
+  /// Returns a boardmask of all pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a piece occupies a square.
+  ///
+  #[inline]
+  pub fn all(&self) -> BoardMask {
+    self.white.all() | self.black.all()
+  }
+
+  /// Returns a boardmask of all queen pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a queen occupies a square.
+  ///
+  #[inline]
+  pub fn queens(&self) -> BoardMask {
+    self.white.queen | self.black.queen
+  }
+
+  /// Returns a boardmask of all rook pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a rook occupies a square.
+  ///
+  #[inline]
+  pub fn rooks(&self) -> BoardMask {
+    self.white.rook | self.black.rook
+  }
+
+  /// Returns a boardmask of all bishop pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a bishop occupies a square.
+  ///
+  #[inline]
+  pub fn bishops(&self) -> BoardMask {
+    self.white.bishop | self.black.bishop
+  }
+
+  /// Returns a boardmask of all knight pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a knight occupies a square.
+  ///
+  #[inline]
+  pub fn knights(&self) -> BoardMask {
+    self.white.knight | self.black.knight
+  }
+
+  /// Returns a boardmask of all minor pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a minor occupies a square.
+  ///
+  #[inline]
+  pub fn minors(&self) -> BoardMask {
+    self.bishops() | self.knights()
+  }
+
+  /// Returns a boardmask of all major pieces.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a major occupies a square.
+  ///
+  #[inline]
+  pub fn majors(&self) -> BoardMask {
+    self.rooks() | self.queens()
+  }
+
+  /// Returns a boardmask of all pawns.
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with bits set to 1 if a pawns occupies a square.
+  ///
+  #[inline]
+  pub fn pawns(&self) -> BoardMask {
+    self.white.pawn | self.black.pawn
+  }
+
+  /// Returns true if we have a piece on the square
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceSet object where we're looking for a king
+  /// * `square`  Square on which we want to check if there is a piece
+  ///
+  /// ### Return value
+  ///
+  /// bool value indicating if we have a piece on the square.
+  ///
+  #[inline]
+  pub fn has_piece(&self, square: u8) -> bool {
+    square_in_mask!(square, self.all())
+  }
+
+  /// Returns true if we have a piece of a certain color on the square
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceSet object where we're looking for a king
+  /// * `square`  Square on which we want to check if there is a piece
+  /// * `color`   Color of the piece set we are looking for
+  ///
+  /// ### Return value
+  ///
+  /// bool value indicating if we have a piece of a given color on the square.
+  ///
+  #[inline]
+  pub fn has_piece_with_color(&self, square: u8, color: Color) -> bool {
+    match color {
+      Color::White => square_in_mask!(square, self.white.all()),
+      Color::Black => square_in_mask!(square, self.black.all()),
     }
   }
 }
@@ -460,30 +670,30 @@ mod tests {
     let mut pieces: PieceMasks = PieceMasks::new();
 
     for i in 0..64 {
-      assert_eq!(None, pieces.get_piece(i));
+      assert_eq!(None, pieces.get(i));
     }
-    assert_eq!(0, pieces.all_pieces());
+    assert_eq!(0, pieces.all());
     assert_eq!(None, pieces.get_king());
 
-    pieces.add_piece(0, PieceType::Rook);
-    pieces.add_piece(1, PieceType::King);
+    pieces.add(0, PieceType::Rook);
+    pieces.add(1, PieceType::King);
 
-    assert_eq!(Some(PieceType::Rook), pieces.get_piece(0));
-    assert_eq!(Some(PieceType::King), pieces.get_piece(1));
+    assert_eq!(Some(PieceType::Rook), pieces.get(0));
+    assert_eq!(Some(PieceType::King), pieces.get(1));
     assert_eq!(Some(1), pieces.get_king());
 
     // Now the king becomes a rook:
-    pieces.add_piece(1, PieceType::Rook);
-    assert_eq!(Some(PieceType::Rook), pieces.get_piece(0));
-    assert_eq!(Some(PieceType::Rook), pieces.get_piece(1));
+    pieces.add(1, PieceType::Rook);
+    assert_eq!(Some(PieceType::Rook), pieces.get(0));
+    assert_eq!(Some(PieceType::Rook), pieces.get(1));
 
     // Now the king becomes a rook:
-    pieces.add_piece(1, PieceType::Rook);
-    assert_eq!(Some(PieceType::Rook), pieces.get_piece(0));
-    assert_eq!(Some(PieceType::Rook), pieces.get_piece(1));
+    pieces.add(1, PieceType::Rook);
+    assert_eq!(Some(PieceType::Rook), pieces.get(0));
+    assert_eq!(Some(PieceType::Rook), pieces.get(1));
     assert_eq!(None, pieces.get_king());
 
-    assert_eq!(0b11, pieces.all_pieces());
+    assert_eq!(0b11, pieces.all());
   }
 
   #[test]
@@ -523,8 +733,8 @@ mod tests {
 
   #[test]
   fn test_piece_set() {
-    let mut piece_set: PieceSet = PieceSet::default();
-    let mut piece_set_from_fen: PieceSet = PieceSet::from_fen(START_POSITION_FEN);
+    let piece_set: PieceSet = PieceSet::default();
+    let piece_set_from_fen: PieceSet = PieceSet::from_fen(START_POSITION_FEN);
 
     assert_eq!(piece_set, piece_set_from_fen);
   }

@@ -50,33 +50,22 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
-  let mut queen_color = Color::White;
-  let mut queen_found = false;
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_KING => {},
-      BLACK_KING => {},
-      WHITE_QUEEN => {
-        if queen_found && queen_color == Color::Black {
-          return false;
-        } else {
-          queen_color = Color::White;
-          queen_found = true;
-        }
-      },
-      BLACK_QUEEN => {
-        if queen_found && queen_color == Color::White {
-          return false;
-        } else {
-          queen_color = Color::Black;
-          queen_found = true;
-        }
-      },
-      NO_PIECE => {},
-      _ => return false,
-    }
+  if (game_state.board.pieces.white.pawn
+    | game_state.board.pieces.black.pawn
+    | game_state.board.pieces.white.bishop
+    | game_state.board.pieces.black.bishop
+    | game_state.board.pieces.white.knight
+    | game_state.board.pieces.black.knight
+    | game_state.board.pieces.white.rook
+    | game_state.board.pieces.black.rook)
+    != 0
+  {
+    return false;
   }
 
+  if (game_state.board.pieces.white.queen | game_state.board.pieces.black.queen).count_ones() > 1 {
+    return false;
+  }
   true
 }
 
@@ -87,33 +76,22 @@ fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
-  let mut rook_color = Color::White;
-  let mut rook_found = false;
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_KING => {},
-      BLACK_KING => {},
-      WHITE_ROOK => {
-        if rook_found && rook_color == Color::Black {
-          return false;
-        } else {
-          rook_color = Color::White;
-          rook_found = true;
-        }
-      },
-      BLACK_ROOK => {
-        if rook_found && rook_color == Color::White {
-          return false;
-        } else {
-          rook_color = Color::Black;
-          rook_found = true;
-        }
-      },
-      NO_PIECE => {},
-      _ => return false,
-    }
+  if (game_state.board.pieces.white.pawn
+    | game_state.board.pieces.black.pawn
+    | game_state.board.pieces.white.bishop
+    | game_state.board.pieces.black.bishop
+    | game_state.board.pieces.white.knight
+    | game_state.board.pieces.black.knight
+    | game_state.board.pieces.white.queen
+    | game_state.board.pieces.black.queen)
+    != 0
+  {
+    return false;
   }
 
+  if (game_state.board.pieces.white.rook | game_state.board.pieces.black.rook).count_ones() > 1 {
+    return false;
+  }
   true
 }
 
@@ -124,18 +102,10 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 ///
+#[inline]
 fn just_the_opponent_king_left(game_state: &GameState) -> bool {
-  let king = game_state.board.get_black_king_square();
-  if (1 << king) == game_state.board.black_masks.pieces {
-    return true;
-  }
-
-  let king = game_state.board.get_white_king_square();
-  if (1 << king) == game_state.board.white_masks.pieces {
-    return true;
-  }
-
-  false
+  (game_state.board.pieces.black.all() == game_state.board.pieces.black.king)
+    | (game_state.board.pieces.white.all() == game_state.board.pieces.white.king)
 }
 
 /// Checks if it is a King and pawns endgame
@@ -143,16 +113,17 @@ fn just_the_opponent_king_left(game_state: &GameState) -> bool {
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
+#[inline]
 fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_ROOK | WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT | BLACK_BISHOP | BLACK_KNIGHT
-      | BLACK_QUEEN | BLACK_ROOK => return false,
-      _ => {},
-    }
-  }
-
-  true
+  (game_state.board.pieces.white.rook
+    | game_state.board.pieces.black.rook
+    | game_state.board.pieces.white.bishop
+    | game_state.board.pieces.black.bishop
+    | game_state.board.pieces.white.knight
+    | game_state.board.pieces.black.knight
+    | game_state.board.pieces.white.queen
+    | game_state.board.pieces.black.queen)
+    == 0
 }
 
 /// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
@@ -174,7 +145,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   let mut attacking_side = Color::White;
 
   for i in 0..64 {
-    match game_state.board.squares[i] {
+    match game_state.board.pieces.get(i) {
       WHITE_ROOK | WHITE_QUEEN => {
         attacking_side = Color::White;
         break;
@@ -195,7 +166,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::White => game_state.board.get_black_king_square(),
     Color::Black => game_state.board.get_white_king_square(),
   };
-  let (king_file, king_rank) = Board::index_to_fr(king_position as usize);
+  let (king_file, king_rank) = Board::index_to_fr(king_position);
   // BoardMask bitmap of where the king can go
   let mut king_bitmap: BoardMask = 0;
 
@@ -255,8 +226,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   // Now check how many square are available for each king
   score += 7.0
     - get_king_distance(
-      game_state.board.get_white_king_square() as usize,
-      game_state.board.get_black_king_square() as usize,
+      game_state.board.get_white_king_square(),
+      game_state.board.get_black_king_square(),
     ) as f32;
 
   if attacking_side == Color::Black {

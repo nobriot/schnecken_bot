@@ -482,8 +482,8 @@ mod tests {
   fn generate_white_pawn_double_jumps() {
     let mut white_pawn_double_jumps: [u64; 64] = [0; 64];
     let move_offsets: [(isize, isize); 1] = [(0, 2)];
-    for i in 0..64 {
-      let (_, rank) = Board::index_to_fr(i);
+    for i in 0..64_usize {
+      let (_, rank) = Board::index_to_fr(i as u8);
       if rank == 2 {
         white_pawn_double_jumps[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
       } else {
@@ -497,8 +497,8 @@ mod tests {
 
     let mut black_pawn_double_jumps: [u64; 64] = [0; 64];
     let move_offsets: [(isize, isize); 1] = [(0, -2)];
-    for i in 0..64 {
-      let (_, rank) = Board::index_to_fr(i);
+    for i in 0..64_usize {
+      let (_, rank) = Board::index_to_fr(i as u8);
       if rank == 7 {
         black_pawn_double_jumps[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
       } else {

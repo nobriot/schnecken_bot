@@ -14,6 +14,7 @@ use super::opening::get_opening_position_evaluation;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::piece_moves::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.01;
@@ -98,17 +99,19 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if !game_state.board.has_piece(i as u8) {
       continue;
     }
-    let score_factor = Color::score_factor(Piece::color_from_u8(game_state.board.squares[i]));
+    let score_factor =
+      Color::score_factor(Piece::color_from_u8(game_state.board.pieces.get(i as u8)));
     /*
      */
     // We are excited about hanging pieces when it's our turn :-)
     // Here it could probably be better.
-    if is_hanging(game_state, i) {
-      if is_attacked(game_state, i)
+    if is_hanging(game_state, i as u8) {
+      if is_attacked(game_state, i as u8)
         && (game_state.board.side_to_play
-          == Color::opposite(Piece::color_from_u8(game_state.board.squares[i])))
+          == Color::opposite(Piece::color_from_u8(game_state.board.pieces.get(i as u8))))
       {
-        score -= HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.squares[i]);
+        score -=
+          HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.pieces.get(i as u8));
       } else {
         // We usually are not the most fan of hanging pieces
         score -= HANGING_PENALTY * score_factor;
@@ -123,8 +126,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Piece attacks
-    score += score_factor * pawn_attack(game_state, i) / 3.1;
-    let value = knight_attack(game_state, i);
+    score += score_factor * pawn_attack(game_state, i as u8) / 3.1;
+    let value = knight_attack(game_state, i as u8);
     if value.abs() > 3.0 {
       score += score_factor * (value - 3.0) / 2.3;
     }
@@ -163,27 +166,20 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   // Basic material count, disregarding pawns.
   let mut material_count: usize = 0;
   let mut development_index: usize = 0;
-  for i in 0..64 {
-    match game_state.board.squares[i] {
-      WHITE_QUEEN | BLACK_QUEEN => material_count += 9,
-      WHITE_ROOK | BLACK_ROOK => material_count += 5,
-      WHITE_BISHOP | BLACK_BISHOP => material_count += 3,
-      WHITE_KNIGHT | BLACK_KNIGHT => material_count += 3,
-      _ => {},
-    }
-  }
-  for i in 0..8 {
-    match game_state.board.squares[i] {
-      WHITE_QUEEN | WHITE_BISHOP | WHITE_KNIGHT => development_index += 1,
-      _ => {},
-    }
-  }
-  for i in 56..64 {
-    match game_state.board.squares[i] {
-      BLACK_QUEEN | BLACK_BISHOP | BLACK_KNIGHT => development_index += 1,
-      _ => {},
-    }
-  }
+
+  material_count += game_state.board.pieces.queens().count_ones() as usize * 9;
+  material_count += game_state.board.pieces.rooks().count_ones() as usize * 5;
+  material_count += game_state.board.pieces.minors().count_ones() as usize * 3;
+
+  development_index += ((game_state.board.pieces.white.minors()
+    | game_state.board.pieces.white.queen)
+    & BOARD_DOWN_EDGE)
+    .count_ones() as usize;
+
+  development_index += ((game_state.board.pieces.black.minors()
+    | game_state.board.pieces.black.queen)
+    & BOARD_UP_EDGE)
+    .count_ones() as usize;
 
   if material_count < 17 {
     cache.set_game_phase(game_state.board.hash, GamePhase::Endgame);

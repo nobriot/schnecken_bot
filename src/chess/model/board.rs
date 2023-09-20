@@ -3,6 +3,7 @@ use crate::model::castling_rights::*;
 use crate::model::moves::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
+use crate::model::piece_set::*;
 use crate::model::tables::zobrist::*;
 
 use log::*;
@@ -40,13 +41,11 @@ pub(crate) use fr_bounds_or_return;
 pub struct Masks {
   /// Squares controlled on the board
   pub control: BoardMask,
-  /// Mask of the pieces on the board
-  pub pieces: BoardMask,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Board {
-  pub squares: [u8; 64],
+  pub pieces: PieceSet,
   pub side_to_play: Color,
   pub en_passant_square: u8,
   pub castling_rights: CastlingRights,
@@ -62,19 +61,13 @@ impl Board {
   /// Initialize a board with no piece, all zeroes
   fn new() -> Self {
     Board {
-      squares: [0u8; 64],
+      pieces: PieceSet::new(),
       side_to_play: Color::White,
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       hash: 0,
-      white_masks: Masks {
-        control: 0,
-        pieces: 0,
-      },
-      black_masks: Masks {
-        control: 0,
-        pieces: 0,
-      },
+      white_masks: Masks { control: 0 },
+      black_masks: Masks { control: 0 },
     }
   }
 
@@ -86,8 +79,8 @@ impl Board {
     self.hash = 0;
 
     // Add the hash from the pieces
-    for i in 0..64 {
-      if self.squares[i] != NO_PIECE {
+    for i in 0..64_u8 {
+      if self.pieces.get(i) != NO_PIECE {
         self.update_hash_piece(i);
       }
     }
@@ -107,8 +100,8 @@ impl Board {
   }
 
   // Adds/Removes a piece in the board hash value.
-  fn update_hash_piece(&mut self, i: usize) {
-    self.hash ^= ZOBRIST_TABLE[(self.squares[i] - 1) as usize][i];
+  fn update_hash_piece(&mut self, i: u8) {
+    self.hash ^= ZOBRIST_TABLE[(self.pieces.get(i) - 1) as usize][i as usize];
   }
 
   // Toggles the side to play in the board hash value
@@ -173,29 +166,6 @@ impl Board {
     bitmap
   }
 
-  /// Computes from scratch the piece color masks for the current board.
-  /// `self.white_masks.pieces` and `self.black_masks.pieces` are guaranteed to
-  /// be accurate afterwards.
-  ///
-  /// ### Aguments
-  ///
-  /// * `self` -           A Board object representing a position, side to play, etc.
-  ///
-  fn compute_piece_color_masks(&mut self) {
-    for i in 0..64 {
-      match self.squares[i as usize] {
-        NO_PIECE => {},
-        WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
-          set_square_in_mask!(i, self.white_masks.pieces);
-        },
-        BLACK_KING | BLACK_QUEEN | BLACK_ROOK | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
-          set_square_in_mask!(i, self.black_masks.pieces);
-        },
-        _ => {},
-      }
-    }
-  }
-
   /// Computes the boardmask of the possible destinations for a piece on a square.
   ///
   /// ### Arguments
@@ -215,7 +185,7 @@ impl Board {
     ssp: BoardMask,
   ) -> (BoardMask, bool) {
     let mut promotion: bool = false;
-    let destinations = match self.squares[source_square] {
+    let destinations = match self.pieces.get(source_square as u8) {
       WHITE_KING => get_king_moves(ssp, self.black_masks.control, source_square),
       BLACK_KING => get_king_moves(ssp, self.white_masks.control, source_square),
       WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
@@ -269,7 +239,7 @@ impl Board {
     op: BoardMask,
     ssp: BoardMask,
   ) -> BoardMask {
-    match self.squares[source_square] {
+    match self.pieces.get(source_square as u8) {
       WHITE_KING | BLACK_KING => KING_MOVES[source_square],
       WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
       WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
@@ -289,12 +259,12 @@ impl Board {
   /// * `file`: [1..8]
   /// * `rank`: [1..8]
   ///
-  pub fn fr_to_index(file: usize, rank: usize) -> usize {
+  pub fn fr_to_index(file: u8, rank: u8) -> u8 {
     debug_assert!(file > 0);
     debug_assert!(file <= 8);
     debug_assert!(rank > 0);
     debug_assert!(rank <= 8);
-    (file - 1) + (rank - 1) * 8
+    ((file - 1) + (rank - 1) * 8) as u8
   }
 
   /// Converts a board index into Rank / File.
@@ -304,7 +274,7 @@ impl Board {
   ///
   /// * `index`: [0..63]
   ///
-  pub fn index_to_fr(index: usize) -> (usize, usize) {
+  pub fn index_to_fr(index: u8) -> (u8, u8) {
     debug_assert!(index < 64);
     (index % 8 + 1, index / 8 + 1)
   }
@@ -314,8 +284,8 @@ impl Board {
   /// * `file`: [1..8]
   /// * `rank`: [1..8]
   ///
-  pub fn get_piece(&self, file: usize, rank: usize) -> u8 {
-    self.squares[Board::fr_to_index(file, rank)]
+  pub fn get_piece(&self, file: u8, rank: u8) -> u8 {
+    self.pieces.get(Board::fr_to_index(file, rank) as u8)
   }
 
   // ---------------------------------------------------------------------------
@@ -334,14 +304,14 @@ impl Board {
   ///
   pub fn is_move_a_capture(&self, m: &Move) -> bool {
     // If a piece is at the destination, it's a capture
-    if self.squares[m.dest as usize] != NO_PIECE {
+    if square_in_mask!(m.dest, self.pieces.all()) {
       return true;
     }
 
     // If a pawn moves to the en-passant square, it's a capture.
     if self.en_passant_square != INVALID_SQUARE
       && m.dest == self.en_passant_square
-      && (self.squares[m.src as usize] == WHITE_PAWN || self.squares[m.src as usize] == BLACK_PAWN)
+      && (square_in_mask!(m.src, self.pieces.white.pawn | self.pieces.black.pawn))
     {
       return true;
     }
@@ -358,36 +328,28 @@ impl Board {
     let destination = chess_move.dest as usize;
 
     // Check if we just castled, we need to move the rooks around!
-    if self.squares[source] == WHITE_KING {
+    if square_in_mask!(source, self.pieces.white.king) {
       if chess_move.src == 4 && chess_move.dest == 2 {
         self.update_hash_piece(0);
-        self.squares[0] = NO_PIECE;
-        unset_square_in_mask!(0, self.white_masks.pieces);
-        self.squares[3] = WHITE_ROOK;
-        set_square_in_mask!(3, self.white_masks.pieces);
+        self.pieces.white.remove(0);
+        self.pieces.white.add(3, PieceType::Rook);
         self.update_hash_piece(3);
       } else if chess_move.src == 4 && chess_move.dest == 6 {
         self.update_hash_piece(7);
-        self.squares[7] = NO_PIECE;
-        unset_square_in_mask!(7, self.white_masks.pieces);
-        self.squares[5] = WHITE_ROOK;
-        set_square_in_mask!(5, self.white_masks.pieces);
+        self.pieces.white.remove(7);
+        self.pieces.white.add(5, PieceType::Rook);
         self.update_hash_piece(5);
       }
-    } else if self.squares[source] == BLACK_KING {
+    } else if square_in_mask!(source, self.pieces.black.king) {
       if chess_move.src == 60 && chess_move.dest == 62 {
         self.update_hash_piece(63);
-        self.squares[63] = NO_PIECE;
-        unset_square_in_mask!(63, self.black_masks.pieces);
-        self.squares[61] = BLACK_ROOK;
-        set_square_in_mask!(61, self.black_masks.pieces);
+        self.pieces.black.remove(63);
+        self.pieces.black.add(61, PieceType::Rook);
         self.update_hash_piece(61);
       } else if chess_move.src == 60 && chess_move.dest == 58 {
         self.update_hash_piece(56);
-        self.squares[56] = NO_PIECE;
-        unset_square_in_mask!(56, self.black_masks.pieces);
-        self.squares[59] = BLACK_ROOK;
-        set_square_in_mask!(59, self.black_masks.pieces);
+        self.pieces.black.remove(56);
+        self.pieces.black.add(59, PieceType::Rook);
         self.update_hash_piece(59);
       }
     }
@@ -422,25 +384,25 @@ impl Board {
 
     // Check if we have a new en-passant location:
     self.en_passant_square = INVALID_SQUARE;
-    if (self.squares[source] == WHITE_PAWN || self.squares[source] == BLACK_PAWN)
+    if (square_in_mask!(source, self.pieces.white.pawn | self.pieces.black.pawn))
       && (chess_move.dest as isize - chess_move.src as isize).abs() == 16
     {
-      let op_pawn = match self.squares[source] {
+      let op_pawn = match self.pieces.get(source as u8) {
         WHITE_PAWN => BLACK_PAWN,
         _ => WHITE_PAWN,
       };
-      let (rank, file) = Board::index_to_fr(destination);
+      let (rank, file) = Board::index_to_fr(chess_move.dest);
       if file > 1 {
-        let s = Board::fr_to_index(file - 1, rank);
-        if self.squares[s] == op_pawn {
+        let s = Board::fr_to_index(file - 1, rank) as u8;
+        if self.pieces.get(s) == op_pawn {
           self.en_passant_square = (chess_move.dest + chess_move.src) / 2;
         }
       }
 
       // Check on the right side:
       if file < 8 {
-        let s = Board::fr_to_index(file + 1, rank);
-        if self.squares[s] == op_pawn {
+        let s = Board::fr_to_index(file + 1, rank) as u8;
+        if self.pieces.get(s) == op_pawn {
           self.en_passant_square = (chess_move.dest + chess_move.src) / 2;
         }
       }
@@ -453,51 +415,42 @@ impl Board {
 
     // Check if this is some en-passant action: PAWN is moving diagonally while the destination square is empty:
     // En passant needs to remove the captured pawn.
-    if (self.squares[source] == WHITE_PAWN || self.squares[source] == BLACK_PAWN)
-      && self.squares[destination] == NO_PIECE
+    if square_in_mask!(chess_move.src, self.pieces.pawns())
+      && !square_in_mask!(chess_move.dest, self.pieces.all())
     {
       let target_capture = match chess_move.dest as isize - chess_move.src as isize {
-        7 => source - 1,
-        9 => source + 1,
-        -7 => source + 1,
-        -9 => source - 1,
+        7 => chess_move.src - 1,
+        9 => chess_move.src + 1,
+        -7 => chess_move.src + 1,
+        -9 => chess_move.src - 1,
         _ => {
           // Not a en-passant move
-          INVALID_SQUARE as usize
+          INVALID_SQUARE
         },
       };
 
-      if target_capture != (INVALID_SQUARE as usize) {
+      if target_capture != INVALID_SQUARE {
         self.update_hash_piece(target_capture);
-        self.squares[target_capture] = NO_PIECE;
-        unset_square_in_mask!(target_capture, self.black_masks.pieces);
-        unset_square_in_mask!(target_capture, self.white_masks.pieces);
+        self.pieces.remove(target_capture);
       }
     }
 
     // Now apply the initial move
-    if self.squares[destination] != NO_PIECE {
-      self.update_hash_piece(destination);
+    if self.pieces.get(chess_move.dest) != NO_PIECE {
+      self.update_hash_piece(chess_move.dest);
     }
 
     if chess_move.promotion != NO_PIECE {
-      self.squares[destination] = chess_move.promotion;
+      self.pieces.set(chess_move.dest, chess_move.promotion);
     } else {
-      self.squares[destination] = self.squares[source];
-    }
-    if self.side_to_play == Color::White {
-      set_square_in_mask!(destination, self.white_masks.pieces);
-      unset_square_in_mask!(destination, self.black_masks.pieces);
-    } else {
-      set_square_in_mask!(destination, self.black_masks.pieces);
-      unset_square_in_mask!(destination, self.white_masks.pieces);
+      self
+        .pieces
+        .set(chess_move.dest, self.pieces.get(chess_move.src));
     }
 
-    self.update_hash_piece(destination);
-    self.update_hash_piece(source);
-    self.squares[source] = NO_PIECE;
-    unset_square_in_mask!(source, self.white_masks.pieces);
-    unset_square_in_mask!(source, self.black_masks.pieces);
+    self.update_hash_piece(destination as u8);
+    self.update_hash_piece(source as u8);
+    self.pieces.remove(source as u8);
 
     // Update the side to play:
     if self.side_to_play == Color::White {
@@ -521,11 +474,11 @@ impl Board {
   /// True if the move is a castling move, false otherwise
   ///
   pub fn is_castle(self, chess_move: &Move) -> bool {
-    if self.squares[chess_move.src as usize] == WHITE_KING {
+    if self.pieces.white.get_king().unwrap_or(INVALID_SQUARE) == chess_move.src {
       if chess_move.src == 4 && (chess_move.dest == 2 || chess_move.dest == 6) {
         return true;
       }
-    } else if self.squares[chess_move.src as usize] == BLACK_KING {
+    } else if self.pieces.black.get_king().unwrap_or(INVALID_SQUARE) == chess_move.src {
       if chess_move.src == 60 && (chess_move.dest == 62 || chess_move.dest == 58) {
         return true;
       }
@@ -543,9 +496,10 @@ impl Board {
   ///
   /// True if there is a piece on that square, false otherwise
   ///
+  #[inline]
   pub fn has_piece(&self, square: u8) -> bool {
     debug_assert!(square < 64, "has_piece called with too high square value");
-    self.squares[square as usize] != NO_PIECE
+    self.pieces.has_piece(square)
   }
 
   /// Checks if there is a piece with a given color on a square
@@ -559,11 +513,9 @@ impl Board {
   ///
   /// True if there is a piece with the given color on that square, false otherwise
   ///
+  #[inline]
   pub fn has_piece_with_color(&self, square: u8, color: Color) -> bool {
-    match color {
-      Color::White => square_in_mask!(square, self.white_masks.pieces),
-      Color::Black => square_in_mask!(square, self.black_masks.pieces),
-    }
+    self.pieces.has_piece_with_color(square, color)
   }
 
   /// Checks if a king is on the square
@@ -576,11 +528,9 @@ impl Board {
   ///
   /// True if there is a king with the given square, false otherwise
   ///
-  pub fn has_king(&self, square: usize) -> bool {
-    match self.squares[square as usize] {
-      WHITE_KING | BLACK_KING => true,
-      _ => false,
-    }
+  #[inline]
+  pub fn has_king(&self, square: u8) -> bool {
+    square_in_mask!(square, self.pieces.white.king | self.pieces.black.king)
   }
 
   /// Finds the square with a black king on it.
@@ -591,16 +541,13 @@ impl Board {
   /// The lowest square value if there are several black kings.
   /// `INVALID_SQUARE` if no black king is present on the board.
   ///
+  #[inline]
   pub fn get_black_king_square(&self) -> u8 {
-    for i in 0..64 {
-      if self.squares[i as usize] == BLACK_KING {
-        return i;
-      }
+    if self.pieces.black.king == 0 {
+      error!("No black king ?? ");
+      return INVALID_SQUARE;
     }
-    error!("No black king ?? ");
-    //println!("Board (no black king): {}", self);
-
-    INVALID_SQUARE
+    self.pieces.black.king.trailing_zeros() as u8
   }
 
   /// Finds the square with a white king on it.
@@ -611,54 +558,48 @@ impl Board {
   /// The lowest square value if there are several white kings.
   /// `INVALID_SQUARE` if no white king is present on the board.
   ///
+  #[inline]
   pub fn get_white_king_square(&self) -> u8 {
-    for i in 0..64 {
-      if self.squares[i as usize] == WHITE_KING {
-        return i;
-      }
+    if self.pieces.white.king == 0 {
+      error!("No white king ?? ");
+      return INVALID_SQUARE;
     }
-    error!("No white king ?? ");
-    INVALID_SQUARE
+    self.pieces.white.king.trailing_zeros() as u8
   }
 
   /// Return a board bismask with squares set to 1 when they
   /// have a piece with a certain color
+  #[inline]
   pub fn get_piece_color_mask(&self, color: Color) -> BoardMask {
     match color {
-      Color::White => self.white_masks.pieces,
-      Color::Black => self.black_masks.pieces,
+      Color::White => self.pieces.white.all(),
+      Color::Black => self.pieces.black.all(),
     }
   }
 
   /// Return a board bismask with squares set to 1 when they
   /// have a piece with a certain color, which is not a major piece (rook and queens excluded)
+  #[inline]
   pub fn get_color_mask_without_major_pieces(&self, color: Color) -> BoardMask {
-    let mut board_mask = 0;
-
-    for i in 0..64 {
-      match self.squares[i as usize] {
-        NO_PIECE => {},
-        WHITE_KING | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {
-          if color == Color::White {
-            board_mask |= 1 << i;
-          }
-        },
-        BLACK_KING | BLACK_BISHOP | BLACK_KNIGHT | BLACK_PAWN => {
-          if color == Color::Black {
-            board_mask |= 1 << i;
-          }
-        },
-        _ => {},
-      }
+    match color {
+      Color::White => {
+        self.pieces.white.king
+          | self.pieces.white.bishop
+          | self.pieces.white.knight
+          | self.pieces.white.pawn
+      },
+      Color::Black => {
+        self.pieces.black.king
+          | self.pieces.black.bishop
+          | self.pieces.black.knight
+          | self.pieces.black.pawn
+      },
     }
-    board_mask
   }
 
   /// Converts first substring of a FEN (with the pieces) to a board
   pub fn from_fen(fen: &str) -> Self {
     let mut board = Board::new();
-    let mut rank = 7;
-    let mut file = 0;
 
     let fen_parts: Vec<&str> = fen.split(' ').collect();
     if fen_parts.len() < 6 {
@@ -666,31 +607,7 @@ impl Board {
       return board;
     }
 
-    // First set of chars is the board squares.
-    for c in fen_parts[0].chars() {
-      match c {
-        'K' | 'Q' | 'R' | 'B' | 'N' | 'P' | 'k' | 'q' | 'r' | 'b' | 'n' | 'p' => {
-          board.squares[(rank * 8 + file) as usize] = Piece::char_to_u8(c).unwrap();
-          file += 1;
-        },
-        '1' => file += 1,
-        '2' => file += 2,
-        '3' => file += 3,
-        '4' => file += 4,
-        '5' => file += 5,
-        '6' => file += 6,
-        '7' => file += 7,
-        '/' => {
-          rank -= 1;
-          file = 0
-        },
-        ' ' => {
-          // If we find a space, abort, as we are getting somewhere else in the FEN
-          break;
-        },
-        _ => {},
-      }
-    }
+    board.pieces = PieceSet::from_fen(fen);
 
     board.side_to_play = if fen_parts[1] == "w" { Color::White } else { Color::Black };
 
@@ -707,7 +624,6 @@ impl Board {
     };
 
     board.compute_hash();
-    board.compute_piece_color_masks();
     board.white_masks.control = board.get_control_boardmask(Color::White);
     board.black_masks.control = board.get_control_boardmask(Color::Black);
 
@@ -715,7 +631,7 @@ impl Board {
   }
 
   /// Converts a board to the first part of a FEN.
-  pub fn to_string(&self) -> String {
+  pub fn to_fen(&self) -> String {
     let mut fen = String::new();
     let mut empty_squares = 0;
     for rank in (1..=8).rev() {
@@ -756,20 +672,25 @@ impl Board {
   /// false otherwise
   ///
   pub fn is_game_over_by_insufficient_material(&self) -> bool {
-    let mut minor_piece_count = 0;
-    for i in 0..64 {
-      match self.squares[i] {
-        NO_PIECE | WHITE_KING | BLACK_KING => {},
-        WHITE_BISHOP | WHITE_KNIGHT | BLACK_BISHOP | BLACK_KNIGHT => {
-          minor_piece_count += 1;
-          if minor_piece_count > 1 {
-            return false;
-          }
-        },
-        _ => {
-          return false;
-        },
-      }
+    if (self.pieces.white.pawn
+      | self.pieces.black.pawn
+      | self.pieces.white.queen
+      | self.pieces.black.queen
+      | self.pieces.white.rook
+      | self.pieces.black.rook)
+      != 0
+    {
+      return false;
+    }
+
+    if (self.pieces.white.bishop
+      | self.pieces.black.bishop
+      | self.pieces.white.knight
+      | self.pieces.black.knight)
+      .count_ones()
+      > 1
+    {
+      return false;
     }
     true
   }
@@ -816,53 +737,47 @@ mod tests {
   #[test]
   fn display_board() {
     let mut board = Board {
-      squares: [0; 64],
+      pieces: PieceSet::new(),
       side_to_play: Color::White,
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       hash: 0,
-      white_masks: Masks {
-        control: 0,
-        pieces: 0,
-      },
-      black_masks: Masks {
-        control: 0,
-        pieces: 0,
-      },
+      white_masks: Masks { control: 0 },
+      black_masks: Masks { control: 0 },
     };
-    board.squares[0] = WHITE_ROOK;
-    board.squares[1] = WHITE_KNIGHT;
-    board.squares[2] = WHITE_BISHOP;
-    board.squares[3] = WHITE_QUEEN;
-    board.squares[4] = WHITE_KING;
-    board.squares[5] = WHITE_BISHOP;
-    board.squares[6] = WHITE_KNIGHT;
-    board.squares[7] = WHITE_ROOK;
-    board.squares[8] = WHITE_PAWN;
-    board.squares[9] = WHITE_PAWN;
-    board.squares[10] = WHITE_PAWN;
-    board.squares[11] = WHITE_PAWN;
-    board.squares[12] = WHITE_PAWN;
-    board.squares[13] = WHITE_PAWN;
-    board.squares[14] = WHITE_PAWN;
-    board.squares[15] = WHITE_PAWN;
+    board.pieces.set(0, WHITE_ROOK);
+    board.pieces.set(1, WHITE_KNIGHT);
+    board.pieces.set(2, WHITE_BISHOP);
+    board.pieces.set(3, WHITE_QUEEN);
+    board.pieces.set(4, WHITE_KING);
+    board.pieces.set(5, WHITE_BISHOP);
+    board.pieces.set(6, WHITE_KNIGHT);
+    board.pieces.set(7, WHITE_ROOK);
+    board.pieces.set(8, WHITE_PAWN);
+    board.pieces.set(9, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.set(1, WHITE_PAWN);
 
-    board.squares[48] = BLACK_PAWN;
-    board.squares[49] = BLACK_PAWN;
-    board.squares[50] = BLACK_PAWN;
-    board.squares[51] = BLACK_PAWN;
-    board.squares[52] = BLACK_PAWN;
-    board.squares[53] = BLACK_PAWN;
-    board.squares[54] = BLACK_PAWN;
-    board.squares[55] = BLACK_PAWN;
-    board.squares[56] = BLACK_ROOK;
-    board.squares[57] = BLACK_KNIGHT;
-    board.squares[58] = BLACK_BISHOP;
-    board.squares[59] = BLACK_QUEEN;
-    board.squares[60] = BLACK_KING;
-    board.squares[61] = BLACK_BISHOP;
-    board.squares[62] = BLACK_KNIGHT;
-    board.squares[63] = BLACK_ROOK;
+    board.pieces.set(48, BLACK_PAWN);
+    board.pieces.set(49, BLACK_PAWN);
+    board.pieces.set(50, BLACK_PAWN);
+    board.pieces.set(51, BLACK_PAWN);
+    board.pieces.set(52, BLACK_PAWN);
+    board.pieces.set(53, BLACK_PAWN);
+    board.pieces.set(54, BLACK_PAWN);
+    board.pieces.set(55, BLACK_PAWN);
+    board.pieces.set(56, BLACK_ROOK);
+    board.pieces.set(57, BLACK_KNIGHT);
+    board.pieces.set(58, BLACK_BISHOP);
+    board.pieces.set(59, BLACK_QUEEN);
+    board.pieces.set(60, BLACK_KING);
+    board.pieces.set(61, BLACK_BISHOP);
+    board.pieces.set(62, BLACK_KNIGHT);
+    board.pieces.set(63, BLACK_ROOK);
 
     println!("Board: {}", board);
   }
@@ -876,19 +791,13 @@ mod tests {
     board = Board::from_fen(test_fen);
     println!("Board: {}", board);
 
-    assert_eq!(
-      test_fen.split(' ').collect::<Vec<_>>()[0],
-      board.to_string()
-    );
+    assert_eq!(test_fen.split(' ').collect::<Vec<_>>()[0], board.to_fen());
 
     let test_fen_2 = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     board = Board::from_fen(test_fen_2);
     println!("Board: {}", board);
 
-    assert_eq!(
-      test_fen_2.split(' ').collect::<Vec<_>>()[0],
-      board.to_string()
-    )
+    assert_eq!(test_fen_2.split(' ').collect::<Vec<_>>()[0], board.to_fen())
   }
 
   #[test]
@@ -947,6 +856,22 @@ mod tests {
     assert_eq!(BLACK_ROOK, board.get_piece(2, 3));
     assert_eq!(WHITE_KING, board.get_piece(6, 4));
     assert_eq!(BLACK_KING, board.get_piece(7, 7));
+  }
+
+  #[test]
+  fn apply_board_en_passant_move() {
+    let fen = "r1b2rk1/p1Q2p1p/4p1p1/1p6/2pPP3/5N2/PPP2PPP/2KR1B1R b - d3 0 1";
+    let mut board = Board::from_fen(fen);
+
+    board.apply_move(&Move::from_string("c4d3"));
+
+    let expected_board =
+      Board::from_fen("r1b2rk1/p1Q2p1p/4p1p1/1p6/4P3/3p1N2/PPP2PPP/2KR1B1R w - - 0 2");
+
+    println!("{}", board);
+    print_board_mask(board.pieces.pawns());
+    print_board_mask(board.pieces.all());
+    assert_eq!(board, expected_board);
   }
 
   #[test]
@@ -1113,7 +1038,7 @@ mod tests {
     let board = Board::from_fen(fen);
     assert_eq!(false, board.is_game_over_by_insufficient_material());
 
-    let fen = "8/4nk2/8/8/8/2KR4/8/8 w - - 0 1";
+    let fen = "8/4nk2/8/8/8/2KP4/8/8 w - - 0 1";
     let board = Board::from_fen(fen);
     assert_eq!(false, board.is_game_over_by_insufficient_material());
   }

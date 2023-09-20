@@ -1,9 +1,7 @@
 use crate::model::board::*;
-use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
-
-use log::*;
+use crate::model::piece_moves::KING_MOVES;
 
 /// Determine the number of attacked squares surrounding the king
 ///
@@ -18,47 +16,20 @@ use log::*;
 /// divided by the total number of squares around the king.
 ///
 pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
-  let mut attacked_squares: usize = 0;
-  let mut total_squares: usize = 0;
-
-  let king_position = match color {
-    Color::White => game_state.board.get_white_king_square(),
-    Color::Black => game_state.board.get_black_king_square(),
+  let surrounding_squares = match color {
+    Color::White => KING_MOVES[game_state.board.pieces.white.king.trailing_zeros() as usize],
+    Color::Black => KING_MOVES[game_state.board.pieces.black.king.trailing_zeros() as usize],
   };
 
-  let (king_file, king_rank) = Board::index_to_fr(king_position as usize);
-  //println!("King coordinates: {king_file} {king_rank} ");
-
-  let op_heatmap = match color {
-    Color::White => game_state.board.black_masks.control,
-    Color::Black => game_state.board.white_masks.control,
+  let total_squares: f32 = surrounding_squares.count_ones() as f32;
+  let attacked_squares: f32 = match color {
+    Color::White => {
+      (surrounding_squares & game_state.board.black_masks.control).count_ones() as f32
+    },
+    Color::Black => {
+      (surrounding_squares & game_state.board.white_masks.control).count_ones() as f32
+    },
   };
-  //print_board_mask(op_heatmap);
-
-  for file_offset in -1..2 {
-    for rank_offset in -1..2_isize {
-      if file_offset == 0 && rank_offset == 0 {
-        continue;
-      }
-      let file = king_file as isize + file_offset;
-      let rank = king_rank as isize + rank_offset;
-      if !(1..=8).contains(&file) || !(1..=8).contains(&rank) {
-        continue;
-      }
-      let square = Board::fr_to_index(file as usize, rank as usize);
-
-      total_squares += 1;
-      if square_in_mask!(square, op_heatmap) {
-        attacked_squares += 1;
-      }
-    }
-  }
-
-  if total_squares == 0 {
-    // if the king has no surrounding squares, probably means something bad for the king.
-    error!("No squares surrounding the king ?? The king is probably in a bad shape LOL.");
-    return 1.0;
-  }
 
   attacked_squares as f32 / total_squares as f32
 }
@@ -106,7 +77,7 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
     Color::Black => game_state.board.get_black_king_square(),
   };
 
-  let (_, king_rank) = Board::index_to_fr(king_position as usize);
+  let (_, king_rank) = Board::index_to_fr(king_position);
   match (king_rank, color) {
     (1, Color::White) => {
       return false;
@@ -120,14 +91,14 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
   // Check for major enemy pieces
   for i in 0..64 {
     if color == Color::White {
-      match game_state.board.squares[i] {
+      match game_state.board.pieces.get(i as u8) {
         BLACK_QUEEN | BLACK_ROOK => {
           return true;
         },
         _ => {},
       }
     } else {
-      match game_state.board.squares[i] {
+      match game_state.board.pieces.get(i as u8) {
         WHITE_QUEEN | WHITE_ROOK => {
           return true;
         },

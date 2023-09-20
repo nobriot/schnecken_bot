@@ -554,10 +554,8 @@ impl Engine {
       (_, _) => {},
     }
 
-    let a_captured_value =
-      Piece::material_value_from_u8(game_state.board.squares[a.dest as usize]).abs();
-    let b_captured_value =
-      Piece::material_value_from_u8(game_state.board.squares[b.dest as usize]).abs();
+    let a_captured_value = Piece::material_value_from_u8(game_state.board.pieces.get(a.dest)).abs();
+    let b_captured_value = Piece::material_value_from_u8(game_state.board.pieces.get(b.dest)).abs();
 
     if a_captured_value > b_captured_value {
       return Ordering::Less;

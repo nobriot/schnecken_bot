@@ -23,7 +23,7 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
   let mut score: f32 = 0.0;
   for i in 0..64 {
     if color == Color::White {
-      match game_state.board.squares[i] {
+      match game_state.board.pieces.get(i as u8) {
         WHITE_QUEEN => score += 9.5,
         WHITE_ROOK => score += 5.0,
         WHITE_BISHOP => score += 3.05,
@@ -32,7 +32,7 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
         _ => {},
       }
     } else {
-      match game_state.board.squares[i] {
+      match game_state.board.pieces.get(i as u8) {
         BLACK_QUEEN => score += 9.5,
         BLACK_ROOK => score += 5.0,
         BLACK_BISHOP => score += 3.05,
@@ -56,13 +56,13 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 /// # Return value
 ///
 /// true if the file is open. false otherwise
-pub fn is_file_open(game_state: &GameState, file: usize) -> bool {
+pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
   for rank in 1..9 {
     let i = Board::fr_to_index(file, rank);
 
-    match game_state.board.squares[i] {
+    match game_state.board.pieces.get(i as u8) {
       WHITE_PAWN | BLACK_PAWN => {
         return false;
       },
@@ -84,7 +84,7 @@ pub fn is_file_open(game_state: &GameState, file: usize) -> bool {
 /// # Return value
 ///
 /// true if the file is half-open. false otherwise
-pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
+pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
   let mut black_pawn = false;
@@ -93,7 +93,7 @@ pub fn is_file_half_open(game_state: &GameState, file: usize) -> bool {
   for rank in 1..9 {
     let i = Board::fr_to_index(file, rank);
 
-    match game_state.board.squares[i] {
+    match game_state.board.pieces.get(i as u8) {
       WHITE_PAWN => white_pawn = true,
       BLACK_PAWN => {
         black_pawn = true;
@@ -151,7 +151,7 @@ pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
 ///  True if the piece on the square is a knight or bishop and has a reachable outpost.
 ///
 pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
-  let piece = game_state.board.squares[index];
+  let piece = game_state.board.pieces.get(index as u8);
   let color;
   match piece {
     WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
@@ -196,7 +196,7 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 /// False otherwise
 ///
 pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool {
-  let piece = game_state.board.squares[index];
+  let piece = game_state.board.pieces.get(index as u8);
   let color = match piece {
     WHITE_KNIGHT | WHITE_BISHOP => Color::White,
     BLACK_KNIGHT | BLACK_BISHOP => Color::Black,
@@ -223,8 +223,8 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
 /// True if the square contains a piece or pawn (knight, bishop, rook, queen or pawn) that is hanging
 /// False otherwise
 ///
-pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
-  let piece = game_state.board.squares[index];
+pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
+  let piece = game_state.board.pieces.get(index);
 
   let color = match piece {
     NO_PIECE | BLACK_KING | WHITE_KING => return false,
@@ -262,8 +262,8 @@ pub fn is_hanging(game_state: &GameState, index: usize) -> bool {
 /// that is attacked by enemy pieces
 /// False otherwise
 ///
-pub fn is_attacked(game_state: &GameState, index: usize) -> bool {
-  let color = match game_state.board.squares[index] {
+pub fn is_attacked(game_state: &GameState, index: u8) -> bool {
+  let color = match game_state.board.pieces.get(index) {
     NO_PIECE | BLACK_KING | WHITE_KING => return false,
     WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => Color::White,
     BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => Color::Black,

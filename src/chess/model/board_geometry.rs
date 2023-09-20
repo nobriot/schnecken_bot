@@ -14,7 +14,7 @@ use std::cmp::max;
 /// The number of moves the king needs to do to reach the destination. With valid
 /// square indexes, it will be in [0..7]
 ///
-pub fn get_king_distance(king_position: usize, destination: usize) -> usize {
+pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
   let (sf, sr) = Board::index_to_fr(king_position);
   let (df, dr) = Board::index_to_fr(destination);
 
