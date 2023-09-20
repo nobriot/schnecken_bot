@@ -561,6 +561,25 @@ impl PieceSet {
     self.white.pawn | self.black.pawn
   }
 
+  /// Returns a BoardMask of all pieces of a certain color
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`    Reference to the PieceSet object where we are looking for pieces
+  /// * `color`   Color of the piece set we are looking for
+  ///
+  /// ### Return value
+  ///
+  /// BoardMask with all the pieces of a given color
+  ///
+  #[inline]
+  pub fn all_with_color(&self, color: Color) -> BoardMask {
+    match color {
+      Color::White => self.white.all(),
+      Color::Black => self.black.all(),
+    }
+  }
+
   /// Returns true if we have a piece on the square
   ///
   /// ### Arguments

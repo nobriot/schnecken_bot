@@ -88,14 +88,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
-  // Get a pressure score, if one side has more attackers than defenders on a square, they get bonus points
-  let white_heatmap = game_state.get_heatmap(Color::White, false);
-  let black_heatmap = game_state.get_heatmap(Color::Black, false);
-
   for i in 0..64_usize {
-    score += HEATMAP_SCORES[i] * white_heatmap[i] as f32;
-    score -= HEATMAP_SCORES[i] * black_heatmap[i] as f32;
-
     if !game_state.board.has_piece(i as u8) {
       continue;
     }

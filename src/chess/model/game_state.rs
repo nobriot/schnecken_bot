@@ -177,45 +177,6 @@ impl GameState {
     heatmap
   }
 
-  /// Returns the location of the attackers of a particular square
-  /// Each square is encoded with u64 bitmask of the sources.
-  pub fn get_heatmap_with_sources(
-    &self,
-    color: Color,
-    with_x_rays: bool,
-  ) -> ([usize; 64], [usize; 64]) {
-    let mut heatmap: [usize; 64] = [0; 64];
-    let mut heatmap_sources: [usize; 64] = [0; 64];
-    let opposite_color = Color::opposite(color);
-
-    let (ssp, mut op) = match with_x_rays {
-      true => (0, 0),
-      false => (
-        self.board.get_piece_color_mask(color),
-        self.board.get_piece_color_mask(opposite_color),
-      ),
-    };
-
-    // To get the heatmap, we assume that any other piece on the board
-    // is opposite color, as if we could capture everything
-    op |= ssp;
-
-    for source_square in 0..64_usize {
-      if !self.board.has_piece_with_color(source_square as u8, color) {
-        continue;
-      }
-      let (destinations, _) = self.board.get_piece_destinations(source_square, op, 0);
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
-          heatmap[i] += 1;
-          heatmap_sources[i] |= 1 << source_square;
-        }
-      }
-    }
-
-    (heatmap, heatmap_sources)
-  }
-
   /// Checks the previous board configuration and checks if we repeated the position
   ///
   /// ### Arguments
@@ -443,16 +404,45 @@ impl GameState {
   }
 
   pub fn update_checks(&mut self) {
-    let opponent_color = Color::opposite(self.board.side_to_play);
-    let opponent_heatmap = self.get_heatmap(opponent_color, false);
-    let king_square = self.get_king_square();
+    // Reset the check count
+    self.checks = 0;
 
-    if king_square == INVALID_SQUARE {
+    let (king_mask, ssp, op) = match self.board.side_to_play {
+      Color::White => (
+        self.board.pieces.white.king,
+        self.board.pieces.white.all(),
+        self.board.pieces.black.all(),
+      ),
+      Color::Black => (
+        self.board.pieces.black.king,
+        self.board.pieces.black.all(),
+        self.board.pieces.white.all(),
+      ),
+    };
+
+    if king_mask == 0 {
       error!("Can't get king square ? {}", self.to_fen());
-      self.checks = 0;
       return;
     }
-    self.checks = opponent_heatmap[king_square as usize] as u8;
+
+    let mut checkers = op;
+
+    while checkers != 0 {
+      let square = checkers.trailing_zeros() as u8;
+
+      let piece_destinations = self
+        .board
+        .get_piece_controlled_squares(square as usize, ssp, op);
+
+      if piece_destinations & king_mask != 0 {
+        self.checks += 1;
+        if self.checks == 2 {
+          return;
+        }
+      }
+
+      checkers &= checkers - 1;
+    }
   }
 
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
