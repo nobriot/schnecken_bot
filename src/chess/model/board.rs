@@ -18,6 +18,29 @@ pub const INVALID_SQUARE: u8 = 255;
 /// Default start position FEN
 const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+/// Ranks boardmasks
+pub const RANKS: [u64; 8] = [
+  0x00000000000000FF,
+  0x000000000000FF00,
+  0x0000000000FF0000,
+  0x00000000FF000000,
+  0x000000FF00000000,
+  0x0000FF0000000000,
+  0x00FF000000000000,
+  0xFF00000000000000,
+];
+/// Files boardmasks
+pub const FILES: [u64; 8] = [
+  0x0101010101010101,
+  0x0202020202020202,
+  0x0404040404040404,
+  0x0808080808080808,
+  0x1010101010101010,
+  0x2020202020202020,
+  0x4040404040404040,
+  0x8080808080808080,
+];
+
 // -----------------------------------------------------------------------------
 //  Macros
 
@@ -147,20 +170,11 @@ impl Board {
   ///
   pub fn get_control_boardmask(&self, color: Color) -> BoardMask {
     let mut bitmap: BoardMask = 0;
+    let mut pieces = self.get_piece_color_mask(color);
 
-    let ssp = self.get_piece_color_mask(color);
-    let mut op = self.get_piece_color_mask(Color::opposite(color));
-
-    // To get the control bitmap, we assume that any other piece on the board
-    // is opposite color, as if we could capture everything
-    op |= ssp;
-
-    for source_square in 0..64_usize {
-      if !self.has_piece_with_color(source_square as u8, color) {
-        continue;
-      }
-
-      bitmap |= self.get_piece_controlled_squares(source_square, op, 0);
+    while pieces != 0 {
+      bitmap |= self.get_piece_control_mask(pieces.trailing_zeros() as u8);
+      pieces &= pieces - 1;
     }
 
     bitmap
@@ -221,32 +235,27 @@ impl Board {
     (destinations, promotion)
   }
 
-  /// Computes the boardmask of the squares controlled by a piece
+  /// Computes the boardmask of the squares controlled by a piece, using the
+  ///
   ///
   /// ### Arguments
   ///
   /// * `self` -           A Board object representing a position, side to play, etc.
   /// * `source_square` -  Square for which we want to know the controlled squares
-  /// * `op` -             BoardSquare for which we want to know the destinations
   ///
   /// ### Return value
   ///
-  /// A bitmask indicating possible destinations for the piece present on the square.
+  /// BoardMask value indicating all the squares controlled by the piece
   ///
-  pub fn get_piece_controlled_squares(
-    &self,
-    source_square: usize,
-    op: BoardMask,
-    ssp: BoardMask,
-  ) -> BoardMask {
-    match self.pieces.get(source_square as u8) {
-      WHITE_KING | BLACK_KING => KING_MOVES[source_square],
-      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
-      WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
-      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
-      WHITE_KNIGHT | BLACK_KNIGHT => KNIGHT_MOVES[source_square],
-      WHITE_PAWN => return get_white_pawn_captures(source_square),
-      BLACK_PAWN => return get_black_pawn_captures(source_square),
+  pub fn get_piece_control_mask(&self, source_square: u8) -> BoardMask {
+    match self.pieces.get(source_square) {
+      WHITE_KING | BLACK_KING => KING_MOVES[source_square as usize],
+      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(0, self.pieces.all(), source_square as usize),
+      WHITE_ROOK | BLACK_ROOK => get_rook_moves(0, self.pieces.all(), source_square as usize),
+      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(0, self.pieces.all(), source_square as usize),
+      WHITE_KNIGHT | BLACK_KNIGHT => KNIGHT_MOVES[source_square as usize],
+      WHITE_PAWN => return get_white_pawn_captures(source_square as usize),
+      BLACK_PAWN => return get_black_pawn_captures(source_square as usize),
       _ => 0,
     }
   }
@@ -1041,5 +1050,20 @@ mod tests {
     let fen = "8/4nk2/8/8/8/2KP4/8/8 w - - 0 1";
     let board = Board::from_fen(fen);
     assert_eq!(false, board.is_game_over_by_insufficient_material());
+  }
+
+  #[ignore]
+  #[test]
+  fn generate_ranks_files() {
+    let mut ranks: [u64; 8] = [0; 8];
+    let mut files: [u64; 8] = [0; 8];
+
+    for i in 0..64 {
+      let (file, rank) = Board::index_to_fr(i);
+      set_square_in_mask!(i, ranks[(rank - 1) as usize]);
+      set_square_in_mask!(i, files[(file - 1) as usize]);
+    }
+    println!("pub const RANKS:[u64; 8] = {:#018X?};", ranks);
+    println!("pub const FILES:[u64; 8] = {:#018X?};", files);
   }
 }

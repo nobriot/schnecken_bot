@@ -1191,4 +1191,18 @@ mod tests {
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() != Move::from_string("d6e5"));
   }
+
+  #[test]
+  fn evaluate_real_game_no8g7oup_example() {
+    // https://lichess.org/no8g7oup
+    //
+    let mut engine = Engine::new();
+    engine.set_position("r4rk1/2p5/p2pq2p/1p4p1/3Qb1n1/2N5/PPn1K1PP/R1B2B1R b - - 1 22");
+    engine.set_search_time_limit(423);
+    engine.go();
+    engine.print_evaluations();
+    let analysis = engine.get_line_details();
+    assert!(!analysis.is_empty());
+    assert!(engine.get_best_move() == Move::from_string("c2d4"));
+  }
 }

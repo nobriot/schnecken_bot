@@ -123,26 +123,6 @@ pub fn board_mask_to_string(mask: BoardMask) -> String {
   string
 }
 
-/// Makes the sum of a board mask
-///
-/// ### Arguments
-///
-/// * `mask` - Board bitmask bitmask representing a board with 0 and 1s.
-///
-/// ### Return value
-///
-/// the sum of all bits set to 1.
-///
-pub fn mask_sum(mask: BoardMask) -> usize {
-  let mut sum: usize = 0;
-  for i in 0..64 {
-    if mask >> i & 1 == 1 {
-      sum += 1;
-    }
-  }
-  sum
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -153,8 +133,6 @@ mod tests {
     set_square_in_mask!(2, mask);
     set_square_in_mask!(5, mask);
 
-    assert_eq!(2, mask_sum(mask));
-
     assert!(square_in_mask!(2, mask));
     assert!(square_in_mask!(5, mask));
     assert!(false == square_in_mask!(1, mask));
@@ -163,7 +141,7 @@ mod tests {
     assert!(false == square_in_mask!(6, mask));
 
     unset_square_in_mask!(5, mask);
-    assert_eq!(1, mask_sum(mask));
+    assert_eq!(1, mask.count_ones());
 
     assert!(square_in_mask!(2, mask));
     assert!(false == square_in_mask!(5, mask));

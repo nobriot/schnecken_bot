@@ -34,28 +34,6 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   attacked_squares as f32 / total_squares as f32
 }
 
-/// Checks if the king is x-rayed in some way
-///
-/// ### Arguments
-///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
-///
-/// ### Returns
-///
-/// The number of squares surrounding the king attacked by enemy pieces
-/// divided by the total number of squares around the king.
-///
-pub fn is_king_xrayed(game_state: &GameState, color: Color) -> bool {
-  let king_position = match color {
-    Color::White => game_state.board.get_white_king_square(),
-    Color::Black => game_state.board.get_black_king_square(),
-  };
-
-  let opponent_mask = game_state.get_color_bitmap_with_xrays(Color::opposite(color));
-  (1 << king_position) & opponent_mask == 0
-}
-
 /// Checks if the king is way too adventurous
 ///
 /// Noticed that the engine likes to walk
@@ -89,24 +67,11 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
   }
 
   // Check for major enemy pieces
-  for i in 0..64 {
-    if color == Color::White {
-      match game_state.board.pieces.get(i as u8) {
-        BLACK_QUEEN | BLACK_ROOK => {
-          return true;
-        },
-        _ => {},
-      }
-    } else {
-      match game_state.board.pieces.get(i as u8) {
-        WHITE_QUEEN | WHITE_ROOK => {
-          return true;
-        },
-        _ => {},
-      }
-    }
+  if color == Color::White {
+    return game_state.board.pieces.black.majors().count_ones() > 0;
+  } else {
+    return game_state.board.pieces.white.majors().count_ones() > 0;
   }
-  false
 }
 
 /// Returns true if the king does not seem castled and has lost his castling rights

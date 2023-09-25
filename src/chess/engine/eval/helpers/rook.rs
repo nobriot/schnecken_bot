@@ -2,77 +2,26 @@ use super::generic::*;
 use crate::model::board::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::square_in_mask;
 
 /// Determine if rooks are connected for a color
 ///
 pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
-  let rook = match color {
-    Color::White => WHITE_ROOK,
-    Color::Black => BLACK_ROOK,
+  let mut rooks = match color {
+    Color::White => game_state.board.pieces.white.rook,
+    Color::Black => game_state.board.pieces.black.rook,
   };
 
-  let mut rook_1 = INVALID_SQUARE;
-  let mut rook_2 = INVALID_SQUARE;
-
-  for i in 0..64_u8 {
-    if game_state.board.pieces.get(i) == rook {
-      if rook_1 == INVALID_SQUARE {
-        rook_1 = i;
-      } else {
-        rook_2 = i;
-        break;
-      }
-    }
-  }
-
-  // We need the 2 rooks on the board for them to be connected
-  if rook_2 == INVALID_SQUARE {
+  if rooks.count_ones() != 2 {
     return false;
   }
+  let rook_1 = rooks.trailing_zeros() as u8;
+  rooks &= rooks - 1;
+  let rook_2 = rooks.trailing_zeros() as u8;
 
-  let (f1, r1) = Board::index_to_fr(rook_1);
-  let (f2, r2) = Board::index_to_fr(rook_2);
+  let destinations = game_state.board.get_piece_control_mask(rook_1);
 
-  if f1 != f2 && r1 != r2 {
-    // Rooks neither on same file or rank, they cannot be connected
-    return false;
-  }
-
-  if f1 == f2 {
-    // Walk the ranks and check that they are no piece in between
-    let min = std::cmp::min(r1, r2);
-    let max = std::cmp::max(r1, r2);
-    if max == min + 1 {
-      return true;
-    }
-    for rank in (min + 1)..max {
-      let i = Board::fr_to_index(f1, rank);
-      if game_state.board.pieces.get(i as u8) != NO_PIECE {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // Same procedure if they are on the same rank
-  if r1 == r2 {
-    // Walk the ranks and check that they are no piece in between
-    let min = std::cmp::min(f1, f2);
-    let max = std::cmp::max(f1, f2);
-    if max == min + 1 {
-      return true;
-    }
-
-    for file in (min + 1)..max {
-      let i = Board::fr_to_index(file, r1);
-      if game_state.board.pieces.get(i as u8) != NO_PIECE {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  false
+  return square_in_mask!(rook_2, destinations);
 }
 
 /// Assigns a score to a rooks based on if it is located on:

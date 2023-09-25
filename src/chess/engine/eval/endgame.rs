@@ -6,6 +6,7 @@ use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::piece_moves::get_king_moves;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
@@ -20,8 +21,9 @@ const KING_DANGER_FACTOR: f32 = 2.0;
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
-  if is_king_and_queen_endgame(game_state) || is_king_and_rook_endgame(game_state)
-  //|| just_the_opponent_king_left(game_state)
+  if is_king_and_queen_endgame(game_state)
+    || is_king_and_rook_endgame(game_state)
+    || just_the_opponent_king_left(game_state)
   {
     //debug!("Queen and/or rook vs King detected");
     return get_king_vs_queen_or_rook_score(game_state);
@@ -127,101 +129,39 @@ fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
 }
 
 /// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
-/// Note: This function assumes the board is in this configuration for its calculations
 ///
-/// # Arguments
+/// ### Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
+///
+/// ### Return value
+///
+/// f32 evaluation score for the position
+///
 pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
-  // Find the rook and/or queen for the attacking side. Compute a cross from their position,
-  // deduct in which section the king is, and how many squares it can navigate to.
-
-  // In order to checkmate, we want the number of available square for the opponent
-  // king to be reduced as much as possible.
-  // King should come as close to the other king as possible.
-
+  // Try to assign a better score as we are getting closer to corner the king
   let mut score = 0.0;
-  let mut attacking_side = Color::White;
-
-  for i in 0..64 {
-    match game_state.board.pieces.get(i) {
-      WHITE_ROOK | WHITE_QUEEN => {
-        attacking_side = Color::White;
-        break;
-      },
-      BLACK_ROOK | BLACK_QUEEN => {
-        attacking_side = Color::Black;
-        break;
-      },
-      _ => {},
-    }
-  }
-
-  let attacking_bitmap = match attacking_side {
-    Color::White => game_state.board.white_masks.control,
-    Color::Black => game_state.board.black_masks.control,
+  let attacking_side = if game_state.board.pieces.black.all() == game_state.board.pieces.black.king
+  {
+    Color::White
+  } else {
+    Color::Black
   };
-  let king_position = match attacking_side {
-    Color::White => game_state.board.get_black_king_square(),
-    Color::Black => game_state.board.get_white_king_square(),
+
+  let (attacking_bitmap, king_position) = match attacking_side {
+    Color::White => (
+      game_state.board.white_masks.control,
+      game_state.board.get_black_king_square(),
+    ),
+    Color::Black => (
+      game_state.board.black_masks.control,
+      game_state.board.get_white_king_square(),
+    ),
   };
-  let (king_file, king_rank) = Board::index_to_fr(king_position);
+
   // BoardMask bitmap of where the king can go
-  let mut king_bitmap: BoardMask = 0;
-
-  // There is probably something smart to do here.
-  // Recursion to find all square sounds expensive when evaluating tons of positions.
-  // We will simplify by assuming it's rook or queen, so detect horizontal/vertical lines and assign the leftover area of the side of the king.
-  for rank in 1..=8 {
-    let mut rank_control = 0;
-    for file in 1..=8 {
-      if square_in_mask!(Board::fr_to_index(file, rank), attacking_bitmap) {
-        rank_control += 1;
-      }
-    }
-
-    if rank_control >= 7 {
-      // Rank control is from 7 squares because the piece controlling the rank makes a hole if undefended.
-      //println!("Rank {rank} is controlled {rank_control}");
-
-      if rank == king_rank {
-        continue;
-      }
-      for i in 0..64 {
-        let (_, current_rank) = Board::index_to_fr(i);
-        if (current_rank <= rank && king_rank > rank) || (current_rank >= rank && king_rank < rank)
-        {
-          set_square_in_mask!(i, king_bitmap);
-        }
-      }
-    }
-  }
-  // Same for the file:
-  for file in 1..=8 {
-    let mut file_control = 0;
-    for rank in 1..=8 {
-      if square_in_mask!(Board::fr_to_index(file, rank), attacking_bitmap) {
-        file_control += 1;
-      }
-    }
-
-    if file_control >= 7 {
-      if file == king_file {
-        continue;
-      }
-      for i in 0..64 {
-        let (current_file, _) = Board::index_to_fr(i);
-        if (current_file <= file && king_file > file) || (current_file >= file && king_file < file)
-        {
-          set_square_in_mask!(i, king_bitmap);
-        }
-      }
-    }
-  }
-
-  // Now make the count
-  score += mask_sum(king_bitmap) as f32;
+  score += get_king_moves(0, attacking_bitmap, king_position as usize).count_ones() as f32;
 
   // Now check how many square are available for each king
   score += 7.0

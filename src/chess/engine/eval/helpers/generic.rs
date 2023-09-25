@@ -21,27 +21,58 @@ use log::*;
 pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
   // Basic material count
   let mut score: f32 = 0.0;
-  for i in 0..64 {
-    if color == Color::White {
-      match game_state.board.pieces.get(i as u8) {
-        WHITE_QUEEN => score += 9.5,
-        WHITE_ROOK => score += 5.0,
-        WHITE_BISHOP => score += 3.05,
-        WHITE_KNIGHT => score += 3.0,
-        WHITE_PAWN => score += 1.0,
-        _ => {},
-      }
-    } else {
-      match game_state.board.pieces.get(i as u8) {
-        BLACK_QUEEN => score += 9.5,
-        BLACK_ROOK => score += 5.0,
-        BLACK_BISHOP => score += 3.05,
-        BLACK_KNIGHT => score += 3.0,
-        BLACK_PAWN => score += 1.0,
-        _ => {},
-      }
-    }
+
+  match color {
+    Color::White => {
+      score += game_state.board.pieces.white.queen.count_ones() as f32 * 9.5;
+      score += game_state.board.pieces.white.rook.count_ones() as f32 * 5.0;
+      score += game_state.board.pieces.white.bishop.count_ones() as f32 * 3.05;
+      score += game_state.board.pieces.white.knight.count_ones() as f32 * 3.0;
+      score += game_state.board.pieces.white.pawn.count_ones() as f32 * 1.0;
+    },
+    Color::Black => {
+      score += game_state.board.pieces.black.queen.count_ones() as f32 * 9.5;
+      score += game_state.board.pieces.black.rook.count_ones() as f32 * 5.0;
+      score += game_state.board.pieces.black.bishop.count_ones() as f32 * 3.05;
+      score += game_state.board.pieces.black.knight.count_ones() as f32 * 3.0;
+      score += game_state.board.pieces.black.pawn.count_ones() as f32 * 1.0;
+    },
   }
+
+  score
+}
+
+/// Computes the combined material score (white score - black score)
+///
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+///
+/// # Return value
+///
+/// Combined score for material
+///
+pub fn get_combined_material_score(game_state: &GameState) -> f32 {
+  // Basic material count
+  let mut score: f32 = 0.0;
+
+  score += (game_state.board.pieces.white.queen.count_ones() as f32
+    - game_state.board.pieces.black.queen.count_ones() as f32)
+    * 9.5;
+  score += (game_state.board.pieces.white.rook.count_ones() as f32
+    - game_state.board.pieces.black.rook.count_ones() as f32)
+    * 5.0;
+  score += (game_state.board.pieces.white.bishop.count_ones() as f32
+    - game_state.board.pieces.black.bishop.count_ones() as f32)
+    * 3.05;
+  score += (game_state.board.pieces.white.knight.count_ones() as f32
+    - game_state.board.pieces.black.knight.count_ones() as f32)
+    * 3.05;
+  score += (game_state.board.pieces.white.pawn.count_ones() as f32
+    - game_state.board.pieces.black.pawn.count_ones() as f32)
+    * 1.0;
+
   score
 }
 
@@ -59,18 +90,7 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  for rank in 1..9 {
-    let i = Board::fr_to_index(file, rank);
-
-    match game_state.board.pieces.get(i as u8) {
-      WHITE_PAWN | BLACK_PAWN => {
-        return false;
-      },
-      _ => {},
-    }
-  }
-
-  true
+  (FILES[(file - 1) as usize] & game_state.board.pieces.pawns()) == 0
 }
 
 /// Checks if a file is half-open
@@ -87,20 +107,8 @@ pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
 pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  let mut black_pawn = false;
-  let mut white_pawn = false;
-
-  for rank in 1..9 {
-    let i = Board::fr_to_index(file, rank);
-
-    match game_state.board.pieces.get(i as u8) {
-      WHITE_PAWN => white_pawn = true,
-      BLACK_PAWN => {
-        black_pawn = true;
-      },
-      _ => {},
-    }
-  }
+  let black_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.black.pawn) != 0;
+  let white_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.white.pawn) != 0;
 
   match (white_pawn, black_pawn) {
     (true, false) => true,
@@ -388,5 +396,20 @@ mod tests {
     assert_eq!(true, is_hanging(&game_state, 24));
     assert_eq!(true, is_hanging(&game_state, 56));
     assert_eq!(false, is_hanging(&game_state, 58));
+  }
+
+  #[test]
+  fn test_material_scores() {
+    let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(get_combined_material_score(&game_state), 0.0);
+    assert_eq!(get_material_score(&game_state, Color::White), 39.6);
+    assert_eq!(get_material_score(&game_state, Color::Black), 39.6);
+
+    let fen = "rnbqk1nr/pppppppp/8/8/8/8/PPPPP2P/RNBQKBNR w KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(get_combined_material_score(&game_state), 1.05);
+    assert_eq!(get_material_score(&game_state, Color::White), 37.6);
+    assert_eq!(get_material_score(&game_state, Color::Black), 36.55);
   }
 }

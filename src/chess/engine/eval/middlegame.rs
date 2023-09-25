@@ -10,7 +10,6 @@ const PIECE_MOBILITY_FACTOR: f32 = 0.1;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 1.5;
 
-const KING_XRAY_FACTOR: f32 = 0.05;
 const ROOKS_FILE_BONUS: f32 = 0.3;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
@@ -30,12 +29,6 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
     * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
 
-  if is_king_xrayed(game_state, Color::White) {
-    score -= KING_XRAY_FACTOR;
-  }
-  if is_king_xrayed(game_state, Color::Black) {
-    score += KING_XRAY_FACTOR;
-  }
   if is_king_too_adventurous(game_state, Color::White) {
     score -= KING_TOO_ADVENTUROUS_PENALTY;
   }
@@ -48,27 +41,48 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::White) as f32
       - get_rooks_file_score(game_state, Color::Black) as f32);
 
-  for i in 0..64_usize {
-    if !game_state.board.has_piece(i as u8) {
-      continue;
+  for (i, piece) in game_state.board.pieces.white {
+    match piece {
+      PieceType::King => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KING[i as usize] as f32
+      },
+      PieceType::Queen => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_QUEEN[i as usize] as f32
+      },
+      PieceType::Rook => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_ROOK[i as usize] as f32
+      },
+      PieceType::Bishop => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_BISHOP[i as usize] as f32
+      },
+      PieceType::Knight => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KNIGHT[i as usize] as f32
+      },
+      PieceType::Pawn => {
+        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_PAWN[i as usize] as f32
+      },
     }
-    // Piece square table:
-    /*
-     */
-    match game_state.board.pieces.get(i as u8) {
-      WHITE_KING => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KING[i] as f32,
-      WHITE_QUEEN => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_QUEEN[i] as f32,
-      WHITE_ROOK => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_ROOK[i] as f32,
-      WHITE_BISHOP => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_BISHOP[i] as f32,
-      WHITE_KNIGHT => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KNIGHT[i] as f32,
-      WHITE_PAWN => score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_PAWN[i] as f32,
-      BLACK_KING => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KING[i] as f32,
-      BLACK_QUEEN => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_QUEEN[i] as f32,
-      BLACK_ROOK => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_ROOK[i] as f32,
-      BLACK_BISHOP => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_BISHOP[i] as f32,
-      BLACK_KNIGHT => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KNIGHT[i] as f32,
-      BLACK_PAWN => score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_PAWN[i] as f32,
-      _ => {},
+  }
+  for (i, piece) in game_state.board.pieces.black {
+    match piece {
+      PieceType::King => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KING[i as usize] as f32
+      },
+      PieceType::Queen => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_QUEEN[i as usize] as f32
+      },
+      PieceType::Rook => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_ROOK[i as usize] as f32
+      },
+      PieceType::Bishop => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_BISHOP[i as usize] as f32
+      },
+      PieceType::Knight => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KNIGHT[i as usize] as f32
+      },
+      PieceType::Pawn => {
+        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_PAWN[i as usize] as f32
+      },
     }
   }
 

@@ -73,8 +73,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       - get_number_of_protected_pawns(game_state, Color::Black) as f32);
 
   score += BACKWARDS_PAWN_FACTOR
-    * (mask_sum(get_backwards_pawns(game_state, Color::Black)) as f32
-      - mask_sum(get_backwards_pawns(game_state, Color::White)) as f32);
+    * (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
+      - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
 
   // Evaluate the quality of our rooks:
   if are_rooks_connected(game_state, Color::White) {
@@ -135,10 +135,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
   }
 
-  // Basic material count
-  let white_material = get_material_score(game_state, Color::White);
-  let black_material = get_material_score(game_state, Color::Black);
-  score += white_material - black_material;
+  // Check on the material imbalance
+  score += get_combined_material_score(game_state);
 
   // Return our score
   score
@@ -486,4 +484,5 @@ mod tests {
       positions_evaluated
     );
   }
+
 }

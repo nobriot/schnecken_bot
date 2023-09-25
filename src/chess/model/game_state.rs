@@ -117,66 +117,6 @@ impl GameState {
     fen
   }
 
-  /// Computes if a square is under attack by the color for a given game state.
-  /// X-Rays are included.
-  ///
-  /// # Arguments
-  ///
-  /// * `self` -   A GameState object representing a position, side to play, etc.
-  /// * `color` -  The color for which we want to determine the bitmap
-  ///
-  /// # Return value
-  ///
-  /// A bitmask indicating squares under control by the color for that game state.
-  pub fn get_color_bitmap_with_xrays(&self, color: Color) -> BoardMask {
-    let mut bitmap: BoardMask = 0;
-
-    for source_square in 0..64_usize {
-      if !self.board.has_piece_with_color(source_square as u8, color) {
-        continue;
-      }
-      bitmap |= self.board.get_piece_controlled_squares(source_square, 0, 0);
-    }
-
-    bitmap
-  }
-
-  /// Computes the number of attackers on each square for a color.
-  /// Compare with your own color to get a number of defenders.
-  pub fn get_heatmap(&self, color: Color, with_x_rays: bool) -> [usize; 64] {
-    let mut heatmap: [usize; 64] = [0; 64];
-    let opposite_color = Color::opposite(color);
-
-    let (ssp, mut op) = match with_x_rays {
-      true => (0, 0),
-      false => (
-        self.board.get_piece_color_mask(color),
-        self.board.get_piece_color_mask(opposite_color),
-      ),
-    };
-
-    // To get the heatmap, we assume that any other piece on the board
-    // is opposite color, as if we could capture everything
-    op |= ssp;
-
-    for source_square in 0..64_usize {
-      if !self.board.has_piece_with_color(source_square as u8, color) {
-        continue;
-      }
-      let destinations = self
-        .board
-        .get_piece_controlled_squares(source_square, op, 0);
-
-      for i in 0..64 {
-        if ((1 << i) & destinations) != 0 {
-          heatmap[i] += 1;
-        }
-      }
-    }
-
-    heatmap
-  }
-
   /// Checks the previous board configuration and checks if we repeated the position
   ///
   /// ### Arguments
@@ -215,6 +155,31 @@ impl GameState {
     let mut ssp = self.board.get_piece_color_mask(Color::White);
     let op = self.board.get_piece_color_mask(Color::Black);
 
+    // Try castling first. This will have an influence on the engine if
+    // interesting moves are placed first.
+    if self.board.castling_rights.K()
+      && self.checks == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
+      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 6u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.board.castling_rights.Q()
+      && self.checks == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
+      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 2u8,
+        promotion: NO_PIECE,
+      });
+    }
+
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
@@ -248,29 +213,6 @@ impl GameState {
 
       // Remove the last bit set to 1:
       ssp &= ssp - 1;
-    }
-
-    if self.board.castling_rights.K()
-      && self.checks == 0
-      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
-      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
-    {
-      all_moves.push(Move {
-        src: 4u8,
-        dest: 6u8,
-        promotion: NO_PIECE,
-      });
-    }
-    if self.board.castling_rights.Q()
-      && self.checks == 0
-      && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
-      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
-    {
-      all_moves.push(Move {
-        src: 4u8,
-        dest: 2u8,
-        promotion: NO_PIECE,
-      });
     }
 
     // Now we need to remove all the moves where the moving side king is still in check.
@@ -308,6 +250,30 @@ impl GameState {
     let mut ssp = self.board.get_piece_color_mask(Color::Black);
     let op = self.board.get_piece_color_mask(Color::White);
 
+    // Now check castling.
+    if self.board.castling_rights.k()
+      && self.checks == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
+      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 62u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.board.castling_rights.q()
+      && self.checks == 0
+      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
+      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 58u8,
+        promotion: NO_PIECE,
+      });
+    }
+
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
@@ -341,30 +307,6 @@ impl GameState {
 
       // Remove the last bit set to 1:
       ssp &= ssp - 1;
-    }
-
-    // Now check castling.
-    if self.board.castling_rights.k()
-      && self.checks == 0
-      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
-      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
-    {
-      all_moves.push(Move {
-        src: 60u8,
-        dest: 62u8,
-        promotion: NO_PIECE,
-      });
-    }
-    if self.board.castling_rights.q()
-      && self.checks == 0
-      && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
-      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
-    {
-      all_moves.push(Move {
-        src: 60u8,
-        dest: 58u8,
-        promotion: NO_PIECE,
-      });
     }
 
     // Now we need to remove all the moves where the moving side king is still in check.
@@ -407,17 +349,10 @@ impl GameState {
     // Reset the check count
     self.checks = 0;
 
-    let (king_mask, ssp, op) = match self.board.side_to_play {
-      Color::White => (
-        self.board.pieces.white.king,
-        self.board.pieces.white.all(),
-        self.board.pieces.black.all(),
-      ),
-      Color::Black => (
-        self.board.pieces.black.king,
-        self.board.pieces.black.all(),
-        self.board.pieces.white.all(),
-      ),
+    // FIXME: In theory the king cannot check, we could remove this from the checkers mask
+    let (king_mask, mut checkers) = match self.board.side_to_play {
+      Color::White => (self.board.pieces.white.king, self.board.pieces.black.all()),
+      Color::Black => (self.board.pieces.black.king, self.board.pieces.white.all()),
     };
 
     if king_mask == 0 {
@@ -425,15 +360,10 @@ impl GameState {
       return;
     }
 
-    let mut checkers = op;
-
     while checkers != 0 {
       let square = checkers.trailing_zeros() as u8;
 
-      let piece_destinations = self
-        .board
-        .get_piece_controlled_squares(square as usize, ssp, op);
-
+      let piece_destinations = self.board.get_piece_control_mask(square);
       if piece_destinations & king_mask != 0 {
         self.checks += 1;
         if self.checks == 2 {

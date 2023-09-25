@@ -670,12 +670,12 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let mask = get_backwards_pawns(&game_state, Color::White);
     print_board_mask(mask);
-    assert_eq!(1, mask_sum(mask));
+    assert_eq!(1, mask.count_ones());
     assert_eq!(1 << 27, mask);
 
     let mask = get_backwards_pawns(&game_state, Color::Black);
     print_board_mask(mask);
-    assert_eq!(1, mask_sum(mask));
+    assert_eq!(1, mask.count_ones());
     assert_eq!(1 << 51, mask)
   }
 
@@ -685,10 +685,10 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let mask = get_holes(&game_state, Color::White);
     print_board_mask(mask);
-    assert_eq!(13, mask_sum(mask));
+    assert_eq!(13, mask.count_ones());
     let mask = get_holes(&game_state, Color::Black);
     print_board_mask(mask);
-    assert_eq!(10, mask_sum(mask));
+    assert_eq!(10, mask.count_ones());
   }
 
   #[test]

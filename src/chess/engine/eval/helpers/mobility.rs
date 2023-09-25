@@ -105,7 +105,7 @@ pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
       && Piece::is_piece(value)
     {
       let (squares, _) = game_state.board.get_piece_destinations(i, op, ssp);
-      mobility += mask_sum(squares & mobility_area);
+      mobility += (squares & mobility_area).count_ones() as usize;
     }
   }
 
@@ -123,14 +123,26 @@ mod tests {
   fn test_mobility_area() {
     let fen = "rnbqk1nr/pppppppp/8/8/1b6/3P4/PPPQPPPP/RNBK1BNR b KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(46, mask_sum(get_mobility_area(&game_state, Color::White)));
-    assert_eq!(44, mask_sum(get_mobility_area(&game_state, Color::Black)));
+    assert_eq!(
+      46,
+      get_mobility_area(&game_state, Color::White).count_ones()
+    );
+    assert_eq!(
+      44,
+      get_mobility_area(&game_state, Color::Black).count_ones()
+    );
 
     let fen = "r1bq2nr/pppppppp/P7/2kn1P2/1b6/3P1N1P/1PPQP1P1/RNBK1B1R b KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
     //print_board_mask(get_mobility_area(&game_state, Color::White));
-    assert_eq!(47, mask_sum(get_mobility_area(&game_state, Color::White)));
-    assert_eq!(43, mask_sum(get_mobility_area(&game_state, Color::Black)));
+    assert_eq!(
+      47,
+      get_mobility_area(&game_state, Color::White).count_ones()
+    );
+    assert_eq!(
+      43,
+      get_mobility_area(&game_state, Color::Black).count_ones()
+    );
   }
 
   #[test]
