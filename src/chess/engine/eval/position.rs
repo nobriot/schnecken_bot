@@ -446,32 +446,19 @@ mod tests {
 
   #[test]
   fn position_bench_evaluations_per_second() {
+    use crate::model::board::Board;
     use rand::Rng;
     use std::time::{Duration, Instant};
 
     let cache = EngineCache::new();
-    let fens = [
-      "8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76",
-      "r2q1b1r/1pp1pkpp/2n1p3/p2p4/3PnB2/2NQ1NP1/PPP1PP1P/R3K2R w KQ - 2 9",
-      "8/8/8/5P2/Q1k2KP1/8/p7/8 b - - 1 87",
-      "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6",
-      "rnbqk1nr/ppp2ppp/8/3pp3/B2bP3/8/P1PP1PPP/R3K1NR b - - 0 1",
-      "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq - 0 13",
-      "r2q1rk1/p2b1ppp/2Pbpn2/8/2B5/2N2Q2/PP3PPP/R1B2RK1 b - - 0 14",
-      "5k2/P7/2p5/1p6/3P2NR/1p2p3/1P4q1/1K6 w - - 0 53",
-      "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12",
-      "5rk1/3b1p2/1r3p1p/p1pPp3/8/1P6/P3BPPP/R1R3K1 w - c6 0 23",
-      "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43",
-      "8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1",
-    ];
 
     let mut positions_evaluated = 0;
     let start_time = Instant::now();
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let i = rand::thread_rng().gen_range(0..fens.len());
-      let game_state = GameState::from_fen(fens[i]);
+      let random_board = Board::new_random();
+      let game_state = GameState::from_fen(random_board.to_fen().as_str());
 
       let _ = evaluate_position(&cache, &game_state);
       positions_evaluated += 1;
@@ -484,5 +471,4 @@ mod tests {
       positions_evaluated
     );
   }
-
 }

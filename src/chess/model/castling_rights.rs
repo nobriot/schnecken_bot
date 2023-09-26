@@ -174,6 +174,16 @@ impl CastlingRights {
     }
     return fen;
   }
+
+  /// Returns new castling rights with no rights
+  ///
+  /// ### Return Value
+  ///
+  /// * CastlingRights with no rights
+  ///
+  pub fn none() -> Self {
+    CastlingRights { rights: 0 }
+  }
 }
 
 impl Default for CastlingRights {

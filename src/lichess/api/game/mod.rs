@@ -151,6 +151,7 @@ impl LichessApi {
         "Lichess refused our move! :'( - We're so bad - Error {:?}",
         json_response
       );
+      self.write_in_chat(game_id, format!("Debug: I kind of got confused and tried to play move {}. I'll probably time out on this game", chess_move).as_str()).await;
       return false;
     }
 

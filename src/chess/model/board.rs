@@ -7,6 +7,7 @@ use crate::model::piece_set::*;
 use crate::model::tables::zobrist::*;
 
 use log::*;
+use rand::Rng;
 use std::hash::{Hash, Hasher};
 
 // -----------------------------------------------------------------------------
@@ -92,6 +93,37 @@ impl Board {
       white_masks: Masks { control: 0 },
       black_masks: Masks { control: 0 },
     }
+  }
+
+  /// Initialize a board with a random arrangement of pieces.
+  pub fn new_random() -> Self {
+    let mut board = Board::new();
+
+    let color_rand = rand::random::<bool>();
+    board.side_to_play = match color_rand {
+      true => Color::White,
+      false => Color::Black,
+    };
+
+    board.castling_rights = CastlingRights::none();
+
+    let mut rng = rand::thread_rng();
+    let black_king_position = rng.gen_range(0..64);
+    board.pieces.set(black_king_position, BLACK_KING);
+    let white_king_position = rng.gen_range(0..64);
+    board.pieces.set(white_king_position, WHITE_KING);
+
+    for _i in 0..14 {
+      board
+        .pieces
+        .set(rng.gen_range(0..64), rng.gen_range(NO_PIECE..=BLACK_PAWN));
+    }
+
+    board.compute_hash();
+    board.white_masks.control = board.get_control_boardmask(Color::White);
+    board.black_masks.control = board.get_control_boardmask(Color::Black);
+
+    board
   }
 
   // ---------------------------------------------------------------------------
@@ -813,7 +845,7 @@ mod tests {
   fn apply_move() {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let mut board = Board::from_fen(fen);
-    println!("Board: {}", board);
+    println!("Board: {}", board.to_fen());
 
     // Try and capture a piece
     board.apply_move(&Move {
@@ -821,7 +853,8 @@ mod tests {
       dest: string_to_square("g3"),
       promotion: NO_PIECE,
     });
-    println!("Board: {}", board);
+    println!("Board: {}", board.to_fen());
+    assert_eq!(board.to_fen(), "8/5pk1/5p1p/2R5/5K2/6r1/7P/8");
 
     // Try and promote a piece (super jump from h2 to h8)
     board.apply_move(&Move {
@@ -829,7 +862,17 @@ mod tests {
       dest: string_to_square("h8"),
       promotion: WHITE_KNIGHT,
     });
-    println!("Board: {}", board);
+    println!("Board: {}", board.to_fen());
+    assert_eq!(board.to_fen(), "7N/5pk1/5p1p/2R5/5K2/6r1/8/8");
+
+    // Same for black: promote to a black queen:
+    board.apply_move(&Move {
+      src: string_to_square("f6"),
+      dest: string_to_square("f1"),
+      promotion: BLACK_QUEEN,
+    });
+    println!("Board: {}", board.to_fen());
+    assert_eq!(board.to_fen(), "7N/5pk1/7p/2R5/5K2/6r1/8/5q2");
   }
 
   #[test]

@@ -265,14 +265,18 @@ impl Engine {
     let board_hash = self.position.board.hash;
 
     // Reset the list of scores.
-    let move_list = self.position.get_moves();
 
     // Compute move list if not known.
     if !self.cache.has_move_list(&board_hash) {
+      let move_list = self.position.get_moves();
       self.cache.set_move_list(board_hash, &move_list);
+      self.analysis.init_scores(&move_list);
+    } else {
+      // Use the move list for our analysis / score keeping.
+      self
+        .analysis
+        .init_scores(&self.cache.get_move_list(&board_hash));
     }
-    // Use the move list for our analysis / score keeping.
-    self.analysis.init_scores(&move_list);
   }
 
   /// Starts analyzing the current position
