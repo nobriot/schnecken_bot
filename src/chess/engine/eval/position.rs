@@ -11,10 +11,9 @@ use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
 
-use crate::model::board_mask::*;
+use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
-use crate::model::piece_moves::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.01;
@@ -200,7 +199,10 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
     cache.set_move_list(game_state.board.hash, &game_state.get_moves());
   }
   if cache.get_move_list(&game_state.board.hash).is_empty() {
-    match (game_state.board.side_to_play, game_state.checks) {
+    match (
+      game_state.board.side_to_play,
+      game_state.board.checkers.count_ones(),
+    ) {
       (_, 0) => {
         cache.set_status(game_state.board.hash, GameStatus::Draw);
         cache.set_eval(game_state.board.hash, 0.0);
@@ -263,6 +265,7 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
     }
   }
 
+  //FIXME: make it fast
   if !cache.has_game_phase(&game_state.board.hash) {
     determine_game_phase(cache, game_state);
   }
@@ -447,7 +450,6 @@ mod tests {
   #[test]
   fn position_bench_evaluations_per_second() {
     use crate::model::board::Board;
-    use rand::Rng;
     use std::time::{Duration, Instant};
 
     let cache = EngineCache::new();
@@ -461,6 +463,58 @@ mod tests {
       let game_state = GameState::from_fen(random_board.to_fen().as_str());
 
       let _ = evaluate_position(&cache, &game_state);
+      positions_evaluated += 1;
+    }
+
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      positions_evaluated > 1_000_000,
+      "Number of NPS for evaluating positions: {}",
+      positions_evaluated
+    );
+  }
+
+  #[test]
+  fn position_bench_default_position_evaluation_per_second() {
+    use crate::model::board::Board;
+    use std::time::{Duration, Instant};
+
+    let cache = EngineCache::new();
+
+    let mut positions_evaluated = 0;
+    let start_time = Instant::now();
+
+    // Spin at it for 1 second
+    while Instant::now() < (start_time + Duration::from_millis(1000)) {
+      let random_board = Board::new_random();
+      let game_state = GameState::from_fen(random_board.to_fen().as_str());
+      let _ = default_position_evaluation(&game_state);
+      positions_evaluated += 1;
+    }
+
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      positions_evaluated > 1_000_000,
+      "Number of NPS for evaluating positions: {}",
+      positions_evaluated
+    );
+  }
+
+  #[test]
+  fn position_bench_get_material_score_per_second() {
+    use crate::model::board::Board;
+    use std::time::{Duration, Instant};
+
+    let cache = EngineCache::new();
+
+    let mut positions_evaluated = 0;
+    let start_time = Instant::now();
+
+    // Spin at it for 1 second
+    while Instant::now() < (start_time + Duration::from_millis(1000)) {
+      let random_board = Board::new_random();
+      let game_state = GameState::from_fen(random_board.to_fen().as_str());
+      let _ = get_combined_material_score(&game_state);
       positions_evaluated += 1;
     }
 

@@ -1,5 +1,6 @@
 use super::pawn::*;
 use crate::model::board::*;
+use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -59,19 +60,19 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
 
   score += (game_state.board.pieces.white.queen.count_ones() as f32
     - game_state.board.pieces.black.queen.count_ones() as f32)
-    * 9.5;
-  score += (game_state.board.pieces.white.rook.count_ones() as f32
-    - game_state.board.pieces.black.rook.count_ones() as f32)
-    * 5.0;
-  score += (game_state.board.pieces.white.bishop.count_ones() as f32
-    - game_state.board.pieces.black.bishop.count_ones() as f32)
-    * 3.05;
-  score += (game_state.board.pieces.white.knight.count_ones() as f32
-    - game_state.board.pieces.black.knight.count_ones() as f32)
-    * 3.05;
-  score += (game_state.board.pieces.white.pawn.count_ones() as f32
-    - game_state.board.pieces.black.pawn.count_ones() as f32)
-    * 1.0;
+    * 9.5
+    + (game_state.board.pieces.white.rook.count_ones() as f32
+      - game_state.board.pieces.black.rook.count_ones() as f32)
+      * 5.0
+    + (game_state.board.pieces.white.bishop.count_ones() as f32
+      - game_state.board.pieces.black.bishop.count_ones() as f32)
+      * 3.05
+    + (game_state.board.pieces.white.knight.count_ones() as f32
+      - game_state.board.pieces.black.knight.count_ones() as f32)
+      * 3.0
+    + (game_state.board.pieces.white.pawn.count_ones() as f32
+      - game_state.board.pieces.black.pawn.count_ones() as f32)
+      * 1.0;
 
   score
 }

@@ -2,6 +2,8 @@ use log::*;
 use std::collections::VecDeque;
 
 use crate::model::board::*;
+use crate::model::board_geometry::diagonals::DIAGONALS;
+use crate::model::board_geometry::lines::LINES;
 use crate::model::board_mask::*;
 use crate::model::castling_rights::*;
 use crate::model::moves::*;
@@ -34,7 +36,6 @@ pub enum GameStatus {
 
 #[derive(Clone)]
 pub struct GameState {
-  pub checks: u8,
   pub board: Board,
   pub ply: u8,
   pub move_count: usize,
@@ -78,15 +79,12 @@ impl GameState {
     let move_count: usize = fen_parts[5].parse::<usize>().unwrap_or(0);
 
     let mut game_state = GameState {
-      checks: 0,
       board: board,
       ply: ply,
       move_count: move_count,
       last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
       last_moves: Vec::new(),
     };
-    // Determine if we're check / Checkmate
-    game_state.update_checks();
     game_state
   }
 
@@ -140,7 +138,8 @@ impl GameState {
     repetition_count
   }
 
-  // Get all the possible moves in a position
+  /// Get all the possible moves in a position
+  /// FIXME: Move this to the Board, as it is enough to derive legal moves.
   pub fn get_moves(&self) -> Vec<Move> {
     match self.board.side_to_play {
       Color::White => return self.get_white_moves(),
@@ -158,7 +157,7 @@ impl GameState {
     // Try castling first. This will have an influence on the engine if
     // interesting moves are placed first.
     if self.board.castling_rights.K()
-      && self.checks == 0
+      && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
       && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
     {
@@ -169,7 +168,7 @@ impl GameState {
       });
     }
     if self.board.castling_rights.Q()
-      && self.checks == 0
+      && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
       && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
     {
@@ -180,6 +179,18 @@ impl GameState {
       });
     }
 
+    let mut checking_ray: BoardMask = u64::MAX;
+    let king_position = self.get_king_square();
+
+    match self.board.checkers.count_ones() {
+      0 => {},
+      1 => {
+        checking_ray = LINES[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+          | DIAGONALS[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+      },
+      _ => ssp = self.board.pieces.white.king,
+    }
+
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
@@ -188,6 +199,13 @@ impl GameState {
         op,
         self.board.get_piece_color_mask(Color::White),
       );
+
+      // Restrict destinations not to move out of pins.
+      destinations &= self.board.get_pins(source_square);
+      // if there is a check, you can only move into checking rays with other pieces than the king.
+      if source_square != king_position {
+        destinations &= checking_ray;
+      }
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
@@ -215,32 +233,7 @@ impl GameState {
       ssp &= ssp - 1;
     }
 
-    // Now we need to remove all the moves where the moving side king is still in check.
-    // FIXME: This is very slow.
-    let mut illegal_moves = Vec::new();
-    for m in &all_moves {
-      let mut new_board = self.board.clone();
-      new_board.apply_move(m);
-      if new_board.pieces.white.king == 0
-        || square_in_mask!(
-          new_board.pieces.white.king.trailing_zeros(),
-          new_board.black_masks.control
-        )
-      {
-        // We're in check or king disappeared, illegal move
-        illegal_moves.push(m);
-      }
-    }
-
-    // Now remove all the illegal moves
-    let mut legal_moves: Vec<Move> = Vec::new();
-    for m in &all_moves {
-      if !illegal_moves.contains(&m) {
-        legal_moves.push(*m);
-      }
-    }
-
-    legal_moves
+    all_moves
   }
 
   // Get all the possible moves for black in a position
@@ -252,7 +245,7 @@ impl GameState {
 
     // Now check castling.
     if self.board.castling_rights.k()
-      && self.checks == 0
+      && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
       && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
     {
@@ -263,7 +256,7 @@ impl GameState {
       });
     }
     if self.board.castling_rights.q()
-      && self.checks == 0
+      && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
       && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
     {
@@ -274,6 +267,18 @@ impl GameState {
       });
     }
 
+    let mut checking_ray: BoardMask = u64::MAX;
+    let king_position = self.get_king_square();
+
+    match self.board.checkers.count_ones() {
+      0 => {},
+      1 => {
+        checking_ray = LINES[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+          | DIAGONALS[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+      },
+      _ => ssp = self.board.pieces.black.king,
+    }
+
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
@@ -282,6 +287,13 @@ impl GameState {
         op,
         self.board.get_piece_color_mask(Color::Black),
       );
+
+      // Restrict destinations not to move out of pins.
+      destinations &= self.board.get_pins(source_square);
+      // if there is a check, you can only move into checking rays with other pieces than the king.
+      if source_square != king_position {
+        destinations &= checking_ray;
+      }
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
@@ -309,69 +321,13 @@ impl GameState {
       ssp &= ssp - 1;
     }
 
-    // Now we need to remove all the moves where the moving side king is still in check.
-    // FIXME: This is very slow.
-    let mut illegal_moves = Vec::new();
-    for m in &all_moves {
-      let mut new_board = self.board.clone();
-      new_board.apply_move(m);
-
-      if new_board.pieces.black.king == 0
-        || square_in_mask!(
-          new_board.pieces.black.king.trailing_zeros(),
-          new_board.white_masks.control
-        )
-      {
-        // We're in check or disappeared, illegal move
-        illegal_moves.push(m);
-      }
-    }
-
-    // Now remove all the illegal moves
-    let mut legal_moves: Vec<Move> = Vec::new();
-    for m in &all_moves {
-      if !illegal_moves.contains(&m) {
-        legal_moves.push(*m);
-      }
-    }
-
-    legal_moves
+    all_moves
   }
 
   pub fn get_king_square(&self) -> u8 {
     match self.board.side_to_play {
       Color::White => self.board.get_white_king_square(),
       Color::Black => self.board.get_black_king_square(),
-    }
-  }
-
-  pub fn update_checks(&mut self) {
-    // Reset the check count
-    self.checks = 0;
-
-    // FIXME: In theory the king cannot check, we could remove this from the checkers mask
-    let (king_mask, mut checkers) = match self.board.side_to_play {
-      Color::White => (self.board.pieces.white.king, self.board.pieces.black.all()),
-      Color::Black => (self.board.pieces.black.king, self.board.pieces.white.all()),
-    };
-
-    if king_mask == 0 {
-      error!("Can't get king square ? {}", self.to_fen());
-      return;
-    }
-
-    while checkers != 0 {
-      let square = checkers.trailing_zeros() as u8;
-
-      let piece_destinations = self.board.get_piece_control_mask(square);
-      if piece_destinations & king_mask != 0 {
-        self.checks += 1;
-        if self.checks == 2 {
-          return;
-        }
-      }
-
-      checkers &= checkers - 1;
     }
   }
 
@@ -408,9 +364,6 @@ impl GameState {
 
     // Save the move we applied.
     self.last_moves.push(chess_move.clone());
-
-    // Check if we have checks
-    self.update_checks();
   }
 
   // Applies all moves from a vector of moves
@@ -439,7 +392,10 @@ impl std::fmt::Debug for GameState {
     let mut message = String::from("\n");
     message += format!(
       "Move: {}, Ply: {} Side to play {} - Checks {}\n",
-      self.move_count, self.ply, self.board.side_to_play, self.checks
+      self.move_count,
+      self.ply,
+      self.board.side_to_play,
+      self.board.checks()
     )
     .as_str();
     message += format!(
@@ -463,7 +419,6 @@ impl std::fmt::Debug for GameState {
 impl Default for GameState {
   fn default() -> Self {
     GameState {
-      checks: 0,
       board: Board::from_fen(START_POSITION_FEN),
       ply: 0,
       move_count: 1,
@@ -654,7 +609,7 @@ mod tests {
   #[test]
   fn game_state_bench_compute_legal_moves_per_second() {
     use std::time::{Duration, Instant};
-    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
+    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR w KQkq - 5 6";
 
     let mut positions_computed = 0;
     let start_time = Instant::now();
@@ -684,5 +639,69 @@ mod tests {
       assert_ne!("h5h7", m.to_string());
     }
     assert_eq!(18, moves.len());
+  }
+
+  #[test]
+  fn test_get_moves_while_in_check() {
+    let fen = "r3kb1r/ppp2ppp/3p1n2/1Q1p4/1n1P2bP/2N2N2/PPP1PPP1/R3KB1R b - - 0 1";
+    let game_state = GameState::from_fen(fen);
+
+    // List of legal moves are: 6:
+    let mut legal_moves: Vec<Move> = Vec::new();
+    legal_moves.push(Move::from_string("b4c6"));
+    legal_moves.push(Move::from_string("g4d7"));
+    legal_moves.push(Move::from_string("f6d7"));
+    legal_moves.push(Move::from_string("c7c6"));
+    legal_moves.push(Move::from_string("e8e7"));
+    legal_moves.push(Move::from_string("e8d8"));
+
+    let computed_moves = game_state.get_moves();
+
+    for m in &computed_moves {
+      println!("Move: {m}");
+      assert!(legal_moves.contains(m));
+    }
+
+    assert_eq!(6, computed_moves.len());
+
+    // Second test:
+    println!("---------------------------");
+    let fen = "5b1r/3Q1k1p/3p1p2/2pN2p1/3P3P/5N2/PPP1PPP1/R3KB1R b KQ - 0 18";
+    let game_state = GameState::from_fen(fen);
+
+    // List of legal moves are: 6:
+    let mut legal_moves: Vec<Move> = Vec::new();
+    legal_moves.push(Move::from_string("f8e7"));
+    legal_moves.push(Move::from_string("f7g6"));
+    legal_moves.push(Move::from_string("f7g8"));
+
+    let computed_moves = game_state.get_moves();
+
+    for m in &computed_moves {
+      println!("Move: {m}");
+      assert!(legal_moves.contains(m));
+    }
+
+    assert_eq!(3, computed_moves.len());
+
+    // Third test: double check:
+    println!("---------------------------");
+    let fen = "rnbq1bn1/pppp1kp1/7r/4Np1Q/4P3/8/PPPP1PPP/RNB1KB1R b KQ - 0 6";
+    let game_state = GameState::from_fen(fen);
+
+    // List of legal moves are: 6:
+    let mut legal_moves: Vec<Move> = Vec::new();
+    legal_moves.push(Move::from_string("f7e7"));
+    legal_moves.push(Move::from_string("f7e6"));
+    legal_moves.push(Move::from_string("f7f6"));
+
+    let computed_moves = game_state.get_moves();
+
+    for m in &computed_moves {
+      println!("Move: {m}");
+      assert!(legal_moves.contains(m));
+    }
+
+    assert_eq!(3, computed_moves.len());
   }
 }

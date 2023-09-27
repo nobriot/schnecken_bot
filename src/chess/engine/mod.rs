@@ -292,7 +292,7 @@ impl Engine {
     // Mark that we are now active and stop is not requested.
     self.set_stop_requested(false);
     self.set_engine_active(true);
-    self.analysis.set_depth(0);
+    self.analysis.set_depth(1);
 
     // Start searching... now
     let start_time = Instant::now();
@@ -304,7 +304,6 @@ impl Engine {
       self.search(&self.position.clone(), 1, 1, start_time);
       self.set_stop_requested(false);
       self.set_engine_active(false);
-      self.analysis.set_depth(1);
       return;
     }
 
@@ -544,7 +543,7 @@ impl Engine {
     let a_game_state = cache.get_game_state(&cache.get_variation(&game_state.board.hash, a));
     let b_game_state = cache.get_game_state(&cache.get_variation(&game_state.board.hash, b));
 
-    match (a_game_state.checks, b_game_state.checks) {
+    match (a_game_state.board.checks(), b_game_state.board.checks()) {
       (2, 2) => {},
       (2, _) => return Ordering::Less,
       (_, 2) => return Ordering::Greater,
@@ -574,7 +573,7 @@ impl Engine {
     }
 
     // Single checks
-    match (a_game_state.checks, b_game_state.checks) {
+    match (a_game_state.board.checks(), b_game_state.board.checks()) {
       (1, _) => return Ordering::Less,
       (_, 1) => return Ordering::Greater,
       (_, _) => {},

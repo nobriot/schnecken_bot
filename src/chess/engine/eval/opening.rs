@@ -101,7 +101,6 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::model::board::*;
   use crate::model::board_mask::*;
 
   #[test]

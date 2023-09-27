@@ -764,7 +764,6 @@ impl EngineCache {
 mod tests {
 
   use super::*;
-  use crate::engine::eval::position::determine_game_phase;
   use crate::model::game_state::GameState;
 
   #[test]
@@ -784,7 +783,7 @@ mod tests {
     let new_state = engine_cache.get_game_state(&game_state.board.hash);
     assert_eq!(new_state.move_count, game_state.move_count);
     assert_eq!(new_state.board, game_state.board);
-    assert_eq!(new_state.checks, game_state.checks);
+    assert_eq!(new_state.board.checks(), game_state.board.checks());
 
     // Clear the cache:
     assert_eq!(1, engine_cache.len());

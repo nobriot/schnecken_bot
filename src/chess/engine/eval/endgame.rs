@@ -1,9 +1,7 @@
 use super::helpers::king::*;
 use super::helpers::mobility::*;
 use super::position::*;
-use crate::model::board::*;
 use crate::model::board_geometry::*;
-use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::get_king_moves;

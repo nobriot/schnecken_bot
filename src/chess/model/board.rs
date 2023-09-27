@@ -1,9 +1,13 @@
+use super::tables::rook_destinations::ROOK_SPAN;
+use crate::model::board_geometry::diagonals::DIAGONALS;
+use crate::model::board_geometry::lines::LINES;
 use crate::model::board_mask::*;
 use crate::model::castling_rights::*;
 use crate::model::moves::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
 use crate::model::piece_set::*;
+use crate::model::tables::pawn_destinations::*;
 use crate::model::tables::zobrist::*;
 
 use log::*;
@@ -18,29 +22,6 @@ pub const INVALID_SQUARE: u8 = 255;
 
 /// Default start position FEN
 const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
-/// Ranks boardmasks
-pub const RANKS: [u64; 8] = [
-  0x00000000000000FF,
-  0x000000000000FF00,
-  0x0000000000FF0000,
-  0x00000000FF000000,
-  0x000000FF00000000,
-  0x0000FF0000000000,
-  0x00FF000000000000,
-  0xFF00000000000000,
-];
-/// Files boardmasks
-pub const FILES: [u64; 8] = [
-  0x0101010101010101,
-  0x0202020202020202,
-  0x0404040404040404,
-  0x0808080808080808,
-  0x1010101010101010,
-  0x2020202020202020,
-  0x4040404040404040,
-  0x8080808080808080,
-];
 
 // -----------------------------------------------------------------------------
 //  Macros
@@ -73,6 +54,8 @@ pub struct Board {
   pub side_to_play: Color,
   pub en_passant_square: u8,
   pub castling_rights: CastlingRights,
+  /// Boardmask of pieces delivering check to the side to play.
+  pub checkers: BoardMask,
   pub hash: u64,
   pub white_masks: Masks,
   pub black_masks: Masks,
@@ -89,6 +72,7 @@ impl Board {
       side_to_play: Color::White,
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
+      checkers: 0,
       hash: 0,
       white_masks: Masks { control: 0 },
       black_masks: Masks { control: 0 },
@@ -96,6 +80,9 @@ impl Board {
   }
 
   /// Initialize a board with a random arrangement of pieces.
+  ///
+  /// **NOTE**: This may be an illegal configuration.
+  ///
   pub fn new_random() -> Self {
     let mut board = Board::new();
 
@@ -120,6 +107,7 @@ impl Board {
     }
 
     board.compute_hash();
+    board.update_checkers();
     board.white_masks.control = board.get_control_boardmask(Color::White);
     board.black_masks.control = board.get_control_boardmask(Color::Black);
 
@@ -212,6 +200,143 @@ impl Board {
     bitmap
   }
 
+  /// Computes a boardmask of pins if a piece happens to be in an absolute pin.
+  /// The pins shows the positions that the piece can go to without exposing
+  /// their king to enemy attack.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -   A Board object representing a position, side to play, etc.
+  /// * `source_square` -  Square for which we want to know the destinations
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating squares that the pinned piece can move to.
+  ///
+  pub fn get_pins(&self, source_square: u8) -> BoardMask {
+    if !self.has_piece(source_square) {
+      return u64::MAX;
+    }
+
+    let color = match self.has_piece_with_color(source_square, Color::White) {
+      true => Color::White,
+      false => Color::Black,
+    };
+
+    let king_position = match color {
+      Color::White => self.get_white_king_square(),
+      Color::Black => self.get_black_king_square(),
+    } as usize;
+
+    let ssp = match color {
+      Color::White => self.pieces.white.all(),
+      Color::Black => self.pieces.black.all(),
+    };
+
+    let mut pins: BoardMask = u64::MAX;
+
+    // Check line pins
+    if square_in_mask!(source_square, ROOK_SPAN[king_position]) {
+      let enemy_pieces = match color {
+        Color::White => self.pieces.black.rook | self.pieces.black.queen,
+        Color::Black => self.pieces.white.rook | self.pieces.white.queen,
+      };
+
+      //print_board_mask(ROOK_SPAN[king_position]);
+      //print_board_mask(enemy_pieces);
+
+      let mut pinning_pieces = ROOK_SPAN[king_position] & enemy_pieces;
+      //println!("Pinning pieces in lines:");
+      //print_board_mask(pinning_pieces);
+
+      while pinning_pieces != 0 {
+        let ray = LINES[pinning_pieces.trailing_zeros() as usize][king_position];
+        if (ray & ssp).count_ones() == 2 && square_in_mask!(source_square, ray) {
+          // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
+          pins &= LINES[king_position][pinning_pieces.trailing_zeros() as usize];
+        }
+        pinning_pieces &= pinning_pieces - 1;
+      }
+    }
+
+    // Check diagonal pins
+    if square_in_mask!(source_square, BISHOP_SPAN[king_position]) {
+      let enemy_pieces = match color {
+        Color::White => self.pieces.black.bishop | self.pieces.black.queen,
+        Color::Black => self.pieces.white.bishop | self.pieces.white.queen,
+      };
+      let mut pinning_pieces = BISHOP_SPAN[king_position] & enemy_pieces;
+
+      while pinning_pieces != 0 {
+        let ray = DIAGONALS[pinning_pieces.trailing_zeros() as usize][king_position];
+        if (ray & ssp).count_ones() == 2 && square_in_mask!(source_square, ray) {
+          // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
+          pins &= DIAGONALS[king_position][pinning_pieces.trailing_zeros() as usize];
+        }
+        pinning_pieces &= pinning_pieces - 1;
+      }
+    }
+
+    pins
+  }
+
+  /// Computes a boardmask of attackers of a square.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  /// * `target_square` -  Square for which we want to know the attackers
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating squares of the pieces attacking the square
+  ///
+  pub fn get_attackers(&self, target_square: u8, color: Color) -> BoardMask {
+    if target_square > 63 {
+      warn!("Received get_attackers on square: {}", target_square);
+      return 0;
+    }
+
+    let attacking_pieces = match color {
+      Color::White => self.pieces.white,
+      Color::Black => self.pieces.black,
+    };
+
+    // A bit like I do when I play as a human, here we start from the target piece
+    // and go along diagonals, lines, knight jumps to find if there is an attacker.
+    let mut attackers = 0;
+
+    // note: Here it is inverted on purpose.
+    attackers |= match color {
+      Color::White => BLACK_PAWN_CONTROL[target_square as usize] & attacking_pieces.pawn,
+      Color::Black => WHITE_PAWN_CONTROL[target_square as usize] & attacking_pieces.pawn,
+    };
+
+    attackers |= KING_MOVES[target_square as usize] & attacking_pieces.king;
+    attackers |= KNIGHT_MOVES[target_square as usize] & attacking_pieces.knight;
+    attackers |=
+      get_rook_moves(0, self.pieces.all(), target_square as usize) & attacking_pieces.majors();
+    attackers |= get_bishop_moves(0, self.pieces.all(), target_square as usize)
+      & (attacking_pieces.bishop | attacking_pieces.queen);
+
+    attackers
+  }
+
+  /// Returns the number of checks on the board.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  ///
+  /// ### Return value
+  ///
+  /// Number of checks for the king whose side it is to play.
+  ///
+  #[inline]
+  pub fn checks(&self) -> u32 {
+    return self.checkers.count_ones();
+  }
+
   /// Computes the boardmask of the possible destinations for a piece on a square.
   ///
   /// ### Arguments
@@ -267,7 +392,8 @@ impl Board {
     (destinations, promotion)
   }
 
-  /// Computes the boardmask of the squares controlled by a piece, using the
+  /// Computes the boardmask of the squares controlled by a piece
+  /// Sliding pieces will also control squares located behind the enemy king.
   ///
   ///
   /// ### Arguments
@@ -282,9 +408,36 @@ impl Board {
   pub fn get_piece_control_mask(&self, source_square: u8) -> BoardMask {
     match self.pieces.get(source_square) {
       WHITE_KING | BLACK_KING => KING_MOVES[source_square as usize],
-      WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(0, self.pieces.all(), source_square as usize),
-      WHITE_ROOK | BLACK_ROOK => get_rook_moves(0, self.pieces.all(), source_square as usize),
-      WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(0, self.pieces.all(), source_square as usize),
+      WHITE_QUEEN => get_queen_moves(
+        0,
+        self.pieces.all() & (!self.pieces.black.king),
+        source_square as usize,
+      ),
+      BLACK_QUEEN => get_queen_moves(
+        0,
+        self.pieces.all() & (!self.pieces.white.king),
+        source_square as usize,
+      ),
+      WHITE_ROOK => get_rook_moves(
+        0,
+        self.pieces.all() & (!self.pieces.black.king),
+        source_square as usize,
+      ),
+      BLACK_ROOK => get_rook_moves(
+        0,
+        self.pieces.all() & (!self.pieces.white.king),
+        source_square as usize,
+      ),
+      WHITE_BISHOP => get_bishop_moves(
+        0,
+        self.pieces.all() & (!self.pieces.black.king),
+        source_square as usize,
+      ),
+      BLACK_BISHOP => get_bishop_moves(
+        0,
+        self.pieces.all() & (!self.pieces.white.king),
+        source_square as usize,
+      ),
       WHITE_KNIGHT | BLACK_KNIGHT => KNIGHT_MOVES[source_square as usize],
       WHITE_PAWN => return get_white_pawn_captures(source_square as usize),
       BLACK_PAWN => return get_black_pawn_captures(source_square as usize),
@@ -500,8 +653,24 @@ impl Board {
       self.side_to_play = Color::White;
     }
     self.update_hash_side_to_play();
+    self.update_checkers();
     self.white_masks.control = self.get_control_boardmask(Color::White);
     self.black_masks.control = self.get_control_boardmask(Color::Black);
+  }
+
+  /// Makes sure that the number of checks on the board is correct.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` - Board object to modify
+  ///
+  pub fn update_checkers(&mut self) {
+    let king_position = match self.side_to_play {
+      Color::White => self.get_white_king_square(),
+      Color::Black => self.get_black_king_square(),
+    };
+
+    self.checkers = self.get_attackers(king_position, Color::opposite(self.side_to_play));
   }
 
   /// Verifies if the move is a castling move based on the board
@@ -665,6 +834,7 @@ impl Board {
     };
 
     board.compute_hash();
+    board.update_checkers();
     board.white_masks.control = board.get_control_boardmask(Color::White);
     board.black_masks.control = board.get_control_boardmask(Color::Black);
 
@@ -782,6 +952,7 @@ mod tests {
       side_to_play: Color::White,
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
+      checkers: 0,
       hash: 0,
       white_masks: Masks { control: 0 },
       black_masks: Masks { control: 0 },
@@ -1108,5 +1279,86 @@ mod tests {
     }
     println!("pub const RANKS:[u64; 8] = {:#018X?};", ranks);
     println!("pub const FILES:[u64; 8] = {:#018X?};", files);
+  }
+
+  #[test]
+  fn test_pin_mask_calculations() {
+    // Here we have a queen pinning a pawn
+    let board = Board::from_fen("rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2");
+
+    for i in 0..63 {
+      //print_board_mask(1 << i);
+      if i != 53 {
+        assert_eq!(u64::MAX, board.get_pins(i));
+      } else {
+        assert_eq!(9078117754732544, board.get_pins(i));
+      }
+    }
+
+    // Here basically all white pieces are pinned.
+    let board = Board::from_fen("4r3/3k4/4r2b/8/4RP2/q2PKN1q/8/8 w - - 0 1");
+    println!("Board: {}", board);
+
+    // Pawn is pinned to the rook direction
+    print_board_mask(board.get_pins(19));
+    assert_eq!(983040, board.get_pins(19));
+
+    // knight is pinned to the queen direction
+    print_board_mask(board.get_pins(21));
+    assert_eq!(14680064, board.get_pins(21));
+
+    // Rook is pinned to the rooks direction
+    print_board_mask(board.get_pins(28));
+    assert_eq!(17661173956608, board.get_pins(28));
+
+    // Pawn is pinned to the bishop direction
+    print_board_mask(board.get_pins(29));
+    assert_eq!(141012903133184, board.get_pins(29));
+  }
+
+  #[test]
+  fn test_get_attackers() {
+    let board = Board::from_fen("4r3/2k5/4r2b/6P1/3RRP2/q2PKN1q/8/3B4 w - - 0 1");
+    println!("Board: {}", board);
+
+    // A3 attackers:
+    assert_eq!(0, board.get_attackers(string_to_square("a3"), Color::White));
+    assert_eq!(0, board.get_attackers(string_to_square("a3"), Color::Black));
+
+    // D3 attackers:
+    let e = (1 << string_to_square("d4")) | (1 << string_to_square("e3"));
+    let a = board.get_attackers(string_to_square("d3"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 1 << string_to_square("a3");
+    let a = board.get_attackers(string_to_square("d3"), Color::Black);
+    assert_eq!(e, a);
+
+    // F3 attackers:
+    let e = (1 << string_to_square("d1")) | (1 << string_to_square("e3"));
+    let a = board.get_attackers(string_to_square("f3"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 1 << string_to_square("h3");
+    let a = board.get_attackers(string_to_square("f3"), Color::Black);
+    assert_eq!(e, a);
+
+    // G5 attackers:
+    let e = (1 << string_to_square("f3")) | (1 << string_to_square("f4"));
+    let a = board.get_attackers(string_to_square("g5"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 1 << string_to_square("h6");
+    let a = board.get_attackers(string_to_square("g5"), Color::Black);
+    assert_eq!(e, a);
+
+    // F6 attackers:
+    let e = 1 << string_to_square("g5");
+    let a = board.get_attackers(string_to_square("f6"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 1 << string_to_square("e6");
+    let a = board.get_attackers(string_to_square("f6"), Color::Black);
+    assert_eq!(e, a);
   }
 }

@@ -423,7 +423,6 @@ pub const BLACK_PAWN_DOUBLE_JUMP: [u64; 64] = [
 
 #[cfg(test)]
 mod tests {
-  use super::*;
   use crate::model::board::Board;
   use crate::model::board_mask::board_mask_to_string;
   use crate::model::moves::string_to_square;

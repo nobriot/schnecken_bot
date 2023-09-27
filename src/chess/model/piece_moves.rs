@@ -10,6 +10,7 @@ pub const MAXIMUM_LEGAL_MOVES: usize = 218;
 //------------------------------------------------------------------------------
 // Macros
 /// Checks if a file/rank value is within bounds, else breaks
+#[macro_export]
 macro_rules! fr_bounds_or_break {
   ($file:expr, $rank:expr) => {
     if !(0..=7).contains(&$rank) || !(0..=7).contains(&$file) {
@@ -17,6 +18,8 @@ macro_rules! fr_bounds_or_break {
     }
   };
 }
+
+pub use fr_bounds_or_break;
 
 // Knights can always go at the same "jumps", regardless of the board.
 // So we store this as a const table.
@@ -229,13 +232,6 @@ pub const BISHOP_SPAN: [u64; 64] = [
   0x00A0100804020100,
   0x0040201008040201,
 ];
-
-pub const BOARD_EDGES: BoardMask = 0xFF818181818181FF;
-pub const BOARD_WITHOUT_EDGES: BoardMask = 0x007E7E7E7E7E7E00;
-pub const BOARD_RIGHT_EDGE: BoardMask = 0x8080808080808080;
-pub const BOARD_LEFT_EDGE: BoardMask = 0x0101010101010101;
-pub const BOARD_DOWN_EDGE: BoardMask = 0x00000000000000FF;
-pub const BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
 
 /// Returns a bitmask of the knight possible destination squares.
 ///

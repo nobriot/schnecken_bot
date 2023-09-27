@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Write;
 
 use chess::model::board::INVALID_SQUARE;
+use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
 use chess::model::piece_moves::*;
 
@@ -29,10 +30,15 @@ fn main() {
     rook_moves[i] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, 0, i);
   }
 
-  // Then the indices of the bits on the Rook span
+  let _ = write!(
+    output_file,
+    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};",
+    rook_moves
+  );
 
+  // Then the indices of the bits on the Rook span
   let mut rook_span_indexes: [[usize; 12]; 64] = [[INVALID_SQUARE.into(); 12]; 64];
-  let mut rook_span: [u64; 64] = [0; 64];
+  let mut rook_span_without_edges: [u64; 64] = [0; 64];
 
   for i in 0..64 {
     let mut index = 0;
@@ -87,14 +93,14 @@ fn main() {
       }
     }
     unsafe {
-      rook_span[i] = span_mask;
+      rook_span_without_edges[i] = span_mask;
     }
   }
 
   let _ = write!(
     output_file,
-    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};",
-    rook_span
+    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};",
+    rook_span_without_edges
   );
 
   let _ = write!(

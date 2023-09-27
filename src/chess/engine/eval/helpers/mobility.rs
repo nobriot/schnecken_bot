@@ -78,7 +78,7 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
 }
 
 /// Determines the number of available safe squares for each piece
-/// TODO: Implement handling pins
+/// FIXME: Implement handling pins
 ///
 /// # Arguments
 ///

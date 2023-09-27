@@ -555,7 +555,6 @@ pub fn pawn_attack(game_state: &GameState, i: u8) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::model::board_mask::*;
 
   #[test]
   fn get_islands_for_simple_pawn_structure() {

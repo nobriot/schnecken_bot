@@ -102,33 +102,11 @@ pub fn string_to_square(string: &str) -> u8 {
 }
 
 impl Move {
-  /// Converts a move to its reverse, that allows to undo moves on the board
-  /*
-  pub fn invert(&self) -> Move {
-    // Revert promoted pieces to pawns
-    let promotion = match self.promotion {
-      WHITE_BISHOP | WHITE_KNIGHT | WHITE_ROOK | WHITE_QUEEN => WHITE_PAWN,
-      BLACK_BISHOP | BLACK_KNIGHT | BLACK_ROOK | BLACK_QUEEN => BLACK_PAWN,
-      _ => NO_PIECE,
-    };
-
-    Move {
-      src: self.dest,
-      dest: self.src,
-      promotion: promotion,
-    }
-  }
-  */
-
   /// Converts a move to the algebraic notation, e.g. a3f3
   pub fn to_string(&self) -> String {
     if self.promotion != NO_PIECE {
       let mut move_string = square_to_string(self.src) + &square_to_string(self.dest);
-      move_string.push(
-        Piece::u8_to_char(self.promotion)
-          .expect("Should be a valid piece!")
-          .to_ascii_uppercase(),
-      );
+      move_string.push(Piece::u8_to_char(self.promotion).expect("Should be a valid piece!"));
       move_string
     } else {
       square_to_string(self.src) + &square_to_string(self.dest)
@@ -271,6 +249,14 @@ mod tests {
       promotion: NO_PIECE,
     };
     assert_eq!("h8b1", m.to_string());
+
+    let m = Move {
+      src: 9,
+      dest: 1,
+      promotion: BLACK_QUEEN,
+    };
+    assert_eq!("b2b1q", m.to_string());
+    assert_eq!(m, Move::from_string(m.to_string().as_str()));
   }
 
   #[test]
