@@ -187,6 +187,7 @@ impl GameState {
       1 => {
         checking_ray = LINES[king_position as usize][self.board.checkers.trailing_zeros() as usize]
           | DIAGONALS[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+          | (1 << self.board.checkers.trailing_zeros())
       },
       _ => ssp = self.board.pieces.white.king,
     }
@@ -275,6 +276,7 @@ impl GameState {
       1 => {
         checking_ray = LINES[king_position as usize][self.board.checkers.trailing_zeros() as usize]
           | DIAGONALS[king_position as usize][self.board.checkers.trailing_zeros() as usize]
+          | (1 << self.board.checkers.trailing_zeros())
       },
       _ => ssp = self.board.pieces.black.king,
     }
@@ -669,7 +671,7 @@ mod tests {
     let fen = "5b1r/3Q1k1p/3p1p2/2pN2p1/3P3P/5N2/PPP1PPP1/R3KB1R b KQ - 0 18";
     let game_state = GameState::from_fen(fen);
 
-    // List of legal moves are: 6:
+    // List of legal moves are: 3:
     let mut legal_moves: Vec<Move> = Vec::new();
     legal_moves.push(Move::from_string("f8e7"));
     legal_moves.push(Move::from_string("f7g6"));
@@ -689,7 +691,7 @@ mod tests {
     let fen = "rnbq1bn1/pppp1kp1/7r/4Np1Q/4P3/8/PPPP1PPP/RNB1KB1R b KQ - 0 6";
     let game_state = GameState::from_fen(fen);
 
-    // List of legal moves are: 6:
+    // List of legal moves are: 3:
     let mut legal_moves: Vec<Move> = Vec::new();
     legal_moves.push(Move::from_string("f7e7"));
     legal_moves.push(Move::from_string("f7e6"));
@@ -703,5 +705,28 @@ mod tests {
     }
 
     assert_eq!(3, computed_moves.len());
+
+    // Another test: take out the checking piece:'
+    println!("---------------------------");
+    let fen = "5k1r/p1pp2N1/p4n1p/4p3/1P6/4P2P/2P2P1R/3K4 w - - 4 35";
+    let mut game_state = GameState::from_fen(fen);
+    game_state.apply_move(&Move::from_string("g7e6"));
+
+    // List of legal moves are:
+    let mut legal_moves: Vec<Move> = Vec::new();
+    legal_moves.push(Move::from_string("f8e8"));
+    legal_moves.push(Move::from_string("f8e7"));
+    legal_moves.push(Move::from_string("f8f7"));
+    legal_moves.push(Move::from_string("f8g8"));
+    legal_moves.push(Move::from_string("d7e6"));
+
+    let computed_moves = game_state.get_moves();
+
+    for m in &computed_moves {
+      println!("Move: {m}");
+      assert!(legal_moves.contains(m));
+    }
+
+    assert_eq!(5, computed_moves.len());
   }
 }
