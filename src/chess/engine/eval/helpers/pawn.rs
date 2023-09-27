@@ -1,6 +1,7 @@
 use super::generic::*;
 
 use crate::model::board::*;
+use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -128,24 +129,21 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize {
-  let pawn_value = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
+  let pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
   };
   let mut pawn_islands: usize = 0;
   let mut pawn_state = PawnTrackingState::NoPawn;
-  for rank in 0..8 {
-    for file in 0..8 {
-      if game_state.board.pieces.get(rank + file * 8) == pawn_value {
-        if pawn_state == PawnTrackingState::NoPawn {
-          pawn_islands += 1;
-          pawn_state = PawnTrackingState::Pawn;
-        }
-        break;
+
+  for file in 0..8 {
+    if FILES[file] & pawns != 0 {
+      if pawn_state == PawnTrackingState::NoPawn {
+        pawn_islands += 1;
+        pawn_state = PawnTrackingState::Pawn;
       }
-      if file == 7 {
-        pawn_state = PawnTrackingState::NoPawn;
-      }
+    } else {
+      pawn_state = PawnTrackingState::NoPawn;
     }
   }
 
@@ -318,18 +316,18 @@ pub fn is_passed(game_state: &GameState, index: u8) -> bool {
 /// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
-  let ss_pawn = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
+  let mut pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
   };
   let mut passers: usize = 0;
 
-  for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) == ss_pawn {
-      if is_passed(game_state, i) {
-        passers += 1;
-      }
+  while pawns != 0 {
+    if is_passed(game_state, pawns.trailing_zeros() as u8) {
+      passers += 1;
     }
+
+    pawns &= pawns - 1;
   }
 
   passers
@@ -343,18 +341,19 @@ pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
 /// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
-  let ss_pawn = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
+  let mut pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
   };
   let mut connected_passers: usize = 0;
 
-  for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) == ss_pawn {
-      if is_passed(game_state, i) && is_protected(game_state, i) {
-        connected_passers += 1;
-      }
+  while pawns != 0 {
+    let i = pawns.trailing_zeros() as u8;
+    if is_passed(game_state, i) && is_protected(game_state, i) {
+      connected_passers += 1;
     }
+
+    pawns &= pawns - 1;
   }
 
   connected_passers
@@ -368,18 +367,19 @@ pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> 
 /// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
-  let ss_pawn = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
+  let mut pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
   };
   let mut protected_pawns: usize = 0;
 
-  for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) == ss_pawn {
-      if is_protected(game_state, i) {
-        protected_pawns += 1;
-      }
+  while pawns != 0 {
+    let i = pawns.trailing_zeros() as u8;
+    if is_protected(game_state, i) {
+      protected_pawns += 1;
     }
+
+    pawns &= pawns - 1;
   }
 
   protected_pawns

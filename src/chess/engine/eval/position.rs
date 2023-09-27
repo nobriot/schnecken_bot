@@ -287,7 +287,10 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
 #[cfg(test)]
 mod tests {
   use crate::engine::cache::EngineCache;
+  use crate::model::board::Board;
   use crate::model::moves::Move;
+  use rand::Rng;
+  use std::time::{Duration, Instant};
 
   use super::*;
   #[test]
@@ -476,19 +479,22 @@ mod tests {
 
   #[test]
   fn position_bench_default_position_evaluation_per_second() {
-    use crate::model::board::Board;
-    use std::time::{Duration, Instant};
-
     let cache = EngineCache::new();
 
+    // Create a bunch of random boards
+    const NUMBER_OF_BOARDS: usize = 1_000_000;
+    let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
+    for _ in 0..NUMBER_OF_BOARDS {
+      game_states.push(GameState::from_fen(Board::new_random().to_fen().as_str()));
+    }
+
+    let mut rng = rand::thread_rng();
     let mut positions_evaluated = 0;
     let start_time = Instant::now();
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let random_board = Board::new_random();
-      let game_state = GameState::from_fen(random_board.to_fen().as_str());
-      let _ = default_position_evaluation(&game_state);
+      let _ = default_position_evaluation(&game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
       positions_evaluated += 1;
     }
 
@@ -502,19 +508,19 @@ mod tests {
 
   #[test]
   fn position_bench_get_material_score_per_second() {
-    use crate::model::board::Board;
-    use std::time::{Duration, Instant};
+    // Create a bunch of random boards
+    const NUMBER_OF_BOARDS: usize = 100_000;
+    let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
+    for _ in 0..NUMBER_OF_BOARDS {
+      game_states.push(GameState::from_fen(Board::new_random().to_fen().as_str()));
+    }
 
-    let cache = EngineCache::new();
-
+    let mut rng = rand::thread_rng();
     let mut positions_evaluated = 0;
     let start_time = Instant::now();
-
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let random_board = Board::new_random();
-      let game_state = GameState::from_fen(random_board.to_fen().as_str());
-      let _ = get_combined_material_score(&game_state);
+      let _ = get_combined_material_score(&game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
       positions_evaluated += 1;
     }
 

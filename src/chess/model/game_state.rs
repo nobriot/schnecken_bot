@@ -159,7 +159,10 @@ impl GameState {
     if self.board.castling_rights.K()
       && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
-      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE == 0
+      && self
+        .board
+        .get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black)
+        == 0
     {
       all_moves.push(Move {
         src: 4u8,
@@ -170,7 +173,10 @@ impl GameState {
     if self.board.castling_rights.Q()
       && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
-      && self.board.black_masks.control & UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE == 0
+      && self
+        .board
+        .get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black)
+        == 0
     {
       all_moves.push(Move {
         src: 4u8,
@@ -248,7 +254,10 @@ impl GameState {
     if self.board.castling_rights.k()
       && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
-      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE == 0
+      && self
+        .board
+        .get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White)
+        == 0
     {
       all_moves.push(Move {
         src: 60u8,
@@ -259,7 +268,10 @@ impl GameState {
     if self.board.castling_rights.q()
       && self.board.checks() == 0
       && (self.board.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
-      && self.board.white_masks.control & UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE == 0
+      && self
+        .board
+        .get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White)
+        == 0
     {
       all_moves.push(Move {
         src: 60u8,

@@ -245,17 +245,9 @@ pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
     },
   };
 
-  let bitmap = if color == Color::White {
-    game_state.board.white_masks.control
-  } else {
-    game_state.board.black_masks.control
-  };
+  let bitmap = game_state.board.get_attackers(index, color);
 
-  if ((1 << index) & bitmap) > 0 {
-    return false;
-  }
-
-  true
+  bitmap == 0
 }
 
 /// Checks if a piece or pawn is attacked by enemy pieces
@@ -274,25 +266,17 @@ pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
 pub fn is_attacked(game_state: &GameState, index: u8) -> bool {
   let color = match game_state.board.pieces.get(index) {
     NO_PIECE | BLACK_KING | WHITE_KING => return false,
-    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => Color::White,
-    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => Color::Black,
+    WHITE_KNIGHT | WHITE_BISHOP | WHITE_ROOK | WHITE_QUEEN | WHITE_PAWN => Color::Black,
+    BLACK_KNIGHT | BLACK_BISHOP | BLACK_ROOK | BLACK_QUEEN | BLACK_PAWN => Color::White,
     p => {
       error!("Unknown piece onthe board! {p}");
       return false;
     },
   };
 
-  let bitmap = if color == Color::White {
-    game_state.board.black_masks.control
-  } else {
-    game_state.board.white_masks.control
-  };
+  let bitmap = game_state.board.get_attackers(index, color);
 
-  if (bitmap & (1 << index)) > 0 {
-    return true;
-  }
-
-  false
+  bitmap != 0
 }
 
 // -----------------------------------------------------------------------------

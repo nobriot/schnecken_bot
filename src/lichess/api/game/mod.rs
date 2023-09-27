@@ -62,10 +62,32 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
   ///
-  pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
+  pub async fn write_in_spectator_room(&self, game_id: &str, message: &str) -> () {
     info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
     let body: String = format!("room=spectator&text={}", encode(message));
+
+    let result = self.lichess_post(&endpoint, &body).await;
+
+    if let Err(error) = result {
+      warn!(
+        "Error sending message to game id {} - Error: {:#?}",
+        game_id, error
+      );
+    }
+  }
+
+  /// Writes in the game chat, using spectator room
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID on which we should send a chat message
+  /// * `message` Message to send
+  ///
+  pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
+    info!("Sending message on Game ID {game_id} - {message}");
+    let endpoint: String = format!("bot/game/{game_id}/chat");
+    let body: String = format!("room=player&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
 

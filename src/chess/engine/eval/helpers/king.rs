@@ -22,14 +22,10 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   };
 
   let total_squares: f32 = surrounding_squares.count_ones() as f32;
-  let attacked_squares: f32 = match color {
-    Color::White => {
-      (surrounding_squares & game_state.board.black_masks.control).count_ones() as f32
-    },
-    Color::Black => {
-      (surrounding_squares & game_state.board.white_masks.control).count_ones() as f32
-    },
-  };
+  let attacked_squares: f32 = game_state
+    .board
+    .get_attacked_squares(surrounding_squares, Color::opposite(color))
+    .count_ones() as f32;
 
   attacked_squares as f32 / total_squares as f32
 }

@@ -40,14 +40,6 @@ pub(crate) use fr_bounds_or_return;
 // -----------------------------------------------------------------------------
 //  Structs/Enums
 
-/// Masks kept for a color on the board
-/// Note that piece destination mask can be found by doing : control -
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Masks {
-  /// Squares controlled on the board
-  pub control: BoardMask,
-}
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Board {
   pub pieces: PieceSet,
@@ -57,8 +49,6 @@ pub struct Board {
   /// Boardmask of pieces delivering check to the side to play.
   pub checkers: BoardMask,
   pub hash: u64,
-  pub white_masks: Masks,
-  pub black_masks: Masks,
 }
 
 // -----------------------------------------------------------------------------
@@ -74,8 +64,6 @@ impl Board {
       en_passant_square: INVALID_SQUARE,
       checkers: 0,
       hash: 0,
-      white_masks: Masks { control: 0 },
-      black_masks: Masks { control: 0 },
     }
   }
 
@@ -100,7 +88,7 @@ impl Board {
     let white_king_position = rng.gen_range(0..64);
     board.pieces.set(white_king_position, WHITE_KING);
 
-    for _i in 0..14 {
+    for _ in 0..14 {
       board
         .pieces
         .set(rng.gen_range(0..64), rng.gen_range(NO_PIECE..=BLACK_PAWN));
@@ -108,8 +96,6 @@ impl Board {
 
     board.compute_hash();
     board.update_checkers();
-    board.white_masks.control = board.get_control_boardmask(Color::White);
-    board.black_masks.control = board.get_control_boardmask(Color::Black);
 
     board
   }
@@ -297,9 +283,9 @@ impl Board {
       return 0;
     }
 
-    let attacking_pieces = match color {
-      Color::White => self.pieces.white,
-      Color::Black => self.pieces.black,
+    let (attacking_pieces, king_mask) = match color {
+      Color::White => (self.pieces.white, self.pieces.black.king),
+      Color::Black => (self.pieces.black, self.pieces.white.king),
     };
 
     // A bit like I do when I play as a human, here we start from the target piece
@@ -314,12 +300,38 @@ impl Board {
 
     attackers |= KING_MOVES[target_square as usize] & attacking_pieces.king;
     attackers |= KNIGHT_MOVES[target_square as usize] & attacking_pieces.knight;
-    attackers |=
-      get_rook_moves(0, self.pieces.all(), target_square as usize) & attacking_pieces.majors();
-    attackers |= get_bishop_moves(0, self.pieces.all(), target_square as usize)
+
+    attackers |= get_rook_moves(0, self.pieces.all() & (!king_mask), target_square as usize)
+      & attacking_pieces.majors();
+    attackers |= get_bishop_moves(0, self.pieces.all() & (!king_mask), target_square as usize)
       & (attacking_pieces.bishop | attacking_pieces.queen);
 
     attackers
+  }
+
+  /// Computes a boardmask of attackers of a surface/boardmask.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` -     A Board object representing a position, side to play, etc.
+  /// * `squares` -  Squares for which we want to know if they are attacked
+  ///
+  /// ### Return value
+  ///
+  /// A bitmask indicating squares of the pieces attacking the square
+  ///
+  pub fn get_attacked_squares(&self, squares: BoardMask, color: Color) -> BoardMask {
+    let mut surface = squares;
+    let mut attacked_squares: BoardMask = 0;
+    while surface != 0 {
+      let square = surface.trailing_zeros() as u8;
+      if self.get_attackers(square, color) != 0 {
+        set_square_in_mask!(square, attacked_squares);
+      }
+      surface &= surface - 1;
+    }
+
+    attacked_squares
   }
 
   /// Returns the number of checks on the board.
@@ -357,8 +369,16 @@ impl Board {
   ) -> (BoardMask, bool) {
     let mut promotion: bool = false;
     let destinations = match self.pieces.get(source_square as u8) {
-      WHITE_KING => get_king_moves(ssp, self.black_masks.control, source_square),
-      BLACK_KING => get_king_moves(ssp, self.white_masks.control, source_square),
+      WHITE_KING => get_king_moves(
+        ssp,
+        self.get_attacked_squares(KING_MOVES[source_square], Color::Black),
+        source_square,
+      ),
+      BLACK_KING => get_king_moves(
+        ssp,
+        self.get_attacked_squares(KING_MOVES[source_square], Color::White),
+        source_square,
+      ),
       WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
       WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
       WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
@@ -654,8 +674,6 @@ impl Board {
     }
     self.update_hash_side_to_play();
     self.update_checkers();
-    self.white_masks.control = self.get_control_boardmask(Color::White);
-    self.black_masks.control = self.get_control_boardmask(Color::Black);
   }
 
   /// Makes sure that the number of checks on the board is correct.
@@ -835,8 +853,6 @@ impl Board {
 
     board.compute_hash();
     board.update_checkers();
-    board.white_masks.control = board.get_control_boardmask(Color::White);
-    board.black_masks.control = board.get_control_boardmask(Color::Black);
 
     board
   }
@@ -954,8 +970,6 @@ mod tests {
       en_passant_square: INVALID_SQUARE,
       checkers: 0,
       hash: 0,
-      white_masks: Masks { control: 0 },
-      black_masks: Masks { control: 0 },
     };
     board.pieces.set(0, WHITE_ROOK);
     board.pieces.set(1, WHITE_KNIGHT);
@@ -1359,6 +1373,31 @@ mod tests {
 
     let e = 1 << string_to_square("e6");
     let a = board.get_attackers(string_to_square("f6"), Color::Black);
+    assert_eq!(e, a);
+
+    // Test with board edges/pawns
+    let board = Board::from_fen("6k1/5P2/4P3/8/4K3/8/8/8 w - - 0 1  ");
+    println!("---------------------------------------------");
+    println!("Board: {}", board);
+    // G8 attackers:
+    let e = 1 << string_to_square("f7");
+    let a = board.get_attackers(string_to_square("g8"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 0;
+    let a = board.get_attackers(string_to_square("g8"), Color::Black);
+    assert_eq!(e, a);
+
+    let board = Board::from_fen("8/8/8/3k4/8/5p2/4p3/3K4 w - - 0 1");
+    println!("---------------------------------------------");
+    println!("Board: {}", board);
+    // D1 attackers:
+    let e = 0;
+    let a = board.get_attackers(string_to_square("d1"), Color::White);
+    assert_eq!(e, a);
+
+    let e = 1 << string_to_square("e2");
+    let a = board.get_attackers(string_to_square("d1"), Color::Black);
     assert_eq!(e, a);
   }
 }

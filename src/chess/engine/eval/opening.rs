@@ -108,8 +108,6 @@ mod tests {
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
-    print_board_mask(game_state.board.white_masks.control);
-    print_board_mask(game_state.board.black_masks.control);
     println!("Evaluation: {eval}");
     assert!(-2.0 > eval);
   }
@@ -119,9 +117,6 @@ mod tests {
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
-
-    print_board_mask(game_state.board.white_masks.control);
-    print_board_mask(game_state.board.black_masks.control);
 
     println!("Evaluation: {eval}");
     assert!(-0.01 < eval);

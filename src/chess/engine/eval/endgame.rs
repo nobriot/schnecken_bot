@@ -147,19 +147,20 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::Black
   };
 
-  let (attacking_bitmap, king_position) = match attacking_side {
-    Color::White => (
-      game_state.board.white_masks.control,
-      game_state.board.get_black_king_square(),
-    ),
-    Color::Black => (
-      game_state.board.black_masks.control,
-      game_state.board.get_white_king_square(),
-    ),
+  let king_position = match attacking_side {
+    Color::White => game_state.board.get_black_king_square(),
+    Color::Black => game_state.board.get_white_king_square(),
   };
 
   // BoardMask bitmap of where the king can go
-  score += get_king_moves(0, attacking_bitmap, king_position as usize).count_ones() as f32;
+  score += get_king_moves(
+    0,
+    game_state
+      .board
+      .get_attackers(king_position, attacking_side),
+    king_position as usize,
+  )
+  .count_ones() as f32;
 
   // Now check how many square are available for each king
   score += 7.0
