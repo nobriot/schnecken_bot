@@ -23,7 +23,7 @@ const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.015;
-const HANGING_FACTOR: f32 = 0.5;
+const HANGING_FACTOR: f32 = 0.3;
 const HANGING_PENALTY: f32 = 0.1;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
@@ -87,6 +87,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
+  // FIXME: THis is slow.
   for i in 0..64_usize {
     if !game_state.board.has_piece(i as u8) {
       continue;
@@ -144,12 +145,12 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
 // Determine the game phrase and update it.
 pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   // Do not recalculate when we calculated already
-  if cache.has_game_phase(&game_state.board.hash) {
+  if cache.has_game_phase(&game_state) {
     return;
   }
 
   if game_state.move_count > 30 {
-    cache.set_game_phase(game_state.board.hash, GamePhase::Endgame);
+    cache.set_game_phase(game_state, GamePhase::Endgame);
     return;
   }
 
@@ -172,11 +173,11 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
     .count_ones() as usize;
 
   if material_count < 17 {
-    cache.set_game_phase(game_state.board.hash, GamePhase::Endgame);
-  } else if development_index > 2 {
-    cache.set_game_phase(game_state.board.hash, GamePhase::Opening);
+    cache.set_game_phase(game_state, GamePhase::Endgame);
+  } else if development_index > 6 {
+    cache.set_game_phase(game_state, GamePhase::Opening);
   } else {
-    cache.set_game_phase(game_state.board.hash, GamePhase::Middlegame);
+    cache.set_game_phase(game_state, GamePhase::Middlegame);
   }
 }
 
@@ -195,53 +196,55 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
 ///
 ///
 pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
-  if !cache.has_move_list(&game_state.board.hash) {
-    cache.set_move_list(game_state.board.hash, &game_state.get_moves());
+  if !cache.has_move_list(&game_state) {
+    cache.set_move_list(game_state, &game_state.get_moves());
   }
-  if cache.get_move_list(&game_state.board.hash).is_empty() {
+  if cache.get_move_list(&game_state).is_empty() {
     match (
       game_state.board.side_to_play,
       game_state.board.checkers.count_ones(),
     ) {
       (_, 0) => {
-        cache.set_status(game_state.board.hash, GameStatus::Draw);
-        cache.set_eval(game_state.board.hash, 0.0);
+        cache.set_status(game_state, GameStatus::Draw);
+        cache.set_eval(game_state, 0.0);
         return true;
       },
       (Color::Black, _) => {
-        cache.set_status(game_state.board.hash, GameStatus::WhiteWon);
-        cache.set_eval(game_state.board.hash, 200.0);
+        cache.set_status(game_state, GameStatus::WhiteWon);
+        cache.set_eval(game_state, 200.0);
         return true;
       },
       (Color::White, _) => {
-        cache.set_status(game_state.board.hash, GameStatus::BlackWon);
-        cache.set_eval(game_state.board.hash, -200.0);
+        cache.set_status(game_state, GameStatus::BlackWon);
+        cache.set_eval(game_state, -200.0);
         return true;
       },
     }
   }
   if game_state.ply >= 100 {
     debug!("100 Ply detected");
-    cache.set_status(game_state.board.hash, GameStatus::Draw);
-    cache.set_eval(game_state.board.hash, 0.0);
+    cache.set_status(game_state, GameStatus::Draw);
+    cache.set_eval(game_state, 0.0);
     return true;
   }
 
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if game_state.board.is_game_over_by_insufficient_material() {
     debug!("game over by insufficient material detected");
-    cache.set_status(game_state.board.hash, GameStatus::Draw);
-    cache.set_eval(game_state.board.hash, 0.0);
+    cache.set_status(game_state, GameStatus::Draw);
+    cache.set_eval(game_state, 0.0);
     return true;
   }
 
   // Check the 3-fold repetitions
   if game_state.get_board_repetitions() >= 2 {
     debug!("3-fold repetition detected");
+    cache.set_status(game_state, GameStatus::Draw);
+    cache.set_eval(game_state, 0.0);
     return true;
   }
 
-  cache.set_status(game_state.board.hash, GameStatus::Ongoing);
+  cache.set_status(game_state, GameStatus::Ongoing);
   return false;
 }
 
@@ -258,26 +261,31 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
 pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, bool) {
   // Check if the evaluation is due to a game over:
   if is_game_over(cache, game_state) {
-    if cache.has_eval(&game_state.board.hash) {
-      return (cache.get_eval(&game_state.board.hash), true);
+    if cache.has_eval(&game_state) {
+      return (cache.get_eval(&game_state), true);
     } else {
       return (0.0, true);
     }
   }
 
   //FIXME: make it fast
-  if !cache.has_game_phase(&game_state.board.hash) {
+  if !cache.has_game_phase(&game_state) {
     determine_game_phase(cache, game_state);
   }
-  let score = match cache.get_game_phase(&game_state.board.hash) {
+  let mut score = match cache.get_game_phase(&game_state) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
 
+  // Repeating positions is getting the score closer to 0:
+  if game_state.get_board_repetitions() != 0 {
+    score /= 2.0;
+  }
+
   //score = default_position_evaluation(game_state);
-  cache.set_eval(game_state.board.hash, score);
-  cache.set_status(game_state.board.hash, GameStatus::Ongoing);
+  cache.set_eval(game_state, score);
+  cache.set_status(game_state, GameStatus::Ongoing);
   (score, false)
 }
 
@@ -457,22 +465,27 @@ mod tests {
 
     let cache = EngineCache::new();
 
+    // Create a bunch of random boards
+    const NUMBER_OF_BOARDS: usize = 1_000_000;
+    let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
+    for _ in 0..NUMBER_OF_BOARDS {
+      game_states.push(GameState::from_board(&Board::new_random()));
+    }
+
+    let mut rng = rand::thread_rng();
     let mut positions_evaluated = 0;
     let start_time = Instant::now();
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let random_board = Board::new_random();
-      let game_state = GameState::from_fen(random_board.to_fen().as_str());
-
-      let _ = evaluate_position(&cache, &game_state);
+      let _ = evaluate_position(&cache, &game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
       positions_evaluated += 1;
     }
 
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_evaluated > 1_000_000,
-      "Number of NPS for evaluating positions: {}",
+      "Number of NPS for evaluating positions using evaluate_position: {}",
       positions_evaluated
     );
   }
@@ -485,7 +498,7 @@ mod tests {
     const NUMBER_OF_BOARDS: usize = 1_000_000;
     let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
     for _ in 0..NUMBER_OF_BOARDS {
-      game_states.push(GameState::from_fen(Board::new_random().to_fen().as_str()));
+      game_states.push(GameState::from_board(&Board::new_random()));
     }
 
     let mut rng = rand::thread_rng();
@@ -501,7 +514,7 @@ mod tests {
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_evaluated > 1_000_000,
-      "Number of NPS for evaluating positions: {}",
+      "Number of NPS for evaluating positions using default_position_evaluation:: {}",
       positions_evaluated
     );
   }
@@ -512,7 +525,7 @@ mod tests {
     const NUMBER_OF_BOARDS: usize = 100_000;
     let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
     for _ in 0..NUMBER_OF_BOARDS {
-      game_states.push(GameState::from_fen(Board::new_random().to_fen().as_str()));
+      game_states.push(GameState::from_board(&Board::new_random()));
     }
 
     let mut rng = rand::thread_rng();
@@ -527,7 +540,7 @@ mod tests {
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_evaluated > 1_000_000,
-      "Number of NPS for evaluating positions: {}",
+      "Number of NPS for evaluating positions using get_combined_material_score: {}",
       positions_evaluated
     );
   }

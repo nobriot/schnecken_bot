@@ -1,6 +1,6 @@
-use super::tables::rook_destinations::ROOK_SPAN;
 use crate::model::board_geometry::diagonals::DIAGONALS;
 use crate::model::board_geometry::lines::LINES;
+use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::castling_rights::*;
 use crate::model::moves::*;
@@ -8,6 +8,7 @@ use crate::model::piece::*;
 use crate::model::piece_moves::*;
 use crate::model::piece_set::*;
 use crate::model::tables::pawn_destinations::*;
+use crate::model::tables::rook_destinations::ROOK_SPAN;
 use crate::model::tables::zobrist::*;
 
 use log::*;
@@ -83,16 +84,31 @@ impl Board {
     board.castling_rights = CastlingRights::none();
 
     let mut rng = rand::thread_rng();
-    let black_king_position = rng.gen_range(0..64);
-    board.pieces.set(black_king_position, BLACK_KING);
-    let white_king_position = rng.gen_range(0..64);
-    board.pieces.set(white_king_position, WHITE_KING);
 
-    for _ in 0..14 {
-      board
-        .pieces
-        .set(rng.gen_range(0..64), rng.gen_range(NO_PIECE..=BLACK_PAWN));
+    for i in 0..17 {
+      let piece = match i {
+        0 => WHITE_KING,
+        1 => BLACK_KING,
+        _ => rng.gen_range(NO_PIECE..=BLACK_PAWN),
+      };
+      match piece {
+        WHITE_KING => continue,
+        BLACK_KING => continue,
+        NO_PIECE => continue,
+        _ => {},
+      }
+      let mut square = rng.gen_range(0..64);
+
+      while board.pieces.get(square) != NO_PIECE {
+        square = rng.gen_range(0..64);
+      }
+
+      board.pieces.set(rng.gen_range(0..64), piece);
     }
+
+    // Clean up white pawns on the 8th rank and black pawns on the first rank.
+    board.pieces.white.pawn &= !BOARD_UP_EDGE;
+    board.pieces.black.pawn &= !BOARD_DOWN_EDGE;
 
     board.compute_hash();
     board.update_checkers();
@@ -213,6 +229,11 @@ impl Board {
       Color::White => self.get_white_king_square(),
       Color::Black => self.get_black_king_square(),
     } as usize;
+
+    if king_position as u8 == INVALID_SQUARE {
+      warn!("Cannot derive pins as there does not seem to be a king.");
+      return u64::MAX;
+    }
 
     let ssp = match color {
       Color::White => self.pieces.white.all(),
@@ -473,6 +494,7 @@ impl Board {
   /// * `file`: [1..8]
   /// * `rank`: [1..8]
   ///
+  #[inline]
   pub fn fr_to_index(file: u8, rank: u8) -> u8 {
     debug_assert!(file > 0);
     debug_assert!(file <= 8);
@@ -487,7 +509,8 @@ impl Board {
   /// the values passed are not valid.
   ///
   /// * `index`: [0..63]
-  ///
+  ///̈́
+  #[inline]
   pub fn index_to_fr(index: u8) -> (u8, u8) {
     debug_assert!(index < 64);
     (index % 8 + 1, index / 8 + 1)
@@ -531,6 +554,203 @@ impl Board {
     }
 
     false
+  }
+
+  /// Computes the list of legal moves on the board
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`: Board reference to calculate legal moves from
+  ///
+  /// ### Return value
+  ///
+  /// A vector of Moves
+  ///
+  #[inline]
+  pub fn get_moves(&self) -> Vec<Move> {
+    match self.side_to_play {
+      Color::White => return self.get_white_moves(),
+      Color::Black => return self.get_black_moves(),
+    }
+  }
+
+  // Get all the possible moves for white in a position
+  pub fn get_white_moves(&self) -> Vec<Move> {
+    let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
+
+    let mut ssp = self.get_piece_color_mask(Color::White);
+    let op = self.get_piece_color_mask(Color::Black);
+
+    // Try castling first. This will have an influence on the engine if
+    // interesting moves are placed first.
+    if self.castling_rights.K()
+      && self.checks() == 0
+      && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
+      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black) == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 6u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.castling_rights.Q()
+      && self.checks() == 0
+      && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
+      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black) == 0
+    {
+      all_moves.push(Move {
+        src: 4u8,
+        dest: 2u8,
+        promotion: NO_PIECE,
+      });
+    }
+
+    let mut checking_ray: BoardMask = u64::MAX;
+    let king_position = self.get_white_king_square();
+
+    match self.checkers.count_ones() {
+      0 => {},
+      1 => {
+        checking_ray = LINES[king_position as usize][self.checkers.trailing_zeros() as usize]
+          | DIAGONALS[king_position as usize][self.checkers.trailing_zeros() as usize]
+          | (1 << self.checkers.trailing_zeros())
+      },
+      _ => ssp = self.pieces.white.king,
+    }
+
+    // Only generate moves if we have a piece on the square
+    while ssp != 0 {
+      let source_square = ssp.trailing_zeros() as u8;
+      let (mut destinations, promotion) = self.get_piece_destinations(
+        source_square as usize,
+        op,
+        self.get_piece_color_mask(Color::White),
+      );
+
+      // Restrict destinations not to move out of pins.
+      destinations &= self.get_pins(source_square);
+      // if there is a check, you can only move into checking rays with other pieces than the king.
+      if source_square != king_position {
+        destinations &= checking_ray;
+      }
+
+      while destinations != 0 {
+        let destination_square = destinations.trailing_zeros() as u8;
+        if !promotion {
+          all_moves.push(Move {
+            src: source_square,
+            dest: destination_square,
+            promotion: NO_PIECE,
+          });
+        } else {
+          for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
+            all_moves.push(Move {
+              src: source_square,
+              dest: destination_square,
+              promotion: promotion_piece,
+            });
+          }
+        }
+
+        // Remove the last bit set to 1:
+        destinations &= destinations - 1;
+      }
+
+      // Remove the last bit set to 1:
+      ssp &= ssp - 1;
+    }
+
+    all_moves
+  }
+
+  // Get all the possible moves for black in a position
+  pub fn get_black_moves(&self) -> Vec<Move> {
+    let mut all_moves = Vec::new();
+
+    let mut ssp = self.get_piece_color_mask(Color::Black);
+    let op = self.get_piece_color_mask(Color::White);
+
+    // Now check castling.
+    if self.castling_rights.k()
+      && self.checks() == 0
+      && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
+      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White) == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 62u8,
+        promotion: NO_PIECE,
+      });
+    }
+    if self.castling_rights.q()
+      && self.checks() == 0
+      && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
+      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White) == 0
+    {
+      all_moves.push(Move {
+        src: 60u8,
+        dest: 58u8,
+        promotion: NO_PIECE,
+      });
+    }
+
+    let mut checking_ray: BoardMask = u64::MAX;
+    let king_position = self.get_black_king_square();
+
+    match self.checkers.count_ones() {
+      0 => {},
+      1 => {
+        checking_ray = LINES[king_position as usize][self.checkers.trailing_zeros() as usize]
+          | DIAGONALS[king_position as usize][self.checkers.trailing_zeros() as usize]
+          | (1 << self.checkers.trailing_zeros())
+      },
+      _ => ssp = self.pieces.black.king,
+    }
+
+    // Only generate moves if we have a piece on the square
+    while ssp != 0 {
+      let source_square = ssp.trailing_zeros() as u8;
+      let (mut destinations, promotion) = self.get_piece_destinations(
+        source_square as usize,
+        op,
+        self.get_piece_color_mask(Color::Black),
+      );
+
+      // Restrict destinations not to move out of pins.
+      destinations &= self.get_pins(source_square);
+      // if there is a check, you can only move into checking rays with other pieces than the king.
+      if source_square != king_position {
+        destinations &= checking_ray;
+      }
+
+      while destinations != 0 {
+        let destination_square = destinations.trailing_zeros() as u8;
+        if !promotion {
+          all_moves.push(Move {
+            src: source_square,
+            dest: destination_square,
+            promotion: NO_PIECE,
+          });
+        } else {
+          for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
+            all_moves.push(Move {
+              src: source_square,
+              dest: destination_square,
+              promotion: promotion_piece,
+            });
+          }
+        }
+
+        // Remove the last bit set to 1:
+        destinations &= destinations - 1;
+      }
+
+      // Remove the last bit set to 1:
+      ssp &= ssp - 1;
+    }
+
+    all_moves
   }
 
   /// Applies a move on the board.
@@ -805,7 +1025,7 @@ impl Board {
     }
   }
 
-  /// Return a board bismask with squares set to 1 when they
+  /// Returns a board bismask with squares set to 1 when they
   /// have a piece with a certain color, which is not a major piece (rook and queens excluded)
   #[inline]
   pub fn get_color_mask_without_major_pieces(&self, color: Color) -> BoardMask {
@@ -826,6 +1046,15 @@ impl Board {
   }
 
   /// Converts first substring of a FEN (with the pieces) to a board
+  ///
+  /// ### Arguments:
+  ///
+  /// * `fen` : fen to use to create a board object
+  ///
+  /// ### Return Value
+  ///
+  /// Board object matching the FEN
+  ///
   pub fn from_fen(fen: &str) -> Self {
     let mut board = Board::new();
 
@@ -858,6 +1087,15 @@ impl Board {
   }
 
   /// Converts a board to the first part of a FEN.
+  ///
+  /// ### Arguments:
+  ///
+  /// * `self` : Reference to a Board object
+  ///
+  /// ### Return Value
+  ///
+  /// String containing the FEN description of the board.
+  ///
   pub fn to_fen(&self) -> String {
     let mut fen = String::new();
     let mut empty_squares = 0;

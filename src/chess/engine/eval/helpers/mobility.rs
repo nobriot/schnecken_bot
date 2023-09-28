@@ -2,6 +2,7 @@ use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::tables::pawn_destinations::*;
 
 /// Mobility area
 ///
@@ -21,58 +22,27 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
   // king and the squares attacked by enemy pawns.
   let mut mobility_area: BoardMask = u64::MAX;
 
-  let pawn = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
+  let mut op_pawns = match color {
+    Color::White => game_state.board.pieces.black.pawn,
+    Color::Black => game_state.board.pieces.white.pawn,
   };
-  let op_pawn = match color {
-    Color::White => BLACK_PAWN,
-    Color::Black => WHITE_PAWN,
-  };
-  let king = match color {
-    Color::White => WHITE_KING,
-    Color::Black => BLACK_KING,
-  };
-  let queen = match color {
-    Color::White => WHITE_QUEEN,
-    Color::Black => BLACK_QUEEN,
+  let pieces = match color {
+    Color::White => game_state.board.pieces.white,
+    Color::Black => game_state.board.pieces.black,
   };
 
-  for i in 0..64 {
-    let value = game_state.board.pieces.get(i as u8);
-    if pawn == value || king == value || queen == value {
-      mobility_area &= !(1 << i);
-      continue;
-    }
+  let pawn_control = match color {
+    Color::White => &WHITE_PAWN_CONTROL,
+    Color::Black => &BLACK_PAWN_CONTROL,
+  };
 
-    // Check if controlled by op_pawns:
-    let (file, mut rank) = Board::index_to_fr(i);
-    match color {
-      Color::White => rank += 1,
-      Color::Black => rank -= 1,
-    }
-    if rank > 8 || rank == 0 {
-      continue;
-    }
-
-    // Check on the left side:
-    if file > 1 {
-      let s = Board::fr_to_index(file - 1, rank);
-      if game_state.board.pieces.get(s) == op_pawn {
-        mobility_area &= !(1 << i);
-        continue;
-      }
-    }
-
-    // Check on the right side:
-    if file < 8 {
-      let s = Board::fr_to_index(file + 1, rank);
-      if game_state.board.pieces.get(s) == op_pawn {
-        mobility_area &= !(1 << i);
-        continue;
-      }
-    }
+  while op_pawns != 0 {
+    let pawn = op_pawns.trailing_zeros() as usize;
+    mobility_area &= !(pawn_control[pawn]);
+    op_pawns &= op_pawns - 1;
   }
+
+  mobility_area &= !(pieces.king | pieces.queen | pieces.pawn);
 
   mobility_area
 }
@@ -91,25 +61,15 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
 pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
   let mut mobility: usize = 0;
 
-  let ssp = game_state.board.get_piece_color_mask(color);
-  let op = game_state
-    .board
-    .get_piece_color_mask(Color::opposite(color));
   let mobility_area = get_mobility_area(game_state, color);
+  let pieces = match color {
+    Color::White => game_state.board.pieces.white,
+    Color::Black => game_state.board.pieces.black,
+  };
 
-  for i in 0..64 {
-    let value = game_state.board.pieces.get(i as u8);
+  panic!("This function is too slow, let's not use it for now");
 
-    if Piece::color(value).is_some()
-      && Piece::color(value).unwrap() == color
-      && Piece::is_piece(value)
-    {
-      let (squares, _) = game_state.board.get_piece_destinations(i, op, ssp);
-      mobility += (squares & mobility_area).count_ones() as usize;
-    }
-  }
-
-  mobility
+  //mobility
 }
 
 // -----------------------------------------------------------------------------

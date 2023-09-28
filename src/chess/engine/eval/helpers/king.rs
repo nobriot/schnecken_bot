@@ -16,6 +16,11 @@ use crate::model::piece_moves::KING_MOVES;
 /// divided by the total number of squares around the king.
 ///
 pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
+  if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
+    println!("King disappeared {}", game_state.to_fen());
+    return 0.0;
+  }
+
   let surrounding_squares = match color {
     Color::White => KING_MOVES[game_state.board.pieces.white.king.trailing_zeros() as usize],
     Color::Black => KING_MOVES[game_state.board.pieces.black.king.trailing_zeros() as usize],

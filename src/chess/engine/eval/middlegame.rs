@@ -21,9 +21,11 @@ const SQUARE_TABLE_FACTOR: f32 = 0.02;
 pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
+  /*
   score += PIECE_MOBILITY_FACTOR
     * (get_piece_mobility(game_state, Color::White) as f32
       - get_piece_mobility(game_state, Color::Black) as f32);
+       */
 
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)

@@ -213,11 +213,8 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
   };
 
   let outposts = get_outposts(game_state, color);
-  if 1 << index & outposts > 0 {
-    return true;
-  }
 
-  false
+  return square_in_mask!(index, outposts);
 }
 
 /// Checks if a piece or pawn is hanging

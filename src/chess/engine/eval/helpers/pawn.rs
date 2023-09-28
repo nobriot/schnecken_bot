@@ -179,9 +179,8 @@ pub fn is_protected(game_state: &GameState, index: u8) -> bool {
   } else {
     rank += 1;
   }
-  // Would be strange here, (there should be no pawn on the edge of the board)
+  // Would be strange here, (there should be no pawn on the edge of the board, unless the position is kinda random)
   if !(1..=8).contains(&rank) {
-    debug_assert!(false, "There should be no pawn in such positions");
     return false;
   }
 

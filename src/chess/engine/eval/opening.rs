@@ -1,7 +1,6 @@
 use super::helpers::king::*;
 use super::position::default_position_evaluation;
 use crate::engine::development::get_development_score;
-use crate::engine::eval::helpers::mobility::*;
 use crate::engine::square_affinity::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
@@ -26,9 +25,11 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
     * (get_development_score(game_state, Color::White) as f32
       - get_development_score(game_state, Color::Black) as f32);
 
+  /*
   score += PIECE_MOBILITY_FACTOR
-    * (get_piece_mobility(game_state, Color::White) as f32
-      - get_piece_mobility(game_state, Color::Black) as f32);
+  * (get_piece_mobility(game_state, Color::White) as f32
+  - get_piece_mobility(game_state, Color::Black) as f32);
+   */
 
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)
