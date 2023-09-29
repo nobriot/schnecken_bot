@@ -31,6 +31,14 @@ pub const BLACK_KNIGHT: u8 = 11;
 /// Numerical value used on the board to represent a Black Pawn
 pub const BLACK_PAWN: u8 = 12;
 
+// Piece values
+pub const KING_VALUE: f32 = 100.0;
+pub const QUEEN_VALUE: f32 = 9.5;
+pub const ROOK_VALUE: f32 = 5.0;
+pub const BISHOP_VALUE: f32 = 3.05;
+pub const KNIGHT_VALUE: f32 = 3.0;
+pub const PAWN_VALUE: f32 = 1.0;
+
 // -----------------------------------------------------------------------------
 //  Strucs/Enums
 
@@ -80,33 +88,73 @@ pub struct Piece {
 
 impl Piece {
   /// Indicates the material value of a piece.
+  ///
+  /// ### Arguments
+  ///
+  /// u8 value representing a piece, i.e. `WHITE_KING`, `WHITE_QUEEN`, etc.
+  ///
+  /// ### Return value
+  ///
+  /// f32 value assigned to the material value of the piece. 0 if the piece is invalid.
+  /// Values are always positive, also for black pieces
   pub fn material_value(&self) -> f32 {
     match self.p_type {
-      PieceType::King => 100.0,
-      PieceType::Queen => 9.5,
-      PieceType::Rook => 5.0,
-      PieceType::Bishop => 3.0,
-      PieceType::Knight => 3.0,
-      PieceType::Pawn => 1.0,
+      PieceType::King => KING_VALUE,
+      PieceType::Queen => QUEEN_VALUE,
+      PieceType::Rook => ROOK_VALUE,
+      PieceType::Bishop => BISHOP_VALUE,
+      PieceType::Knight => KNIGHT_VALUE,
+      PieceType::Pawn => PAWN_VALUE,
     }
   }
 
-  /// Indicates the material value of a piece.
+  /// Indicates the material value (absolute value) of a piece.
+  ///
+  /// ### Arguments
+  ///
+  /// u8 value representing a piece, i.e. `WHITE_KING`, `WHITE_QUEEN`, etc.
+  ///
+  /// ### Return value
+  ///
+  /// f32 value assigned to the material value of the piece. 0 if the piece is invalid.
+  /// Values are always positive, also for black pieces
+  ///
   pub fn material_value_from_u8(piece: u8) -> f32 {
     match piece {
-      WHITE_KING => 100.0,
-      WHITE_QUEEN => 9.0,
-      WHITE_ROOK => 5.0,
-      WHITE_BISHOP => 3.05,
-      WHITE_KNIGHT => 3.0,
-      WHITE_PAWN => 1.0,
-      BLACK_KING => -100.0,
-      BLACK_QUEEN => -9.0,
-      BLACK_ROOK => -5.0,
-      BLACK_BISHOP => -3.05,
-      BLACK_KNIGHT => -3.0,
-      BLACK_PAWN => -1.0,
+      WHITE_KING => KING_VALUE,
+      WHITE_QUEEN => QUEEN_VALUE,
+      WHITE_ROOK => ROOK_VALUE,
+      WHITE_BISHOP => BISHOP_VALUE,
+      WHITE_KNIGHT => KNIGHT_VALUE,
+      WHITE_PAWN => PAWN_VALUE,
+      BLACK_KING => KING_VALUE,
+      BLACK_QUEEN => QUEEN_VALUE,
+      BLACK_ROOK => ROOK_VALUE,
+      BLACK_BISHOP => BISHOP_VALUE,
+      BLACK_KNIGHT => KNIGHT_VALUE,
+      BLACK_PAWN => PAWN_VALUE,
       _ => 0.0,
+    }
+  }
+
+  /// Indicates the material value (absolute value) of a piece.
+  ///
+  /// ### Arguments
+  ///
+  /// * `piece_type`: PieceType value representing a piece, i.e. `WHITE_KING`, `WHITE_QUEEN`, etc.
+  ///
+  /// ### Return value
+  ///
+  /// f32 value assigned to the material value of the piece.
+  ///
+  pub fn material_value_from_type(piece_type: PieceType) -> f32 {
+    match piece_type {
+      PieceType::King => KING_VALUE,
+      PieceType::Queen => QUEEN_VALUE,
+      PieceType::Rook => ROOK_VALUE,
+      PieceType::Bishop => BISHOP_VALUE,
+      PieceType::Knight => KNIGHT_VALUE,
+      PieceType::Pawn => PAWN_VALUE,
     }
   }
 
@@ -478,17 +526,17 @@ mod tests {
       p_type: PieceType::King,
       color: Color::White,
     };
-    assert_eq!(100.0, piece.material_value());
+    assert_eq!(KING_VALUE, piece.material_value());
     piece.p_type = PieceType::Queen;
-    assert_eq!(9.5, piece.material_value());
+    assert_eq!(QUEEN_VALUE, piece.material_value());
     piece.p_type = PieceType::Rook;
-    assert_eq!(5.0, piece.material_value());
+    assert_eq!(ROOK_VALUE, piece.material_value());
     piece.p_type = PieceType::Bishop;
-    assert_eq!(3.0, piece.material_value());
+    assert_eq!(BISHOP_VALUE, piece.material_value());
     piece.p_type = PieceType::Knight;
-    assert_eq!(3.0, piece.material_value());
+    assert_eq!(KNIGHT_VALUE, piece.material_value());
     piece.p_type = PieceType::Pawn;
-    assert_eq!(1.0, piece.material_value());
+    assert_eq!(PAWN_VALUE, piece.material_value());
   }
 
   #[test]

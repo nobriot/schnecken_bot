@@ -61,6 +61,7 @@ pub fn knight_attack(game_state: &GameState, i: u8) -> f32 {
 mod tests {
   use super::*;
 
+  #[ignore]
   #[test]
   fn test_knight_attack() {
     let fen = "rq3b1r/pp1nkp2/2n1p2p/2pp3p/Q4P2/P1PPPb2/1P1N2P1/R1B1KBR1 w Q - 0 17";

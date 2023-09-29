@@ -3,13 +3,12 @@ use log::*;
 // From our module
 use super::super::cache::EngineCache;
 use super::endgame::get_endgame_position_evaluation;
-use super::helpers::bishop::*;
 use super::helpers::generic::*;
-use super::helpers::knight::*;
 use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
+use crate::engine::Engine;
 
 use crate::model::board_geometry::*;
 use crate::model::game_state::*;
@@ -87,51 +86,45 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
-  // FIXME: THis is slow.
-  for i in 0..64_usize {
-    if !game_state.board.has_piece(i as u8) {
-      continue;
+  for (i, piece) in game_state.board.pieces.white {
+    let defenders = game_state.board.get_attackers(i, Color::White);
+    let attackers = game_state.board.get_attackers(i, Color::Black);
+    if defenders == 0 {
+      score -= HANGING_PENALTY;
     }
-    let score_factor =
-      Color::score_factor(Piece::color_from_u8(game_state.board.pieces.get(i as u8)));
-    /*
-     */
-    // We are excited about hanging pieces when it's our turn :-)
-    // Here it could probably be better.
-    if is_hanging(game_state, i as u8) {
-      if is_attacked(game_state, i as u8)
-        && (game_state.board.side_to_play
-          == Color::opposite(Piece::color_from_u8(game_state.board.pieces.get(i as u8))))
-      {
-        score -=
-          HANGING_FACTOR * Piece::material_value_from_u8(game_state.board.pieces.get(i as u8));
-      } else {
-        // We usually are not the most fan of hanging pieces
-        score -= HANGING_PENALTY * score_factor;
-      }
-    }
-    // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i) {
-      score += REACHABLE_OUTPOST_BONUS * score_factor;
-    }
-    if occupies_reachable_outpost(game_state, i) {
-      score += OUTPOST_BONUS * score_factor;
+    if attackers.count_ones() > defenders.count_ones()
+      && game_state.board.side_to_play == Color::Black
+    {
+      score -= HANGING_FACTOR * Piece::material_value_from_type(piece);
     }
 
-    // Piece attacks
-    score += score_factor * pawn_attack(game_state, i as u8) / 3.1;
-    let value = knight_attack(game_state, i as u8);
-    if value.abs() > 3.0 {
-      score += score_factor * (value - 3.0) / 2.3;
+    // Check if we have some good positional stuff
+    if has_reachable_outpost(game_state, i as usize) {
+      score += REACHABLE_OUTPOST_BONUS;
     }
-    let value = bishop_attack_with_pins(game_state, i);
-    if value.abs() > 3.1 {
-      score += score_factor * (value - 3.1) / 1.9;
-    } else {
-      let value = bishop_attack(game_state, i);
-      if value.abs() > 3.1 {
-        score += score_factor * (value - 3.1) / 2.3;
-      }
+    if occupies_reachable_outpost(game_state, i as usize) {
+      score += OUTPOST_BONUS;
+    }
+  }
+
+  for (i, piece) in game_state.board.pieces.black {
+    let defenders = game_state.board.get_attackers(i, Color::Black);
+    let attackers = game_state.board.get_attackers(i, Color::White);
+    if defenders == 0 {
+      score += HANGING_PENALTY;
+    }
+    if attackers.count_ones() > defenders.count_ones()
+      && game_state.board.side_to_play == Color::White
+    {
+      score += HANGING_FACTOR * Piece::material_value_from_type(piece);
+    }
+
+    // Check if we have some good positional stuff
+    if has_reachable_outpost(game_state, i as usize) {
+      score -= REACHABLE_OUTPOST_BONUS;
+    }
+    if occupies_reachable_outpost(game_state, i as usize) {
+      score -= OUTPOST_BONUS;
     }
   }
 
@@ -196,9 +189,7 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
 ///
 ///
 pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
-  if !cache.has_move_list(&game_state) {
-    cache.set_move_list(game_state, &game_state.get_moves());
-  }
+  Engine::find_move_list(cache, game_state);
   if cache.get_move_list(&game_state).is_empty() {
     match (
       game_state.board.side_to_play,
@@ -268,7 +259,6 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
     }
   }
 
-  //FIXME: make it fast
   if !cache.has_game_phase(&game_state) {
     determine_game_phase(cache, game_state);
   }
@@ -359,6 +349,18 @@ mod tests {
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < 1.0);
     assert!(evaluation > -1.0);
+  }
+
+  #[test]
+  fn test_evaluate_queen_down() {
+    let cache = EngineCache::new();
+    let fen = "rnbqk2r/pp3ppp/2pb1n2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7";
+    let game_state = GameState::from_fen(fen);
+    game_state.get_moves();
+    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
+    assert_eq!(false, game_over);
+    println!("Evaluation: {}", evaluation);
+    assert!(evaluation < -7.0);
   }
 
   #[test]

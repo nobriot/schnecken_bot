@@ -1,3 +1,5 @@
+use super::helpers::generic::get_combined_material_score;
+use super::helpers::generic::get_material_score;
 use super::helpers::king::*;
 use super::helpers::mobility::*;
 use super::position::*;
@@ -5,6 +7,7 @@ use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::get_king_moves;
+use crate::model::piece_moves::KING_MOVES;
 
 const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
@@ -140,7 +143,7 @@ fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
 ///
 pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   // Try to assign a better score as we are getting closer to corner the king
-  let mut score = 0.0;
+
   let attacking_side = if game_state.board.pieces.black.all() == game_state.board.pieces.black.king
   {
     Color::White
@@ -148,20 +151,22 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::Black
   };
 
+  let mut score = get_material_score(game_state, attacking_side);
+
   let king_position = match attacking_side {
     Color::White => game_state.board.get_black_king_square(),
     Color::Black => game_state.board.get_white_king_square(),
-  };
+  } as usize;
 
-  // BoardMask bitmap of where the king can go
-  score += get_king_moves(
-    0,
-    game_state
-      .board
-      .get_attackers(king_position, attacking_side),
-    king_position as usize,
-  )
-  .count_ones() as f32;
+  if king_position > 64 {
+    return 0.0;
+  }
+
+  // BoardMask bitmap of where the king can go. We want as few squares as possible
+  score += game_state
+    .board
+    .get_attacked_squares(KING_MOVES[king_position], attacking_side)
+    .count_ones() as f32;
 
   // Now check how many square are available for each king
   score += 7.0
@@ -190,26 +195,26 @@ mod tests {
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     //println!("{}", game_state.board);
-    let expected_score = -(64.0 - 12.0 + 7.0 - 4.0);
+    let expected_score = -(QUEEN_VALUE + 4.0 + 3.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Another one from white's perpective
     // King is on a controlled rank, so it will go either side it likes.
     let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = 64.0 - 40.0 + 7.0 - 2.0;
+    let expected_score = QUEEN_VALUE + 5.0 + 5.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // From a game with another bot:
     let fen = "8/1k6/6Q1/5K2/8/8/8/8 w - - 7 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = 64.0 - 12.0 + 7.0 - 4.0;
+    let expected_score = QUEEN_VALUE + 3.0 + 3.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Check if the incentive to box the king better is good:
     let fen = "8/1k6/3Q4/5K2/8/8/8/8 b - - 8 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = 64.0 - 6.0 + 7.0 - 4.0;
+    let expected_score = QUEEN_VALUE + 5.0 + 3.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
 
@@ -217,17 +222,17 @@ mod tests {
   fn test_engame_eval_queen_vs_king() {
     let fen = "1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = 64.0 - 30.0 + 7.0 - 5.0;
+    let expected_score = QUEEN_VALUE + 3.0 + 2.0;
     assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/8/2Q5/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let blunder_score = 64.0 - 15.0 + 7.0 - 5.0;
+    let blunder_score = QUEEN_VALUE + 5.0 + 2.0;
     assert_eq!(blunder_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/2Q5/8/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let better_score = 64.0 - 20.0 + 7.0 - 5.0;
+    let better_score = QUEEN_VALUE + 5.0 + 2.0;
     assert_eq!(better_score, get_endgame_position_evaluation(&game_state));
 
     //FIXME: Blunder scores higher for now.

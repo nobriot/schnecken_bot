@@ -7,7 +7,6 @@ use crate::model::piece::*;
 
 // Constants
 const DEVELOPMENT_FACTOR: f32 = 0.30;
-const PIECE_MOBILITY_FACTOR: f32 = 0.05;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
@@ -24,12 +23,6 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   score += DEVELOPMENT_FACTOR
     * (get_development_score(game_state, Color::White) as f32
       - get_development_score(game_state, Color::Black) as f32);
-
-  /*
-  score += PIECE_MOBILITY_FACTOR
-  * (get_piece_mobility(game_state, Color::White) as f32
-  - get_piece_mobility(game_state, Color::Black) as f32);
-   */
 
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)
@@ -247,11 +240,16 @@ mod tests {
 
   #[test]
   fn evaluate_hanging_knight() {
+    use crate::engine::eval::helpers::generic::get_combined_material_score;
     let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/nPPP1PPP/RNB1KB1R w KQkq - 0 9";
     let game_state = GameState::from_fen(fen);
+    let material_score = get_combined_material_score(&game_state);
+    println!("Material score: {material_score}");
+    assert!(material_score == KNIGHT_VALUE - PAWN_VALUE);
+
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
-    assert!(eval > 4.5);
+    assert!(eval > (material_score + KNIGHT_VALUE * 0.25));
 
     // Capturing should be evaluated slightly better:
     let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/RPPP1PPP/1NB1KB1R b Kkq - 0 9";

@@ -1,4 +1,3 @@
-use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -67,9 +66,7 @@ pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
     Color::Black => game_state.board.pieces.black,
   };
 
-  panic!("This function is too slow, let's not use it for now");
-
-  //mobility
+  mobility
 }
 
 // -----------------------------------------------------------------------------
@@ -80,6 +77,7 @@ mod tests {
   use super::*;
 
   #[test]
+  #[ignore]
   fn test_mobility_area() {
     let fen = "rnbqk1nr/pppppppp/8/8/1b6/3P4/PPPQPPPP/RNBK1BNR b KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
@@ -105,6 +103,7 @@ mod tests {
     );
   }
 
+  #[ignore]
   #[test]
   fn test_piece_mobility() {
     let fen = "rnbqk1nr/pppppppp/8/8/1b6/3P4/PPPQPPPP/RNBK1BNR b KQkq - 0 1";

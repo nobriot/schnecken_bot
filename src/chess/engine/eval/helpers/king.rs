@@ -3,6 +3,8 @@ use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
 
+use log::*;
+
 /// Determine the number of attacked squares surrounding the king
 ///
 /// # Arguments
@@ -17,7 +19,7 @@ use crate::model::piece_moves::KING_MOVES;
 ///
 pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
-    println!("King disappeared {}", game_state.to_fen());
+    debug!("King disappeared {}", game_state.to_fen());
     return 0.0;
   }
 
@@ -51,6 +53,10 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
 /// True if the king has left its home rank and major enemy pieces are still here.
 ///
 pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
+  if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
+    debug!("King disappeared {}", game_state.to_fen());
+    return false;
+  }
   let king_position = match color {
     Color::White => game_state.board.get_white_king_square(),
     Color::Black => game_state.board.get_black_king_square(),

@@ -148,14 +148,10 @@ impl GameState {
   /// i.e. 0 the position just occured for the first time. 2 means a threefold repetition
   ///
   pub fn get_board_repetitions(&self) -> usize {
-    let mut repetition_count = 0;
-    for hash in &self.last_positions {
-      if self.board.hash == *hash {
-        repetition_count += 1;
-      }
-    }
-
-    repetition_count
+    self.last_positions.iter().fold(
+      0,
+      |count, x| if *x == self.board.hash { count + 1 } else { count },
+    )
   }
 
   /// Get all the possible moves in a position, for the side to play.
@@ -428,9 +424,9 @@ mod tests {
     let mut game_state = GameState::from_fen(fen);
 
     let mut positions_computed = 0;
-    let start_time = Instant::now();
 
     // Spin at it for 1 second
+    let start_time = Instant::now();
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
       let moves = game_state.get_moves();
       if !moves.is_empty() {
@@ -456,11 +452,11 @@ mod tests {
     let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR w KQkq - 5 6";
 
     let mut positions_computed = 0;
-    let start_time = Instant::now();
+    let game_state = GameState::from_fen(fen);
 
     // Spin at it for 1 second
+    let start_time = Instant::now();
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let game_state = GameState::from_fen(fen);
       let _ = game_state.get_moves();
       positions_computed += 1;
     }

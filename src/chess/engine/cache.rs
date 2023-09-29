@@ -274,10 +274,14 @@ impl EngineCache {
   ///
   pub fn get_eval(&self, game_state: &GameState) -> f32 {
     if !self.has_eval(game_state) {
-      error!("Looked up an eval without any value for GameState. Returning 0");
-      return 0.0;
+      return f32::NAN;
     }
-    *self.evals.lock().unwrap().get(game_state).unwrap_or(&0.0)
+    *self
+      .evals
+      .lock()
+      .unwrap()
+      .get(game_state)
+      .unwrap_or(&f32::NAN)
   }
 
   // ---------------------------------------------------------------------------
@@ -467,7 +471,8 @@ impl EngineCache {
     }
   }
 
-  /// Sets the alpha value for the board configuration only if the previous value is higher.
+  /// Sets the alpha value for the board configuration
+  /// only if the previous value is lower.
   ///
   /// ### Arguments
   ///
@@ -543,8 +548,8 @@ impl EngineCache {
     }
   }
 
-  /// Updates the alpha value for the board configuration only
-  /// if the previous value is lower.
+  /// Updates the beta value for the board configuration only
+  /// if the previous value is higher.
   ///
   /// ### Arguments
   ///

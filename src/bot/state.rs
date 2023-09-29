@@ -402,10 +402,8 @@ impl BotState {
 
     let move_index = rand::thread_rng().gen_range(0..cutoff);
     info!(
-      "Playing {}th best move ({}) for GameID {}",
-      move_index + 1,
-      analysis[move_index].0,
-      game_id
+      "Playing Line {} ({}) for GameID {}",
+      move_index, analysis[move_index].0, game_id
     );
 
     tokio::spawn(async move {
