@@ -340,7 +340,7 @@ impl Engine {
   }
 
   /// Returns the full analysis
-  pub fn get_line_details(&self) -> Vec<(Move, f32)> {
+  pub fn get_analysis(&self) -> Vec<(Move, f32)> {
     let mut analysis: Vec<(Move, f32)> = Vec::new();
     let move_list = self.cache.get_move_list(&self.position);
 
@@ -768,7 +768,7 @@ mod tests {
     engine.print_evaluations();
     let expected_move = Move::from_string("c1b2");
     assert_eq!(expected_move, engine.get_best_move());
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert_eq!(analysis[0].1, 200.0);
   }
 
@@ -1102,7 +1102,7 @@ mod tests {
 
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() == Move::from_string("f8e8"));
   }
@@ -1114,7 +1114,7 @@ mod tests {
     engine.set_search_time_limit(1875);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() == Move::from_string("b5b4"));
   }
@@ -1126,7 +1126,7 @@ mod tests {
     engine.set_search_time_limit(800);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
 
     // 25 moves.
     assert_eq!(analysis.len(), 26);
@@ -1147,7 +1147,7 @@ mod tests {
     engine.set_search_time_limit(1897);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() != Move::from_string("f8d6"));
   }
@@ -1162,7 +1162,7 @@ mod tests {
     engine.set_search_time_limit(1870);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() != Move::from_string("d6e5"));
   }
@@ -1176,7 +1176,7 @@ mod tests {
     engine.set_search_time_limit(423);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() == Move::from_string("c2d4"));
   }
@@ -1199,7 +1199,7 @@ mod tests {
     engine.set_search_time_limit(6426);
     engine.go();
     engine.print_evaluations();
-    let analysis = engine.get_line_details();
+    let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(analysis[0].1 < -5.0);
   }

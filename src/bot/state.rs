@@ -381,7 +381,7 @@ impl BotState {
     let game_id_clone = String::from(game_id);
 
     // Select randomly one of the good moves.
-    let mut analysis = game.engine.get_line_details();
+    let mut analysis = game.engine.get_analysis();
     let mut cutoff = 1;
     if analysis.is_empty() {
       error!("Empty result from the engine.");

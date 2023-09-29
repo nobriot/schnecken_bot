@@ -32,20 +32,21 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
 pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
   let mut score: f32 = 0.0;
 
-  let rook = match color {
-    Color::White => WHITE_ROOK,
-    Color::Black => BLACK_ROOK,
+  let mut rooks = match color {
+    Color::White => game_state.board.pieces.white.rook,
+    Color::Black => game_state.board.pieces.black.rook,
   };
 
-  for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) == rook {
-      let (file, _) = Board::index_to_fr(i);
-      if is_file_open(game_state, file) {
-        score += 1.0;
-      } else if is_file_half_open(game_state, file) {
-        score += 0.5;
-      }
+  while rooks != 0 {
+    let rook = rooks.trailing_zeros() as u8;
+    let (file, _) = Board::index_to_fr(rook);
+    if is_file_open(game_state, file) {
+      score += 1.0;
+    } else if is_file_half_open(game_state, file) {
+      score += 0.5;
     }
+
+    rooks &= rooks - 1;
   }
 
   score

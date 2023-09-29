@@ -38,11 +38,6 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
     score += KING_TOO_ADVENTUROUS_PENALTY;
   }
 
-  // Check if rooks are placed on interesting files
-  score += ROOKS_FILE_BONUS
-    * (get_rooks_file_score(game_state, Color::White) as f32
-      - get_rooks_file_score(game_state, Color::Black) as f32);
-
   for (i, piece) in game_state.board.pieces.white {
     match piece {
       PieceType::King => {

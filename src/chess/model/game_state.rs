@@ -148,10 +148,12 @@ impl GameState {
   /// i.e. 0 the position just occured for the first time. 2 means a threefold repetition
   ///
   pub fn get_board_repetitions(&self) -> usize {
-    self.last_positions.iter().fold(
-      0,
-      |count, x| if *x == self.board.hash { count + 1 } else { count },
-    )
+    self
+      .last_positions
+      .iter()
+      .filter(|x| **x == self.board.hash)
+      .count()
+    // self.last_positions.iter().fold(0,|count, x| if *x == self.board.hash { count + 1 } else { count },)
   }
 
   /// Get all the possible moves in a position, for the side to play.

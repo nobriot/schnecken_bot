@@ -58,21 +58,24 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_number_of_pawn_islands(game_state, Color::Black) as f32
       - get_number_of_pawn_islands(game_state, Color::White) as f32);
 
+  /*
+  FIXME: These computations are slow
   score += PASSED_PAWN_FACTOR
-    * (get_number_of_passers(game_state, Color::White) as f32
-      - get_number_of_passers(game_state, Color::Black) as f32);
+  * (get_number_of_passers(game_state, Color::White) as f32
+  - get_number_of_passers(game_state, Color::Black) as f32);
 
   score += PROTECTED_PASSED_PAWN_FACTOR
-    * (get_number_of_protected_passers(game_state, Color::White) as f32
-      - get_number_of_protected_passers(game_state, Color::Black) as f32);
+  * (get_number_of_protected_passers(game_state, Color::White) as f32
+  - get_number_of_protected_passers(game_state, Color::Black) as f32);
 
   score += PROTECTED_PAWN_FACTOR
-    * (get_number_of_protected_pawns(game_state, Color::White) as f32
-      - get_number_of_protected_pawns(game_state, Color::Black) as f32);
+  * (get_number_of_protected_pawns(game_state, Color::White) as f32
+  - get_number_of_protected_pawns(game_state, Color::Black) as f32);
 
   score += BACKWARDS_PAWN_FACTOR
-    * (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
-      - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
+  * (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
+  - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
+  */
 
   // Evaluate the quality of our rooks:
   if are_rooks_connected(game_state, Color::White) {
@@ -99,12 +102,15 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Check if we have some good positional stuff
+    /*
+    FIXME: This is slow
     if has_reachable_outpost(game_state, i as usize) {
       score += REACHABLE_OUTPOST_BONUS;
     }
     if occupies_reachable_outpost(game_state, i as usize) {
       score += OUTPOST_BONUS;
     }
+    */
   }
 
   for (i, piece) in game_state.board.pieces.black {
@@ -120,12 +126,15 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i as usize) {
-      score -= REACHABLE_OUTPOST_BONUS;
-    }
-    if occupies_reachable_outpost(game_state, i as usize) {
-      score -= OUTPOST_BONUS;
-    }
+    /*
+    FIXME: This is slow
+        if has_reachable_outpost(game_state, i as usize) {
+          score -= REACHABLE_OUTPOST_BONUS;
+        }
+        if occupies_reachable_outpost(game_state, i as usize) {
+          score -= OUTPOST_BONUS;
+        }
+        */
   }
 
   // Check on the material imbalance
@@ -251,6 +260,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
 /// Score assigned to the position.
 pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, bool) {
   // Check if the evaluation is due to a game over:
+
   if is_game_over(cache, game_state) {
     if cache.has_eval(&game_state) {
       return (cache.get_eval(&game_state), true);
@@ -258,6 +268,8 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
       return (0.0, true);
     }
   }
+  /*
+   */
 
   if !cache.has_game_phase(&game_state) {
     determine_game_phase(cache, game_state);
@@ -267,13 +279,15 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
+  /*
+   */
 
   // Repeating positions is getting the score closer to 0:
   if game_state.get_board_repetitions() != 0 {
     score /= 2.0;
   }
 
-  //score = default_position_evaluation(game_state);
+  score = default_position_evaluation(game_state);
   cache.set_eval(game_state, score);
   cache.set_status(game_state, GameStatus::Ongoing);
   (score, false)
@@ -488,6 +502,38 @@ mod tests {
     assert!(
       positions_evaluated > 1_000_000,
       "Number of NPS for evaluating positions using evaluate_position: {}",
+      positions_evaluated
+    );
+  }
+
+  #[test]
+  fn position_bench_is_game_over_per_second() {
+    use crate::model::board::Board;
+    use std::time::{Duration, Instant};
+
+    let cache = EngineCache::new();
+
+    // Create a bunch of random boards
+    const NUMBER_OF_BOARDS: usize = 1_000_000;
+    let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
+    for _ in 0..NUMBER_OF_BOARDS {
+      game_states.push(GameState::from_board(&Board::new_random()));
+    }
+
+    let mut rng = rand::thread_rng();
+    let mut positions_evaluated = 0;
+    let start_time = Instant::now();
+
+    // Spin at it for 1 second
+    while Instant::now() < (start_time + Duration::from_millis(1000)) {
+      let _ = is_game_over(&cache, &game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
+      positions_evaluated += 1;
+    }
+
+    // 1000 kNPS would be nice. Right now we are at a very low number LOL
+    assert!(
+      positions_evaluated > 1_000_000,
+      "Number of NPS for determining if it is game_over: {}",
       positions_evaluated
     );
   }
