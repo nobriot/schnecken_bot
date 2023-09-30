@@ -77,4 +77,24 @@ mod tests {
     assert_eq!(false, are_rooks_connected(&game_state, Color::Black));
     assert_eq!(true, are_rooks_connected(&game_state, Color::White));
   }
+
+  #[test]
+  fn evaluate_well_placed_rooks() {
+    // Compare 3 position, one with rook on closed file, half open and then open file
+    let fen = "6k1/5ppp/6p1/8/8/8/5PPP/5RK1 w - - 0 12";
+    let game_state = GameState::from_fen(fen);
+    let eval_closed = get_rooks_file_score(&game_state, Color::White);
+
+    let fen = "6k1/5ppp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
+    let game_state = GameState::from_fen(fen);
+    let eval_half_open = get_rooks_file_score(&game_state, Color::White);
+
+    let fen = "6k1/4p1pp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
+    let game_state = GameState::from_fen(fen);
+    let eval_open = get_rooks_file_score(&game_state, Color::White);
+
+    println!("Evaluation: closed: {eval_closed} - half open: {eval_half_open} - open: {eval_open}");
+    assert!(eval_open > eval_half_open);
+    assert!(eval_half_open > eval_closed);
+  }
 }

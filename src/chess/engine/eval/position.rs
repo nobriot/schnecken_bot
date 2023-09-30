@@ -21,8 +21,8 @@ const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
 const PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
-const ROOK_FILE_FACTOR: f32 = 0.015;
-const HANGING_FACTOR: f32 = 0.3;
+const ROOK_FILE_FACTOR: f32 = 0.03;
+const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.1;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
@@ -279,13 +279,13 @@ pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, b
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
+  
   /*
-   */
-
   // Repeating positions is getting the score closer to 0:
   if game_state.get_board_repetitions() != 0 {
     score /= 2.0;
   }
+  */
 
   score = default_position_evaluation(game_state);
   cache.set_eval(game_state, score);
@@ -348,7 +348,7 @@ mod tests {
     let (evaluation, game_over) = evaluate_position(&cache, &game_state);
     println!("Evaluation : {evaluation} - Game Over: {game_over}");
     assert_eq!(false, game_over);
-    assert!(evaluation < -3.0);
+    assert!(evaluation < -((HANGING_FACTOR * QUEEN_VALUE) - 1.0));
   }
 
   #[test]

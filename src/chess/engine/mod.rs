@@ -307,6 +307,7 @@ impl Engine {
 
     while !self.has_been_searching_too_long(start_time) && !self.stop_requested() {
       self.analysis.increment_depth();
+      println!("Starting depth {}", self.analysis.get_depth());
 
       self.search(
         &self.position.clone(),
@@ -315,7 +316,6 @@ impl Engine {
         start_time,
       );
 
-      println!("Depth {} completed", self.analysis.get_depth());
       self.cache.clear_alpha_beta_values();
       if self.options.max_depth > 0 && self.analysis.get_depth() > self.options.max_depth {
         break;
@@ -481,7 +481,7 @@ impl Engine {
       let mut move_list = game_state.get_moves();
 
       // Sort the moves based on interesting-ness
-      move_list.sort_by(|a, b| Engine::compare_moves(cache, &game_state, a, b));
+      //move_list.sort_by(|a, b| Engine::compare_moves(cache, &game_state, a, b));
       cache.set_move_list(game_state, &move_list);
     }
   }
@@ -611,7 +611,7 @@ impl Engine {
 
     if depth > max_depth {
       //info!("Reached maximum depth. Stopping search");
-      //return;
+      return;
     }
 
     // Check that we know the moves
@@ -619,13 +619,15 @@ impl Engine {
 
     for m in self.cache.get_move_list(&game_state) {
       if self.cache.is_pruned(&game_state) {
-        debug!("Skipping {} as it is pruned", game_state.to_fen());
+        println!("Skipping {} as it is pruned", game_state.to_fen());
         return;
       }
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
       if depth > max_depth && !game_state.board.is_move_a_capture(&m) {
+        // FIXME: This goes way too deep for some reason.
+        println!("Skipping {} as it is pruned", game_state.to_fen());
         continue;
       }
 

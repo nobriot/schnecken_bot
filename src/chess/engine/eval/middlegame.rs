@@ -6,12 +6,9 @@ use crate::engine::square_affinity::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
-const PIECE_MOBILITY_FACTOR: f32 = 0.1;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 1.5;
-
-const ROOKS_FILE_BONUS: f32 = 0.3;
-const SQUARE_TABLE_FACTOR: f32 = 0.02;
+const SQUARE_TABLE_FACTOR: f32 = 0.1;
 
 /// Gives a score based on the position in the middlegame
 ///
@@ -122,25 +119,5 @@ mod tests {
     println!("Evaluation: Nothing: {eval_nothing} - Reachable outpost: {eval_reachable_outpost} - Outpost: {eval_outpost}");
     assert!(eval_reachable_outpost > eval_nothing);
     assert!(eval_outpost > eval_reachable_outpost);
-  }
-
-  #[test]
-  fn evaluate_well_placed_rooks() {
-    // Compare 3 position, one with rook on closed file, half open and then open file
-    let fen = "6k1/5ppp/6p1/8/8/8/5PPP/5RK1 w - - 0 12";
-    let game_state = GameState::from_fen(fen);
-    let eval_closed = get_middlegame_position_evaluation(&game_state);
-
-    let fen = "6k1/5ppp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
-    let game_state = GameState::from_fen(fen);
-    let eval_half_open = get_middlegame_position_evaluation(&game_state);
-
-    let fen = "6k1/4p1pp/6p1/8/8/8/4P1PP/5RK1 w - - 0 12";
-    let game_state = GameState::from_fen(fen);
-    let eval_open = get_middlegame_position_evaluation(&game_state);
-
-    println!("Evaluation: closed: {eval_closed} - half open: {eval_half_open} - open: {eval_open}");
-    assert!(eval_open > eval_half_open);
-    assert!(eval_half_open > eval_closed);
   }
 }

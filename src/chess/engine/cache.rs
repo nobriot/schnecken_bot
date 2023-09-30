@@ -675,15 +675,18 @@ impl EngineCache {
     a: &Move,
     b: &Move,
   ) -> Ordering {
-    let board_a = self.get_variation(game_state, a);
-    let board_b = self.get_variation(game_state, b);
-
-    match (self.has_eval(&board_a), self.has_eval(&board_b)) {
+    match (
+      self.has_variation(game_state, a),
+      self.has_variation(game_state, b),
+    ) {
       (false, false) => return Ordering::Equal,
       (true, false) => return Ordering::Less,
       (false, true) => return Ordering::Greater,
       (_, _) => {},
     }
+
+    let board_a = self.get_variation(game_state, a);
+    let board_b = self.get_variation(game_state, b);
 
     let board_a_eval = self.get_eval(&board_a);
     let board_b_eval = self.get_eval(&board_b);
