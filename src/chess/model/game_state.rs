@@ -31,6 +31,7 @@ pub enum GameStatus {
   Ongoing,
   WhiteWon,
   BlackWon,
+  Stalemate,
   Draw,
 }
 

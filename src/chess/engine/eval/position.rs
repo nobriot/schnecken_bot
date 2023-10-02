@@ -147,12 +147,12 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
 // Determine the game phrase and update it.
 pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   // Do not recalculate when we calculated already
-  if cache.has_game_phase(&game_state) {
+  if cache.has_game_phase(&game_state.board) {
     return;
   }
 
   if game_state.move_count > 30 {
-    cache.set_game_phase(game_state, GamePhase::Endgame);
+    cache.set_game_phase(&game_state.board, GamePhase::Endgame);
     return;
   }
 
@@ -175,11 +175,11 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
     .count_ones() as usize;
 
   if material_count < 17 {
-    cache.set_game_phase(game_state, GamePhase::Endgame);
+    cache.set_game_phase(&game_state.board, GamePhase::Endgame);
   } else if development_index > 6 {
-    cache.set_game_phase(game_state, GamePhase::Opening);
+    cache.set_game_phase(&game_state.board, GamePhase::Opening);
   } else {
-    cache.set_game_phase(game_state, GamePhase::Middlegame);
+    cache.set_game_phase(&game_state.board, GamePhase::Middlegame);
   }
 }
 
@@ -197,55 +197,52 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
 /// false if the game is ongoing and must be evaluated manually
 ///
 ///
-pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
-  Engine::find_move_list(cache, game_state);
-  if cache.get_move_list(&game_state).is_empty() {
+pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
+  Engine::find_move_list(cache, &game_state.board);
+  if cache.get_move_list(&game_state.board).is_empty() {
     match (
       game_state.board.side_to_play,
       game_state.board.checkers.count_ones(),
     ) {
       (_, 0) => {
-        cache.set_status(game_state, GameStatus::Draw);
-        cache.set_eval(game_state, 0.0);
-        return true;
+        cache.set_status(game_state, GameStatus::Stalemate);
+        cache.set_eval(&game_state.board, 0.0);
+        return GameStatus::Stalemate;
       },
       (Color::Black, _) => {
         cache.set_status(game_state, GameStatus::WhiteWon);
-        cache.set_eval(game_state, 200.0);
-        return true;
+        cache.set_eval(&game_state.board, 200.0);
+        return GameStatus::WhiteWon;
       },
       (Color::White, _) => {
         cache.set_status(game_state, GameStatus::BlackWon);
-        cache.set_eval(game_state, -200.0);
-        return true;
+        cache.set_eval(&game_state.board, -200.0);
+        return GameStatus::BlackWon;
       },
     }
   }
   if game_state.ply >= 100 {
     debug!("100 Ply detected");
     cache.set_status(game_state, GameStatus::Draw);
-    cache.set_eval(game_state, 0.0);
-    return true;
+    return GameStatus::Draw;
   }
 
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if game_state.board.is_game_over_by_insufficient_material() {
     debug!("game over by insufficient material detected");
     cache.set_status(game_state, GameStatus::Draw);
-    cache.set_eval(game_state, 0.0);
-    return true;
+    return GameStatus::Draw;
   }
 
   // Check the 3-fold repetitions
   if game_state.get_board_repetitions() >= 2 {
     debug!("3-fold repetition detected");
     cache.set_status(game_state, GameStatus::Draw);
-    cache.set_eval(game_state, 0.0);
-    return true;
+    return GameStatus::Draw;
   }
 
   cache.set_status(game_state, GameStatus::Ongoing);
-  return false;
+  return GameStatus::Ongoing;
 }
 
 /// Evaluates a position and returns a score and if the game is over.
@@ -258,39 +255,20 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> bool {
 /// ### Returns
 ///
 /// Score assigned to the position.
-pub fn evaluate_position(cache: &EngineCache, game_state: &GameState) -> (f32, bool) {
-  // Check if the evaluation is due to a game over:
-
-  if is_game_over(cache, game_state) {
-    if cache.has_eval(&game_state) {
-      return (cache.get_eval(&game_state), true);
-    } else {
-      return (0.0, true);
-    }
-  }
-  /*
-   */
-
-  if !cache.has_game_phase(&game_state) {
+pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
+  if !cache.has_game_phase(&game_state.board) {
     determine_game_phase(cache, game_state);
   }
-  let mut score = match cache.get_game_phase(&game_state) {
+  let mut score = match cache.get_game_phase(&game_state.board) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
-  
-  /*
-  // Repeating positions is getting the score closer to 0:
-  if game_state.get_board_repetitions() != 0 {
-    score /= 2.0;
-  }
-  */
 
   score = default_position_evaluation(game_state);
-  cache.set_eval(game_state, score);
+  cache.set_eval(&game_state.board, score);
   cache.set_status(game_state, GameStatus::Ongoing);
-  (score, false)
+  score
 }
 
 // -----------------------------------------------------------------------------
@@ -306,60 +284,55 @@ mod tests {
 
   use super::*;
   #[test]
-  fn test_evaluate_position() {
+  fn test_evaluate_board() {
     // This is a forced checkmate in 2:
     let cache = EngineCache::new();
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
     let game_state = GameState::from_fen(fen);
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
     println!("Evaluation {evaluation}");
   }
 
   #[test]
-  fn test_evaluate_position_checkmate_in_one() {
+  fn test_evaluate_board_checkmate_in_one() {
     // This is a forced checkmate in 1:
     let cache = EngineCache::new();
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
     let game_state = GameState::from_fen(fen);
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
     println!("Evaluation {evaluation}");
   }
 
   #[test]
-  fn test_evaluate_position_checkmate() {
+  fn test_evaluate_board_checkmate() {
     // This is a "game over" position
     let cache = EngineCache::new();
     let fen = "1n4nr/5ppp/8/1P1Np3/1P6/4kP2/1B1NP1PP/R3KB1R b KQ - 2 37";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(true, game_over);
-    assert_eq!(200.0, evaluation);
+    let game_status = is_game_over(&cache, &game_state);
+    assert_eq!(game_status, GameStatus::WhiteWon);
   }
   #[test]
-  fn test_evaluate_position_hanging_queen() {
+  fn test_evaluate_board_hanging_queen() {
     // This should obviously be very bad for white:
     let cache = EngineCache::new();
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    println!("Evaluation : {evaluation} - Game Over: {game_over}");
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
+    println!("Evaluation : {evaluation}");
     assert!(evaluation < -((HANGING_FACTOR * QUEEN_VALUE) - 1.0));
   }
 
   #[test]
-  fn test_evaluate_position_queen_standoff() {
+  fn test_evaluate_board_queen_standoff() {
     // This should obviously be okay because queen is defended and attacked by a queen.
     let cache = EngineCache::new();
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < 1.0);
     assert!(evaluation > -1.0);
@@ -371,14 +344,13 @@ mod tests {
     let fen = "rnbqk2r/pp3ppp/2pb1n2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < -7.0);
   }
 
   #[test]
-  fn test_evaluate_position_losing() {
+  fn test_evaluate_board_losing() {
     // We had this evaluated in favor of black in a game: (after a certain continuation)
     /* INFO  schnecken_bot::chess::engine::core] Using 5866 ms to find a move
     Line 0 Eval: -2.0450013 - h8f8 a8d5 f6d5
@@ -391,8 +363,7 @@ mod tests {
     let fen = "Qn2q2r/2p2pb1/p2k1n1p/5Bp1/8/2NP4/PPPB1PPP/R4RK1 b - - 0 15";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let (evaluation, game_over) = evaluate_position(&cache, &game_state);
-    assert_eq!(false, game_over);
+    let evaluation = evaluate_board(&cache, &game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation > 7.0);
   }
@@ -494,14 +465,14 @@ mod tests {
 
     // Spin at it for 1 second
     while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let _ = evaluate_position(&cache, &game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
+      let _ = evaluate_board(&cache, &game_states[rng.gen_range(0..NUMBER_OF_BOARDS)]);
       positions_evaluated += 1;
     }
 
     // 1000 kNPS would be nice. Right now we are at a very low number LOL
     assert!(
       positions_evaluated > 1_000_000,
-      "Number of NPS for evaluating positions using evaluate_position: {}",
+      "Number of NPS for evaluating positions using evaluate_board: {}",
       positions_evaluated
     );
   }

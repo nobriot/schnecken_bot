@@ -836,7 +836,7 @@ mod tests {
 
   #[test]
   fn test_sorting_moves_by_eval_1() {
-    use crate::engine::evaluate_position;
+    use crate::engine::evaluate_board;
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
@@ -845,18 +845,18 @@ mod tests {
     // Save a move list
     engine_cache.set_move_list(game_state, &game_state.get_moves());
 
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      evaluate_position(&engine_cache, &new_game_state);
+      evaluate_board(&engine_cache, &new_game_state);
     }
 
     // Now try to sort move list by eval:
     engine_cache.sort_moves_by_eval(&game_state, Color::Black);
 
     let mut last_eval = f32::MIN;
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let new_board = engine_cache.get_variation(&game_state, &m);
       let new_eval = engine_cache.get_eval(&new_board);
       println!("Move: {} - Eval : {}", m.to_string(), new_eval);
@@ -869,7 +869,7 @@ mod tests {
     engine_cache.sort_moves_by_eval(&game_state, Color::White);
 
     let mut last_eval = f32::MAX;
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let new_board = engine_cache.get_variation(&game_state, &m);
       let new_eval = engine_cache.get_eval(&new_board);
       println!("Move: {} - Eval : {}", m.to_string(), new_eval);
@@ -882,11 +882,11 @@ mod tests {
     engine_cache.clear();
     engine_cache.set_move_list(game_state, &game_state.get_moves());
     let mut i = 0;
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      evaluate_position(&engine_cache, &new_game_state);
+      evaluate_board(&engine_cache, &new_game_state);
       i += 1;
       if i > 12 {
         break;
@@ -895,7 +895,7 @@ mod tests {
 
     engine_cache.sort_moves_by_eval(&game_state, Color::White);
     let mut last_eval = f32::MAX;
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let new_board = engine_cache.get_variation(&game_state, &m);
       let new_eval = if engine_cache.has_eval(&new_board) {
         engine_cache.get_eval(&new_board)
@@ -911,7 +911,7 @@ mod tests {
     println!("----------------------------------------------------------------");
     engine_cache.sort_moves_by_eval(&game_state, Color::Black);
     let mut last_eval = f32::MIN;
-    for m in engine_cache.get_move_list(&game_state) {
+    for m in engine_cache.get_move_list(&game_state.board) {
       let new_board = engine_cache.get_variation(&game_state, &m);
       let new_eval = if engine_cache.has_eval(&new_board) {
         engine_cache.get_eval(&new_board)
@@ -926,7 +926,7 @@ mod tests {
 
   #[test]
   fn test_sorting_moves_by_eval_2() {
-    use crate::engine::evaluate_position;
+    use crate::engine::evaluate_board;
     let engine_cache: EngineCache = EngineCache::new();
 
     let fen = "r1bqk2r/ppppbp1p/8/3Bp1pQ/3nP3/3P4/PPPN1PPP/R3K1NR w KQq - 1 8";
@@ -939,7 +939,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state.board.hash, &m, &new_game_state.board.hash);
-      evaluate_position(&engine_cache, &new_game_state);
+      evaluate_board(&engine_cache, &new_game_state);
     }
 
     // Now try to sort move list by eval:

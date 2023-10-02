@@ -97,7 +97,7 @@ impl BotState {
 
     // Start a thread that sends challenges with a given interval:
     let bot_clone = self.clone();
-    tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 600).await });
+    tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 3600).await });
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's the case.

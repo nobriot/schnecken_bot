@@ -11,8 +11,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // Same module (engine)
+use self::eval::position::{evaluate_board, is_game_over};
+use crate::model::board::Board;
 use cache::EngineCache;
-use eval::position::evaluate_position;
 
 // Chess model
 use super::model::game_state::GameState;
@@ -240,8 +241,8 @@ impl Engine {
     let move_list = self.position.get_moves();
 
     // Compute move list if not known.
-    if !self.cache.has_move_list(&game_state) {
-      self.cache.set_move_list(&game_state, &move_list);
+    if !self.cache.has_move_list(&game_state.board) {
+      self.cache.set_move_list(&game_state.board, &move_list);
     }
     // Use the move list for our analysis / score keeping.
     self.analysis.init_scores(&move_list);
@@ -263,15 +264,15 @@ impl Engine {
     self.analysis.reset();
 
     // Compute move list if not known, and init the score list for each move
-    if !self.cache.has_move_list(&self.position) {
+    if !self.cache.has_move_list(&self.position.board) {
       let move_list = self.position.get_moves();
-      self.cache.set_move_list(&self.position, &move_list);
+      self.cache.set_move_list(&self.position.board, &move_list);
       self.analysis.init_scores(&move_list);
     } else {
       // Use the move list for our analysis / score keeping.
       self
         .analysis
-        .init_scores(&self.cache.get_move_list(&self.position));
+        .init_scores(&self.cache.get_move_list(&self.position.board));
     }
   }
 
@@ -294,12 +295,12 @@ impl Engine {
     let start_time = Instant::now();
 
     // If we have only one legal move, we should just give it a score and play it instantaneously.
-    Engine::find_move_list(&self.cache, &self.position);
-    if self.cache.get_move_list(&self.position).len() < 2 {
+    Engine::find_move_list(&self.cache, &self.position.board);
+    if self.cache.get_move_list(&self.position.board).len() == 1 {
       debug!("Single or no move available. Just evaluating quickly");
       let mut game_state = self.position.clone();
-      game_state.apply_move(&self.cache.get_move_list(&self.position)[0]);
-      let _ = evaluate_position(&self.cache, &game_state);
+      game_state.apply_move(&self.cache.get_move_list(&self.position.board)[0]);
+      let _ = evaluate_board(&self.cache, &game_state);
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
@@ -336,21 +337,21 @@ impl Engine {
 
   /// Returns the best move
   pub fn get_best_move(&self) -> Move {
-    return self.cache.get_move_list(&self.position)[0];
+    return self.cache.get_move_list(&self.position.board)[0];
   }
 
   /// Returns the full analysis
   pub fn get_analysis(&self) -> Vec<(Move, f32)> {
     let mut analysis: Vec<(Move, f32)> = Vec::new();
-    let move_list = self.cache.get_move_list(&self.position);
+    let move_list = self.cache.get_move_list(&self.position.board);
 
     for m in move_list {
       if !self.cache.has_variation(&self.position, &m) {
         analysis.push((m, f32::NAN));
         continue;
       }
-      let board_hash = &self.cache.get_variation(&self.position, &m);
-      analysis.push((m, self.cache.get_eval(board_hash)));
+      let new_game_state = &self.cache.get_variation(&self.position, &m);
+      analysis.push((m, self.cache.get_eval(&new_game_state.board)));
     }
 
     analysis
@@ -374,7 +375,7 @@ impl Engine {
     }
     let line_string = String::new();
 
-    if !self.cache.has_move_list(game_state) {
+    if !self.cache.has_move_list(&game_state.board) {
       return line_string;
     }
 
@@ -383,7 +384,7 @@ impl Engine {
       return line_string;
     }
 
-    let move_list = self.cache.get_move_list(game_state);
+    let move_list = self.cache.get_move_list(&game_state.board);
     if move_list.is_empty() {
       return line_string;
     }
@@ -392,7 +393,7 @@ impl Engine {
       return line_string;
     }
     let best_new_state = self.cache.get_variation(game_state, &best_move);
-    if !self.cache.has_eval(&best_new_state) {
+    if !self.cache.has_eval(&best_new_state.board) {
       return line_string;
     }
 
@@ -406,10 +407,10 @@ impl Engine {
   /// Prints the evaluation result in the console
   ///
   pub fn print_evaluations(&self) {
-    let score = self.cache.get_eval(&self.position);
+    let score = self.cache.get_eval(&self.position.board);
     println!("Score for position {}: {}", self.position.to_fen(), score);
 
-    let move_list = self.cache.get_move_list(&self.position);
+    let move_list = self.cache.get_move_list(&self.position.board);
     let mut i = 0;
 
     for m in move_list {
@@ -418,7 +419,7 @@ impl Engine {
         continue;
       }
       let new_state = self.cache.get_variation(&self.position, &m);
-      let eval = self.cache.get_eval(&new_state);
+      let eval = self.cache.get_eval(&new_state.board);
       println!(
         "Line {:<2}: Eval {:<10.2} - {} {}",
         i,
@@ -473,16 +474,16 @@ impl Engine {
   /// ### Arguments
   ///
   /// * cache:      EngineCache where the move list is stored at the end.
-  /// * game_state: GameState to evalute for a move-list
+  /// * board:      Board configuration to determine a move list
   ///
-  fn find_move_list(cache: &EngineCache, game_state: &GameState) {
+  fn find_move_list(cache: &EngineCache, board: &Board) {
     // Check that we know the moves:
-    if !cache.has_move_list(&game_state) {
-      let mut move_list = game_state.get_moves();
+    if !cache.has_move_list(board) {
+      let mut move_list = board.get_moves();
 
       // Sort the moves based on interesting-ness
       //move_list.sort_by(|a, b| Engine::compare_moves(cache, &game_state, a, b));
-      cache.set_move_list(game_state, &move_list);
+      cache.set_move_list(board, &move_list);
     }
   }
 
@@ -615,9 +616,9 @@ impl Engine {
     }
 
     // Check that we know the moves
-    Engine::find_move_list(&self.cache, &game_state);
+    Engine::find_move_list(&self.cache, &game_state.board);
 
-    for m in self.cache.get_move_list(&game_state) {
+    for m in self.cache.get_move_list(&game_state.board) {
       if self.cache.is_pruned(&game_state) {
         println!("Skipping {} as it is pruned", game_state.to_fen());
         return;
@@ -640,25 +641,34 @@ impl Engine {
         new_state
       };
 
-      // Check if we did not evaluate already:
-      if !self.cache.has_eval(&new_game_state) {
-        // Position evaluation: (will be saved in the cache automatically)
-        let (eval, _) = evaluate_position(&self.cache, &new_game_state);
-        //let eval = (rand::random::<f32>() - 0.5) * 400.0;
-        // Get the alpha/beta result propagated upwards.
-        match game_state.board.side_to_play {
-          Color::White => self.cache.update_alpha(&game_state, eval),
-          Color::Black => self.cache.update_beta(&game_state, eval),
-        }
-      }
+      let game_status = if !self.cache.has_status(&new_game_state) {
+        is_game_over(&self.cache, &new_game_state)
+      } else {
+        self.cache.get_status(&new_game_state)
+      };
 
-      // Check if we just found a checkmate
-      let game_status = self.cache.get_status(&new_game_state);
+      // Check if we did not evaluate already:
+      let eval = if !self.cache.has_eval(&new_game_state.board) {
+        // Position evaluation: (will be saved in the cache automatically)
+        evaluate_board(&self.cache, &new_game_state)
+        //let eval = (rand::random::<f32>() - 0.5) * 400.0;
+      } else {
+        self.cache.get_eval(&new_game_state.board)
+      };
+
       // No need to look at other moves in this variation if we found a checkmate for the side to play:
       if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
         self.cache.add_killer_move(&m);
         //println!("Killer move: {}", m);
         break;
+      }
+
+      if game_status != GameStatus::Draw {
+        // Get the alpha/beta result propagated upwards.
+        match game_state.board.side_to_play {
+          Color::White => self.cache.update_alpha(&game_state, eval),
+          Color::Black => self.cache.update_beta(&game_state, eval),
+        }
       }
 
       if game_status == GameStatus::Ongoing {
@@ -673,10 +683,10 @@ impl Engine {
       .sort_moves_by_eval(&game_state, game_state.board.side_to_play);
 
     // Back propagate from children nodes
-    let move_list = self.cache.get_move_list(&game_state);
+    let move_list = self.cache.get_move_list(&game_state.board);
     if move_list.is_empty() {
       error!("Move list is empty for position {}", game_state.to_fen());
-      self.cache.set_eval(game_state, 0.0);
+      self.cache.set_eval(&game_state.board, 0.0);
       return;
     }
 
@@ -684,13 +694,13 @@ impl Engine {
     if !self.cache.has_variation(&game_state, &best_move) {
       return;
     }
-    let board_hash = self.cache.get_variation(&game_state, &best_move);
-    if !self.cache.has_eval(&board_hash) {
+    let best_new_state = self.cache.get_variation(&game_state, &best_move);
+    if !self.cache.has_eval(&best_new_state.board) {
       return;
     }
 
-    let best_eval = self.cache.get_eval(&board_hash);
-    self.cache.set_eval(game_state, best_eval);
+    let best_eval = self.cache.get_eval(&best_new_state.board);
+    self.cache.set_eval(&game_state.board, best_eval);
 
     match game_state.board.side_to_play {
       Color::White => self.cache.update_alpha(&game_state, best_eval),
@@ -955,16 +965,19 @@ mod tests {
       GameState::from_fen("rnbqk2r/pp3ppp/2pQpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 6");
     println!(
       "Static intermediate:  {}",
-      engine.cache.get_eval(&game_state1)
+      engine.cache.get_eval(&game_state1.board)
     );
 
     let game_state =
       GameState::from_fen("rnb1k2r/pp3ppp/2pqpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7");
-    println!("Static from cache:  {}", engine.cache.get_eval(&game_state));
+    println!(
+      "Static from cache:  {}",
+      engine.cache.get_eval(&game_state.board)
+    );
 
-    let (static_eval, _) = evaluate_position(&engine.cache, &game_state);
+    let static_eval = evaluate_board(&engine.cache, &game_state);
     println!("Static eval: {static_eval}");
-    assert_eq!(true, engine.cache.has_eval(&game_state));
+    assert_eq!(true, engine.cache.has_eval(&game_state.board));
 
     let best_move = engine.get_best_move().to_string();
     if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
@@ -1214,31 +1227,31 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     let mut engine = Engine::new();
-    Engine::find_move_list(&engine.cache, &game_state);
+    Engine::find_move_list(&engine.cache, &game_state.board);
 
-    for m in engine.cache.get_move_list(&game_state) {
+    for m in engine.cache.get_move_list(&game_state.board) {
       println!("Move: {}", m.to_string());
     }
 
     assert_eq!(
       Move::from_string("e5d6"),
-      engine.cache.get_move_list(&game_state)[0]
+      engine.cache.get_move_list(&game_state.board)[0]
     );
     assert_eq!(
       Move::from_string("e5f6"),
-      engine.cache.get_move_list(&game_state)[1]
+      engine.cache.get_move_list(&game_state.board)[1]
     );
     assert_eq!(
       Move::from_string("e4d5"),
-      engine.cache.get_move_list(&game_state)[2]
+      engine.cache.get_move_list(&game_state.board)[2]
     );
     assert_eq!(
       Move::from_string("a4c6"),
-      engine.cache.get_move_list(&game_state)[3]
+      engine.cache.get_move_list(&game_state.board)[3]
     );
     assert_eq!(
       Move::from_string("e5e6"),
-      engine.cache.get_move_list(&game_state)[4]
+      engine.cache.get_move_list(&game_state.board)[4]
     );
   }
 }
