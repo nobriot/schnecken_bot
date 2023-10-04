@@ -8,6 +8,7 @@ use log::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 // Same module (engine)
@@ -614,13 +615,15 @@ impl Engine {
       return;
     }
 
-    //if depth > max_depth {
-    //info!("Reached maximum depth. Stopping search");
-    //return;
-    //}
+    if depth > max_depth {
+      //info!("Reached maximum depth. Stopping search");
+      return;
+    }
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
+    let mut handles: Vec<JoinHandle<()>> =
+      Vec::with_capacity(self.cache.get_move_list(&game_state.board).len());
 
     for m in self.cache.get_move_list(&game_state.board) {
       if self.cache.is_pruned(&game_state) {
@@ -676,9 +679,20 @@ impl Engine {
       }
 
       if game_status == GameStatus::Ongoing {
-        // Recurse until we get to the bottom.
-        self.search(&new_game_state, depth + 1, max_depth, start_time);
+        // Recurse until we get to the bottom, spin 1 thread per move at the first level.
+        if depth == 1 {
+          let self_clone = self.clone();
+          handles.push(std::thread::spawn(move || {
+            self_clone.search(&new_game_state, depth + 1, max_depth, start_time)
+          }));
+        } else {
+          self.search(&new_game_state, depth + 1, max_depth, start_time);
+        }
       }
+    }
+
+    for h in handles {
+      let _ = h.join();
     }
 
     // Sort the children moves according to their evaluation:
@@ -782,8 +796,8 @@ mod tests {
     engine.go();
 
     engine.print_evaluations();
-    let expected_move = Move::from_string("c1b2");
-    assert_eq!(expected_move, engine.get_best_move());
+    let expected_move = "c1b2";
+    assert_eq!(expected_move, engine.get_best_move().to_string());
     let analysis = engine.get_analysis();
     assert_eq!(analysis[0].1, 200.0);
   }
@@ -798,8 +812,8 @@ mod tests {
     engine.go();
 
     engine.print_evaluations();
-    let expected_move = Move::from_string("h8f8");
-    assert_eq!(expected_move, engine.get_best_move());
+    let expected_move = "h8f8";
+    assert_eq!(expected_move, engine.get_best_move().to_string());
   }
 
   #[test]
@@ -1044,8 +1058,8 @@ mod tests {
     engine.go();
     engine.print_evaluations();
 
-    let expected_move = Move::from_string("c1b2");
-    assert_eq!(expected_move, engine.get_best_move());
+    let expected_move = "c1b2";
+    assert_eq!(expected_move, engine.get_best_move().to_string());
   }
 
   #[test]
@@ -1135,7 +1149,7 @@ mod tests {
     engine.print_evaluations();
     let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
-    assert!(engine.get_best_move() == Move::from_string("b5b4"));
+    assert!(engine.get_best_move().to_string() == "b5b4");
   }
 
   #[test]
@@ -1147,7 +1161,7 @@ mod tests {
     engine.print_evaluations();
     let analysis = engine.get_analysis();
 
-    // 25 moves.
+    // 26 moves.
     assert_eq!(analysis.len(), 26);
     let bad_moves = vec![
       "c7c4", "c7c3", "c7c2", "c7d8", "c7c8", "c7b7", "c7a7", "c7e7", "c7f7", "c7d7", "c7g7",
@@ -1197,7 +1211,7 @@ mod tests {
     engine.print_evaluations();
     let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
-    assert!(engine.get_best_move() == Move::from_string("c2d4"));
+    assert!(engine.get_best_move().to_string() == "c2d4");
   }
 
   #[test]

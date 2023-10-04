@@ -1,4 +1,5 @@
 pub mod diagonals;
+pub mod holes;
 pub mod lines;
 
 use crate::model::board::*;
@@ -66,7 +67,7 @@ pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
 mod tests {
   use crate::{
     model::{board_mask::print_board_mask, tables::rook_destinations::get_rook_destinations},
-    set_square_in_mask,
+    set_square_in_mask, square_in_mask,
   };
 
   use super::*;
@@ -239,5 +240,104 @@ mod tests {
     println!("c4 -> g4");
     print_board_mask(diagonals[string_to_square("c4") as usize][string_to_square("g4") as usize]);
     print_board_mask(diagonals[string_to_square("g4") as usize][string_to_square("c4") as usize]);
+  }
+
+  #[ignore]
+  #[test]
+  fn generale_holes_board_area() {
+    use crate::model::board_mask::BoardMask;
+    use crate::model::moves::*;
+    use crate::model::piece_moves::*;
+    use std::fs::File;
+    use std::io::Write;
+
+    println!("Generating holes constants...",);
+    let mut output_file = File::create("./model/board_geometry/holes_temp.rs").unwrap();
+    // Here we generate look-up boardmasks that indicate a diagonal between two squares.
+    // Start from i, continue in a diagonal like bishops.
+    let mut holes_area: BoardMask = 0;
+    for i in 0..64 {
+      let (file, rank) = Board::index_to_fr(i);
+      if rank == 1 || rank == 2 || rank == 7 || rank == 8 {
+        continue;
+      }
+
+      set_square_in_mask!(i, holes_area);
+    }
+
+    let _ = write!(
+      output_file,
+      "/// Represents boardmask of area where there can be holes\n"
+    );
+
+    let _ = write!(
+      output_file,
+      "pub const HOLES_BOARD_AREA: BoardMask = {:#018X?};",
+      holes_area
+    );
+
+    let mut hole_white_pawns: [u64; 64] = [0; 64];
+    for i in 0..64 {
+      if !square_in_mask!(i, holes_area) {
+        continue;
+      };
+
+      let (file, mut rank) = Board::index_to_fr(i);
+
+      while rank != 1 {
+        rank -= 1;
+
+        // Check on the left side:
+        if file > 1 {
+          let s = Board::fr_to_index(file - 1, rank);
+          set_square_in_mask!(s, hole_white_pawns[i as usize]);
+        }
+        if file < 8 {
+          let s = Board::fr_to_index(file + 1, rank);
+          set_square_in_mask!(s, hole_white_pawns[i as usize]);
+        }
+      }
+    }
+
+    print_board_mask(hole_white_pawns[string_to_square("e4") as usize]);
+    print_board_mask(hole_white_pawns[string_to_square("h5") as usize]);
+
+    let _ = write!(
+      output_file,
+      "\n\npub const HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+      hole_white_pawns
+    );
+
+    let mut hole_black_pawns: [u64; 64] = [0; 64];
+    for i in 0..64 {
+      if !square_in_mask!(i, holes_area) {
+        continue;
+      };
+
+      let (file, mut rank) = Board::index_to_fr(i);
+
+      while rank != 8 {
+        rank += 1;
+
+        // Check on the left side:
+        if file > 1 {
+          let s = Board::fr_to_index(file - 1, rank);
+          set_square_in_mask!(s, hole_black_pawns[i as usize]);
+        }
+        if file < 8 {
+          let s = Board::fr_to_index(file + 1, rank);
+          set_square_in_mask!(s, hole_black_pawns[i as usize]);
+        }
+      }
+    }
+
+    print_board_mask(hole_black_pawns[string_to_square("e4") as usize]);
+    print_board_mask(hole_black_pawns[string_to_square("h5") as usize]);
+
+    let _ = write!(
+      output_file,
+      "\n\npub const HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+      hole_black_pawns
+    );
   }
 }

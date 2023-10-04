@@ -505,10 +505,10 @@ impl Board {
 
   /// Converts a board index into Rank / File.
   ///
-  /// Returns a file and rank in the range [1..8]. Asserts in debug mode if
+  /// Returns a file and rank in the range [1..=8]. Asserts in debug mode if
   /// the values passed are not valid.
   ///
-  /// * `index`: [0..63]
+  /// * `index`: [0..=63]
   ///̈́
   #[inline]
   pub fn index_to_fr(index: u8) -> (u8, u8) {

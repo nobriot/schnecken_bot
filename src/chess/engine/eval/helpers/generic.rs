@@ -5,6 +5,7 @@ use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
+use crate::model::tables::pawn_destinations::*;
 
 use log::*;
 
@@ -129,20 +130,26 @@ pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
 ///
 /// Board mask with outposts squares
 pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
+  let mut opponent_holes = get_holes(game_state, Color::opposite(color));
   let mut outposts: BoardMask = 0;
 
-  let opponent_holes = get_holes(game_state, Color::opposite(color));
+  while opponent_holes != 0 {
+    let i = opponent_holes.trailing_zeros() as usize;
 
-  for i in 0..64 {
-    // Not a hole, not an outpost
-    if !square_in_mask!(i, opponent_holes) {
-      continue;
+    match color {
+      Color::White => {
+        if BLACK_PAWN_CONTROL[i] & game_state.board.pieces.white.pawn != 0 {
+          set_square_in_mask!(i, outposts);
+        }
+      },
+      Color::Black => {
+        if WHITE_PAWN_CONTROL[i] & game_state.board.pieces.black.pawn != 0 {
+          set_square_in_mask!(i, outposts);
+        }
+      },
     }
 
-    // Now to be an outpost we need the hole to be defended by one of our pawns
-    if is_square_protected_by_pawn(game_state, i, color) {
-      set_square_in_mask!(i, outposts);
-    }
+    opponent_holes &= opponent_holes - 1;
   }
 
   outposts

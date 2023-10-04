@@ -9,7 +9,7 @@ use crate::model::piece::*;
 const DEVELOPMENT_FACTOR: f32 = 0.30;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
-const SQUARE_TABLE_FACTOR: f32 = 0.1;
+const SQUARE_TABLE_FACTOR: f32 = 0.2;
 const CASTLING_PENATLY: f32 = 1.0;
 
 pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {

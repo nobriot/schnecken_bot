@@ -1,6 +1,7 @@
 use super::generic::*;
 
 use crate::model::board::*;
+use crate::model::board_geometry::holes::*;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
@@ -433,44 +434,25 @@ pub fn get_distance_left_for_closest_pawn_to_promotion(game_state: &GameState, c
 pub fn get_holes(game_state: &GameState, color: Color) -> BoardMask {
   let mut holes: BoardMask = 0;
 
-  let pawn = match color {
-    Color::White => WHITE_PAWN,
-    Color::Black => BLACK_PAWN,
-  };
-  let stop_rank = match color {
-    Color::White => 2,
-    Color::Black => 7,
-  };
+  let mut area = HOLES_BOARD_AREA;
 
-  // ranks 1-2 and 7-8 are not counted here.
-  for i in 16..48 {
-    let (file, mut rank) = Board::index_to_fr(i);
+  while area != 0 {
+    let i = area.trailing_zeros() as usize;
 
-    while rank != stop_rank {
-      match color {
-        Color::White => rank -= 1,
-        Color::Black => rank += 1,
-      };
-      // Check on the left side:
-      if file > 1 {
-        let s = Board::fr_to_index(file - 1, rank);
-        if game_state.board.pieces.get(s) == pawn {
-          rank = 0;
-          break;
+    match color {
+      Color::White => {
+        if game_state.board.pieces.white.pawn & HOLES_WHITE_PAWN_PLACEMENT[i] == 0 {
+          holes |= 1 << i;
         }
-      }
-      if file < 8 {
-        let s = Board::fr_to_index(file + 1, rank);
-        if game_state.board.pieces.get(s) == pawn {
-          rank = 0;
-          break;
+      },
+      Color::Black => {
+        if game_state.board.pieces.black.pawn & HOLES_BLACK_PAWN_PLACEMENT[i] == 0 {
+          holes |= 1 << i;
         }
-      }
-    }
+      },
+    };
 
-    if rank == stop_rank {
-      holes |= 1 << i;
-    }
+    area &= area - 1;
   }
 
   holes

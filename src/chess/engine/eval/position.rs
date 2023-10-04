@@ -15,7 +15,7 @@ use crate::model::game_state::*;
 use crate::model::piece::*;
 
 // Constants
-const PAWN_ISLAND_FACTOR: f32 = 0.01;
+const PAWN_ISLAND_FACTOR: f32 = 0.05;
 const PASSED_PAWN_FACTOR: f32 = 0.2;
 const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
 const PROTECTED_PAWN_FACTOR: f32 = 0.05;
@@ -23,7 +23,7 @@ const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.03;
 const HANGING_FACTOR: f32 = 0.4;
-const HANGING_PENALTY: f32 = 0.1;
+const HANGING_PENALTY: f32 = 0.15;
 const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const OUTPOST_BONUS: f32 = 0.9;
 
@@ -268,7 +268,6 @@ pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
 
   score = default_position_evaluation(game_state);
   cache.set_eval(&game_state.board, score);
-  cache.set_status(game_state, GameStatus::Ongoing);
   score
 }
 

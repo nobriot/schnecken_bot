@@ -1,4 +1,5 @@
 use crate::model::board::*;
+use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
@@ -53,31 +54,12 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
 /// True if the king has left its home rank and major enemy pieces are still here.
 ///
 pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
-  if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
-    debug!("King disappeared {}", game_state.to_fen());
-    return false;
-  }
-  let king_position = match color {
-    Color::White => game_state.board.get_white_king_square(),
-    Color::Black => game_state.board.get_black_king_square(),
-  };
-
-  let (_, king_rank) = Board::index_to_fr(king_position);
-  match (king_rank, color) {
-    (1, Color::White) => {
-      return false;
-    },
-    (8, Color::Black) => {
-      return false;
-    },
-    (_, _) => {},
-  }
-
-  // Check for major enemy pieces
   if color == Color::White {
-    return game_state.board.pieces.black.majors().count_ones() > 0;
+    return (game_state.board.pieces.white.king & BOARD_DOWN_EDGE == 0)
+      && game_state.board.pieces.black.majors().count_ones() > 0;
   } else {
-    return game_state.board.pieces.white.majors().count_ones() > 0;
+    return (game_state.board.pieces.black.king & BOARD_UP_EDGE == 0)
+      && game_state.board.pieces.white.majors().count_ones() > 0;
   }
 }
 
