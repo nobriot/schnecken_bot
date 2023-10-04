@@ -574,19 +574,7 @@ impl EngineCache {
   /// True if the GameState should be pruned, false otherwise
   ///
   pub fn is_pruned(&self, game_state: &GameState) -> bool {
-    if !self.has_tree_key(game_state) {
-      return false;
-    }
-
-    if let Some(entry) = self.tree.lock().unwrap().get_mut(game_state) {
-      return entry.alpha >= entry.beta;
-    } else {
-      error!(
-        "Error comparing alpha/beta values in the cache for Game State {}",
-        game_state.to_fen()
-      );
-    }
-    false
+    self.get_alpha(game_state) >= self.get_beta(game_state)
   }
 
   /// Clears the alpha/beta stored data

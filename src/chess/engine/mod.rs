@@ -627,8 +627,9 @@ impl Engine {
 
     for m in self.cache.get_move_list(&game_state.board) {
       if self.cache.is_pruned(&game_state) {
+        // FIXME: Find why nothing gets pruned
         println!("Skipping {} as it is pruned", game_state.to_fen());
-        return;
+        break;
       }
 
       // If we are looking at a capture, make sure that we analyze possible
@@ -691,6 +692,7 @@ impl Engine {
       }
     }
 
+    // Wait for the threads to finish
     for h in handles {
       let _ = h.join();
     }
@@ -710,14 +712,21 @@ impl Engine {
 
     let best_move = move_list[0];
     if !self.cache.has_variation(&game_state, &best_move) {
+      error!(
+        "Can't find variation in the cache for move {} in position {}",
+        best_move.to_string(),
+        game_state.to_fen()
+      );
+
       return;
     }
     let best_new_state = self.cache.get_variation(&game_state, &best_move);
-    if !self.cache.has_eval(&best_new_state.board) {
-      return;
-    }
-
-    let best_eval = self.cache.get_eval(&best_new_state.board);
+    let best_eval = match self.cache.get_status(&best_new_state) {
+      GameStatus::Ongoing => self.cache.get_eval(&best_new_state.board),
+      GameStatus::WhiteWon => 200.0,
+      GameStatus::BlackWon => -200.0,
+      GameStatus::Draw | GameStatus::Stalemate => 0.0,
+    };
     self.cache.set_eval(&game_state.board, best_eval);
 
     match game_state.board.side_to_play {

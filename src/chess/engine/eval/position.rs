@@ -266,7 +266,7 @@ pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
 
-  score = default_position_evaluation(game_state);
+  score += default_position_evaluation(game_state);
   cache.set_eval(&game_state.board, score);
   score
 }
