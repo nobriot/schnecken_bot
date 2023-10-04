@@ -157,22 +157,22 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   }
 
   // Basic material count, disregarding pawns.
-  let mut material_count: usize = 0;
-  let mut development_index: usize = 0;
+  let mut material_count = 0;
+  let mut development_index = 0;
 
-  material_count += game_state.board.pieces.queens().count_ones() as usize * 9;
-  material_count += game_state.board.pieces.rooks().count_ones() as usize * 5;
-  material_count += game_state.board.pieces.minors().count_ones() as usize * 3;
+  material_count += game_state.board.pieces.queens().count_ones() * 9;
+  material_count += game_state.board.pieces.rooks().count_ones() * 5;
+  material_count += game_state.board.pieces.minors().count_ones() * 3;
 
   development_index += ((game_state.board.pieces.white.minors()
     | game_state.board.pieces.white.queen)
     & BOARD_DOWN_EDGE)
-    .count_ones() as usize;
+    .count_ones();
 
   development_index += ((game_state.board.pieces.black.minors()
     | game_state.board.pieces.black.queen)
     & BOARD_UP_EDGE)
-    .count_ones() as usize;
+    .count_ones();
 
   if material_count < 17 {
     cache.set_game_phase(&game_state.board, GamePhase::Endgame);
@@ -230,6 +230,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if game_state.board.is_game_over_by_insufficient_material() {
     debug!("game over by insufficient material detected");
+    cache.set_eval(&game_state.board, 0.0);
     cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
   }

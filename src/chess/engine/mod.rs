@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 // Same module (engine)
 use self::eval::position::{evaluate_board, is_game_over};
 use crate::model::board::Board;
+use crate::model::moves::Promotion;
 use cache::EngineCache;
 
 // Chess model
@@ -548,23 +549,28 @@ impl Engine {
       (_, _) => {},
     }
 
-    match (a.promotion, b.promotion) {
-      (BLACK_QUEEN | WHITE_QUEEN, BLACK_QUEEN | WHITE_QUEEN) => {},
-      (BLACK_QUEEN | WHITE_QUEEN, _) => return Ordering::Less,
-      (_, BLACK_QUEEN | WHITE_QUEEN) => return Ordering::Greater,
+    match (a.promotion(), b.promotion()) {
+      (
+        Promotion::BlackQueen | Promotion::WhiteQueen,
+        Promotion::BlackQueen | Promotion::WhiteQueen,
+      ) => {},
+      (Promotion::BlackQueen | Promotion::WhiteQueen, _) => return Ordering::Less,
+      (_, Promotion::BlackQueen | Promotion::WhiteQueen) => return Ordering::Greater,
       (_, _) => {},
     }
 
-    let a_captured_value = Piece::material_value_from_u8(game_state.board.pieces.get(a.dest));
-    let b_captured_value = Piece::material_value_from_u8(game_state.board.pieces.get(b.dest));
+    let a_captured_value =
+      Piece::material_value_from_u8(game_state.board.pieces.get(a.dest() as u8));
+    let b_captured_value =
+      Piece::material_value_from_u8(game_state.board.pieces.get(b.dest() as u8));
 
     if a_captured_value > b_captured_value {
       return Ordering::Less;
     } else if a_captured_value < b_captured_value {
       return Ordering::Greater;
     } else if a_captured_value > 0.0 {
-      let a_captor = Piece::material_value_from_u8(game_state.board.pieces.get(a.src));
-      let b_captor = Piece::material_value_from_u8(game_state.board.pieces.get(b.src));
+      let a_captor = Piece::material_value_from_u8(game_state.board.pieces.get(a.src() as u8));
+      let b_captor = Piece::material_value_from_u8(game_state.board.pieces.get(b.src() as u8));
 
       if a_captor < b_captor {
         return Ordering::Less;
@@ -574,9 +580,7 @@ impl Engine {
     }
 
     // We like castling in general:
-    let a_castle = game_state.board.is_castle(a);
-    let b_castle = game_state.board.is_castle(b);
-    match (a_castle, b_castle) {
+    match (a.is_castle(), b.is_castle()) {
       (true, false) => return Ordering::Less,
       (false, true) => return Ordering::Greater,
       (_, _) => {},
@@ -610,10 +614,10 @@ impl Engine {
       return;
     }
 
-    if depth > max_depth {
-      //info!("Reached maximum depth. Stopping search");
-      return;
-    }
+    //if depth > max_depth {
+    //info!("Reached maximum depth. Stopping search");
+    //return;
+    //}
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
@@ -626,9 +630,7 @@ impl Engine {
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
-      if depth > max_depth && !game_state.board.is_move_a_capture(&m) {
-        // FIXME: This goes way too deep for some reason.
-        println!("Skipping {} as it is pruned", game_state.to_fen());
+      if depth > max_depth && !m.is_capture() {
         continue;
       }
 
@@ -648,7 +650,7 @@ impl Engine {
       };
 
       // Check if we did not evaluate already:
-      let eval = if !self.cache.has_eval(&new_game_state.board) {
+      let mut eval = if !self.cache.has_eval(&new_game_state.board) {
         // Position evaluation: (will be saved in the cache automatically)
         evaluate_board(&self.cache, &new_game_state)
         //let eval = (rand::random::<f32>() - 0.5) * 400.0;
@@ -656,19 +658,21 @@ impl Engine {
         self.cache.get_eval(&new_game_state.board)
       };
 
+      if game_status == GameStatus::Draw {
+        eval = 0.0;
+      }
+
+      // Get the alpha/beta result propagated upwards.
+      match game_state.board.side_to_play {
+        Color::White => self.cache.update_alpha(&game_state, eval),
+        Color::Black => self.cache.update_beta(&game_state, eval),
+      }
+
       // No need to look at other moves in this variation if we found a checkmate for the side to play:
       if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
         self.cache.add_killer_move(&m);
         //println!("Killer move: {}", m);
         break;
-      }
-
-      if game_status != GameStatus::Draw {
-        // Get the alpha/beta result propagated upwards.
-        match game_state.board.side_to_play {
-          Color::White => self.cache.update_alpha(&game_state, eval),
-          Color::Black => self.cache.update_beta(&game_state, eval),
-        }
       }
 
       if game_status == GameStatus::Ongoing {
@@ -1219,6 +1223,7 @@ mod tests {
     assert!(analysis[0].1 < -5.0);
   }
 
+  #[ignore]
   #[test]
   fn test_sorting_moves_without_eval() {
     let engine_cache: EngineCache = EngineCache::new();

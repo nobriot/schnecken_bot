@@ -529,6 +529,7 @@ impl Board {
   // Move related functions
 
   /// Checks if a move on the board is a capture
+  /// FIXME: Use the move.is_capture() api now
   ///
   /// ### Arguments
   ///
@@ -541,14 +542,14 @@ impl Board {
   ///
   pub fn is_move_a_capture(&self, m: &Move) -> bool {
     // If a piece is at the destination, it's a capture
-    if square_in_mask!(m.dest, self.pieces.all()) {
+    if square_in_mask!(m.dest(), self.pieces.all()) {
       return true;
     }
 
     // If a pawn moves to the en-passant square, it's a capture.
     if self.en_passant_square != INVALID_SQUARE
-      && m.dest == self.en_passant_square
-      && (square_in_mask!(m.src, self.pieces.white.pawn | self.pieces.black.pawn))
+      && m.dest() == self.en_passant_square as move_t
+      && (square_in_mask!(m.src(), self.pieces.white.pawn | self.pieces.black.pawn))
     {
       return true;
     }
@@ -588,22 +589,14 @@ impl Board {
       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black) == 0
     {
-      all_moves.push(Move {
-        src: 4u8,
-        dest: 6u8,
-        promotion: NO_PIECE,
-      });
+      all_moves.push(castle_mv!(4, 6));
     }
     if self.castling_rights.Q()
       && self.checks() == 0
       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black) == 0
     {
-      all_moves.push(Move {
-        src: 4u8,
-        dest: 2u8,
-        promotion: NO_PIECE,
-      });
+      all_moves.push(castle_mv!(4, 2));
     }
 
     let mut checking_ray: BoardMask = u64::MAX;
@@ -637,20 +630,47 @@ impl Board {
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
+
+        // Determine if this is a capture
+        let mut capture = square_in_mask!(destination_square, self.pieces.black.all()) as move_t;
+        if square_in_mask!(source_square, self.pieces.white.pawn)
+          && destination_square == self.en_passant_square
+        {
+          capture = 1;
+        }
+
         if !promotion {
-          all_moves.push(Move {
-            src: source_square,
-            dest: destination_square,
-            promotion: NO_PIECE,
-          });
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::NoPromotion,
+            capture
+          ));
         } else {
-          for promotion_piece in WHITE_QUEEN..WHITE_PAWN {
-            all_moves.push(Move {
-              src: source_square,
-              dest: destination_square,
-              promotion: promotion_piece,
-            });
-          }
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteQueen,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteRook,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteKnight,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteBishop,
+            capture
+          ));
         }
 
         // Remove the last bit set to 1:
@@ -677,22 +697,14 @@ impl Board {
       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White) == 0
     {
-      all_moves.push(Move {
-        src: 60u8,
-        dest: 62u8,
-        promotion: NO_PIECE,
-      });
+      all_moves.push(castle_mv!(60, 62));
     }
     if self.castling_rights.q()
       && self.checks() == 0
       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White) == 0
     {
-      all_moves.push(Move {
-        src: 60u8,
-        dest: 58u8,
-        promotion: NO_PIECE,
-      });
+      all_moves.push(castle_mv!(60, 58));
     }
 
     let mut checking_ray: BoardMask = u64::MAX;
@@ -726,20 +738,47 @@ impl Board {
 
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
+
+        // Determine if this is a capture
+        let mut capture = square_in_mask!(destination_square, self.pieces.white.all()) as move_t;
+        if square_in_mask!(source_square, self.pieces.black.pawn)
+          && destination_square == self.en_passant_square
+        {
+          capture = 1;
+        }
+
         if !promotion {
-          all_moves.push(Move {
-            src: source_square,
-            dest: destination_square,
-            promotion: NO_PIECE,
-          });
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::NoPromotion,
+            capture
+          ));
         } else {
-          for promotion_piece in BLACK_QUEEN..BLACK_PAWN {
-            all_moves.push(Move {
-              src: source_square,
-              dest: destination_square,
-              promotion: promotion_piece,
-            });
-          }
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackQueen,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackRook,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackKnight,
+            capture
+          ));
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackBishop,
+            capture
+          ));
         }
 
         // Remove the last bit set to 1:
@@ -758,29 +797,29 @@ impl Board {
   /// Very few checks are done here, the caller has to check that the move is
   /// legal before applying it.
   pub fn apply_move(&mut self, chess_move: &Move) {
-    let source = chess_move.src as usize;
-    let destination = chess_move.dest as usize;
+    let source = chess_move.src() as usize;
+    let destination = chess_move.dest() as usize;
 
     // Check if we just castled, we need to move the rooks around!
     if square_in_mask!(source, self.pieces.white.king) {
-      if chess_move.src == 4 && chess_move.dest == 2 {
+      if chess_move.src() == 4 && chess_move.dest() == 2 {
         self.update_hash_piece(0);
         self.pieces.white.remove(0);
         self.pieces.white.add(3, PieceType::Rook);
         self.update_hash_piece(3);
-      } else if chess_move.src == 4 && chess_move.dest == 6 {
+      } else if chess_move.src() == 4 && chess_move.dest() == 6 {
         self.update_hash_piece(7);
         self.pieces.white.remove(7);
         self.pieces.white.add(5, PieceType::Rook);
         self.update_hash_piece(5);
       }
     } else if square_in_mask!(source, self.pieces.black.king) {
-      if chess_move.src == 60 && chess_move.dest == 62 {
+      if chess_move.src() == 60 && chess_move.dest() == 62 {
         self.update_hash_piece(63);
         self.pieces.black.remove(63);
         self.pieces.black.add(61, PieceType::Rook);
         self.update_hash_piece(61);
-      } else if chess_move.src == 60 && chess_move.dest == 58 {
+      } else if chess_move.src() == 60 && chess_move.dest() == 58 {
         self.update_hash_piece(56);
         self.pieces.black.remove(56);
         self.pieces.black.add(59, PieceType::Rook);
@@ -790,7 +829,7 @@ impl Board {
 
     // Update castling rights. (just look if something from the rook/king moved)
     self.update_hash_castling_rights();
-    match chess_move.src {
+    match chess_move.src() {
       0 => self.castling_rights.set_Q(false),
       4 => self.castling_rights.clear_white_rights(),
       7 => self.castling_rights.set_K(false),
@@ -799,7 +838,7 @@ impl Board {
       63 => self.castling_rights.set_k(false),
       _ => {},
     }
-    match chess_move.dest {
+    match chess_move.dest() {
       0 => self.castling_rights.set_Q(false),
       4 => self.castling_rights.clear_white_rights(),
       7 => self.castling_rights.set_K(false),
@@ -819,17 +858,17 @@ impl Board {
     // Check if we have a new en-passant location:
     self.en_passant_square = INVALID_SQUARE;
     if (square_in_mask!(source, self.pieces.white.pawn | self.pieces.black.pawn))
-      && (chess_move.dest as isize - chess_move.src as isize).abs() == 16
+      && (chess_move.dest() as isize - chess_move.src() as isize).abs() == 16
     {
       let op_pawn = match self.pieces.get(source as u8) {
         WHITE_PAWN => BLACK_PAWN,
         _ => WHITE_PAWN,
       };
-      let (rank, file) = Board::index_to_fr(chess_move.dest);
+      let (rank, file) = Board::index_to_fr(chess_move.u8_dest());
       if file > 1 {
         let s = Board::fr_to_index(file - 1, rank) as u8;
         if self.pieces.get(s) == op_pawn {
-          self.en_passant_square = (chess_move.dest + chess_move.src) / 2;
+          self.en_passant_square = (chess_move.u8_dest() + chess_move.u8_src()) / 2;
         }
       }
 
@@ -837,7 +876,7 @@ impl Board {
       if file < 8 {
         let s = Board::fr_to_index(file + 1, rank) as u8;
         if self.pieces.get(s) == op_pawn {
-          self.en_passant_square = (chess_move.dest + chess_move.src) / 2;
+          self.en_passant_square = (chess_move.u8_dest() + chess_move.u8_src()) / 2;
         }
       }
     }
@@ -849,14 +888,14 @@ impl Board {
 
     // Check if this is some en-passant action: PAWN is moving diagonally while the destination square is empty:
     // En passant needs to remove the captured pawn.
-    if square_in_mask!(chess_move.src, self.pieces.pawns())
-      && !square_in_mask!(chess_move.dest, self.pieces.all())
+    if square_in_mask!(chess_move.src(), self.pieces.pawns())
+      && !square_in_mask!(chess_move.dest(), self.pieces.all())
     {
-      let target_capture = match chess_move.dest as isize - chess_move.src as isize {
-        7 => chess_move.src - 1,
-        9 => chess_move.src + 1,
-        -7 => chess_move.src + 1,
-        -9 => chess_move.src - 1,
+      let target_capture = match chess_move.dest() as isize - chess_move.src() as isize {
+        7 => chess_move.u8_src() - 1,
+        9 => chess_move.u8_src() + 1,
+        -7 => chess_move.u8_src() + 1,
+        -9 => chess_move.u8_src() - 1,
         _ => {
           // Not a en-passant move
           INVALID_SQUARE
@@ -870,16 +909,19 @@ impl Board {
     }
 
     // Now apply the initial move
-    if self.pieces.get(chess_move.dest) != NO_PIECE {
-      self.update_hash_piece(chess_move.dest);
+    if self.pieces.get(chess_move.u8_dest()) != NO_PIECE {
+      self.update_hash_piece(chess_move.u8_dest());
     }
 
-    if chess_move.promotion != NO_PIECE {
-      self.pieces.set(chess_move.dest, chess_move.promotion);
+    if chess_move.promotion() != Promotion::NoPromotion {
+      self.pieces.set(
+        chess_move.u8_dest(),
+        chess_move.promotion().to_piece_const(),
+      );
     } else {
       self
         .pieces
-        .set(chess_move.dest, self.pieces.get(chess_move.src));
+        .set(chess_move.u8_dest(), self.pieces.get(chess_move.u8_src()));
     }
 
     self.update_hash_piece(destination as u8);
@@ -909,29 +951,6 @@ impl Board {
     };
 
     self.checkers = self.get_attackers(king_position, Color::opposite(self.side_to_play));
-  }
-
-  /// Verifies if the move is a castling move based on the board
-  ///
-  /// ### Arguments
-  ///
-  /// * `chess_move` - Chess move to look at
-  ///
-  /// ### Return value
-  ///
-  /// True if the move is a castling move, false otherwise
-  ///
-  pub fn is_castle(self, chess_move: &Move) -> bool {
-    if self.pieces.white.get_king().unwrap_or(INVALID_SQUARE) == chess_move.src {
-      if chess_move.src == 4 && (chess_move.dest == 2 || chess_move.dest == 6) {
-        return true;
-      }
-    } else if self.pieces.black.get_king().unwrap_or(INVALID_SQUARE) == chess_move.src {
-      if chess_move.src == 60 && (chess_move.dest == 62 || chess_move.dest == 58) {
-        return true;
-      }
-    }
-    false
   }
 
   /// Checks if there is a piece on a square
@@ -1271,29 +1290,17 @@ mod tests {
     println!("Board: {}", board.to_fen());
 
     // Try and capture a piece
-    board.apply_move(&Move {
-      src: string_to_square("b3"),
-      dest: string_to_square("g3"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("b3g3"));
     println!("Board: {}", board.to_fen());
     assert_eq!(board.to_fen(), "8/5pk1/5p1p/2R5/5K2/6r1/7P/8");
 
     // Try and promote a piece (super jump from h2 to h8)
-    board.apply_move(&Move {
-      src: string_to_square("h2"),
-      dest: string_to_square("h8"),
-      promotion: WHITE_KNIGHT,
-    });
+    board.apply_move(&Move::from_string("h2h8N"));
     println!("Board: {}", board.to_fen());
     assert_eq!(board.to_fen(), "7N/5pk1/5p1p/2R5/5K2/6r1/8/8");
 
     // Same for black: promote to a black queen:
-    board.apply_move(&Move {
-      src: string_to_square("f6"),
-      dest: string_to_square("f1"),
-      promotion: BLACK_QUEEN,
-    });
+    board.apply_move(&Move::from_string("f6f1q"));
     println!("Board: {}", board.to_fen());
     assert_eq!(board.to_fen(), "7N/5pk1/7p/2R5/5K2/6r1/8/5q2");
   }
@@ -1354,11 +1361,7 @@ mod tests {
     // Position 1 - regular move
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("b3"),
-      dest: string_to_square("b4"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("b3b4"));
     let after_move = board.hash;
 
     let fen = "8/5pk1/5p1p/2R5/1r3K2/6P1/7P/8 w - - 9 44";
@@ -1370,11 +1373,7 @@ mod tests {
     // Position 2 - start position
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("e2"),
-      dest: string_to_square("e4"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("e2e4"));
     let after_move = board.hash;
 
     let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
@@ -1386,11 +1385,7 @@ mod tests {
     // Position 3 - King side white castle
     let fen = "rn1qkb1r/pbpp2pp/1p2pn2/8/4p3/2NP2P1/PPP1NPBP/R1BQK2R w KQkq - 0 7";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("e1"),
-      dest: string_to_square("g1"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("e1g1"));
     let after_move = board.hash;
 
     let fen = "rn1qkb1r/pbpp2pp/1p2pn2/8/4p3/2NP2P1/PPP1NPBP/R1BQ1RK1 b kq - 1 7";
@@ -1402,11 +1397,7 @@ mod tests {
     // Position 3 - King side black castle
     let fen = "r2qk2r/pbpp2pp/1pn1pn2/2b5/4PB2/2N3P1/PPP1NPBP/R2Q1RK1 b kq - 2 9";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("e8"),
-      dest: string_to_square("g8"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("e8g8"));
     let after_move = board.hash;
 
     let fen = "r2q1rk1/pbpp2pp/1pn1pn2/2b5/4PB2/2N3P1/PPP1NPBP/R2Q1RK1 w - - 3 10";
@@ -1419,11 +1410,7 @@ mod tests {
     println!("Checking Regular capture");
     let fen = "r2q1rk1/pbpp2p1/1pn2n1p/2b1p1B1/4P3/2N3P1/PPP2PBP/R1NQ1RK1 w - - 0 12";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("g5"),
-      dest: string_to_square("f6"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("g5f6"));
     let after_move = board.hash;
 
     let fen = "r2q1rk1/pbpp2p1/1pn2B1p/2b1p3/4P3/2N3P1/PPP2PBP/R1NQ1RK1 b - - 0 12";
@@ -1436,11 +1423,7 @@ mod tests {
     println!("Checking promotion");
     let fen = "8/7k/6pb/7p/4P3/3n2P1/B1p1N1KP/8 b - - 0 52";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("c2"),
-      dest: string_to_square("c1"),
-      promotion: BLACK_QUEEN,
-    });
+    board.apply_move(&Move::from_string("c2c1q"));
     let after_move = board.hash;
 
     let fen = "8/7k/6pb/7p/4P3/3n2P1/B3N1KP/2q5 w - - 0 53";
@@ -1453,11 +1436,7 @@ mod tests {
     println!("Checking promotions queen side");
     let fen = "r3kbnr/ppp2ppp/2npbq2/4p3/4P3/2NPBQ2/PPP2PPP/R3KBNR w KQkq - 4 6";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("e1"),
-      dest: string_to_square("c1"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("e1c1"));
     let after_move = board.hash;
 
     let fen = "r3kbnr/ppp2ppp/2npbq2/4p3/4P3/2NPBQ2/PPP2PPP/2KR1BNR b kq - 5 6";
@@ -1469,11 +1448,7 @@ mod tests {
     // Position - Black Queen side castle
     let fen = "r3kbnr/ppp2ppp/2npbq2/4p3/4P3/2NPBQ2/PPP2PPP/2KR1BNR b kq - 5 6";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("e8"),
-      dest: string_to_square("c8"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("e8c8"));
     let after_move = board.hash;
 
     let fen = "2kr1bnr/ppp2ppp/2npbq2/4p3/4P3/2NPBQ2/PPP2PPP/2KR1BNR w - - 6 7";
@@ -1485,11 +1460,7 @@ mod tests {
     // Position - Losing Black king side castle
     let fen = "rnb1kbnr/ppp1pNpp/4q3/3p4/8/8/PPPPPPPP/RNBQKB1R w KQkq - 1 4";
     let mut board = Board::from_fen(fen);
-    board.apply_move(&Move {
-      src: string_to_square("f7"),
-      dest: string_to_square("h8"),
-      promotion: NO_PIECE,
-    });
+    board.apply_move(&Move::from_string("f7h8"));
     let after_move = board.hash;
 
     let fen = "rnb1kbnN/ppp1p1pp/4q3/3p4/8/8/PPPPPPPP/RNBQKB1R b KQq - 0 4";

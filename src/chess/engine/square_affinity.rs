@@ -251,122 +251,46 @@ impl MiddleGameSquareTable {
   ];
 }
 
-// Showing here the squares that the white king typically likes
-// This may need to be ajusted for endgames, but it will do good until the middle game.
-pub const WHITE_KING_SQUARE_AFFINITY: [f32; 64] = [
-  2.0, 3.0, 1.0, 0.0, 0.0, 1.0, 3.0, 2.0, // 1st row
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 2nd row
-  -1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, // 3rd row.
-  -2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0, // 4th row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 5th row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 6th row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 7th row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 8th row
-];
+//------------------------------------------------------------------------------
+// Tests
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::model::{board_mask::*, moves::string_to_square};
 
-// Showing here the squares that the white king typically likes
-// This may need to be ajusted for endgames, but it will do good until the middle game.
-pub const BLACK_KING_SQUARE_AFFINITY: [f32; 64] = [
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 1st row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 2nd row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 3rd row
-  -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0, // 4th row
-  -2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0, // 5th row
-  -1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, // 6th row
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, //7th row
-  2.0, 3.0, 1.0, 0.0, 0.0, 1.0, 3.0, 2.0, // 8th row
-];
+  #[test]
+  fn check_opening_knight_values() {
+    assert_eq!(
+      OpeningSquareTable::WHITE_KNIGHT[string_to_square("e4") as usize],
+      2.0
+    );
+    assert_eq!(
+      OpeningSquareTable::WHITE_KNIGHT[string_to_square("d4") as usize],
+      2.0
+    );
+    assert_eq!(
+      OpeningSquareTable::WHITE_KNIGHT[string_to_square("f3") as usize],
+      1.0
+    );
+    assert_eq!(
+      OpeningSquareTable::WHITE_KNIGHT[string_to_square("h3") as usize],
+      -3.0
+    );
+  }
 
-// Queens tend to like central squares.
-// Symmetrical, so it will be the same for white and black here.
-pub const QUEEN_SQUARE_AFFINITY: [f32; 64] = [
-  -2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0, // 1st row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, // 2nd row
-  -1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0, // 3rd row
-  -1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0, // 4th row
-  -1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0, // 5th row.
-  -1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0, // 6th row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, //7th row
-  -2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0, // 8th row
-];
-
-// Rook likey squares
-pub const WHITE_ROOK_SQUARE_AFFINITY: [f32; 64] = [
-  0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, // 1st row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, // 2nd row
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 3rd row
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 4th row
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 5th row.
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 6th row
-  0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5, //7th row, me likey!
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 8th row
-];
-
-pub const BLACK_ROOK_SQUARE_AFFINITY: [f32; 64] = [
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 1st row
-  0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5, // 2nd row, me likey!
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 3rd row
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 4th row
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 5th row.
-  -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5, // 6th row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, //7th row
-  0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, // 8th row
-];
-
-// Bishop squares
-pub const WHITE_BISHOP_SQUARE_AFFINITY: [f32; 64] = [
-  -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0, // 1st row
-  -1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, -1.0, // 2nd row
-  -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, // 3rd row
-  -1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, // 4th row
-  -1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, -1.0, // 5th row.
-  -1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -1.0, // 6th row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, // 7th row
-  -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0, // 8th row
-];
-
-pub const BLACK_BISHOP_SQUARE_AFFINITY: [f32; 64] = [
-  -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0, // 1st row
-  -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, // 2nd row
-  -1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -1.0, // 3rd row
-  -1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, -1.0, // 4th row
-  -1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, // 5th row.
-  -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, // 6th row
-  -1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, -1.0, // 7th row
-  -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0, // 8th row
-];
-
-// Bishop squares
-pub const KNIGHT_SQUARE_AFFINITY: [f32; 64] = [
-  -5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0, // 1st row
-  -4.0, -2.0, 0.0, 0.0, 0.0, 0.0, -2.0, -4.0, // 2nd row
-  -3.0, 0.0, 1.0, 1.5, 1.5, 1.0, 0.0, -3.0, // 3rd row
-  -3.0, 0.5, 1.5, 2.0, 2.0, 1.5, 0.5, -3.0, // 4th row
-  -3.0, 0.5, 1.5, 2.0, 2.0, 1.5, 0.5, -3.0, // 5th row.
-  -3.0, 0.0, 1.0, 1.5, 1.5, 1.0, 0.0, -3.0, // 6th row
-  -4.0, -2.0, 0.0, 0.0, 0.0, 0.0, -2.0, -4.0, // 7th row
-  -5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0, // 8th row
-];
-
-// Pawn squares
-pub const WHITE_PAWN_SQUARE_AFFINITY: [f32; 64] = [
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 1st row
-  0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5, // 2nd row
-  0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5, // 3rd row
-  0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0, // 4th row
-  0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5, // 5th row.
-  1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0, // 6th row
-  5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, // 7th row
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 8th row
-];
-
-pub const BLACK_PAWN_SQUARE_AFFINITY: [f32; 64] = [
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 1st row
-  5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, // 2nd row
-  1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0, // 3rd row
-  0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5, // 4th row
-  0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0, // 5th row.
-  0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5, // 6th row
-  0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5, // 7th row
-  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 8th row
-];
+  #[test]
+  fn check_opening_white_pawn_values() {
+    assert_eq!(
+      OpeningSquareTable::WHITE_PAWN[string_to_square("e2") as usize],
+      -2.0
+    );
+    assert_eq!(
+      OpeningSquareTable::WHITE_PAWN[string_to_square("e4") as usize],
+      2.0
+    );
+    assert_eq!(
+      OpeningSquareTable::WHITE_PAWN[string_to_square("h4") as usize],
+      0.0
+    );
+  }
+}

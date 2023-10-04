@@ -170,7 +170,7 @@ impl GameState {
   }
 
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
-    if !square_in_mask!(chess_move.src, self.board.pieces.all()) {
+    if !square_in_mask!(chess_move.src(), self.board.pieces.all()) {
       error!(
         "Input moves with empty source square? {} - board:\n{}",
         chess_move, self.board
@@ -179,7 +179,7 @@ impl GameState {
     }
 
     // Save the last position:
-    if square_in_mask!(chess_move.src, self.board.pieces.pawns()) {
+    if square_in_mask!(chess_move.src(), self.board.pieces.pawns()) {
       // Cannot really repeat a position after a pawn moves, assume anything forward is a novel position
       self.last_positions.clear();
     } else {
@@ -190,8 +190,8 @@ impl GameState {
     }
 
     // Check the ply count first:
-    if square_in_mask!(chess_move.dest, self.board.pieces.all())
-      || square_in_mask!(chess_move.src, self.board.pieces.pawns())
+    if square_in_mask!(chess_move.dest(), self.board.pieces.all())
+      || square_in_mask!(chess_move.src(), self.board.pieces.pawns())
     {
       self.ply = 0;
     } else if self.ply < 255 {
@@ -389,7 +389,20 @@ mod tests {
       println!("{m}");
       assert!(legal_moves.contains(&m.to_string().as_str()));
     }
-    assert_eq!(2, move_list.len());
+    assert_eq!(legal_moves.len(), move_list.len());
+  }
+
+  #[test]
+  fn test_legal_moves_en_passant() {
+    let fen = "4k3/8/8/8/2PpP3/8/8/4K3 b - c3 0 3";
+    let game_state = GameState::from_fen(fen);
+    let move_list = game_state.get_moves();
+    let legal_moves = vec!["e8e7", "e8f7", "e8f8", "e8d7", "e8d8", "d4d3", "d4c3"];
+    for m in &move_list {
+      println!("{m}");
+      assert!(legal_moves.contains(&m.to_string().as_str()));
+    }
+    assert_eq!(legal_moves.len(), move_list.len());
   }
 
   #[test]
@@ -490,19 +503,19 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     // List of legal moves are: 6:
-    let mut legal_moves: Vec<Move> = Vec::new();
-    legal_moves.push(Move::from_string("b4c6"));
-    legal_moves.push(Move::from_string("g4d7"));
-    legal_moves.push(Move::from_string("f6d7"));
-    legal_moves.push(Move::from_string("c7c6"));
-    legal_moves.push(Move::from_string("e8e7"));
-    legal_moves.push(Move::from_string("e8d8"));
+    let mut legal_moves: Vec<&str> = Vec::new();
+    legal_moves.push("b4c6");
+    legal_moves.push("g4d7");
+    legal_moves.push("f6d7");
+    legal_moves.push("c7c6");
+    legal_moves.push("e8e7");
+    legal_moves.push("e8d8");
 
     let computed_moves = game_state.get_moves();
 
     for m in &computed_moves {
       println!("Move: {m}");
-      assert!(legal_moves.contains(m));
+      assert!(legal_moves.contains(&m.to_string().as_str()));
     }
 
     assert_eq!(6, computed_moves.len());
@@ -513,16 +526,16 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     // List of legal moves are: 3:
-    let mut legal_moves: Vec<Move> = Vec::new();
-    legal_moves.push(Move::from_string("f8e7"));
-    legal_moves.push(Move::from_string("f7g6"));
-    legal_moves.push(Move::from_string("f7g8"));
+    let mut legal_moves: Vec<&str> = Vec::new();
+    legal_moves.push("f8e7");
+    legal_moves.push("f7g6");
+    legal_moves.push("f7g8");
 
     let computed_moves = game_state.get_moves();
 
     for m in &computed_moves {
       println!("Move: {m}");
-      assert!(legal_moves.contains(m));
+      assert!(legal_moves.contains(&m.to_string().as_str()));
     }
 
     assert_eq!(3, computed_moves.len());
@@ -533,16 +546,16 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     // List of legal moves are: 3:
-    let mut legal_moves: Vec<Move> = Vec::new();
-    legal_moves.push(Move::from_string("f7e7"));
-    legal_moves.push(Move::from_string("f7e6"));
-    legal_moves.push(Move::from_string("f7f6"));
+    let mut legal_moves: Vec<&str> = Vec::new();
+    legal_moves.push("f7e7");
+    legal_moves.push("f7e6");
+    legal_moves.push("f7f6");
 
     let computed_moves = game_state.get_moves();
 
     for m in &computed_moves {
       println!("Move: {m}");
-      assert!(legal_moves.contains(m));
+      assert!(legal_moves.contains(&m.to_string().as_str()));
     }
 
     assert_eq!(3, computed_moves.len());
@@ -554,18 +567,18 @@ mod tests {
     game_state.apply_move(&Move::from_string("g7e6"));
 
     // List of legal moves are:
-    let mut legal_moves: Vec<Move> = Vec::new();
-    legal_moves.push(Move::from_string("f8e8"));
-    legal_moves.push(Move::from_string("f8e7"));
-    legal_moves.push(Move::from_string("f8f7"));
-    legal_moves.push(Move::from_string("f8g8"));
-    legal_moves.push(Move::from_string("d7e6"));
+    let mut legal_moves: Vec<&str> = Vec::new();
+    legal_moves.push("f8e8");
+    legal_moves.push("f8e7");
+    legal_moves.push("f8f7");
+    legal_moves.push("f8g8");
+    legal_moves.push("d7e6");
 
     let computed_moves = game_state.get_moves();
 
     for m in &computed_moves {
       println!("Move: {m}");
-      assert!(legal_moves.contains(m));
+      assert!(legal_moves.contains(&m.to_string().as_str()));
     }
 
     assert_eq!(5, computed_moves.len());

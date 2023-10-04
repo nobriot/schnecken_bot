@@ -2,15 +2,306 @@ use crate::model::board::INVALID_SQUARE;
 use crate::model::piece::*;
 
 use log::*;
+use std::ops::Shl;
 
+// -----------------------------------------------------------------------------
+//  Type definition
+#[allow(non_camel_case_types)]
+pub type move_t = u32;
+
+// -----------------------------------------------------------------------------
+//  Constants
+
+/// Bitmask used to parse square data (0..63)
+pub const SQUARE_MASK: move_t = 0b111111;
+/// Bitmask used to parse promotion data (0..8), see `Promotion`
+pub const PROMOTION_MASK: move_t = 0b01111;
+/// Left bitshift to apply to the Move Data to get the promotion
+pub const PROMOTION_SHIFT: move_t = 12;
+/// Right bitshift to apply to the Move Data to get the Destination
+pub const DESTINATION_SHIFT: move_t = 6;
+
+/// Bit shift to apply to verify if the move is a capture
+pub const CAPTURE_SHIFT: move_t = 16;
+/// Bit shift to apply to verify if the move delivers check
+pub const CHECK_SHIFT: move_t = 17;
+/// Mask to apply to the number of checks
+const CHECK_MASK: move_t = 0b11;
+
+/// Bit shift to apply to verify if the move is marked as a castling move
+pub const CASTLE_SHIFT: move_t = 19;
+
+// -----------------------------------------------------------------------------
+//  Macros
+
+/// Helper macro that creates a Move
+///
+/// Use like this for all parameters: `mv!(source, destination, promotion, is_capture, gives_check)`
+///
+/// Only 2 madatory parameters are source and destinations: `mv!(source, destination)`
+///
+/// ### Arguments
+///
+/// * `source`          Source square for the move : 0..63;
+/// * `destination`     Destination square for the move : 0..63;
+/// * `promotion`       Whether the move yields a promotion
+/// * `is_capture`      bool value to indicate if this is a capture on the board it is applied.
+/// * `gives_check`     bool value to indicate if this moves gives check on the board it is applied.
+///
+/// ### Returns
+///
+/// Move struct with the indicated data packed inside.
+///
+#[macro_export]
+macro_rules! mv {
+  // All parameters
+  ($src:expr, $dest:expr, $prom:expr, $capture:expr, $check:expr) => {
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+        | (($capture as move_t & 1) << CAPTURE_SHIFT)
+        | (($check as move_t & CHECK_MASK) << CHECK_SHIFT),
+    }
+  };
+  // 4 parameters
+  ($src:expr, $dest:expr, $prom:expr, $capture:expr) => {
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+        | (($capture as move_t & 1) << CAPTURE_SHIFT),
+    }
+  };
+
+  // 3 parameters
+  ($src:expr, $dest:expr, $prom:expr) => {
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT),
+    }
+  };
+  // 2 parameters, just source and destination.
+  ($src:expr, $dest:expr) => {
+    Move {
+      data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT),
+    }
+  };
+}
+
+/// Helper macro that creates a castle Move
+///
+/// Use like this parameters: `mv!(source, destination)`
+///
+/// ### Arguments
+///
+/// * `source`          Source square for the move : 0..63;
+/// * `destination`     Destination square for the move : 0..63;
+///
+/// ### Returns
+///
+/// Move struct with the indicated data packed inside.
+///
+#[macro_export]
+macro_rules! castle_mv {
+  // All parameters
+  ($src:expr, $dest:expr) => {
+    Move {
+      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CASTLE_SHIFT),
+    }
+  };
+}
+
+/// Helper macro that creates a Capture Move
+///
+/// Use like this parameters: `mv!(source, destination)`
+///
+/// ### Arguments
+///
+/// * `source`          Source square for the move : 0..63;
+/// * `destination`     Destination square for the move : 0..63;
+///
+/// ### Returns
+///
+/// Move struct with the indicated data packed inside.
+///
+#[macro_export]
+macro_rules! capture_mv {
+  // All parameters
+  ($src:expr, $dest:expr) => {
+    Move {
+      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CAPTURE_SHIFT),
+    }
+  };
+}
+
+pub use capture_mv;
+pub use castle_mv;
+pub use mv;
+
+/// List of possible promotions in a chess game
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Promotion {
+  #[default]
+  NoPromotion = 0,
+  WhiteQueen = 1,
+  WhiteRook = 2,
+  WhiteBishop = 3,
+  WhiteKnight = 4,
+  BlackQueen = 5,
+  BlackRook = 6,
+  BlackBishop = 7,
+  BlackKnight = 8,
+}
+
+impl Promotion {
+  /// Converts a promotion value to an optional character that can be
+  /// used in move notations
+  ///
+  pub fn to_char(&self) -> Option<char> {
+    match self {
+      Promotion::NoPromotion => None,
+      Promotion::WhiteQueen => Some('Q'),
+      Promotion::WhiteRook => Some('R'),
+      Promotion::WhiteBishop => Some('B'),
+      Promotion::WhiteKnight => Some('N'),
+      Promotion::BlackQueen => Some('q'),
+      Promotion::BlackRook => Some('r'),
+      Promotion::BlackBishop => Some('b'),
+      Promotion::BlackKnight => Some('n'),
+    }
+  }
+
+  /// Converts a character used in  value to an optional character that can be
+  /// used in move notations
+  ///
+  pub fn from_char(promotion: char) -> Self {
+    match promotion {
+      'Q' => Promotion::WhiteQueen,
+      'R' => Promotion::WhiteRook,
+      'B' => Promotion::WhiteBishop,
+      'N' => Promotion::WhiteKnight,
+      'q' => Promotion::BlackQueen,
+      'r' => Promotion::BlackRook,
+      'b' => Promotion::BlackBishop,
+      'n' => Promotion::BlackKnight,
+      _ => Promotion::NoPromotion,
+    }
+  }
+
+  pub fn to_piece_const(&self) -> u8 {
+    match self {
+      Promotion::NoPromotion => NO_PIECE,
+      Promotion::WhiteQueen => WHITE_QUEEN,
+      Promotion::WhiteRook => WHITE_ROOK,
+      Promotion::WhiteBishop => WHITE_BISHOP,
+      Promotion::WhiteKnight => WHITE_KNIGHT,
+      Promotion::BlackQueen => BLACK_QUEEN,
+      Promotion::BlackRook => BLACK_ROOK,
+      Promotion::BlackBishop => BLACK_BISHOP,
+      Promotion::BlackKnight => BLACK_KNIGHT,
+    }
+  }
+}
+
+// We want to be able to do a left shift directly on the Promotion enum,
+// so that we can integrate it to the data without conversions.
+// Data target is move_t, so we return a move_t already.
+impl Shl<move_t> for Promotion {
+  type Output = move_t;
+
+  fn shl(self, rhs: move_t) -> Self::Output {
+    return (unsafe { std::mem::transmute::<Promotion, u8>(self) } as move_t) << rhs;
+  }
+}
+
+/// Represents a move on the board.
+///
+///
+/// ### Fields
+///
+/// * `data`: Contains the source, destination and promotion
+///
+///
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct Move {
-  /// Source square of a move (value from 0 to 63)
-  pub src: u8,
-  /// Destination square of a move (value from 0 to 63)
-  pub dest: u8,
-  /// Piece to spawn in case of promotion. Encoded using piece constants (NO_PIECE, WHITE_QUEEN, etc.)
-  pub promotion: u8,
+  /// Move data, representing source -> destination and an optional promotion.
+  ///
+  /// source mask         : 0b 0000 0000 0000 0000 0000 0000 0011 1111
+  /// destination mask    : 0b 0000 0000 0000 0000 0000 1111 1100 0000
+  /// promotion mask      : 0b 0000 0000 0000 0000 1111 0000 0000 0000
+  /// is_capture mask     : 0b 0000 0000 0000 0001 0000 0000 0000 0000
+  /// checks mask         : 0b 0000 0000 0000 0110 0000 0000 0000 0000
+  /// is_casle mask       : 0b 0000 0000 0000 1000 0000 0000 0000 0000
+  ///
+  /// Note that capture/gives_check depends on the board configuration and
+  /// does not need to be exact in all use-cases.
+  ///
+  /// Use the helper functions rather than access this field directly.
+  pub data: move_t,
+}
+
+impl Move {
+  /// Returns the source square of a move, will be in the range 0..63
+  #[inline]
+  pub fn src(&self) -> move_t {
+    self.data & SQUARE_MASK
+  }
+
+  /// Returns the source square of a move, will be in the range 0..63
+  #[inline]
+  pub fn u8_src(&self) -> u8 {
+    (self.data & SQUARE_MASK) as u8
+  }
+
+  /// Returns the destination square of a move, will be in the range 0..63
+  #[inline]
+  pub fn dest(&self) -> move_t {
+    (self.data >> DESTINATION_SHIFT) & SQUARE_MASK
+  }
+
+  /// Returns the destination square of a move, will be in the range 0..63
+  #[inline]
+  pub fn u8_dest(&self) -> u8 {
+    ((self.data >> DESTINATION_SHIFT) & SQUARE_MASK) as u8
+  }
+
+  /// Returns the promotion value for a move, it's to say the piece that will spawn
+  /// on the destination square
+  ///
+  #[inline]
+  pub fn promotion(&self) -> Promotion {
+    unsafe { std::mem::transmute(((self.data >> PROMOTION_SHIFT) & PROMOTION_MASK) as u8) }
+  }
+
+  /// Returns true if the move has been marked to be a capture.
+  /// This depends on the board, and moves generated e.g. from a notation
+  /// may not have accurate information here.
+  ///
+  #[inline]
+  pub fn is_capture(&self) -> bool {
+    (self.data >> CAPTURE_SHIFT) != 0
+  }
+
+  /// Returns the number of checks if the move has been marked to give checks
+  /// This depends on the board, and moves generated e.g. from a notation
+  /// may not have accurate information here.
+  ///
+  #[inline]
+  pub fn gives_check(&self) -> move_t {
+    (self.data >> CHECK_SHIFT) & CHECK_MASK
+  }
+
+  /// Returns whether the move is a castling move or not
+  /// This depends on the board, and moves generated e.g. from a notation
+  /// may not have accurate information here.
+  ///
+  #[inline]
+  pub fn is_castle(&self) -> bool {
+    (self.data >> CASTLE_SHIFT) != 0
+  }
 }
 
 impl std::fmt::Display for Move {
@@ -21,11 +312,7 @@ impl std::fmt::Display for Move {
 
 impl Default for Move {
   fn default() -> Self {
-    Move {
-      src: 0,
-      dest: 0,
-      promotion: NO_PIECE,
-    }
+    Move { data: 0 }
   }
 }
 
@@ -104,49 +391,49 @@ pub fn string_to_square(string: &str) -> u8 {
 impl Move {
   /// Converts a move to the algebraic notation, e.g. a3f3
   pub fn to_string(&self) -> String {
-    if self.promotion != NO_PIECE {
-      let mut move_string = square_to_string(self.src) + &square_to_string(self.dest);
-      move_string.push(Piece::u8_to_char(self.promotion).expect("Should be a valid piece!"));
-      move_string
-    } else {
-      square_to_string(self.src) + &square_to_string(self.dest)
+    let promotion = self.promotion();
+
+    match promotion {
+      Promotion::NoPromotion => {
+        square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8)
+      },
+      _ => {
+        let mut move_string =
+          square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8);
+        move_string.push(Promotion::to_char(&promotion).expect("Should be a valid piece!"));
+        move_string
+      },
     }
   }
 
   /// Converts a move to the algebraic notation, e.g.
   pub fn from_string(move_notation: &str) -> Self {
-    let src = string_to_square(&move_notation[0..2]);
-    let dest = string_to_square(&move_notation[2..4]);
-    let mut promotion;
-    if move_notation.len() == 5 {
-      promotion = Piece::char_to_u8(
+    let dest: move_t = string_to_square(&move_notation[2..4]) as move_t;
+
+    let mut promotion = if move_notation.len() == 5 {
+      Promotion::from_char(
         move_notation
           .chars()
           .nth(4)
           .expect("Invalid promoted piece ??"),
       )
-      .expect("unexpected piece");
     } else {
-      promotion = NO_PIECE;
-    }
+      Promotion::NoPromotion
+    };
 
     // By default the notation has small letter, so it will produce black pieces.
     // Change here the black piece into white piece if the destination rank is the 8th
-    if (dest / 8) == 7 && promotion != NO_PIECE {
+    if (dest / 8) == 7 && promotion != Promotion::NoPromotion {
       match promotion {
-        BLACK_QUEEN => promotion = WHITE_QUEEN,
-        BLACK_ROOK => promotion = WHITE_ROOK,
-        BLACK_BISHOP => promotion = WHITE_BISHOP,
-        BLACK_KNIGHT => promotion = WHITE_KNIGHT,
+        Promotion::BlackQueen => promotion = Promotion::WhiteQueen,
+        Promotion::BlackRook => promotion = Promotion::WhiteRook,
+        Promotion::BlackBishop => promotion = Promotion::WhiteBishop,
+        Promotion::BlackKnight => promotion = Promotion::WhiteKnight,
         _ => {},
       }
     }
 
-    Move {
-      src,
-      dest,
-      promotion,
-    }
+    mv!(string_to_square(&move_notation[0..2]), dest, promotion)
   }
 
   pub fn vec_to_string(move_list: &Vec<Move>) -> String {
@@ -236,25 +523,13 @@ mod tests {
 
   #[test]
   fn move_to_string() {
-    let m = Move {
-      src: 0,
-      dest: 1,
-      promotion: WHITE_BISHOP,
-    };
+    let m = mv!(0, 1, Promotion::WhiteBishop);
     assert_eq!("a1b1B", m.to_string());
 
-    let m = Move {
-      src: 63,
-      dest: 1,
-      promotion: NO_PIECE,
-    };
+    let m = mv!(63, 1);
     assert_eq!("h8b1", m.to_string());
 
-    let m = Move {
-      src: 9,
-      dest: 1,
-      promotion: BLACK_QUEEN,
-    };
+    let m = mv!(9, 1, Promotion::BlackQueen);
     assert_eq!("b2b1q", m.to_string());
     assert_eq!(m, Move::from_string(m.to_string().as_str()));
   }
@@ -262,16 +537,8 @@ mod tests {
   #[test]
   fn vec_to_string() {
     let mut vec = Vec::new();
-    vec.push(Move {
-      src: 0,
-      dest: 1,
-      promotion: WHITE_BISHOP,
-    });
-    vec.push(Move {
-      src: 63,
-      dest: 0,
-      promotion: NO_PIECE,
-    });
+    vec.push(mv!(0, 1, Promotion::WhiteBishop));
+    vec.push(mv!(63, 0));
 
     assert_eq!("a1b1B h8a1", Move::vec_to_string(&vec));
   }
@@ -280,16 +547,8 @@ mod tests {
   fn string_to_vec() {
     let moves = "a1b1B h8a1";
     let vec = Move::string_to_vec(moves);
-    let m0 = Move {
-      src: 0,
-      dest: 1,
-      promotion: WHITE_BISHOP,
-    };
-    let m1 = Move {
-      src: 63,
-      dest: 0,
-      promotion: NO_PIECE,
-    };
+    let m0 = mv!(0, 1, Promotion::WhiteBishop);
+    let m1 = mv!(63, 0);
     assert_eq!(vec[0], m0);
     assert_eq!(vec[1], m1);
   }

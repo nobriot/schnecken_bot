@@ -12,36 +12,8 @@ const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.1;
 const CASTLING_PENATLY: f32 = 1.0;
 
-/// Gives a score based on the position in the opening
-///
-/// # Arguments
-///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
-  let mut score: f32 = 0.0;
-
-  score += DEVELOPMENT_FACTOR
-    * (get_development_score(game_state, Color::White) as f32
-      - get_development_score(game_state, Color::Black) as f32);
-
-  score += KING_DANGER_FACTOR
-    * (get_king_danger_score(game_state, Color::Black)
-      - get_king_danger_score(game_state, Color::White));
-
-  if is_king_too_adventurous(game_state, Color::White) {
-    score -= KING_TOO_ADVENTUROUS_PENALTY;
-  }
-  if is_king_too_adventurous(game_state, Color::Black) {
-    score += KING_TOO_ADVENTUROUS_PENALTY;
-  }
-
-  if are_casling_rights_lost(game_state, Color::White) {
-    score -= CASTLING_PENATLY;
-  }
-  if are_casling_rights_lost(game_state, Color::Black) {
-    score += CASTLING_PENATLY;
-  }
-
+pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
+  let mut score = 0.0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
       PieceType::King => {
@@ -86,6 +58,40 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
       },
     }
   }
+  score
+}
+
+/// Gives a score based on the position in the opening
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
+  let mut score: f32 = 0.0;
+
+  score += DEVELOPMENT_FACTOR
+    * (get_development_score(game_state, Color::White) as f32
+      - get_development_score(game_state, Color::Black) as f32);
+
+  score += KING_DANGER_FACTOR
+    * (get_king_danger_score(game_state, Color::Black)
+      - get_king_danger_score(game_state, Color::White));
+
+  if is_king_too_adventurous(game_state, Color::White) {
+    score -= KING_TOO_ADVENTUROUS_PENALTY;
+  }
+  if is_king_too_adventurous(game_state, Color::Black) {
+    score += KING_TOO_ADVENTUROUS_PENALTY;
+  }
+
+  if are_casling_rights_lost(game_state, Color::White) {
+    score -= CASTLING_PENATLY;
+  }
+  if are_casling_rights_lost(game_state, Color::Black) {
+    score += CASTLING_PENATLY;
+  }
+
+  score += get_square_table_opening_score(game_state);
 
   score + default_position_evaluation(game_state)
 }
@@ -266,5 +272,37 @@ mod tests {
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
     assert!(eval > 2.5);
+  }
+
+  #[test]
+  fn evaluate_weird_opening_moves() {
+    let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let score_e4 = get_square_table_opening_score(&game_state);
+
+    let fen = "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let score_d4 = get_square_table_opening_score(&game_state);
+
+    let fen = "rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let score_a4 = get_square_table_opening_score(&game_state);
+
+    let fen = "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1";
+    let game_state = GameState::from_fen(fen);
+    let score_nf3 = get_square_table_opening_score(&game_state);
+
+    let fen = "rnbqkbnr/pppppppp/8/8/8/7N/PPPPPPPP/RNBQKB1R b KQkq - 1 1";
+    let game_state = GameState::from_fen(fen);
+    let score_nh3 = get_square_table_opening_score(&game_state);
+
+    println!("E4: {score_e4}");
+    println!("D4: {score_d4}");
+    println!("a4: {score_a4}");
+    println!("Nf3: {score_nf3}");
+    println!("Nh3: {score_nh3}");
+
+    assert!(score_e4 > score_a4);
+    assert!(score_nf3 > score_nh3);
   }
 }

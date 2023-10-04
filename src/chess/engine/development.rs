@@ -1,3 +1,5 @@
+use crate::model::board_geometry::{BOARD_DOWN_EDGE, BOARD_UP_EDGE};
+use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 
@@ -12,19 +14,14 @@ use crate::model::piece::*;
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   let mut score: usize = 6;
-  let rank = match color {
-    Color::White => 1,
-    Color::Black => 8,
+
+  let (edge, pieces) = match color {
+    Color::White => (BOARD_DOWN_EDGE, game_state.board.pieces.white),
+    Color::Black => (BOARD_UP_EDGE, game_state.board.pieces.black),
   };
 
-  // Check for trailing pieces first:
-  for file in 1..=8 {
-    match (game_state.board.get_piece(file, rank), color) {
-      (WHITE_BISHOP | WHITE_QUEEN | WHITE_KNIGHT, Color::White) => score -= 1,
-      (BLACK_BISHOP | BLACK_QUEEN | BLACK_KNIGHT, Color::Black) => score -= 1,
-      (_, _) => {},
-    }
-  }
+  // Check if minors are left on the edges:
+  score -= (edge & (pieces.minors() | pieces.queen)).count_ones() as usize;
 
   // If pieces are around, we can conclude that rook are not connected
   if score != 6 {
@@ -33,27 +30,18 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   }
 
   // Check for trailing pieces first:
-  let mut first_rook_found = false;
-  for file in 1..=8 {
-    match game_state.board.get_piece(file, rank) {
-      WHITE_ROOK | BLACK_ROOK => {
-        if first_rook_found {
-          // We just found the second rook, we are happy!
-          return score;
-        } else {
-          // First rook found
-          first_rook_found = true;
-        }
-      },
-      NO_PIECE => {},
-      _ => {
-        // Rooks are not connected!
-        if first_rook_found {
-          score -= 1;
-          return score;
-        }
-      },
-    }
+  let mut rooks = pieces.rook;
+  if pieces.rook.count_ones() != 2 {
+    return score;
+  }
+  let rook_1 = rooks.trailing_zeros() as u8;
+  rooks &= rooks - 1;
+  let rook_2 = rooks.trailing_zeros() as u8;
+
+  let destinations = game_state.board.get_piece_control_mask(rook_1);
+
+  if !square_in_mask!(rook_2, destinations) {
+    score -= 1;
   }
 
   score
@@ -123,7 +111,7 @@ mod tests {
     assert_eq!(0, get_development_score(&game_state, Color::White));
     assert_eq!(2, get_development_score(&game_state, Color::Black));
 
-    let fen ="rnbqkbnr/p1pp1ppp/8/7Q/p7/2N1Pp2/1PPP1PPP/R1B1KB1R w KQkq - 0 6";
+    let fen = "rnbqkbnr/p1pp1ppp/8/7Q/p7/2N1Pp2/1PPP1PPP/R1B1KB1R w KQkq - 0 6";
     let game_state = GameState::from_fen(fen);
     assert_eq!(3, get_development_score(&game_state, Color::White));
     assert_eq!(0, get_development_score(&game_state, Color::Black));
