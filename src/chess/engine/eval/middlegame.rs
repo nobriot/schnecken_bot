@@ -7,7 +7,7 @@ use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
 const KING_DANGER_FACTOR: f32 = 0.3;
-const KING_TOO_ADVENTUROUS_PENALTY: f32 = 1.5;
+const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.1;
 
 /// Gives a score based on the position in the middlegame

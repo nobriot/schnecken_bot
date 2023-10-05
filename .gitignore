@@ -2,3 +2,4 @@ target/*
 **/target/*
 Cargo.lock
 assets/lichess_api_token.txt
+src/chess/engine/nnue/*

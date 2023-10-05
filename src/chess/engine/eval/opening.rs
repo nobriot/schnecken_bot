@@ -8,7 +8,7 @@ use crate::model::piece::*;
 // Constants
 const DEVELOPMENT_FACTOR: f32 = 0.30;
 const KING_DANGER_FACTOR: f32 = 0.3;
-const KING_TOO_ADVENTUROUS_PENALTY: f32 = 2.0;
+const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.1;
 const CASTLING_PENATLY: f32 = 1.0;
 
@@ -84,12 +84,14 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
     score += KING_TOO_ADVENTUROUS_PENALTY;
   }
 
+  /*
   if are_casling_rights_lost(game_state, Color::White) {
     score -= CASTLING_PENATLY;
   }
   if are_casling_rights_lost(game_state, Color::Black) {
     score += CASTLING_PENATLY;
   }
+   */
 
   score += get_square_table_opening_score(game_state);
 
@@ -304,5 +306,17 @@ mod tests {
 
     assert!(score_e4 > score_a4);
     assert!(score_nf3 > score_nh3);
+  }
+
+  #[test]
+  fn evaluate_chaotic_sacrifice() {
+    let fen = "rn1q1bnr/p1p2kpp/8/1N1p1b2/8/8/PPPPPPPP/R1BQKB1R w KQ - 0 6";
+    let game_state = GameState::from_fen(fen);
+
+    let eval = get_opening_position_evaluation(&game_state);
+    println!("Eval: {eval}");
+
+    assert!(eval < 1.5);
+    assert!(eval > -1.0);
   }
 }
