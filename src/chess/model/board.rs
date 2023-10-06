@@ -9,6 +9,7 @@ use crate::model::piece_moves::*;
 use crate::model::piece_set::*;
 use crate::model::tables::pawn_destinations::*;
 use crate::model::tables::rook_destinations::ROOK_SPAN;
+use crate::model::tables::bishop_destinations::BISHOP_SPAN;
 use crate::model::tables::zobrist::*;
 
 use log::*;

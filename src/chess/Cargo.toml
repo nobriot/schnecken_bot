@@ -34,3 +34,7 @@ required-features = []
 [[bin]]
 name = "generate_rook_table"
 path = "model/bin/generate_rook_table.rs"
+
+[[bin]]
+name = "generate_bishop_table"
+path = "model/bin/generate_bishop_table.rs"

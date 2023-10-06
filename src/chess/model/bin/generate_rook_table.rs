@@ -1,6 +1,4 @@
 use rand::Rng;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 
@@ -124,7 +122,7 @@ fn main() {
     rook_blocker_numbers
   );
 
-  // Now we want to find these rook magic contants
+  // Now we want to find these rook magic constants
   let mut rook_magic: [u64; 64] = [0; 64];
 
   for i in 0..64 {
