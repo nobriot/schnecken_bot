@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs::File;
@@ -25,20 +26,24 @@ fn main() {
   let mut output_file = File::create(filename).unwrap();
 
   // First the Rook span (constant)
-  let mut rook_moves: [u64; 64] = [0; 64];
+  let mut rook_span: [u64; 64] = [0; 64];
   for i in 0..64 {
-    rook_moves[i] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, 0, i);
+    rook_span[i] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, 0, i);
   }
 
   let _ = write!(
     output_file,
-    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};",
-    rook_moves
+    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};\n\n",
+    rook_span
   );
 
+  // Then we calculate indices of relevant bits as well as rook spans without edges.
   // Then the indices of the bits on the Rook span
   let mut rook_span_indexes: [[usize; 12]; 64] = [[INVALID_SQUARE.into(); 12]; 64];
   let mut rook_span_without_edges: [u64; 64] = [0; 64];
+  let mut rook_span_without_edges: [u64; 64] = [0; 64];
+  // How many bits are describing relevant blockers based on the position
+  let mut rook_blocker_numbers: [u8; 64] = [64; 64];
 
   for i in 0..64 {
     let mut index = 0;
@@ -78,13 +83,14 @@ fn main() {
     //println!("i = {};", i);
     //print_board_mask(piece_edges);
     for j in 0..64 {
-      if !square_in_mask!(j, rook_moves[i] & piece_edges) {
+      if !square_in_mask!(j, rook_span[i] & piece_edges) {
         continue;
       }
-      println!("ROOK_SPAN_INDEXES[i={}][index={}] = {};", i, index, j);
+      //println!("ROOK_SPAN_INDEXES[i={}][index={}] = {};", i, index, j);
       rook_span_indexes[i][index] = j;
       index += 1;
     }
+    rook_blocker_numbers[i] = index as u8;
 
     let mut span_mask = 0;
     for j in 0..12 {
@@ -99,7 +105,7 @@ fn main() {
 
   let _ = write!(
     output_file,
-    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};",
+    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};\n\n",
     rook_span_without_edges
   );
 
@@ -107,101 +113,166 @@ fn main() {
     output_file,"/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the ROOK_SPAN.\n///\n///\n");
   let _ = write!(
     output_file,
-    "pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = {:#?};",
+    "pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = {:#?};\n\n",
     rook_span_indexes
   );
+  let _ = write!(
+    output_file,"/// For a given position, this table indicate the Number of relevant blockers bits for a rook\n///\n");
+  let _ = write!(
+    output_file,
+    "pub const ROOK_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
+    rook_blocker_numbers
+  );
 
-  return;
+  // Now we want to find these rook magic contants
+  let mut rook_magic: [u64; 64] = [0; 64];
 
-  // Calculate all possible rook destinations based on the list of blockers
-  static mut rook_table: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
-    [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
-  static mut rook_masks: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
-    [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
   for i in 0..64 {
-    for blockers in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
+    println!("Searching magic for square {i}");
+    rook_magic[i] = find_rook_magic(i);
+  }
+
+  let _ = write!(output_file, "/// Rook Magic Numbers\n///\n");
+  let _ = write!(
+    output_file,
+    "pub const ROOK_MAGIC:[u64; 64] = {:#?};\n\n",
+    rook_magic
+  );
+
+  // Now we pre-compute the list of destinations for all blocker masks
+  let mut rook_destination_table: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
+    [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
+
+  for i in 0..64 {
+    let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] = [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
+    let blocker_combinations = 1 << ROOK_SPAN_WITHOUT_EDGES[i].count_ones();
+
+    // Assemble the combinations of possible blockers for square `i`
+    for b in 0..blocker_combinations {
       let mut blocker_mask: BoardMask = 0;
-      for j in 0..12 {
-        if ROOK_SPAN_INDEXES[i][j] != 255 && (blockers & (1 << j) != 0) {
+      for j in 0..ROOK_SPAN_WITHOUT_EDGES[i].count_ones() as usize {
+        assert!(ROOK_SPAN_INDEXES[i][j] != 255);
+        if b & (1 << j) != 0 {
           blocker_mask |= 1 << ROOK_SPAN_INDEXES[i][j];
         }
       }
-      unsafe {
-        rook_table[i][blockers] =
-          get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blocker_mask, i);
-        rook_masks[i][blockers] = blocker_mask;
+      blockers[b] = blocker_mask;
+    }
+    
+    for b in 0..blocker_combinations {
+      let j: usize =
+        (blockers[b].wrapping_mul(rook_magic[i]) >> (64 - ROOK_BLOCKER_NUMBERS[i])) as usize;
+
+      if rook_destination_table[i][j] == 0 {
+        rook_destination_table[i][j] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i);
+      } else if rook_destination_table[i][j] != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i) {
+        println!("Oh oh... square: {i} blocker {b}, derived index is {j} for blocker mask:");
+        print_board_mask(blockers[b]);
+        println!("Look up table says:");
+        print_board_mask(rook_destination_table[i][j]);
+        println!("while manual calculation says:");
+        print_board_mask(get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i));
+        println!("Wrapping mul (shift is {}):",(64 - ROOK_BLOCKER_NUMBERS[i]));
+        print_board_mask(blockers[b].wrapping_mul(rook_magic[i]));
+        print_board_mask(((blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i])));
+        panic!("Do not use this result!");
       }
     }
   }
 
-  // Test our table a little bit
-  unsafe { print_board_mask(rook_table[0][0]) };
-  unsafe { print_board_mask(rook_masks[0][0]) };
-  unsafe { print_board_mask(rook_table[34][3]) };
-  unsafe { print_board_mask(rook_masks[34][3]) };
-  unsafe { print_board_mask(rook_table[34][5]) };
-  unsafe { print_board_mask(rook_masks[34][5]) };
-
-  println!("TODO: Magic number lookup reduction");
-
-  let mut key_map: HashMap<u64, u64> = HashMap::new();
-
-  // Sorts blockers that results in the same final squares:
-
-  for i in 0..64 {
-    for blockers in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
-      key_map.insert(unsafe { rook_masks[i][blockers] }, blockers as u64);
-    }
-  }
-
-  // Determine magic bits
-  static mut rook_magic: [u64; 64] = [0; 64];
-  static mut rook_magic_table: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
-    [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
-
-  unsafe {
-    for i in 0..64 {
-      for j in 0..1_000_000_000 {
-        let magic = rand::random::<u64>();
-
-        if rook_magic[i] != 0 {
-          break;
-        }
-
-        for m in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
-          let index: usize = (rook_masks[i][m].wrapping_mul(magic)
-            >> (64 - ROOK_BLOCKER_NUMBERS[i])
-            & 0xFFFF) as usize;
-
-          if rook_magic_table[i][index] == 0 {
-            rook_magic_table[i][index] = rook_table[i][m]
-          } else if rook_magic_table[i][index] != rook_table[i][m] {
-            for ii in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
-              rook_magic_table[i][ii] == 0;
-            }
-            println!("failed at m: {m}");
-            break;
-          }
-
-          if m == MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
-            println!("Found magic number for i {i}: {magic}");
-            rook_magic[i] = magic;
-          }
-        }
-      }
-    }
-
-    println!("pub const ROOK_MAGIC: [u64; 64] = {:#?}", rook_magic);
-  }
-  /*let _ = write!(
+  let _ = write!(output_file, "/// Rook Destination Table\n///\n");
+  let _ = write!(
     output_file,
-    "pub const ROOK_TABLE: [[usize; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] = {:#?};",
-    unsafe { rook_table }
+    "pub const ROOK_DESTINATION_TABLE: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] = {:#?};",
+    rook_destination_table
   );
-  */
+
+  // test sanity:
+  let mut rng = rand::thread_rng();
+  for i in 0..1000 {
+    let blockers = rand::random::<u64>();
+    let square = rng.gen_range(0..64);
+
+    let manual_calculation = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers, square);
+    let index: usize = ((blockers & ROOK_SPAN_WITHOUT_EDGES[square])
+      .wrapping_mul(rook_magic[square])
+      >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
+    let look_up_table = rook_destination_table[square][index];
+
+    println!("Result for blockers from square {square} - looked up index {index}:");
+    print_board_mask(blockers & ROOK_SPAN_WITHOUT_EDGES[square]);
+    print_board_mask(manual_calculation);
+    print_board_mask(look_up_table);
+    assert_eq!(manual_calculation, look_up_table);
+  }
 
   /*
    */
   println!("");
   println!("Done! 🙂");
+}
+
+// Got inspired by https://www.chessprogramming.org/Looking_for_Magics
+// Could not really come up with all of it myself.
+fn find_rook_magic(square: usize) -> BoardMask {
+  let mut used: [BoardMask; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
+    [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
+  let mut blockers: [BoardMask; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
+    [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
+  let mut magic: BoardMask = 0;
+
+  let relevant_squares = ROOK_SPAN_WITHOUT_EDGES[square];
+  let n = relevant_squares.count_ones();
+  assert_eq!(ROOK_BLOCKER_NUMBERS[square], n as u8);
+  let blocker_combinations = (1 << n);
+  println!("{n} relevant squares, {blocker_combinations} blocker combinations");
+
+  // Assemble the combinations of possible blockers for square `square`
+  for b in 0..blocker_combinations {
+    let mut blocker_mask: BoardMask = 0;
+    for j in 0..n as usize {
+      assert!(ROOK_SPAN_INDEXES[square][j] != 255);
+      if b & (1 << j) != 0 {
+        blocker_mask |= 1 << ROOK_SPAN_INDEXES[square][j];
+      }
+    }
+    blockers[b] = blocker_mask;
+  }
+
+  for k in 0..100_000_000 {
+    // bitwise AND on 3 times random to get a random number with few bits set to 1.
+    magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
+
+    if ((relevant_squares.wrapping_mul(magic)) & 0xFF00000000000000).count_ones() < 6 {
+      continue;
+    }
+
+    // Now test if our magic number works well with all combinations
+    for i in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
+      used[i] = 0;
+    }
+
+    let mut fail = false;
+    for b in 0..blocker_combinations {
+      let j: usize =
+        (blockers[b].wrapping_mul(magic) >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
+
+      let rook_destinations = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], square);
+      assert_ne!(rook_destinations,0);
+      if used[j] == 0 {
+        used[j] = rook_destinations;
+      } else if used[j] != rook_destinations {
+        fail = true;
+        break;
+      }
+    }
+
+    if !fail {
+      println!("Success for square: {square} - magic value {magic}\n");
+      return magic;
+    }
+  }
+
+  println!("Failed for square: {square}\n");
+  panic!("Do not use this result!!"); 
 }

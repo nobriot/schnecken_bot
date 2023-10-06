@@ -1,5 +1,6 @@
 use super::board_mask::*;
 use crate::model::tables::pawn_destinations::*;
+use crate::model::tables::rook_destinations::get_rook_destinations;
 
 // -----------------------------------------------------------------------------
 //  Constants
@@ -333,16 +334,19 @@ pub fn get_bishop_moves(same_side_pieces: u64, opponent_pieces: u64, square: usi
 /// * `square` - Start square for the knight
 ///
 pub fn get_rook_moves(same_side_pieces: u64, opponent_pieces: u64, square: usize) -> BoardMask {
-  /*
+
   get_rook_destinations(same_side_pieces, opponent_pieces, square)
-  */
+  
+  /*
+  // Manual function: 
   get_moves_from_offsets(
     &ROOK_MOVE_OFFSETS,
     true,
     same_side_pieces,
     opponent_pieces,
     square,
-  )
+  ) 
+  */
 }
 
 /// Returns the list of possible Queen moves

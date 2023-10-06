@@ -1,15 +1,8 @@
 use crate::model::board_mask::BoardMask;
-use crate::model::piece_moves::*;
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
-// -----------------------------------------------------------------------------
-// Static variables used to store our calculations
-static mut rook_table: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
-  [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
-static mut rook_masks: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
-  [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
-static mut key_map: Lazy<HashMap<(usize, u64), u64>> = Lazy::new(|| HashMap::new());
-static mut tables_initialized: bool = false;
+use crate::model::piece_moves::{ROOK_MOVE_OFFSETS,get_moves_from_offsets};
+
+static mut ROOK_TABLE_INITIALIZED : bool = false;
+static mut ROOK_DESTINATION_TABLE: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =    [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
 
 /// Number of combinations of blockers in a rook span
 pub const MAX_ROOK_BLOCKERS: usize = 12;
@@ -231,31 +224,112 @@ pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = [
   [15, 23, 31, 39, 47, 55, 57, 58, 59, 60, 61, 62],
 ];
 
-pub fn init_rook_table() {
-  if unsafe { tables_initialized } {
-    return;
-  }
+// How many bits are describing relevant blockers based on the position
+pub const ROOK_BLOCKER_NUMBERS: [u8; 64] = [
+  12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+  11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+  11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
+];
+
+/// Rook Magic Numbers
+///
+pub const ROOK_MAGIC:[u64; 64] = [
+    4719772549088624642,
+    18014673924263938,
+    72092778545299712,
+    9835870382538654212,
+    2341875121952129152,
+    13907124462593048578,
+    144141648329179916,
+    2341872081655824640,
+    1266639555265840,
+    2305913378495791172,
+    289074938537590932,
+    1153062276455989376,
+    10376856526311920128,
+    6192486074679312,
+    12111586798652948612,
+    2792794720005521666,
+    108087216227500032,
+    1161966088364294272,
+    297238125430710404,
+    90637141796718624,
+    4612251167672764448,
+    563499776376834,
+    9871894782450696720,
+    434599563132227715,
+    18015302600106624,
+    3548845302998892576,
+    576742300298780674,
+    10169137038165671952,
+    1126451810664452,
+    576742240165561344,
+    5764608639730059408,
+    4611831162552205441,
+    144185558975905824,
+    594758825920176256,
+    144396800508301376,
+    2392571670171648,
+    2306987600902096897,
+    1125919242584576,
+    144123988530954768,
+    936819779807740929,
+    5782692299792220160,
+    2328361144793710600,
+    11574251111615365185,
+    1970359465213986,
+    18295890800345106,
+    565149043818624,
+    1152923703646912640,
+    360582657569062945,
+    4620730603241751040,
+    9444048693475936320,
+    13582267408449792,
+    281612550930688,
+    18858892226724096,
+    2305983763882049664,
+    4611967708152727808,
+    2324138884851695872,
+    632896485672419393,
+    108742524637553025,
+    866453280587841,
+    12682171752362541313,
+    4612249106088723714,
+    597008442783303681,
+    2603081752985600132,
+    2269946119734274,
+];
+
+unsafe fn initialize_rook_table(){
 
   for i in 0..64 {
-    for blockers in 0..MAX_ROOK_BLOCKERS_MASK_COMBINATIONS {
+    let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] = [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
+    let blocker_combinations = 1 << ROOK_SPAN_WITHOUT_EDGES[i].count_ones();
+
+    // Assemble the combinations of possible blockers for square `i`
+    for b in 0..blocker_combinations {
       let mut blocker_mask: BoardMask = 0;
-      for j in 0..12 {
-        if ROOK_SPAN_INDEXES[i][j] != 255 && (blockers & (1 << j) != 0) {
+      for j in 0..ROOK_SPAN_WITHOUT_EDGES[i].count_ones() as usize {
+        assert!(ROOK_SPAN_INDEXES[i][j] != 255);
+        if b & (1 << j) != 0 {
           blocker_mask |= 1 << ROOK_SPAN_INDEXES[i][j];
         }
       }
-      unsafe {
-        rook_table[i][blockers] =
-          get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blocker_mask, i);
-        rook_masks[i][blockers] = blocker_mask;
-        key_map.insert((i, blocker_mask), blockers as u64);
+      blockers[b] = blocker_mask;
+    }
+    
+    for b in 0..blocker_combinations {
+      let j: usize =
+        (blockers[b].wrapping_mul(ROOK_MAGIC[i]) >> (64 - ROOK_BLOCKER_NUMBERS[i])) as usize;
+
+      if ROOK_DESTINATION_TABLE[i][j] == 0 {
+        ROOK_DESTINATION_TABLE[i][j] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i);
+      } else if ROOK_DESTINATION_TABLE[i][j] != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i) {
+        panic!("Rook table initialization went wrong! =(");
       }
     }
   }
-
-  unsafe {
-    tables_initialized = true;
-  }
+ ROOK_TABLE_INITIALIZED = true; 
 }
 
 pub fn get_rook_destinations(
@@ -263,17 +337,14 @@ pub fn get_rook_destinations(
   opponent_pieces: BoardMask,
   square: usize,
 ) -> BoardMask {
-  init_rook_table();
-  // FIXME: This just does not work... and is slower than the manual search.
-  //println!("-----------------------------------------------------------------");
-  //println!("Get gook destinations for square {square}");
-  //print_board_mask(opponent_pieces);
-  let blockers = opponent_pieces & ROOK_SPAN[square];
-  //println!("Blockers:");
-  //print_board_mask(blockers);
 
-  let blockers_key = unsafe { key_map[&(square, blockers)] } as usize;
-  //println!("Blockers key: {blockers_key}");
+  // Tried to save the ROOK_DESTINATION_TABLE as a constant but then the stack
+  // overflows. I could not find a nice way to store it on the heap
+  // so I just make a static variable here, that get initialized once.
+  unsafe {if !ROOK_TABLE_INITIALIZED {initialize_rook_table();}};
 
-  unsafe { rook_table[square][blockers_key] & !same_side_pieces }
+  let blockers = (same_side_pieces | opponent_pieces) & ROOK_SPAN_WITHOUT_EDGES[square];
+  let blockers_key = (blockers.wrapping_mul(ROOK_MAGIC[square]) >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
+
+  unsafe {ROOK_DESTINATION_TABLE[square][blockers_key] & !same_side_pieces }
 }

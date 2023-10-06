@@ -25,7 +25,9 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
 
   // If pieces are around, we can conclude that rook are not connected
   if score != 6 {
-    score -= 1;
+    if score >0 {
+      score -= 1;
+    }
     return score;
   }
 
