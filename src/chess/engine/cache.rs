@@ -225,6 +225,22 @@ impl EngineCache {
     return variations[game_state][chess_move].clone();
   }
 
+  /// Gets the cached the result of applying a move to a board.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `game_state` :      Hash value for the board configuration
+  /// * `chess_move` :      Move to apply on the board.
+  ///
+  /// ### Return value
+  ///
+  /// GameState of the new board configuration. Returns 0 if the variation is unknown.
+  ///
+  pub fn clear_variations(&self) {
+    self.variations.lock().unwrap().clear();
+  }
+
   // ---------------------------------------------------------------------------
   // Evaluation cached data
 

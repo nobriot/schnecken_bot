@@ -177,7 +177,7 @@ fn find_bishop_magic(square: usize) -> BoardMask {
     blockers[b] = blocker_mask;
   }
 
-  for k in 0..100_000_000 {
+  for _k in 0..100_000_000 {
     // bitwise AND on 3 times random to get a random number with few bits set to 1.
     magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
 

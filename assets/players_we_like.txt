@@ -1,3 +1,8 @@
+maia5
+sargon-2ply
+maia1
+FlounderBot
+ELO_1500
 sargon-1ply
 RustyPigeon
 bobandi
@@ -8,9 +13,7 @@ dlvc-bot
 FlounderBot
 HardRok
 ZE_ROOK
-ELO_1500
 maia1
-sargon-2ply
 Lynx_BOT
 CHoMPBoT
 sargon-4ply

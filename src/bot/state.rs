@@ -392,6 +392,9 @@ impl BotState {
     } else {
       let best_eval = analysis[0].1;
       while analysis.len() > cutoff {
+        if analysis[cutoff].1.is_nan() {
+          break;
+        }
         if (best_eval - analysis[cutoff].1).abs() > 0.15 {
           break;
         } else {
@@ -411,6 +414,9 @@ impl BotState {
         .make_move(&game_id_clone, &analysis[move_index].0.to_string(), false)
         .await
     });
+
+    // Tell the engine to continue thinking while the opponent is playing ;)
+    game.engine.go();
 
     return Ok(());
   }

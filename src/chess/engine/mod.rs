@@ -35,6 +35,8 @@ pub struct Options {
   /// time in miliseconds to spend on a calculation
   /// Set to 0 for no limit
   pub max_time: usize,
+  /// Number of threads to use for the search.
+  pub max_threads: usize,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -47,7 +49,7 @@ pub struct Eval {
 #[derive(Clone, Debug)]
 struct Analysis {
   /// Scores assigned to each move starting from the start position
-  pub scores: HashMap<Move, Eval>,
+  pub scores: Arc<Mutex<HashMap<Move, f32>>>,
   /// Represent how deep the analysis is/was
   pub depth: Arc<Mutex<usize>>,
 }
@@ -58,19 +60,32 @@ struct EngineState {
   pub active: Arc<Mutex<bool>>,
   /// Indicates that we want the engine to stop resolving positions
   pub stop_requested: Arc<Mutex<bool>>,
+  /// List of active thread handles in the engine
+  pub threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl Analysis {
   /// Resets the analysis
-  pub fn reset(&mut self) {
-    self.scores.clear();
+  pub fn reset(&self) {
+    self.scores.lock().unwrap().clear();
   }
 
-  /// Initializes the list of scores for a move_list
-  pub fn init_scores(&mut self, move_list: &Vec<Move>) {
-    self.scores.clear();
-    for m in move_list {
-      self.scores.insert(*m, Eval::default());
+  /// Sets the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  /// * `depth`:  New depth to set.
+  ///
+  ///
+  pub fn update_result(&self, result: HashMap<Move, f32>) {
+    let mut score = self.scores.lock().unwrap();
+
+    for (m, eval) in result {
+      if !score.get(&m).unwrap_or(&f32::NAN).is_nan() && eval.is_nan() {
+        continue;
+      }
+      score.insert(m, eval);
     }
   }
 
@@ -116,7 +131,7 @@ impl Analysis {
 impl Default for Analysis {
   fn default() -> Self {
     Analysis {
-      scores: HashMap::new(),
+      scores: Arc::new(Mutex::new(HashMap::new())),
       depth: Arc::new(Mutex::new(0)),
     }
   }
@@ -150,10 +165,12 @@ impl Engine {
         ponder: false,
         max_depth: 20,
         max_time: 100,
+        max_threads: 30,
       },
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
+        threads: Arc::new(Mutex::new(Vec::new())),
       },
     }
   }
@@ -247,8 +264,6 @@ impl Engine {
     if !self.cache.has_move_list(&game_state.board) {
       self.cache.set_move_list(&game_state.board, &move_list);
     }
-    // Use the move list for our analysis / score keeping.
-    self.analysis.init_scores(&move_list);
   }
 
   /// Applies a move from the current position
@@ -264,19 +279,9 @@ impl Engine {
     }
     self.position.apply_move(&Move::from_string(chess_move));
     self.cache.clear_killer_moves();
+    self.cache.clear_variations();
     self.analysis.reset();
-
-    // Compute move list if not known, and init the score list for each move
-    if !self.cache.has_move_list(&self.position.board) {
-      let move_list = self.position.get_moves();
-      self.cache.set_move_list(&self.position.board, &move_list);
-      self.analysis.init_scores(&move_list);
-    } else {
-      // Use the move list for our analysis / score keeping.
-      self
-        .analysis
-        .init_scores(&self.cache.get_move_list(&self.position.board));
-    }
+    self.analysis.set_depth(1);
   }
 
   /// Starts analyzing the current position
@@ -292,7 +297,6 @@ impl Engine {
     // Mark that we are now active and stop is not requested.
     self.set_stop_requested(false);
     self.set_engine_active(true);
-    self.analysis.set_depth(1);
 
     // Start searching... now
     let start_time = Instant::now();
@@ -313,12 +317,14 @@ impl Engine {
       self.analysis.increment_depth();
       println!("Starting depth {}", self.analysis.get_depth());
 
-      self.search(
+      let result = self.search(
         &self.position.clone(),
         1,
         self.analysis.get_depth(),
         start_time,
       );
+
+      self.analysis.update_result(result);
 
       self.cache.clear_alpha_beta_values();
       if self.options.max_depth > 0 && self.analysis.get_depth() > self.options.max_depth {
@@ -347,14 +353,10 @@ impl Engine {
   pub fn get_analysis(&self) -> Vec<(Move, f32)> {
     let mut analysis: Vec<(Move, f32)> = Vec::new();
     let move_list = self.cache.get_move_list(&self.position.board);
+    let scores = self.analysis.scores.lock().unwrap();
 
     for m in move_list {
-      if !self.cache.has_variation(&self.position, &m) {
-        analysis.push((m, f32::NAN));
-        continue;
-      }
-      let new_game_state = &self.cache.get_variation(&self.position, &m);
-      analysis.push((m, self.cache.get_eval(&new_game_state.board)));
+      analysis.push((m, *scores.get(&m).unwrap_or(&f32::NAN)));
     }
 
     analysis
@@ -392,10 +394,8 @@ impl Engine {
       return line_string;
     }
     let best_move = move_list[0];
-    if !self.cache.has_variation(game_state, &best_move) {
-      return line_string;
-    }
-    let best_new_state = self.cache.get_variation(game_state, &best_move);
+    let mut best_new_state = game_state.clone();
+    best_new_state.apply_move(&best_move);
     if !self.cache.has_eval(&best_new_state.board) {
       return line_string;
     }
@@ -410,19 +410,20 @@ impl Engine {
   /// Prints the evaluation result in the console
   ///
   pub fn print_evaluations(&self) {
-    let score = self.cache.get_eval(&self.position.board);
-    println!("Score for position {}: {}", self.position.to_fen(), score);
+    let scores = self.analysis.scores.lock().unwrap();
 
     let move_list = self.cache.get_move_list(&self.position.board);
     let mut i = 0;
 
+    println!(
+      "Score for position {}: {}",
+      self.position.to_fen(),
+      scores.get(&move_list[0]).unwrap_or(&f32::NAN)
+    );
     for m in move_list {
-      if !self.cache.has_variation(&self.position, &m) {
-        println!("Line {:<2}: Eval {:<10.2} - {}", i, f32::NAN, m);
-        continue;
-      }
-      let new_state = self.cache.get_variation(&self.position, &m);
-      let eval = self.cache.get_eval(&new_state.board);
+      let mut new_state = self.position.clone();
+      new_state.apply_move(&m);
+      let eval = scores.get(&m).unwrap_or(&f32::NAN);
       println!(
         "Line {:<2}: Eval {:<10.2} - {} {}",
         i,
@@ -466,6 +467,16 @@ impl Engine {
   ///
   pub fn set_search_time_limit(&mut self, max_time: usize) {
     self.options.max_time = max_time;
+  }
+
+  /// Sets the number of threads to use during a search
+  ///
+  /// ### Arguments
+  ///
+  /// * `max_threads`: Maximum number of threads that will be used during the search.
+  ///
+  pub fn set_number_of_threads(&mut self, max_threads: usize) {
+    self.options.max_threads = max_threads;
   }
 
   //----------------------------------------------------------------------------
@@ -611,22 +622,28 @@ impl Engine {
   /// * `max_depth`:  Depth at which to stop
   /// * `start_time`: Time at which we started resolving the chess position
   ///
-  fn search(&self, game_state: &GameState, depth: usize, max_depth: usize, start_time: Instant) {
+  fn search(
+    &self,
+    game_state: &GameState,
+    depth: usize,
+    max_depth: usize,
+    start_time: Instant,
+  ) -> HashMap<Move, f32> {
     if self.stop_requested() || self.has_been_searching_too_long(start_time) {
-      return;
+      return HashMap::new();
     }
 
     if depth > max_depth {
-      //info!("Reached maximum depth. Stopping search");
-      return;
+      println!("Reached maximum depth {max_depth}. Stopping search");
+      return HashMap::new();
     }
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
-    let mut handles: Vec<JoinHandle<()>> =
-      Vec::with_capacity(self.cache.get_move_list(&game_state.board).len());
+    let mut moves = self.cache.get_move_list(&game_state.board);
+    let mut result: HashMap<Move, f32> = HashMap::new();
 
-    for m in self.cache.get_move_list(&game_state.board) {
+    for m in &moves {
       if self.cache.is_pruned(&game_state) {
         // FIXME: Find why nothing gets pruned
         println!("Skipping {} as it is pruned", game_state.to_fen());
@@ -635,18 +652,14 @@ impl Engine {
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
-      if depth > max_depth && !m.is_capture() {
-        continue;
+      //let mut max_line_depth = max_depth;
+      if depth == max_depth && m.is_capture() {
+        //max_line_depth = max_depth + 1;
+        //println!("Continuing to depth {max_line_depth}");
       }
 
-      let new_game_state = if self.cache.has_variation(&game_state, &m) {
-        self.cache.get_variation(&game_state, &m)
-      } else {
-        let mut new_state = game_state.clone();
-        new_state.apply_move(&m);
-        self.cache.add_variation(&game_state, &m, &new_state);
-        new_state
-      };
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(&m);
 
       let game_status = if !self.cache.has_status(&new_game_state) {
         is_game_over(&self.cache, &new_game_state)
@@ -654,86 +667,162 @@ impl Engine {
         self.cache.get_status(&new_game_state)
       };
 
-      // Check if we did not evaluate already:
-      let mut eval = if !self.cache.has_eval(&new_game_state.board) {
-        // Position evaluation: (will be saved in the cache automatically)
-        evaluate_board(&self.cache, &new_game_state)
-        //let eval = (rand::random::<f32>() - 0.5) * 400.0;
-      } else {
-        self.cache.get_eval(&new_game_state.board)
-      };
-
-      if game_status == GameStatus::Draw {
-        eval = 0.0;
-      }
-
-      // Get the alpha/beta result propagated upwards.
-      match game_state.board.side_to_play {
-        Color::White => self.cache.update_alpha(&game_state, eval),
-        Color::Black => self.cache.update_beta(&game_state, eval),
-      }
-
       // No need to look at other moves in this variation if we found a checkmate for the side to play:
-      if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
-        self.cache.add_killer_move(&m);
-        //println!("Killer move: {}", m);
-        break;
+      let mut eval = f32::NAN;
+      match game_status {
+        GameStatus::WhiteWon => {
+          self.cache.add_killer_move(&m);
+          eval = 200.0;
+        },
+        GameStatus::BlackWon => {
+          self.cache.add_killer_move(&m);
+          eval = -200.0;
+        },
+        GameStatus::Stalemate => {
+          eval = 0.0;
+        },
+        GameStatus::Draw => {
+          eval = 0.0;
+        },
+        GameStatus::Ongoing => {},
       }
 
-      if game_status == GameStatus::Ongoing {
+      if game_status == GameStatus::Ongoing && depth < max_depth {
         // Recurse until we get to the bottom, spin 1 thread per move at the first level.
-        if depth == 1 {
-          let self_clone = self.clone();
-          handles.push(std::thread::spawn(move || {
-            self_clone.search(&new_game_state, depth + 1, max_depth, start_time)
-          }));
+
+        /*
+        let self_clone = self.clone();
+        handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
+        */
+        let sub_result = self.search(&new_game_state, depth + 1, max_depth, start_time);
+        //println!("SUb result: {:#?}", sub_result);
+        eval = match new_game_state.board.side_to_play {
+          Color::White => Engine::get_best_eval_for_white(&sub_result),
+          Color::Black => Engine::get_best_eval_for_black(&sub_result),
+        };
+      } else if game_status == GameStatus::Ongoing && depth >= max_depth {
+        // We are at the end of the depth, let's statically evaluate the board and return this eval
+        eval = if !self.cache.has_eval(&new_game_state.board) {
+          // Position evaluation: (will be saved in the cache automatically)
+          evaluate_board(&self.cache, &new_game_state)
         } else {
-          self.search(&new_game_state, depth + 1, max_depth, start_time);
+          self.cache.get_eval(&new_game_state.board)
+        };
+      }
+
+      // Now that we have an eval for sure, save it
+      if !eval.is_nan() {
+        result.insert(*m, eval);
+        // Get the alpha/beta result propagated upwards.
+        match game_state.board.side_to_play {
+          Color::White => {
+            self.cache.update_alpha(&game_state, eval);
+          },
+          Color::Black => {
+            self.cache.update_beta(&game_state, eval);
+          },
         }
       }
-    }
 
-    // Wait for the threads to finish
-    for h in handles {
-      let _ = h.join();
-    }
+      // Don't look at other moves when we found a checkmate:
+      if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
+        break;
+      }
+    } // for m in &moves
 
     // Sort the children moves according to their evaluation:
-    self
-      .cache
-      .sort_moves_by_eval(&game_state, game_state.board.side_to_play);
+    /*
+     */
+    moves
+      .sort_by(|a, b| Engine::compare_by_result_eval(game_state.board.side_to_play, a, b, &result));
+    self.cache.set_move_list(&game_state.board, &moves);
+    return result;
+  }
 
-    // Back propagate from children nodes
-    let move_list = self.cache.get_move_list(&game_state.board);
-    if move_list.is_empty() {
-      error!("Move list is empty for position {}", game_state.to_fen());
-      self.cache.set_eval(&game_state.board, 0.0);
-      return;
+  /// TODO: Write description
+  ///
+  /// ### Arguments
+  ///
+  /// * `result`:
+  ///
+  /// ### Returns
+  ///
+  /// f32::NAN if there are no data in the result
+  /// f32 with the best evaluation for white
+  ///
+  fn get_best_eval_for_white(result: &HashMap<Move, f32>) -> f32 {
+    if result.is_empty() {
+      return f32::NAN;
     }
 
-    let best_move = move_list[0];
-    if !self.cache.has_variation(&game_state, &best_move) {
-      error!(
-        "Can't find variation in the cache for move {} in position {}",
-        best_move.to_string(),
-        game_state.to_fen()
-      );
-
-      return;
+    let mut best_result = f32::MIN;
+    for (_, eval) in result {
+      if *eval > best_result {
+        best_result = *eval;
+      }
     }
-    let best_new_state = self.cache.get_variation(&game_state, &best_move);
-    let best_eval = match self.cache.get_status(&best_new_state) {
-      GameStatus::Ongoing => self.cache.get_eval(&best_new_state.board),
-      GameStatus::WhiteWon => 200.0,
-      GameStatus::BlackWon => -200.0,
-      GameStatus::Draw | GameStatus::Stalemate => 0.0,
+    best_result
+  }
+
+  /// TODO: Write description
+  ///
+  /// ### Arguments
+  ///
+  /// * `result`:
+  ///
+  /// ### Returns
+  ///
+  /// f32::NAN if there are no data in the result
+  /// f32 with the best evaluation for white
+  ///
+  fn get_best_eval_for_black(result: &HashMap<Move, f32>) -> f32 {
+    if result.is_empty() {
+      return f32::NAN;
+    }
+
+    let mut best_result = f32::MAX;
+    for (_, eval) in result {
+      if *eval < best_result {
+        best_result = *eval;
+      }
+    }
+    best_result
+  }
+
+  /// Sorts the list of moves based on the data in the result
+  ///
+  /// ### Arguments
+  ///
+  /// * `Color`:     Side to play, for sorting
+  /// * `a`          Move A
+  /// * `b`          Move B
+  /// * `result`     HashMap with f32 evaluations
+  ///
+  /// ### Return value
+  ///
+  /// Ordering telling if B is Greater, Equal or Less than A
+  ///
+  fn compare_by_result_eval(
+    color: Color,
+    a: &Move,
+    b: &Move,
+    result: &HashMap<Move, f32>,
+  ) -> Ordering {
+    let (greater, less, default) = match color {
+      Color::White => (Ordering::Less, Ordering::Greater, f32::MIN),
+      Color::Black => (Ordering::Greater, Ordering::Less, f32::MAX),
     };
-    self.cache.set_eval(&game_state.board, best_eval);
 
-    match game_state.board.side_to_play {
-      Color::White => self.cache.update_alpha(&game_state, best_eval),
-      Color::Black => self.cache.update_beta(&game_state, best_eval),
+    let a_eval = result.get(a).unwrap_or(&default);
+    let b_eval = result.get(b).unwrap_or(&default);
+
+    if a_eval > b_eval {
+      return greater;
+    } else if a_eval < b_eval {
+      return less;
     }
+
+    Ordering::Equal
   }
 }
 
@@ -752,11 +841,13 @@ impl Default for Engine {
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
+        threads: Arc::new(Mutex::new(Vec::new())),
       },
       options: Options {
         ponder: false,
         max_depth: 1,
         max_time: 0,
+        max_threads: 30,
       },
     }
   }

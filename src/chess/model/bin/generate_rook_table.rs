@@ -142,7 +142,8 @@ fn main() {
     [[0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64];
 
   for i in 0..64 {
-    let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] = [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
+    let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
+      [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
     let blocker_combinations = 1 << ROOK_SPAN_WITHOUT_EDGES[i].count_ones();
 
     // Assemble the combinations of possible blockers for square `i`
@@ -156,23 +157,37 @@ fn main() {
       }
       blockers[b] = blocker_mask;
     }
-    
+
     for b in 0..blocker_combinations {
       let j: usize =
         (blockers[b].wrapping_mul(rook_magic[i]) >> (64 - ROOK_BLOCKER_NUMBERS[i])) as usize;
 
       if rook_destination_table[i][j] == 0 {
-        rook_destination_table[i][j] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i);
-      } else if rook_destination_table[i][j] != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i) {
+        rook_destination_table[i][j] =
+          get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i);
+      } else if rook_destination_table[i][j]
+        != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i)
+      {
         println!("Oh oh... square: {i} blocker {b}, derived index is {j} for blocker mask:");
         print_board_mask(blockers[b]);
         println!("Look up table says:");
         print_board_mask(rook_destination_table[i][j]);
         println!("while manual calculation says:");
-        print_board_mask(get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i));
-        println!("Wrapping mul (shift is {}):",(64 - ROOK_BLOCKER_NUMBERS[i]));
+        print_board_mask(get_moves_from_offsets(
+          &ROOK_MOVE_OFFSETS,
+          true,
+          0,
+          blockers[b],
+          i,
+        ));
+        println!(
+          "Wrapping mul (shift is {}):",
+          (64 - ROOK_BLOCKER_NUMBERS[i])
+        );
         print_board_mask(blockers[b].wrapping_mul(rook_magic[i]));
-        print_board_mask(((blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i])));
+        print_board_mask(
+          ((blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i])),
+        );
         panic!("Do not use this result!");
       }
     }
@@ -237,7 +252,7 @@ fn find_rook_magic(square: usize) -> BoardMask {
     blockers[b] = blocker_mask;
   }
 
-  for k in 0..100_000_000 {
+  for _k in 0..100_000_000 {
     // bitwise AND on 3 times random to get a random number with few bits set to 1.
     magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
 
@@ -255,8 +270,9 @@ fn find_rook_magic(square: usize) -> BoardMask {
       let j: usize =
         (blockers[b].wrapping_mul(magic) >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
 
-      let rook_destinations = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], square);
-      assert_ne!(rook_destinations,0);
+      let rook_destinations =
+        get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], square);
+      assert_ne!(rook_destinations, 0);
       if used[j] == 0 {
         used[j] = rook_destinations;
       } else if used[j] != rook_destinations {
@@ -272,5 +288,5 @@ fn find_rook_magic(square: usize) -> BoardMask {
   }
 
   println!("Failed for square: {square}\n");
-  panic!("Do not use this result!!"); 
+  panic!("Do not use this result!!");
 }
