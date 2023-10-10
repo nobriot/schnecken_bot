@@ -1,6 +1,7 @@
 maia5
 sargon-2ply
 maia1
+Jibbby
 FlounderBot
 ELO_1500
 sargon-1ply
@@ -10,7 +11,6 @@ TemporAI
 knucklefish
 pawnrobot
 dlvc-bot
-FlounderBot
 HardRok
 ZE_ROOK
 maia1

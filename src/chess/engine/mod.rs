@@ -332,6 +332,18 @@ impl Engine {
       }
     }
 
+    // Sort one last time the list of moves from the result: (it may have incomplete sorting if we aborted in the middle of a "depth")
+    let mut top_level_result: HashMap<Move, f32> = HashMap::new();
+    let mut move_list = self.cache.get_move_list(&self.position.board);
+    let scores = self.analysis.scores.lock().unwrap();
+    for m in &move_list {
+      top_level_result.insert(*m, *scores.get(m).unwrap_or(&f32::NAN));
+    }
+    move_list.sort_by(|a, b| {
+      Engine::compare_by_result_eval(self.position.board.side_to_play, a, b, &top_level_result)
+    });
+    self.cache.set_move_list(&self.position.board, &move_list);
+
     // We are done
     self.set_stop_requested(false);
     self.set_engine_active(false);

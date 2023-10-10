@@ -12,6 +12,7 @@ use crate::model::piece::*;
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
+///
 pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   let mut score: usize = 6;
 
@@ -25,7 +26,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
 
   // If pieces are around, we can conclude that rook are not connected
   if score != 6 {
-    if score >0 {
+    if score > 0 {
       score -= 1;
     }
     return score;
