@@ -7,9 +7,9 @@ use crate::model::moves::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
 use crate::model::piece_set::*;
+use crate::model::tables::bishop_destinations::BISHOP_SPAN;
 use crate::model::tables::pawn_destinations::*;
 use crate::model::tables::rook_destinations::ROOK_SPAN;
-use crate::model::tables::bishop_destinations::BISHOP_SPAN;
 use crate::model::tables::zobrist::*;
 
 use log::*;
@@ -236,11 +236,6 @@ impl Board {
       return u64::MAX;
     }
 
-    let ssp = match color {
-      Color::White => self.pieces.white.all(),
-      Color::Black => self.pieces.black.all(),
-    };
-
     let mut pins: BoardMask = u64::MAX;
 
     // Check line pins
@@ -259,7 +254,7 @@ impl Board {
 
       while pinning_pieces != 0 {
         let ray = LINES[pinning_pieces.trailing_zeros() as usize][king_position];
-        if (ray & ssp).count_ones() == 2 && square_in_mask!(source_square, ray) {
+        if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
           // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
           pins &= LINES[king_position][pinning_pieces.trailing_zeros() as usize];
         }
@@ -277,7 +272,7 @@ impl Board {
 
       while pinning_pieces != 0 {
         let ray = DIAGONALS[pinning_pieces.trailing_zeros() as usize][king_position];
-        if (ray & ssp).count_ones() == 2 && square_in_mask!(source_square, ray) {
+        if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
           // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
           pins &= DIAGONALS[king_position][pinning_pieces.trailing_zeros() as usize];
         }
@@ -865,7 +860,7 @@ impl Board {
         WHITE_PAWN => BLACK_PAWN,
         _ => WHITE_PAWN,
       };
-      let (rank, file) = Board::index_to_fr(chess_move.u8_dest());
+      let (file, rank) = Board::index_to_fr(chess_move.u8_dest());
       if file > 1 {
         let s = Board::fr_to_index(file - 1, rank) as u8;
         if self.pieces.get(s) == op_pawn {
@@ -937,6 +932,219 @@ impl Board {
     }
     self.update_hash_side_to_play();
     self.update_checkers();
+  }
+
+  /// Takes a move notation from a PGN, tries to find the corresponding move
+  /// and apply it on our board.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:           Board object to modify
+  /// * `move_notation`   Move notation as specified in a PGN file
+  ///
+  /// ### Return Value
+  ///
+  /// Ok if the move was "identified" and applied.
+  /// Err if the move was not identified or not applied.
+  ///
+  pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
+    let mut notation = String::from(move_notation);
+    let candidate_moves = self.get_moves();
+    let mut mv = Move::default();
+
+    // Remove the annotations at the end of the moves (!, ?, #, +)
+    while notation.ends_with('?') || notation.ends_with('!') {
+      notation.pop();
+    }
+
+    // Check if this is a capture:
+    let capture = notation.contains('x');
+    if capture {
+      notation = notation.replace("x", "");
+    }
+
+    // Check if this is a check:
+    let check = notation.contains('+') || notation.contains('#');
+    if check {
+      notation = notation.replace("+", "");
+      notation = notation.replace("#", "");
+    }
+
+    // Check if this is a Promotion:
+    let promotion = notation.contains('=');
+    let mut promoted_piece = Promotion::NoPromotion;
+    if promotion {
+      // Last character should be the promoted piece:
+      let p = notation.pop();
+      match (p, self.side_to_play) {
+        (Some('Q') | Some('q'), Color::White) => promoted_piece = Promotion::WhiteQueen,
+        (Some('Q') | Some('q'), Color::Black) => promoted_piece = Promotion::BlackQueen,
+        (Some('R') | Some('r'), Color::White) => promoted_piece = Promotion::WhiteRook,
+        (Some('R') | Some('r'), Color::Black) => promoted_piece = Promotion::BlackRook,
+        (Some('B') | Some('b'), Color::White) => promoted_piece = Promotion::WhiteBishop,
+        (Some('B') | Some('b'), Color::Black) => promoted_piece = Promotion::BlackBishop,
+        (Some('N') | Some('n'), Color::White) => promoted_piece = Promotion::WhiteKnight,
+        (Some('N') | Some('n'), Color::Black) => promoted_piece = Promotion::BlackKnight,
+        _ => {
+          println!(
+            "Could not identify Promotion: {} for board {}",
+            move_notation,
+            self.to_fen()
+          );
+          return Err(());
+        },
+      }
+
+      // Also remove the '='
+      notation = notation.replace("=", "");
+    }
+
+    // castles
+    let kingside_castle = notation == "O-O";
+    let queenside_castle = notation == "O-O-O";
+
+    //println!("Stripped notation : {}", notation);
+
+    // Now try to identify the corresponding move:
+    if notation.len() == 2 {
+      // This is a pawn move, just the destination square
+      let destination_square = string_to_square(notation.as_str());
+      for m in candidate_moves {
+        if m.dest() == destination_square as move_t
+          && square_in_mask!(m.src(), self.pieces.pawns())
+          && m.is_capture() == capture
+        {
+          mv = m;
+          break;
+        }
+      }
+    } else if kingside_castle {
+      for m in candidate_moves {
+        if m.is_castle() == true && (m.dest() == 6 || m.dest() == 62) {
+          mv = m;
+          break;
+        }
+      }
+    } else if queenside_castle {
+      for m in candidate_moves {
+        if m.is_castle() == true && (m.dest() == 2 || m.dest() == 58) {
+          mv = m;
+          break;
+        }
+      }
+    } else {
+      // Here we are in the case of Source piece, destination square:
+      // Note that chars is inverted: Nbd7 -> 7,d,b,N
+      let chars: Vec<char> = notation.chars().rev().collect();
+      let mut dest = String::new();
+      dest.push(chars[1]);
+      dest.push(chars[0]);
+      let destination_square = string_to_square(dest.as_str());
+
+      // Put a limitation on the source square (with a BoardMask) if the initial piece and/or file/rank is indicated
+      let source_mask1 = if notation.len() >= 4 {
+        match notation.chars().nth(1) {
+          Some('a') => FILES[0],
+          Some('b') => FILES[1],
+          Some('c') => FILES[2],
+          Some('d') => FILES[3],
+          Some('e') => FILES[4],
+          Some('f') => FILES[5],
+          Some('g') => FILES[6],
+          Some('h') => FILES[7],
+          Some('1') => RANKS[0],
+          Some('2') => RANKS[1],
+          Some('3') => RANKS[2],
+          Some('4') => RANKS[3],
+          Some('5') => RANKS[4],
+          Some('6') => RANKS[5],
+          Some('7') => RANKS[6],
+          Some('8') => RANKS[7],
+          Some('K') => self.pieces.white.king | self.pieces.black.king,
+          Some('Q') => self.pieces.queens(),
+          Some('R') => self.pieces.rooks(),
+          Some('B') => self.pieces.bishops(),
+          Some('N') => self.pieces.knights(),
+          _ => {
+            println!(
+              "Could not identify source file/rank move: {} for board {}",
+              move_notation,
+              self.to_fen()
+            );
+            return Err(());
+          },
+        }
+      } else {
+        u64::MAX
+      };
+      let source_mask2 = if notation.len() >= 3 {
+        match notation.chars().nth(0) {
+          Some('a') => FILES[0] & self.pieces.pawns(),
+          Some('b') => FILES[1] & self.pieces.pawns(),
+          Some('c') => FILES[2] & self.pieces.pawns(),
+          Some('d') => FILES[3] & self.pieces.pawns(),
+          Some('e') => FILES[4] & self.pieces.pawns(),
+          Some('f') => FILES[5] & self.pieces.pawns(),
+          Some('g') => FILES[6] & self.pieces.pawns(),
+          Some('h') => FILES[7] & self.pieces.pawns(),
+          Some('1') => RANKS[0],
+          Some('2') => RANKS[1],
+          Some('3') => RANKS[2],
+          Some('4') => RANKS[3],
+          Some('5') => RANKS[4],
+          Some('6') => RANKS[5],
+          Some('7') => RANKS[6],
+          Some('8') => RANKS[7],
+          Some('K') => self.pieces.white.king | self.pieces.black.king,
+          Some('Q') => self.pieces.queens(),
+          Some('R') => self.pieces.rooks(),
+          Some('B') => self.pieces.bishops(),
+          Some('N') => self.pieces.knights(),
+          _ => {
+            println!(
+              "Could not identify source file/rank move: {} for board {}",
+              move_notation,
+              self.to_fen()
+            );
+            return Err(());
+          },
+        }
+      } else {
+        u64::MAX
+      };
+
+      let source_mask = source_mask1 & source_mask2;
+
+      for m in candidate_moves {
+        if m.dest() == destination_square as move_t
+          && m.is_capture() == capture
+          && m.promotion() == promoted_piece
+          && square_in_mask!(m.src(), source_mask)
+        {
+          mv = m;
+          break;
+        }
+      }
+    }
+
+    // Did we find the move?
+    if mv == Move::default() {
+      println!(
+        "Could not identify matching move: {} for board {} - side to play {:#?}",
+        move_notation,
+        self.to_fen(),
+        self.side_to_play
+      );
+      for m in self.get_moves() {
+        println!("Candidate: {}", m);
+      }
+      println!("En-passant: {}", self.en_passant_square);
+
+      return Err(());
+    }
+
+    self.apply_move(&mv);
+    Ok(())
   }
 
   /// Makes sure that the number of checks on the board is correct.
@@ -1358,6 +1566,20 @@ mod tests {
   }
 
   #[test]
+  fn board_update_en_passant_square_move() {
+    let fen = "r3k2r/1ppnqpp1/p1n1p2p/4P3/3PN1b1/2PB4/PPQ3PP/R1B2RK1 b kq - 0 13";
+    let mut board = Board::from_fen(fen);
+
+    board.apply_move(&Move::from_string("f7f5"));
+
+    let expected_board =
+      Board::from_fen("r3k2r/1ppnq1p1/p1n1p2p/4Pp2/3PN1b1/2PB4/PPQ3PP/R1B2RK1 w kq f6 0 14");
+
+    assert_eq!(board, expected_board);
+    assert_eq!(board.en_passant_square, string_to_square("f6"));
+  }
+
+  #[test]
   fn test_hash_values() {
     // Position 1 - regular move
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
@@ -1538,6 +1760,19 @@ mod tests {
     // Pawn is pinned to the bishop direction
     print_board_mask(board.get_pins(29));
     assert_eq!(141012903133184, board.get_pins(29));
+
+    // Try another board without any pin
+    let board =
+      Board::from_fen("r2qr3/p2n1pkp/1p1p1np1/3bp3/2P1P2P/3B1N2/PP1Q1PP1/R3K2R w KQ - 0 15");
+    print_board_mask(board.get_pins(28));
+    for i in 0..63 {
+      assert_eq!(
+        u64::MAX,
+        board.get_pins(i),
+        "Pins for square {} is incorrect",
+        square_to_string(i)
+      );
+    }
   }
 
   #[test]

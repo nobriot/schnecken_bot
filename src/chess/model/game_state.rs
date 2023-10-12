@@ -2,14 +2,9 @@ use log::*;
 use std::collections::VecDeque;
 
 use crate::model::board::*;
-use crate::model::board_geometry::diagonals::DIAGONALS;
-use crate::model::board_geometry::lines::LINES;
 use crate::model::board_mask::*;
-use crate::model::castling_rights::*;
 use crate::model::moves::*;
-use crate::model::piece::NO_PIECE;
 use crate::model::piece::*;
-use crate::model::piece_moves::MAXIMUM_LEGAL_MOVES;
 use crate::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.

@@ -75,8 +75,8 @@ impl BotState {
       .unwrap_or(String::from(DEFAULT_USERNAME));
 
     BotState {
-      api: api,
-      username: username,
+      api,
+      username,
       games: Arc::new(Mutex::new(Vec::new())),
     }
   }
@@ -149,8 +149,8 @@ impl BotState {
     let mut binding = self.games.lock().unwrap();
     let games: &mut Vec<BotGame> = binding.as_mut();
 
-    for i in 0..games.len() {
-      if games[i].id == game.id {
+    for g in games.iter() {
+      if g.id == game.id {
         debug!("Game ID {} already in the cache. Ignoring", game.id);
         return;
       }
@@ -172,7 +172,14 @@ impl BotState {
     for i in 0..games.len() {
       if games[i].id == game_id {
         debug!("Removing Game ID {} as it is completed", game_id);
-        games.remove(i);
+        let game = games.swap_remove(i);
+        // Make sure the engine is stopped
+        game.engine.stop();
+        while game.engine.is_active() {
+          debug!("Waiting for the engine to stop before dropping");
+          std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        drop(game);
         return;
       }
     }
@@ -331,8 +338,8 @@ impl BotState {
     let games: &mut Vec<BotGame> = binding.as_mut();
 
     let mut game_index = games.len() + 1;
-    for i in 0..games.len() {
-      if games[i].id == game_id {
+    for (i, game) in games.iter().enumerate() {
+      if game.id == game_id {
         game_index = i;
         break;
       }
@@ -360,13 +367,8 @@ impl BotState {
       increment_ms = 60_000;
     }
 
-    let suggested_time_ms;
-    if time_left < 10_000 {
-      // Play as quick as possible if we have less than 10 seconds left
-      suggested_time_ms = 30;
-    } else {
-      suggested_time_ms = (time_left / 90) + (increment_ms) as usize;
-    }
+    // Play as quick as possible if we have less than 10 seconds left
+    let suggested_time_ms = if time_left < 10_000 { 30 } else { (time_left / 90) + increment_ms };
 
     info!(
       "Using {} ms to find a move for position {}",
@@ -418,7 +420,7 @@ impl BotState {
     // Tell the engine to continue thinking while the opponent is playing ;)
     game.engine.go();
 
-    return Ok(());
+    Ok(())
   }
 
   // ------------------------
@@ -442,9 +444,8 @@ impl BotState {
 
     if let Some(game) = games.get_mut(game_index) {
       if game_state.status != lichess::types::GameStatus::Started {
-        debug!("Game ID {game_id} is not started. Removing it from our list");
-        //self.remove_game(game_id);
-        //FIXME: Find out why the bot would stall at that point if we try to remove from the list.
+        debug!("Game ID {game_id} is not ongoing. Removing it from our list");
+        self.remove_game(game_id);
         return;
       }
       game.move_list = game_state.moves;
@@ -475,7 +476,6 @@ impl BotState {
         let clone = self.clone();
         let game_id_clone = String::from(game_id);
         tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
-        return;
       }
     }
   }
@@ -539,8 +539,7 @@ impl EventStreamHandler for BotState {
         info!("New game Started!");
         let result: Result<lichess::types::GameStart, serde_json::Error> =
           serde_json::from_value(json_value["game"].clone());
-        if result.is_err() {
-          let error = result.unwrap_err();
+        if let Err(error) = result {
           warn!("Error deserializing GameStart event data !! {:?}", error);
           println!("JSON object: {}", json_value["game"]);
         } else {
@@ -555,8 +554,7 @@ impl EventStreamHandler for BotState {
         // and POST trying to make a move even though the game is over.
         let result: Result<lichess::types::GameStart, serde_json::Error> =
           serde_json::from_value(json_value["game"].clone());
-        if result.is_err() {
-          let error = result.unwrap_err();
+        if let Err(error) = result {
           warn!("Error deserializing gameFinish event data !! {:?}", error);
           println!("JSON object: {}", json_value["game"]);
         } else {
@@ -567,8 +565,7 @@ impl EventStreamHandler for BotState {
         info!("Incoming challenge!");
         let result: Result<lichess::types::Challenge, serde_json::Error> =
           serde_json::from_value(json_value["challenge"].clone());
-        if result.is_err() {
-          let error = result.unwrap_err();
+        if let Err(error) = result {
           warn!("Error deserializing Challenge event data !! {:?}", error);
           println!("JSON object: {}", json_value["challenge"]);
         } else {
@@ -617,8 +614,7 @@ impl GameStreamHandler for BotState {
         //debug!("Game state update received: {}", json_value);
         let result: Result<lichess::types::GameState, serde_json::Error> =
           serde_json::from_value(json_value);
-        if result.is_err() {
-          let error = result.unwrap_err();
+        if let Err(error) = result {
           warn!("Error deserializing GameState data !! {:?}", error);
         } else {
           self.update_game_and_play(result.unwrap(), game_id.as_str());
@@ -627,8 +623,7 @@ impl GameStreamHandler for BotState {
       "chatLine" => {
         let result: Result<lichess::types::ChatMessage, serde_json::Error> =
           serde_json::from_value(json_value);
-        if result.is_err() {
-          let error = result.unwrap_err();
+        if let Err(error) = result {
           warn!("Error deserializing ChatLine data !! {:?}", error);
         } else {
           self.on_incoming_message(game_id.as_str(), result.unwrap());

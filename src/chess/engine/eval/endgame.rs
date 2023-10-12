@@ -1,15 +1,12 @@
-use super::helpers::generic::get_combined_material_score;
 use super::helpers::generic::get_material_score;
 use super::helpers::king::*;
-use super::helpers::mobility::*;
 use super::position::*;
 use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
-use crate::model::piece_moves::get_king_moves;
 use crate::model::piece_moves::KING_MOVES;
 
-const PIECE_MOBILITY_FACTOR: f32 = 0.01;
+//const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete

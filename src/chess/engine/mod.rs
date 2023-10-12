@@ -505,11 +505,7 @@ impl Engine {
   fn find_move_list(cache: &EngineCache, board: &Board) {
     // Check that we know the moves:
     if !cache.has_move_list(board) {
-      let mut move_list = board.get_moves();
-
-      // Sort the moves based on interesting-ness
-      //move_list.sort_by(|a, b| Engine::compare_moves(cache, &game_state, a, b));
-      cache.set_move_list(board, &move_list);
+      cache.set_move_list(board, &board.get_moves());
     }
   }
 
@@ -862,6 +858,12 @@ impl Default for Engine {
         max_threads: 30,
       },
     }
+  }
+}
+
+impl Drop for Engine {
+  fn drop(&mut self) {
+    debug!("Dropping Engine!")
   }
 }
 

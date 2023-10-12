@@ -1,0 +1,3 @@
+# Tokio-console subscriber requires the unstable flag when building:
+[build]
+rustflags = ["--cfg", "tokio_unstable"]
