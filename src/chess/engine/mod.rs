@@ -145,7 +145,7 @@ pub struct Engine {
   /// Position cache, used to speed up processing
   cache: EngineCache,
   /// Engine options
-  options: Options,
+  options: Arc<Mutex<Options>>,
   /// Whether the engine is active of not, and if we want to stop it.
   state: EngineState,
 }
@@ -161,12 +161,12 @@ impl Engine {
       position: GameState::from_fen(START_POSITION_FEN),
       analysis: Analysis::default(),
       cache: EngineCache::new(),
-      options: Options {
+      options: Arc::new(Mutex::new(Options {
         ponder: false,
         max_depth: 20,
         max_time: 100,
         max_threads: 30,
-      },
+      })),
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
@@ -231,10 +231,11 @@ impl Engine {
   /// and max_time is set to a non-zero value.
   ///
   fn has_been_searching_too_long(&self, start_time: Instant) -> bool {
-    if self.options.max_time == 0 {
+    let max_time = self.options.lock().unwrap().max_time;
+    if max_time == 0 {
       return false;
     }
-    (Instant::now() - start_time) > Duration::from_millis(self.options.max_time as u64)
+    (Instant::now() - start_time) > Duration::from_millis(max_time as u64)
   }
 
   /// Resets the engine to a default state.
@@ -321,13 +322,15 @@ impl Engine {
         &self.position.clone(),
         1,
         self.analysis.get_depth(),
+        f32::MIN,
+        f32::MAX,
         start_time,
       );
 
       self.analysis.update_result(result);
 
-      self.cache.clear_alpha_beta_values();
-      if self.options.max_depth > 0 && self.analysis.get_depth() > self.options.max_depth {
+      let max_depth = self.options.lock().unwrap().max_depth;
+      if max_depth > 0 && self.analysis.get_depth() > max_depth {
         break;
       }
     }
@@ -457,8 +460,8 @@ impl Engine {
   /// Configures if the engine should ponder when it finds a winning sequence
   /// (i.e. continue calculating alternative lines)
   ///
-  pub fn set_ponder(&mut self, ponder: bool) {
-    self.options.ponder = ponder;
+  pub fn set_ponder(&self, ponder: bool) {
+    self.options.lock().unwrap().ponder = ponder;
   }
 
   /// Configure the depth at which to search with the engine.
@@ -467,8 +470,8 @@ impl Engine {
   ///
   /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving a position
   ///
-  pub fn set_maximum_depth(&mut self, max_depth: usize) {
-    self.options.max_depth = max_depth;
+  pub fn set_maximum_depth(&self, max_depth: usize) {
+    self.options.lock().unwrap().max_depth = max_depth;
   }
 
   /// Sets a timelimit in ms on how long we search
@@ -477,8 +480,8 @@ impl Engine {
   ///
   /// * `max_time`: Maximum amount of time, in milliseconds, to spend resolving a position
   ///
-  pub fn set_search_time_limit(&mut self, max_time: usize) {
-    self.options.max_time = max_time;
+  pub fn set_search_time_limit(&self, max_time: usize) {
+    self.options.lock().unwrap().max_time = max_time;
   }
 
   /// Sets the number of threads to use during a search
@@ -487,8 +490,8 @@ impl Engine {
   ///
   /// * `max_threads`: Maximum number of threads that will be used during the search.
   ///
-  pub fn set_number_of_threads(&mut self, max_threads: usize) {
-    self.options.max_threads = max_threads;
+  pub fn set_number_of_threads(&self, max_threads: usize) {
+    self.options.lock().unwrap().max_threads = max_threads;
   }
 
   //----------------------------------------------------------------------------
@@ -628,6 +631,8 @@ impl Engine {
   /// * `game_state`:    Game state to start from in the evaluation tree
   /// * `depth`:      Current depth at which we are in the search
   /// * `max_depth`:  Depth at which to stop
+  /// * `alpha`:      Alpha value for the Alpha/Beta pruning
+  /// * `Beta`:       Beta value for the Alpha/Beta pruning
   /// * `start_time`: Time at which we started resolving the chess position
   ///
   fn search(
@@ -635,6 +640,8 @@ impl Engine {
     game_state: &GameState,
     depth: usize,
     max_depth: usize,
+    mut alpha: f32,
+    mut beta: f32,
     start_time: Instant,
   ) -> HashMap<Move, f32> {
     if self.stop_requested() || self.has_been_searching_too_long(start_time) {
@@ -652,11 +659,13 @@ impl Engine {
     let mut result: HashMap<Move, f32> = HashMap::new();
 
     for m in &moves {
-      if self.cache.is_pruned(&game_state) {
-        // FIXME: Find why nothing gets pruned
-        println!("Skipping {} as it is pruned", game_state.to_fen());
-        break;
-      }
+      // Here we have low trust in eval accuracy, so it has to be more than
+      // good gap between alpha and beta before we prune.
+      //if (alpha - 3.0) > beta {
+      // TODO: Find why this does not seem to improve anything.
+      //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
+      //break;
+      //}
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
@@ -702,7 +711,14 @@ impl Engine {
         let self_clone = self.clone();
         handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
         */
-        let sub_result = self.search(&new_game_state, depth + 1, max_depth, start_time);
+        let sub_result = self.search(
+          &new_game_state,
+          depth + 1,
+          max_depth,
+          alpha,
+          beta,
+          start_time,
+        );
         //println!("SUb result: {:#?}", sub_result);
         eval = match new_game_state.board.side_to_play {
           Color::White => Engine::get_best_eval_for_white(&sub_result),
@@ -724,10 +740,14 @@ impl Engine {
         // Get the alpha/beta result propagated upwards.
         match game_state.board.side_to_play {
           Color::White => {
-            self.cache.update_alpha(&game_state, eval);
+            if alpha < eval {
+              alpha = eval;
+            }
           },
           Color::Black => {
-            self.cache.update_beta(&game_state, eval);
+            if beta > eval {
+              beta = eval;
+            }
           },
         }
       }
@@ -765,7 +785,7 @@ impl Engine {
 
     let mut best_result = f32::MIN;
     for (_, eval) in result {
-      if *eval > best_result {
+      if !eval.is_nan() && *eval > best_result {
         best_result = *eval;
       }
     }
@@ -790,7 +810,7 @@ impl Engine {
 
     let mut best_result = f32::MAX;
     for (_, eval) in result {
-      if *eval < best_result {
+      if !eval.is_nan() && *eval < best_result {
         best_result = *eval;
       }
     }
@@ -851,12 +871,12 @@ impl Default for Engine {
         stop_requested: Arc::new(Mutex::new(false)),
         threads: Arc::new(Mutex::new(Vec::new())),
       },
-      options: Options {
+      options: Arc::new(Mutex::new(Options {
         ponder: false,
         max_depth: 1,
         max_time: 0,
         max_threads: 30,
-      },
+      })),
     }
   }
 }

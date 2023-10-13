@@ -1,3 +1,10 @@
-# Tokio-console subscriber requires the unstable flag when building:
 [build]
-rustflags = ["--cfg", "tokio_unstable"]
+# Tokio-console subscriber requires the unstable flag when building:
+#rustflags = ["--cfg", "tokio_unstable"]
+
+
+[env]
+RUST_LOG = "debug"
+
+[doc]
+browser = "firefox" # browser to use with `cargo doc --open`,

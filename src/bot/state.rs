@@ -345,7 +345,7 @@ impl BotState {
       }
     }
 
-    let game = games.get_mut(game_index);
+    let game = games.get(game_index);
     if game.is_none() {
       return Err(());
     }
@@ -418,7 +418,7 @@ impl BotState {
     });
 
     // Tell the engine to continue thinking while the opponent is playing ;)
-    game.engine.go();
+    //game.engine.go();
 
     Ok(())
   }

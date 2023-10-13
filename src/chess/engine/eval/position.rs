@@ -276,9 +276,9 @@ pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
 
 #[cfg(test)]
 mod tests {
-  use crate::engine::cache::EngineCache;
   use crate::model::board::Board;
   use crate::model::moves::Move;
+  use crate::{engine::cache::EngineCache, model::game_state};
   use rand::Rng;
   use std::time::{Duration, Instant};
 
@@ -562,5 +562,32 @@ mod tests {
       "Number of NPS for evaluating positions using get_combined_material_score: {}",
       positions_evaluated
     );
+  }
+
+  #[test]
+  fn test_moves_and_game_over() {
+    // Saw something weird in the log here : https://lichess.org/rrAELqBT
+    // both Line 0 and 1 are not checkmates, but evaluated to 200.0
+    /*
+    [2023-10-13T07:08:59.308Z INFO  schnecken_bot::bot::state] Using 1889 ms to find a move for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq - 1 7
+    Starting depth 2
+    Starting depth 3
+    Starting depth 4
+    Score for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq - 1 7: 200
+    Line 0 : Eval 200.00     - a3c4 d7d5 c1f4 d5c4
+    Line 1 : Eval 200.00     - a3b5 d7d5 e2e4 f6e4
+    Line 2 : Eval -4.54      - a1b1 c6b4 e2c4
+    Line 3 : Eval -4.76      - e1d2 d8b6 d2d1
+    Line 4 : Eval -4.79      - e2e3 d7d5 a3c4 d5c4
+    Line 5 : Eval -4.84      - h2h3 e7e5 a3c4 d7d
+         */
+    let fen = "r1bqkb1r/pp2pppp/2n5/1N1p4/4n3/8/PPP2NPP/R1B1KB1R w KQkq - 0 9";
+    let game_state = GameState::from_fen(fen);
+
+    let cache = EngineCache::new();
+
+    assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state));
+
+    assert!(evaluate_board(&cache, &game_state) < 0.0);
   }
 }
