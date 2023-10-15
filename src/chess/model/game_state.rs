@@ -221,6 +221,16 @@ impl GameState {
       self.apply_move(&Move::from_string(chess_move));
     }
   }
+
+  pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
+    let board_result = self.board.find_move_from_pgn_notation(move_notation);
+    if let Ok(mv) = board_result {
+      self.apply_move(&mv);
+      Ok(())
+    } else {
+      Err(())
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------

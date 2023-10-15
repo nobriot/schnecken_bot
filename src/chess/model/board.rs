@@ -618,9 +618,17 @@ impl Board {
       );
 
       // Restrict destinations not to move out of pins.
-      destinations &= self.get_pins(source_square);
       // if there is a check, you can only move into checking rays with other pieces than the king.
-      if source_square != king_position {
+      destinations &= self.get_pins(source_square);
+
+      // If a pawn double jump delivers check, we should be able to en-passant it,
+      // it removes the checking piece even though outside of the checking ray
+      if square_in_mask!(source_square, self.pieces.white.pawn)
+        && self.en_passant_square != INVALID_SQUARE
+        && self.checkers.count_ones() == 1
+      {
+        destinations &= checking_ray | (1 << self.en_passant_square);
+      } else if source_square != king_position {
         destinations &= checking_ray;
       }
 
@@ -726,9 +734,17 @@ impl Board {
       );
 
       // Restrict destinations not to move out of pins.
-      destinations &= self.get_pins(source_square);
       // if there is a check, you can only move into checking rays with other pieces than the king.
-      if source_square != king_position {
+      destinations &= self.get_pins(source_square);
+
+      // If a pawn double jump delivers check, we should be able to en-passant it,
+      // it removes the checking piece even though outside of the checking ray
+      if square_in_mask!(source_square, self.pieces.black.pawn)
+        && self.en_passant_square != INVALID_SQUARE
+        && self.checkers.count_ones() == 1
+      {
+        destinations &= checking_ray | (1 << self.en_passant_square);
+      } else if source_square != king_position {
         destinations &= checking_ray;
       }
 
@@ -947,7 +963,7 @@ impl Board {
   /// Ok if the move was "identified" and applied.
   /// Err if the move was not identified or not applied.
   ///
-  pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
+  pub fn find_move_from_pgn_notation(&mut self, move_notation: &str) -> Result<Move, ()> {
     let mut notation = String::from(move_notation);
     let candidate_moves = self.get_moves();
     let mut mv = Move::default();
@@ -1012,6 +1028,7 @@ impl Board {
       for m in candidate_moves {
         if m.dest() == destination_square as move_t
           && square_in_mask!(m.src(), self.pieces.pawns())
+          && m.promotion() == promoted_piece
           && m.is_capture() == capture
         {
           mv = m;
@@ -1042,8 +1059,19 @@ impl Board {
       let destination_square = string_to_square(dest.as_str());
 
       // Put a limitation on the source square (with a BoardMask) if the initial piece and/or file/rank is indicated
-      let source_mask1 = if notation.len() >= 4 {
-        match notation.chars().nth(1) {
+      let mut source_mask = u64::MAX;
+
+      if !notation.starts_with('K')
+        && !notation.starts_with('Q')
+        && !notation.starts_with('R')
+        && !notation.starts_with('B')
+        && !notation.starts_with('N')
+      {
+        source_mask &= self.pieces.pawns();
+      }
+
+      for i in 0..(notation.chars().count() - 2) {
+        source_mask &= match notation.chars().nth(i) {
           Some('a') => FILES[0],
           Some('b') => FILES[1],
           Some('c') => FILES[2],
@@ -1074,46 +1102,7 @@ impl Board {
             return Err(());
           },
         }
-      } else {
-        u64::MAX
-      };
-      let source_mask2 = if notation.len() >= 3 {
-        match notation.chars().nth(0) {
-          Some('a') => FILES[0] & self.pieces.pawns(),
-          Some('b') => FILES[1] & self.pieces.pawns(),
-          Some('c') => FILES[2] & self.pieces.pawns(),
-          Some('d') => FILES[3] & self.pieces.pawns(),
-          Some('e') => FILES[4] & self.pieces.pawns(),
-          Some('f') => FILES[5] & self.pieces.pawns(),
-          Some('g') => FILES[6] & self.pieces.pawns(),
-          Some('h') => FILES[7] & self.pieces.pawns(),
-          Some('1') => RANKS[0],
-          Some('2') => RANKS[1],
-          Some('3') => RANKS[2],
-          Some('4') => RANKS[3],
-          Some('5') => RANKS[4],
-          Some('6') => RANKS[5],
-          Some('7') => RANKS[6],
-          Some('8') => RANKS[7],
-          Some('K') => self.pieces.white.king | self.pieces.black.king,
-          Some('Q') => self.pieces.queens(),
-          Some('R') => self.pieces.rooks(),
-          Some('B') => self.pieces.bishops(),
-          Some('N') => self.pieces.knights(),
-          _ => {
-            println!(
-              "Could not identify source file/rank move: {} for board {}",
-              move_notation,
-              self.to_fen()
-            );
-            return Err(());
-          },
-        }
-      } else {
-        u64::MAX
-      };
-
-      let source_mask = source_mask1 & source_mask2;
+      }
 
       for m in candidate_moves {
         if m.dest() == destination_square as move_t
@@ -1143,8 +1132,7 @@ impl Board {
       return Err(());
     }
 
-    self.apply_move(&mv);
-    Ok(())
+    Ok(mv)
   }
 
   /// Makes sure that the number of checks on the board is correct.
@@ -1844,5 +1832,32 @@ mod tests {
     let e = 1 << string_to_square("e2");
     let a = board.get_attackers(string_to_square("d1"), Color::Black);
     assert_eq!(e, a);
+  }
+
+  #[test]
+  fn apply_under_promotion() {
+    let fen = "8/8/6k1/8/8/4K3/5pq1/8 b - - 3 72";
+    let mut board = Board::from_fen(fen);
+
+    board.apply_move(&mv!(
+      string_to_square("f2"),
+      string_to_square("f1"),
+      Promotion::BlackKnight
+    ));
+
+    let expected_board = Board::from_fen("8/8/6k1/8/8/4K3/6q1/5n2 w - - 0 73");
+    assert_eq!(board, expected_board);
+  }
+
+  #[test]
+  fn get_move_remove_checker_by_capturing_en_passant() {
+    let fen = "8/p7/1pR5/6pk/6Pp/7P/P6K/3rr3 b - g3 0 34";
+    let mut board = Board::from_fen(fen);
+
+    let moves = board.get_moves();
+    for m in &moves {
+      println!("Move : {}", m.to_string());
+    }
+    assert_eq!(1, moves.len());
   }
 }

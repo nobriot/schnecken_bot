@@ -93,11 +93,13 @@ impl BotState {
     let handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
 
     let bot_clone = self.clone();
-    tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
+    let _ =
+      tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
 
     // Start a thread that sends challenges with a given interval:
     let bot_clone = self.clone();
-    tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 3600).await });
+    let _ =
+      tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 3600).await });
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's the case.
@@ -161,7 +163,7 @@ impl BotState {
     // Stream the game in a separate thread.
     let api_clone = self.api.clone();
     let bot_clone = self.clone();
-    tokio::spawn(async move { api_clone.stream_game_state(&bot_clone, &game_id).await });
+    let _ = tokio::spawn(async move { api_clone.stream_game_state(&bot_clone, &game_id).await });
   }
 
   pub fn remove_game(&self, game_id: &str) {
@@ -199,7 +201,7 @@ impl BotState {
     // Write a hello message
     let game_id = game.game_id.clone();
     let api_clone = self.api.clone();
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
       api_clone
         .write_in_chat(game_id.as_str(), "Hey! Have fun!")
         .await
@@ -238,7 +240,7 @@ impl BotState {
 
     // Write a goodbye message
     let api_clone = self.api.clone();
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
       api_clone
         .write_in_chat(&game.game_id, "Thanks for playing!")
         .await
@@ -275,7 +277,7 @@ impl BotState {
         challenge.variant
       );
       let api_clone = self.api.clone();
-      tokio::spawn(async move {
+      let _ = tokio::spawn(async move {
         api_clone
           .decline_challenge(&challenge.id, lichess::types::DECLINE_VARIANT)
           .await
@@ -287,7 +289,7 @@ impl BotState {
     if challenge.time_control.control_type != lichess::types::TimeControlType::Clock {
       info!("Ignoring non-real-time challenge.");
       let api_clone = self.api.clone();
-      tokio::spawn(async move {
+      let _ = tokio::spawn(async move {
         api_clone
           .decline_challenge(&challenge.id, lichess::types::DECLINE_TIME_CONTROL)
           .await
@@ -299,7 +301,7 @@ impl BotState {
     if self.games.lock().unwrap().len() >= NUMBER_OF_SIMULTANEOUS_GAMES {
       info!("Ignoring challenge as we are already playing too many games");
       let api_clone = self.api.clone();
-      tokio::spawn(async move {
+      let _ = tokio::spawn(async move {
         api_clone
           .decline_challenge(&challenge.id, lichess::types::DECLINE_LATER)
           .await
@@ -309,7 +311,7 @@ impl BotState {
 
     // Else we just accept.
     let api = self.api.clone();
-    tokio::spawn(async move { api.accept_challenge(&challenge.id).await });
+    let _ = tokio::spawn(async move { api.accept_challenge(&challenge.id).await });
   }
 
   //----------------------------------------------------------------------------
@@ -325,7 +327,7 @@ impl BotState {
     if message.text.contains("type !help") {
       let api_clone = self.api.clone();
       let game_id_clone = String::from(game_id);
-      tokio::spawn(async move {
+      let _ = tokio::spawn(async move {
         api_clone
           .write_in_chat_room(game_id_clone.as_str(), message.room, "!help")
           .await
@@ -411,7 +413,7 @@ impl BotState {
       move_index, analysis[move_index].0, game_id
     );
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
       api_clone
         .make_move(&game_id_clone, &analysis[move_index].0.to_string(), false)
         .await
@@ -419,6 +421,8 @@ impl BotState {
 
     // Tell the engine to continue thinking while the opponent is playing ;)
     //game.engine.go();
+    // Clear our cache, else we risk running out of memory:
+    game.engine.clear_cache();
 
     Ok(())
   }
@@ -445,7 +449,8 @@ impl BotState {
     if let Some(game) = games.get_mut(game_index) {
       if game_state.status != lichess::types::GameStatus::Started {
         debug!("Game ID {game_id} is not ongoing. Removing it from our list");
-        self.remove_game(game_id);
+        //FIXME: Find why this make the bot stall
+        //self.remove_game(game_id);
         return;
       }
       game.move_list = game_state.moves;
@@ -475,7 +480,7 @@ impl BotState {
       if game.is_my_turn {
         let clone = self.clone();
         let game_id_clone = String::from(game_id);
-        tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
+        let _ = tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
       }
     }
   }
@@ -608,7 +613,7 @@ impl GameStreamHandler for BotState {
       "gameFull" => {
         debug!("Full game state!");
         let clone = self.clone();
-        tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
+        let _ = tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
       },
       "gameState" => {
         //debug!("Game state update received: {}", json_value);
@@ -635,7 +640,7 @@ impl GameStreamHandler for BotState {
           info!("Opponent gone! We'll just claim victory as soon as possible!");
           if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
             let api_clone = self.api.clone();
-            tokio::spawn(async move {
+            let _ = tokio::spawn(async move {
               api_clone
                 .claim_victory_after_timeout(timeout, &game_id.clone())
                 .await

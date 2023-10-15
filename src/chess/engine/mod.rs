@@ -238,6 +238,14 @@ impl Engine {
     (Instant::now() - start_time) > Duration::from_millis(max_time as u64)
   }
 
+  /// Clears the cache of the engine.
+  ///
+  /// Note: You should not invoke this function when the engine is active/searching.
+  ///
+  pub fn clear_cache(&self) {
+    self.cache.clear();
+  }
+
   /// Resets the engine to a default state.
   /// Same as Engine::Default() or Engine::new()
   pub fn reset(&mut self) {
