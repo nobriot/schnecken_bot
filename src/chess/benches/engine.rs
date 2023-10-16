@@ -1,5 +1,8 @@
 use chess::engine::cache::EngineCache;
+use chess::engine::eval::endgame::*;
 use chess::engine::eval::helpers::generic::get_combined_material_score;
+use chess::engine::eval::middlegame::*;
+use chess::engine::eval::opening::*;
 use chess::engine::eval::position::*;
 use chess::model::board::Board;
 use chess::model::game_state::GameState;
@@ -22,6 +25,39 @@ fn board_evaluation(bencher: Bencher) {
 
   bencher.bench_local(|| {
     let _ = evaluate_board(&cache, &game_state);
+  });
+}
+
+/// Checks how fast we are evaluating the board in the opening
+#[divan::bench]
+fn opening_evaluation(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let mut rng = rand::thread_rng();
+
+  bencher.bench_local(|| {
+    let _ = get_opening_position_evaluation(&game_state);
+  });
+}
+
+/// Checks how fast we are evaluating the board in the middlegame
+#[divan::bench]
+fn middlegame_evaluation(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let mut rng = rand::thread_rng();
+
+  bencher.bench_local(|| {
+    let _ = get_middlegame_position_evaluation(&game_state);
+  });
+}
+
+/// Checks how fast we are evaluating the board in the endgame
+#[divan::bench]
+fn endgame_evaluation(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let mut rng = rand::thread_rng();
+
+  bencher.bench_local(|| {
+    let _ = get_endgame_position_evaluation(&game_state);
   });
 }
 
@@ -83,5 +119,41 @@ fn cache_for_moves(bencher: Bencher) {
     } else {
       assert_eq!(move_list, cache.get_move_list(&game_state.board));
     }
+  });
+}
+
+/// Checks how fast the piece square table lookup is - Opening
+#[divan::bench]
+fn opening_piece_square_table_lookup(bencher: Bencher) {
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let move_list = game_state.get_moves();
+
+  bencher.bench_local(|| {
+    let _ = get_square_table_opening_score(&game_state);
+  });
+}
+
+/// Checks how fast the piece square table lookup is - Middlegame
+#[divan::bench]
+fn middlegame_piece_square_table_lookup(bencher: Bencher) {
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let move_list = game_state.get_moves();
+
+  bencher.bench_local(|| {
+    let _ = get_square_table_middlegame_score(&game_state);
+  });
+}
+
+/// Checks how fast the piece square table lookup is - Endgame
+#[divan::bench]
+fn endgame_piece_square_table_lookup(bencher: Bencher) {
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let move_list = game_state.get_moves();
+
+  bencher.bench_local(|| {
+    let _ = get_square_table_endgame_score(&game_state);
   });
 }

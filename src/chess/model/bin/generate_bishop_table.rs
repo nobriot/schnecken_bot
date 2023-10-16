@@ -53,22 +53,21 @@ fn main() {
     bishop_blocker_numbers[i] = index as u8;
   }
 
-  
   let _ = write!(
     output_file,"/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the BISHOP_SPAN.\n///\n///\n");
-    let _ = write!(
-      output_file,
-      "pub const BISHOP_SPAN_INDEXES: [[usize; 9]; 64] = {:#?};\n\n",
-      bishop_span_indexes
-    );
-    let _ = write!(
+  let _ = write!(
+    output_file,
+    "pub const BISHOP_SPAN_INDEXES: [[usize; 9]; 64] = {:#?};\n\n",
+    bishop_span_indexes
+  );
+  let _ = write!(
       output_file,"/// For a given position, this table indicate the Number of relevant blockers bits for a bishop\n///\n");
-      let _ = write!(
-        output_file,
-        "pub const BISHOP_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
-        bishop_blocker_numbers
-      );
-      
+  let _ = write!(
+    output_file,
+    "pub const BISHOP_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
+    bishop_blocker_numbers
+  );
+
   // Now we want to find these bishop magic constants
   let mut bishop_magic: [u64; 64] = [0; 64];
 
@@ -89,7 +88,8 @@ fn main() {
     [[0; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS]; 64];
 
   for i in 0..64 {
-    let mut blockers: [u64; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS] = [0; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS];
+    let mut blockers: [u64; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS] =
+      [0; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS];
     let blocker_combinations = 1 << bishop_span_without_edges[i].count_ones();
 
     // Assemble the combinations of possible blockers for square `i`
@@ -103,23 +103,37 @@ fn main() {
       }
       blockers[b] = blocker_mask;
     }
-    
+
     for b in 0..blocker_combinations {
       let j: usize =
         (blockers[b].wrapping_mul(bishop_magic[i]) >> (64 - bishop_blocker_numbers[i])) as usize;
 
       if bishop_destination_table[i][j] == 0 {
-        bishop_destination_table[i][j] = get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i);
-      } else if bishop_destination_table[i][j] != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i) {
+        bishop_destination_table[i][j] =
+          get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i);
+      } else if bishop_destination_table[i][j]
+        != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i)
+      {
         println!("Oh oh... square: {i} blocker {b}, derived index is {j} for blocker mask:");
         print_board_mask(blockers[b]);
         println!("Look up table says:");
         print_board_mask(bishop_destination_table[i][j]);
         println!("while manual calculation says:");
-        print_board_mask(get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i));
-        println!("Wrapping mul (shift is {}):",(64 - bishop_blocker_numbers[i]));
+        print_board_mask(get_moves_from_offsets(
+          &BISHOP_MOVE_OFFSETS,
+          true,
+          0,
+          blockers[b],
+          i,
+        ));
+        println!(
+          "Wrapping mul (shift is {}):",
+          (64 - bishop_blocker_numbers[i])
+        );
         print_board_mask(blockers[b].wrapping_mul(bishop_magic[i]));
-        print_board_mask(((blockers[b].wrapping_mul(bishop_magic[i])) >> (64 - bishop_blocker_numbers[i])));
+        print_board_mask(
+          (blockers[b].wrapping_mul(bishop_magic[i])) >> (64 - bishop_blocker_numbers[i]),
+        );
         panic!("Do not use this result!");
       }
     }
@@ -127,11 +141,12 @@ fn main() {
 
   // test sanity:
   let mut rng = rand::thread_rng();
-  for i in 0..1000 {
+  for _ in 0..1000 {
     let blockers = rand::random::<u64>();
     let square = rng.gen_range(0..64);
 
-    let manual_calculation = get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers, square);
+    let manual_calculation =
+      get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers, square);
     let index: usize = ((blockers & bishop_span_without_edges[square])
       .wrapping_mul(bishop_magic[square])
       >> (64 - bishop_blocker_numbers[square])) as usize;
@@ -152,17 +167,15 @@ fn main() {
 
 // Same as for the rooks
 fn find_bishop_magic(square: usize) -> BoardMask {
-    
   let mut used: [BoardMask; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS] =
     [0; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS];
   let mut blockers: [BoardMask; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS] =
     [0; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS];
-  let mut magic: BoardMask = 0;
 
   let relevant_squares = BISHOP_SPAN_WITHOUT_EDGES[square];
   let n = relevant_squares.count_ones();
   assert_eq!(BISHOP_BLOCKER_NUMBERS[square], n as u8);
-  let blocker_combinations = (1 << n);
+  let blocker_combinations = 1 << n;
   println!("{n} relevant squares, {blocker_combinations} blocker combinations");
 
   // Assemble the combinations of possible blockers for square `square`
@@ -179,7 +192,7 @@ fn find_bishop_magic(square: usize) -> BoardMask {
 
   for _k in 0..100_000_000 {
     // bitwise AND on 3 times random to get a random number with few bits set to 1.
-    magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
+    let magic: BoardMask = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
 
     if ((relevant_squares.wrapping_mul(magic)) & 0xFF00000000000000).count_ones() < 6 {
       continue;
@@ -195,8 +208,9 @@ fn find_bishop_magic(square: usize) -> BoardMask {
       let j: usize =
         (blockers[b].wrapping_mul(magic) >> (64 - BISHOP_BLOCKER_NUMBERS[square])) as usize;
 
-      let bishop_destinations = get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], square);
-      assert_ne!(bishop_destinations,0);
+      let bishop_destinations =
+        get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], square);
+      assert_ne!(bishop_destinations, 0);
       if used[j] == 0 {
         used[j] = bishop_destinations;
       } else if used[j] != bishop_destinations {
@@ -212,5 +226,5 @@ fn find_bishop_magic(square: usize) -> BoardMask {
   }
 
   println!("Failed for square: {square}\n");
-  panic!("Do not use this result!!"); 
+  panic!("Do not use this result!!");
 }

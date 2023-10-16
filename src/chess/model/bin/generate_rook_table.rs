@@ -39,7 +39,6 @@ fn main() {
   // Then the indices of the bits on the Rook span
   let mut rook_span_indexes: [[usize; 12]; 64] = [[INVALID_SQUARE.into(); 12]; 64];
   let mut rook_span_without_edges: [u64; 64] = [0; 64];
-  let mut rook_span_without_edges: [u64; 64] = [0; 64];
   // How many bits are describing relevant blockers based on the position
   let mut rook_blocker_numbers: [u8; 64] = [64; 64];
 
@@ -96,9 +95,7 @@ fn main() {
         span_mask |= 1 << rook_span_indexes[i][j];
       }
     }
-    unsafe {
-      rook_span_without_edges[i] = span_mask;
-    }
+    rook_span_without_edges[i] = span_mask;
   }
 
   let _ = write!(
@@ -186,7 +183,7 @@ fn main() {
         );
         print_board_mask(blockers[b].wrapping_mul(rook_magic[i]));
         print_board_mask(
-          ((blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i])),
+          (blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i]),
         );
         panic!("Do not use this result!");
       }
@@ -202,7 +199,7 @@ fn main() {
 
   // test sanity:
   let mut rng = rand::thread_rng();
-  for i in 0..1000 {
+  for _ in 0..1000 {
     let blockers = rand::random::<u64>();
     let square = rng.gen_range(0..64);
 
@@ -232,12 +229,11 @@ fn find_rook_magic(square: usize) -> BoardMask {
     [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
   let mut blockers: [BoardMask; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
     [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
-  let mut magic: BoardMask = 0;
 
   let relevant_squares = ROOK_SPAN_WITHOUT_EDGES[square];
   let n = relevant_squares.count_ones();
   assert_eq!(ROOK_BLOCKER_NUMBERS[square], n as u8);
-  let blocker_combinations = (1 << n);
+  let blocker_combinations = 1 << n;
   println!("{n} relevant squares, {blocker_combinations} blocker combinations");
 
   // Assemble the combinations of possible blockers for square `square`
@@ -254,7 +250,7 @@ fn find_rook_magic(square: usize) -> BoardMask {
 
   for _k in 0..100_000_000 {
     // bitwise AND on 3 times random to get a random number with few bits set to 1.
-    magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
+    let magic = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
 
     if ((relevant_squares.wrapping_mul(magic)) & 0xFF00000000000000).count_ones() < 6 {
       continue;

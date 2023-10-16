@@ -1383,12 +1383,10 @@ mod tests {
   #[ignore]
   #[test]
   fn test_sorting_moves_without_eval() {
-    let engine_cache: EngineCache = EngineCache::new();
-
     let fen = "r1bqk2r/pp3ppp/n1pbpn2/3pQ3/B3P3/5N2/PPPP1PPP/RNB1K2R w KQkq - 6 7";
     let game_state = GameState::from_fen(fen);
 
-    let mut engine = Engine::new();
+    let engine = Engine::new();
     Engine::find_move_list(&engine.cache, &game_state.board);
 
     for m in engine.cache.get_move_list(&game_state.board) {

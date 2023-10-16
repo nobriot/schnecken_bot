@@ -1,6 +1,7 @@
 use chess::model::board::Board;
 use chess::model::game_state::GameState;
 use chess::model::moves::Move;
+use chess::model::piece::Color;
 use divan::Bencher;
 use rand::Rng;
 
@@ -44,4 +45,17 @@ fn apply_moves_on_the_board(bencher: Bencher) {
   } else {
     game_state = GameState::from_board(&Board::new_random());
   }
+}
+
+/// Checks how fast we are at computing attackers of a square on the board
+#[divan::bench(sample_count = 10000)]
+fn find_attackers(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let mut rng = rand::thread_rng();
+
+  let j = rng.gen_range(0..63);
+
+  bencher.bench_local(|| {
+    let _ = game_state.board.get_attackers(j, Color::White);
+  });
 }

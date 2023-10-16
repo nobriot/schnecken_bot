@@ -65,10 +65,7 @@ pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
-  use crate::{
-    model::{board_mask::print_board_mask, tables::rook_destinations::get_rook_destinations},
-    set_square_in_mask, square_in_mask,
-  };
+  use crate::{model::board_mask::print_board_mask, set_square_in_mask, square_in_mask};
 
   use super::*;
   #[test]
@@ -247,7 +244,6 @@ mod tests {
   fn generale_holes_board_area() {
     use crate::model::board_mask::BoardMask;
     use crate::model::moves::*;
-    use crate::model::piece_moves::*;
     use std::fs::File;
     use std::io::Write;
 
@@ -257,7 +253,7 @@ mod tests {
     // Start from i, continue in a diagonal like bishops.
     let mut holes_area: BoardMask = 0;
     for i in 0..64 {
-      let (file, rank) = Board::index_to_fr(i);
+      let (_, rank) = Board::index_to_fr(i);
       if rank == 1 || rank == 2 || rank == 7 || rank == 8 {
         continue;
       }

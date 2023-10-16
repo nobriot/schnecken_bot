@@ -1,6 +1,4 @@
 use super::helpers::king::*;
-use super::helpers::mobility::*;
-use super::helpers::rook::*;
 use super::position::default_position_evaluation;
 use crate::engine::square_affinity::*;
 use crate::model::game_state::GameState;
@@ -10,31 +8,19 @@ const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.1;
 
-/// Gives a score based on the position in the middlegame
+/// Computes a total score based on the square where pieces are located in the
+/// middlegame.
 ///
-/// # Arguments
+/// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
-  let mut score: f32 = 0.0;
-
-  /*
-  score += PIECE_MOBILITY_FACTOR
-    * (get_piece_mobility(game_state, Color::White) as f32
-      - get_piece_mobility(game_state, Color::Black) as f32);
-       */
-
-  score += KING_DANGER_FACTOR
-    * (get_king_danger_score(game_state, Color::Black)
-      - get_king_danger_score(game_state, Color::White));
-
-  if is_king_too_adventurous(game_state, Color::White) {
-    score -= KING_TOO_ADVENTUROUS_PENALTY;
-  }
-  if is_king_too_adventurous(game_state, Color::Black) {
-    score += KING_TOO_ADVENTUROUS_PENALTY;
-  }
-
+/// * `game_state`: GameState reference
+///
+/// ### Return value
+///
+/// f32 score that can be applied to the evaluation
+///
+pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
+  let mut score = 0.0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
       PieceType::King => {
@@ -79,6 +65,35 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
       },
     }
   }
+  score
+}
+
+/// Gives a score based on the position in the middlegame
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
+  let mut score: f32 = 0.0;
+
+  /*
+  score += PIECE_MOBILITY_FACTOR
+    * (get_piece_mobility(game_state, Color::White) as f32
+      - get_piece_mobility(game_state, Color::Black) as f32);
+       */
+
+  score += KING_DANGER_FACTOR
+    * (get_king_danger_score(game_state, Color::Black)
+      - get_king_danger_score(game_state, Color::White));
+
+  if is_king_too_adventurous(game_state, Color::White) {
+    score -= KING_TOO_ADVENTUROUS_PENALTY;
+  }
+  if is_king_too_adventurous(game_state, Color::Black) {
+    score += KING_TOO_ADVENTUROUS_PENALTY;
+  }
+
+  score += get_square_table_middlegame_score(game_state);
 
   score + default_position_evaluation(game_state)
 }

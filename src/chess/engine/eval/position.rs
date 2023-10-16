@@ -16,16 +16,16 @@ use crate::model::piece::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.05;
-const PASSED_PAWN_FACTOR: f32 = 0.2;
-const PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
-const PROTECTED_PAWN_FACTOR: f32 = 0.05;
-const BACKWARDS_PAWN_FACTOR: f32 = 0.005;
+const _PASSED_PAWN_FACTOR: f32 = 0.2;
+const _PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
+const _PROTECTED_PAWN_FACTOR: f32 = 0.05;
+const _BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.03;
 const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.15;
-const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
-const OUTPOST_BONUS: f32 = 0.9;
+const _REACHABLE_OUTPOST_BONUS: f32 = 0.2;
+const _OUTPOST_BONUS: f32 = 0.9;
 
 // Shows "interesting" squares to control on the board
 // Giving them a score
@@ -174,7 +174,7 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
     & BOARD_UP_EDGE)
     .count_ones();
 
-  if material_count < 17 {
+  if material_count < 20 {
     cache.set_game_phase(&game_state.board, GamePhase::Endgame);
   } else if development_index > 6 {
     cache.set_game_phase(&game_state.board, GamePhase::Opening);
@@ -183,7 +183,7 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   }
 }
 
-/// Evaluates a position and  tells if it seems to be game over or not
+/// Evaluates a position and tells if it seems to be game over or not
 ///
 /// ### Arguments
 ///
@@ -276,13 +276,10 @@ pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
 
 #[cfg(test)]
 mod tests {
-  use crate::model::board::Board;
-  use crate::model::moves::Move;
-  use crate::{engine::cache::EngineCache, model::game_state};
-  use rand::Rng;
-  use std::time::{Duration, Instant};
-
   use super::*;
+  use crate::engine::cache::EngineCache;
+  use crate::model::moves::Move;
+
   #[test]
   fn test_evaluate_board() {
     // This is a forced checkmate in 2:

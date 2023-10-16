@@ -1852,7 +1852,7 @@ mod tests {
   #[test]
   fn get_move_remove_checker_by_capturing_en_passant() {
     let fen = "8/p7/1pR5/6pk/6Pp/7P/P6K/3rr3 b - g3 0 34";
-    let mut board = Board::from_fen(fen);
+    let board = Board::from_fen(fen);
 
     let moves = board.get_moves();
     for m in &moves {

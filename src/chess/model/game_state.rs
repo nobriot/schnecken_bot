@@ -413,7 +413,7 @@ mod tests {
   #[test]
   fn check_blocked_pawns() {
     let fen = "rn2k3/1bpp1p1p/p2bp3/6Q1/3PP3/2PB4/PP2NPPP/RN2K2R b KQq - 0 13";
-    let mut game_state = GameState::from_fen(fen);
+    let game_state = GameState::from_fen(fen);
     //println!("List of moves (should not include moves d7d5\n");
     for m in game_state.get_moves() {
       //println!("{m}");

@@ -10,8 +10,19 @@ const DEVELOPMENT_FACTOR: f32 = 0.30;
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.1;
-const CASTLING_PENATLY: f32 = 1.0;
+const _CASTLING_PENATLY: f32 = 1.0;
 
+/// Computes a total score based on the square where pieces are located in the
+/// opening.
+///
+/// ### Arguments
+///
+/// * `game_state`: GameState reference
+///
+/// ### Return value
+///
+/// f32 score that can be applied to the evaluation
+///
 pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
   let mut score = 0.0;
   for (i, piece) in game_state.board.pieces.white {
@@ -103,7 +114,6 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::model::board_mask::*;
 
   #[test]
   fn evaluate_opening_positions() {

@@ -1,6 +1,7 @@
 use super::helpers::generic::get_material_score;
 use super::helpers::king::*;
 use super::position::*;
+use crate::engine::square_affinity::EndgameSquareTable;
 use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -8,9 +9,66 @@ use crate::model::piece_moves::KING_MOVES;
 
 //const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
+const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
+
+/// Computes a total score based on the square where pieces are located in the
+/// endgame.
+///
+/// ### Arguments
+///
+/// * `game_state`: GameState reference
+///
+/// ### Return value
+///
+/// f32 score that can be applied to the evaluation
+///
+pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
+  let mut score = 0.0;
+  for (i, piece) in game_state.board.pieces.white {
+    match piece {
+      PieceType::King => score += SQUARE_TABLE_FACTOR * EndgameSquareTable::KING[i as usize] as f32,
+      PieceType::Queen => {
+        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::QUEEN[i as usize] as f32
+      },
+      PieceType::Rook => {
+        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_ROOK[i as usize] as f32
+      },
+      PieceType::Bishop => {
+        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_BISHOP[i as usize] as f32
+      },
+      PieceType::Knight => {
+        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::KNIGHT[i as usize] as f32
+      },
+      PieceType::Pawn => {
+        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_PAWN[i as usize] as f32
+      },
+    }
+  }
+  for (i, piece) in game_state.board.pieces.black {
+    match piece {
+      PieceType::King => score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::KING[i as usize] as f32,
+      PieceType::Queen => {
+        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::QUEEN[i as usize] as f32
+      },
+      PieceType::Rook => {
+        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_ROOK[i as usize] as f32
+      },
+      PieceType::Bishop => {
+        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_BISHOP[i as usize] as f32
+      },
+      PieceType::Knight => {
+        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::KNIGHT[i as usize] as f32
+      },
+      PieceType::Pawn => {
+        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_PAWN[i as usize] as f32
+      },
+    }
+  }
+  score
+}
 
 /// Gives a score based on the endgame situation.
 ///
@@ -40,6 +98,8 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
+
+  score += get_square_table_endgame_score(game_state);
 
   score + default_position_evaluation(game_state)
 }

@@ -1,4 +1,3 @@
-use crate::model::board::*;
 use crate::model::board_geometry::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
