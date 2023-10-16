@@ -906,49 +906,4 @@ mod tests {
       last_eval = new_eval;
     }
   }
-
-  #[test]
-  fn test_bench_cache_speed() {
-    use super::*;
-    use crate::model::board::Board;
-    use rand::Rng;
-    use std::time::{Duration, Instant};
-
-    let engine_cache: EngineCache = EngineCache::new();
-
-    // Create a bunch of random boards
-    const NUMBER_OF_BOARDS: usize = 1_000_000;
-    let mut game_states: Vec<GameState> = Vec::with_capacity(NUMBER_OF_BOARDS);
-    let mut move_lists: Vec<Vec<Move>> = Vec::with_capacity(NUMBER_OF_BOARDS);
-    for _ in 0..NUMBER_OF_BOARDS {
-      let current_game = GameState::from_board(&Board::new_random());
-      let move_list = current_game.get_moves();
-      game_states.push(current_game);
-      move_lists.push(move_list);
-    }
-
-    let mut rng = rand::thread_rng();
-    let mut positions_evaluated = 0;
-    let start_time = Instant::now();
-
-    // Spin at it for 1 second
-    while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let i = rng.gen_range(0..NUMBER_OF_BOARDS);
-      let current_game = &game_states[i];
-      if false == engine_cache.has_move_list(&current_game.board) {
-        engine_cache.set_move_list(&current_game.board, &move_lists[i]);
-      } else {
-        let _ = engine_cache.get_move_list(&current_game.board);
-      }
-      positions_evaluated += 1;
-    }
-
-    // 1000 kNPS would be nice.
-    assert!(
-      positions_evaluated > 1_000_000,
-      "Number of NPS for exercising the cache with move lists: {}. Cache length: {}",
-      positions_evaluated,
-      engine_cache.len()
-    );
-  }
 }

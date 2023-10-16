@@ -439,58 +439,6 @@ mod tests {
   }
 
   #[test]
-  fn game_state_bench_move_applications_per_second() {
-    use std::time::{Duration, Instant};
-    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
-    let mut game_state = GameState::from_fen(fen);
-
-    let mut positions_computed = 0;
-
-    // Spin at it for 1 second
-    let start_time = Instant::now();
-    while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let moves = game_state.get_moves();
-      if !moves.is_empty() {
-        let m = moves[0];
-        game_state.apply_move(&m);
-        positions_computed += 1;
-      } else {
-        game_state = GameState::from_fen(fen);
-      }
-    }
-
-    // 1000 kNPS would be nice. Right now we are at a very low number LOL
-    assert!(
-      positions_computed > 1_000_000,
-      "Number of NPS for computing and applying moves: {}",
-      positions_computed
-    );
-  }
-
-  #[test]
-  fn game_state_bench_compute_legal_moves_per_second() {
-    use std::time::{Duration, Instant};
-    let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR w KQkq - 5 6";
-
-    let mut positions_computed = 0;
-    let game_state = GameState::from_fen(fen);
-
-    // Spin at it for 1 second
-    let start_time = Instant::now();
-    while Instant::now() < (start_time + Duration::from_millis(1000)) {
-      let _ = game_state.get_moves();
-      positions_computed += 1;
-    }
-
-    // 1000 kNPS would be nice. Right now we are at a very low number LOL
-    assert!(
-      positions_computed > 1_000_000,
-      "Number of NPS for computing legal moves: {}",
-      positions_computed
-    );
-  }
-
-  #[test]
   fn test_pawn_double_jump_blocked() {
     let fen = "5r1k/1P5p/5p1N/4p3/2NpPnp1/3P4/2PB1PPP/R5K1 b - - 0 36";
     let game_state = GameState::from_fen(fen);

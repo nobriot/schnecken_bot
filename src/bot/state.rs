@@ -125,6 +125,7 @@ impl BotState {
         // The thread rarely dies, however, sometimes the HTTP stream stops and we do not receive chunks anymore.
         // Look up if the bot appears offline, and if so, restart the incoming event stream
         warn!("Bot seems offline, restarting event stream");
+        handle.abort();
         let api_clone = bot.api.clone();
         let bot_clone = bot.clone();
         handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });

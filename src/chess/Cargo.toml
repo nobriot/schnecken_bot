@@ -39,3 +39,14 @@ path = "model/bin/generate_rook_table.rs"
 [[bin]]
 name = "generate_bishop_table"
 path = "model/bin/generate_bishop_table.rs"
+# Used for benchmarks:
+[dev-dependencies]
+divan = "0.1.0"
+
+[[bench]]
+name = "chess_library"
+harness = false
+
+[[bench]]
+name = "engine"
+harness = false
