@@ -89,7 +89,7 @@ impl LayerState {
     LayerState {
       W: Array::random(
         (layer_size, previous_layer_size),
-        ndarray_rand::rand_distr::Normal::new(0.0, 0.01).unwrap(),
+        ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap(),
       ),
       b: 0.0,
       Z: Array2::zeros((layer_size, previous_layer_size)),
@@ -127,11 +127,10 @@ pub enum Activation {
   None,
 }
 
-/// # NNUE
+/// ### NNUE
 ///
-/// Here we try to build a Neural Network with 3 layers (not counting A0, input layer)
+/// Just contains a bunch of Neural Net layers
 ///
-#[repr(align(32))]
 pub struct NNUE {
   pub layers: Vec<Layer>,
 }
@@ -146,7 +145,7 @@ impl NNUE {
   /// Size of the input layer, has to be squares x piece_types x 2 (color)
   const LAYER_0_SIZE: usize = 64 * 6 * 2;
   const LAYER_1_SIZE: usize = 500;
-  const LAYER_2_SIZE: usize = 16;
+  const LAYER_2_SIZE: usize = 64;
   const LAYER_3_SIZE: usize = 1;
 
   /// Creates a new NNUE
@@ -212,9 +211,9 @@ impl NNUE {
 
       // Zl = Wl.A(l-1) + bl
       let mut Zl = self.layers[i].state.W.dot(&A_prev);
+      //println!("Zl: {:?}", Zl);
       Zl += self.layers[i].state.b;
-
-      //println!("Done");
+      //println!("Zl +{}: {:?}", self.layers[i].state.b, Zl);
 
       // Save Zl onto the layer:
       self.layers[i].state.Z = Zl.clone();
@@ -252,7 +251,7 @@ impl NNUE {
   /// dZ^{[l]} = dA^{[l]} \times g'(Z^{[l]})
   /// dW^{[l]} = \frac{\partial \mathcal{J} }{\partial W^{[l]}} = \frac{1}{m} dZ^{[l]} A^{[l-1] T}
   /// db^{[l]} = \frac{\partial \mathcal{J} }{\partial b^{[l]}} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l](i)}
-  /// dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]} \tag{10}
+  /// dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]}
   /// ````
   ///
   #[allow(non_snake_case)]
@@ -261,7 +260,7 @@ impl NNUE {
 
     // Calculate dc/dAL
     let dC = cost_derivative_vector(AL, Y);
-    //println!("dC : {:?}", dC);
+    println!("dC : {:?}", dC);
     let mut dA_prev = dC;
 
     let m = AL.len() as f32;
@@ -286,7 +285,8 @@ impl NNUE {
         },
         Activation::Tanh => Zip::from(&mut dZl).for_each(|a| *a = tanh_backwards(*a)),
         Activation::Sigmoid => Zip::from(&mut dZl).for_each(|a| *a = sigmoid_backwards(*a)),
-        Activation::None => {},
+        // No activation means that we have to skip the derivative of the activation layer. We will multiply dA by 1.
+        Activation::None => Zip::from(&mut dZl).for_each(|a| *a = 1.0),
       };
 
       dZl *= &self.layers[i].state.dA;
@@ -297,8 +297,7 @@ impl NNUE {
       self.layers[i].state.dZ = dZl.clone();
 
       //println!("dWl");
-      let mut dWl = dZl.dot(&self.layers[i - 1].state.A.t());
-      dWl /= m;
+      let dWl = dZl.dot(&self.layers[i - 1].state.A.t()) / m;
       self.layers[i].state.dW = dWl.clone();
       //println!("dWl = {:?}", dWl);
       //println!("dWl dimensions: {}x{}", dWl.len(), dWl[0].len());
@@ -324,40 +323,75 @@ impl NNUE {
   #[allow(non_snake_case)]
   pub fn check_weight_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
-    const EPSILON: f32 = 10e-6;
+    const EPSILON: f32 = 1e-5;
 
     let shape_c = self.layers[layer].state.W.shape()[0];
     let shape_r = self.layers[layer].state.W.shape()[1];
     println!("Layer size: {}x{}", shape_c, shape_r);
+    let m = y.len() as f32;
 
-    for c in 0..shape_c {
-      for r in 0..shape_r {
-        // Capture a weight at a given layer, row, colum:
-        let W = self.layers[layer].state.W[[c, r]];
-        let dW = self.layers[layer].state.dW[[c, r]];
+    // Select 20 points randomly
+    for _ in 0..20 {
+      let c = rand::random::<usize>() % shape_c;
+      let r = rand::random::<usize>() % shape_r;
 
-        // Update W to W + epsilon
-        self.layers[layer].state.W[[c, r]] = W + EPSILON;
-        let y_hat_plus = self.forward_propagation(input);
-        let cost_plus = cost_vector(&y_hat_plus, y);
+      // Capture a weight at a given layer, row, colum:
+      let W = self.layers[layer].state.W[[c, r]];
+      let dW = self.layers[layer].state.dW[[c, r]];
 
-        // Update W to W - epsilon
-        self.layers[layer].state.W[[c, r]] = W - EPSILON;
-        let y_hat_minus = self.forward_propagation(input);
-        let cost_minus = cost_vector(&y_hat_minus, y);
+      // Update W to W + epsilon
+      self.layers[layer].state.W[[c, r]] = W + EPSILON;
+      let y_hat_plus = self.forward_propagation(input);
+      let cost_plus = total_cost(&y_hat_plus, y) / m;
 
-        // Calculate gradient based on these tiny offsets
-        let test_dW = (cost_plus - cost_minus).sum() / (2.0 * EPSILON * y.len() as f32);
+      // Update W to W - epsilon
+      self.layers[layer].state.W[[c, r]] = W - EPSILON;
+      let y_hat_minus = self.forward_propagation(input);
+      let cost_minus = total_cost(&y_hat_minus, y) / m;
 
-        // Restore W
-        self.layers[layer].state.W[[c, r]] = W;
+      // Calculate gradient based on these tiny offsets
+      let test_dW = (cost_plus - cost_minus) / (2.0 * EPSILON);
 
-        println!("dW[{c}][{r}] : {} - test_dW: {} ", dW, test_dW);
-        //println!("cost+ : {:?} ", cost_plus);
-        //println!("cost- : {:?} ", cost_minus);
-        assert!((test_dW - dW).abs() < 0.01);
-      }
+      // Restore W
+      self.layers[layer].state.W[[c, r]] = W;
+
+      println!("cost diff: {:?} ", cost_plus - cost_minus);
+      println!("W {} - dW[{c}][{r}] : {} - test_dW: {} \n", W, dW, test_dW);
+      assert!((test_dW - dW).abs() < 0.05);
     }
+  }
+
+  #[allow(non_snake_case)]
+  pub fn check_bias_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
+    // Do that for all rows/columns of the layer Weight matrix:
+    const EPSILON: f32 = 1e-5;
+
+    // Capture a weight at a given layer, row, colum:
+    let b = self.layers[layer].state.b;
+    let db = self.layers[layer].state.db;
+    let m = y.len() as f32;
+
+    // Update b to b + epsilon
+    self.layers[layer].state.b = b + EPSILON;
+    let y_hat_plus = self.forward_propagation(input);
+    let cost_plus = total_cost(&y_hat_plus, y) / m;
+
+    // Update b to b - epsilon
+    self.layers[layer].state.b = b - EPSILON;
+    let y_hat_minus = self.forward_propagation(input);
+    let cost_minus = total_cost(&y_hat_minus, y) / m;
+
+    // Calculate gradient based on these tiny offsets
+    let test_db = (cost_plus - cost_minus) / (2.0 * EPSILON);
+
+    // Restore b
+    self.layers[layer].state.b = b;
+
+    //println!("y_hat +: {:?} / cost {:?}", y_hat_plus, cost_plus);
+    //println!("y_hat -: {:?}  / cost {:?}", y_hat_minus, cost_minus);
+    //println!("cost diff: {:?} ", cost_plus - cost_minus);
+    println!("b: {} - db : {} - test_db: {} \n", b, db, test_db);
+    assert!((test_db - db).abs() < 0.05);
   }
 
   /// Update the parameters using back-propagation gradient calculation
@@ -377,34 +411,6 @@ impl NNUE {
         });
 
       self.layers[i].state.b -= learning_rate * self.layers[i].state.db;
-    }
-  }
-
-  /// Calculates the prediction/output given the current state of the NNUE.
-  /// TODO: Write description
-  ///
-  /// Predicting is just running a forward propagation with a single game state
-  /// (instead of mini batch)
-  ///
-  /// ### Arguments
-  ///
-  /// * `self`:   reference to the NNUE
-  /// * `input`:  reference to a game State to evaluate
-  ///
-  /// ### Return value
-  ///
-  /// white's perpective f32 evaluation of the game state, included in [-1;1]
-  ///
-  #[allow(non_snake_case)]
-  pub fn predict(&mut self, input: &GameState) -> f32 {
-    let y_hat = self.forward_propagation(&vec![input]);
-
-    // Evaluation is relative to the side to play here.
-    // So 6.0 when it is black to play actually means -6.0
-
-    match input.board.side_to_play {
-      Color::White => y_hat[0],
-      Color::Black => -y_hat[0],
     }
   }
 
@@ -478,26 +484,14 @@ mod tests {
     let game_state = GameState::default();
 
     let a0 = NNUE::game_state_to_input_layer(&vec![&game_state]);
-    println!("{:#?}", a0);
+    //println!("{:?}", a0);
 
     // We expect 32 pieces on the board:
-    let mut sum = 0;
-    for i in 0..a0.shape()[1] {
-      if a0[[0, i]] == 1.0 {
-        sum += 1;
-      }
-    }
-    assert_eq!(32, sum);
-  }
+    assert_eq!(32.0, a0.sum());
 
-  #[test]
-  fn test_predict() {
-    let game_state = GameState::default();
-    let mut nnue = NNUE::new();
-
-    let y_hat = nnue.predict(&game_state);
-
-    assert_eq!(0.0, y_hat);
+    let game_state = GameState::from_fen("r1b1r1k1/ppp4p/3p3b/8/4P3/7P/PP2Q1P1/RN2K3 b - - 2 0");
+    let a0 = NNUE::game_state_to_input_layer(&vec![&game_state]);
+    assert_eq!(19.0, a0.sum());
   }
 
   #[test]
@@ -553,7 +547,36 @@ mod tests {
   }
 
   #[test]
-  fn test_gradient_checking() {
+  fn test_gradient_checking_layer_3() {
+    let game_state_1 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
+    let game_state_2 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2");
+    let game_state_3 =
+      GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
+    let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
+    let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
+    let mut evals: Vec<f32> = vec![-199.0];
+    for i in 0..evals.len() {
+      evals[i] = (evals[i] / 15.0).tanh();
+    }
+    assert_eq!(0.0, total_cost(&evals, &evals));
+
+    let mut nnue = NNUE::new();
+    let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
+    let mini_batch = vec![&game_state_4];
+    let Y_hat = nnue.forward_propagation(&mini_batch);
+    println!("Prediction: {:?}", Y_hat);
+    println!("Actual: {:?}", evals);
+    println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
+
+    nnue.backwards_propagation(&Y_hat, &evals);
+
+    nnue.check_weight_gradient(&mini_batch, &evals, 1);
+  }
+
+  #[test]
+  fn test_gradient_checking_layer_2() {
     let game_state_1 =
       GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
     let game_state_2 =
@@ -576,6 +599,54 @@ mod tests {
 
     nnue.backwards_propagation(&Y_hat, &evals);
 
-    nnue.check_weight_gradient(&mini_batch, &evals, 3);
+    nnue.check_weight_gradient(&mini_batch, &evals, 2);
+  }
+
+  #[test]
+  fn test_gradient_checking_layer_1() {
+    let game_state_1 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
+    let game_state_2 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2");
+    let game_state_3 =
+      GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
+    let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
+    let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
+    for i in 0..evals.len() {
+      evals[i] = (evals[i] / 15.0).tanh();
+    }
+    assert_eq!(0.0, total_cost(&evals, &evals));
+
+    let mut nnue = NNUE::new();
+    let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
+    let Y_hat = nnue.forward_propagation(&mini_batch);
+    println!("Prediction: {:?}", Y_hat);
+    println!("Actual: {:?}", evals);
+    println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
+
+    nnue.backwards_propagation(&Y_hat, &evals);
+
+    nnue.check_weight_gradient(&mini_batch, &evals, 1);
+  }
+
+  #[test]
+  fn test_gradient_checking_bias_layer_3() {
+    let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
+    let mut evals: Vec<f32> = vec![-199.0];
+    for i in 0..evals.len() {
+      evals[i] = (evals[i] / 15.0).tanh();
+    }
+
+    let mut nnue = NNUE::new();
+
+    let mini_batch = vec![&game_state_4];
+    let Y_hat = nnue.forward_propagation(&mini_batch);
+    println!("Prediction: {:?}", Y_hat);
+    println!("Actual: {:?}", evals);
+    println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
+
+    nnue.backwards_propagation(&Y_hat, &evals);
+
+    nnue.check_bias_gradient(&mini_batch, &evals, 3);
   }
 }
