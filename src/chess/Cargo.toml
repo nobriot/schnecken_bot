@@ -23,6 +23,8 @@ futures-util = "0.3"
 futures = "0.3"
 lazy_static = "1.4.0"
 regex = "1.10.0"
+ndarray = "0.15.6"
+ndarray-rand = "0.14.0"
 
 [lib]
 name = "chess"
@@ -39,6 +41,11 @@ path = "model/bin/generate_rook_table.rs"
 [[bin]]
 name = "generate_bishop_table"
 path = "model/bin/generate_bishop_table.rs"
+
+[[bin]]
+name = "train_nnue"
+path = "engine/nnue/train.rs"
+
 # Used for benchmarks:
 [dev-dependencies]
 divan = "0.1.0"

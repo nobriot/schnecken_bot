@@ -2,6 +2,7 @@ pub mod cache;
 pub mod development;
 pub mod engine_test;
 pub mod eval;
+pub mod nnue;
 pub mod square_affinity;
 pub mod theory;
 

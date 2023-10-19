@@ -110,7 +110,7 @@ fn compute_game_phase(bencher: Bencher) {
 #[divan::bench]
 fn cache_for_moves(bencher: Bencher) {
   let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
   let move_list = game_state.get_moves();
 
   bencher.bench_local(|| {
