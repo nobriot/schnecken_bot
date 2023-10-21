@@ -9,8 +9,9 @@ use ndarray::{Array, Array2, Zip};
 use ndarray_rand;
 use ndarray_rand::RandomExt;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::prelude::*;
 use std::io::Write;
+use std::io::{BufReader, BufWriter};
 
 // This is a very good read on using Neural Networks for chess:
 // https://github.com/asdfjkl/neural_network_chess/releases
@@ -20,6 +21,11 @@ use std::io::Write;
 // https://www.chessprogramming.org/NNUE
 // So x1 = white pawns on a1, x2 = white pawns on a2...
 // First half of the input layer is the side to play, second half is the opposite color
+
+// ---------------------------------------------------------------------------
+// Constant
+/// Magic bytes for our nnue file format
+const MAGIC_BYTES: &str = "nnue";
 
 /// #### Hyperparameters for Neural Network training
 /// They can be tuned for each layer.
@@ -50,17 +56,13 @@ impl Default for HyperParameters {
   }
 }
 
-/// #### Layer state
-/// Contains all the internal variables/parameters of a layer
+/// #### Activation cache
 ///
-/// Weights have to be of dimension (L,L-1), L being the number of nodes in a layer
+/// Contains all the intermediate calculation values for both forward and backward
+/// propagation
 ///
 #[allow(non_snake_case)]
-pub struct LayerState {
-  /// Weights.(W)
-  pub W: Array2<f32>,
-  /// Biases, denoted b
-  pub b: f32,
+pub struct LayerCache {
   /// Linear value cache
   pub Z: Array2<f32>,
   /// Activation value cache
@@ -73,6 +75,40 @@ pub struct LayerState {
   pub dZ: Array2<f32>,
   /// Activation gradient cache. dA
   pub dA: Array2<f32>,
+}
+
+impl LayerCache {
+  /// Layer cache is just arrays of zeros to start with.
+  ///
+  /// ### Arguments
+  ///
+  /// * `layer_size`: Number of nodes in the layer for the current cache
+  /// * `previous_layer_size`: Number of nodes in the previous layer for the current cache
+  fn new(layer_size: usize, previous_layer_size: usize) -> Self {
+    Self {
+      Z: Array2::zeros((layer_size, previous_layer_size)),
+      A: Array2::zeros((layer_size, previous_layer_size)),
+      dW: Array2::zeros((layer_size, previous_layer_size)),
+      db: 0.0,
+      dZ: Array2::zeros((layer_size, previous_layer_size)),
+      dA: Array2::zeros((layer_size, previous_layer_size)),
+    }
+  }
+}
+
+/// #### Layer state
+/// Contains all the internal variables/parameters of a layer
+///
+/// Weights have to be of dimension (L,L-1), L being the number of nodes in a layer
+///
+#[allow(non_snake_case)]
+pub struct LayerState {
+  /// Weights.(W)
+  pub W: Array2<f32>,
+  /// Biases, denoted b
+  pub b: f32,
+  /// activation cache
+  pub cache: LayerCache,
 }
 
 impl LayerState {
@@ -92,12 +128,7 @@ impl LayerState {
         ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap(),
       ),
       b: 0.0,
-      Z: Array2::zeros((layer_size, previous_layer_size)),
-      A: Array2::zeros((layer_size, previous_layer_size)),
-      dW: Array2::zeros((layer_size, previous_layer_size)),
-      db: 0.0,
-      dZ: Array2::zeros((layer_size, previous_layer_size)),
-      dA: Array2::zeros((layer_size, previous_layer_size)),
+      cache: LayerCache::new(layer_size, previous_layer_size),
     }
   }
 }
@@ -118,6 +149,7 @@ pub struct Layer {
 
 /// Enum representing the different activation function we would use for the
 /// layer.
+#[derive(Debug)]
 pub enum Activation {
   ReLU,
   ClippedReLU,
@@ -141,6 +173,29 @@ pub struct NNUE {
 // 2. if using tanh, then initialize with w = rand / sqrt(1/n[l-1])
 // 3. if using sigmoid,... let's not use sigmoid
 
+impl Default for NNUE {
+  fn default() -> Self {
+    let mut nnue = NNUE::new();
+    nnue.add_layer(
+      NNUE::LAYER_1_SIZE,
+      HyperParameters::default(),
+      Activation::ClippedReLU,
+    );
+    nnue.add_layer(
+      NNUE::LAYER_2_SIZE,
+      HyperParameters::default(),
+      Activation::ClippedReLU,
+    );
+    nnue.add_layer(
+      NNUE::LAYER_3_SIZE,
+      HyperParameters::default(),
+      Activation::Tanh,
+    );
+    nnue
+  }
+}
+
+#[allow(non_snake_case)]
 impl NNUE {
   /// Size of the input layer, has to be squares x piece_types x 2 (color)
   const LAYER_0_SIZE: usize = 64 * 6 * 2;
@@ -150,7 +205,7 @@ impl NNUE {
 
   /// Creates a new NNUE
   ///
-  /// For now the number of layers and their size is just hardcoded in there.
+  /// Will only contains the fixed size Input layer. More layers need to be added manually.
   ///
   pub fn new() -> Self {
     // Input Layer (L0):
@@ -161,35 +216,26 @@ impl NNUE {
       state: LayerState::new(Self::LAYER_0_SIZE, 1),
     };
 
-    // Create the "normal" layers, L1, L2, etc...
-    let l1 = Layer {
-      nodes: Self::LAYER_1_SIZE,
-      param: HyperParameters::default(),
-      a: Activation::ClippedReLU,
-      state: LayerState::new(Self::LAYER_1_SIZE, Self::LAYER_0_SIZE),
-    };
-
-    let l2 = Layer {
-      nodes: Self::LAYER_2_SIZE,
-      param: HyperParameters::default(),
-      a: Activation::ClippedReLU,
-      state: LayerState::new(Self::LAYER_2_SIZE, Self::LAYER_1_SIZE),
-    };
-
-    let l3 = Layer {
-      nodes: Self::LAYER_3_SIZE,
-      param: HyperParameters::default(),
-      a: Activation::Tanh,
-      state: LayerState::new(Self::LAYER_3_SIZE, Self::LAYER_2_SIZE),
-    };
-
     let mut nnue = NNUE { layers: Vec::new() };
     nnue.layers.push(l0);
-    nnue.layers.push(l1);
-    nnue.layers.push(l2);
-    nnue.layers.push(l3);
 
     nnue
+  }
+
+  /// Adds a layer to the NNUE:
+  pub fn add_layer(&mut self, nodes: usize, param: HyperParameters, a: Activation) {
+    // Constructor always creates the input layer, so .last() should never return None.
+    assert!(self.layers.last().is_some());
+    let last_layer_size = self.layers.last().unwrap().nodes;
+
+    let layer = Layer {
+      nodes,
+      param,
+      a,
+      state: LayerState::new(nodes, last_layer_size),
+    };
+
+    self.layers.push(layer);
   }
 
   /// Calculates the prediction/output given the current state of the NNUE.
@@ -198,13 +244,12 @@ impl NNUE {
   ///
   ///
   ///
-  #[allow(non_snake_case)]
   pub fn forward_propagation(&mut self, input: &[&GameState]) -> Vec<f32> {
     // Convert the board to our input layer.
-    self.layers[0].state.A = NNUE::game_state_to_input_layer(input);
+    self.layers[0].state.cache.A = NNUE::game_state_to_input_layer(input);
 
     // This is A0, input data:
-    let mut A_prev = self.layers[0].state.A.clone();
+    let mut A_prev = self.layers[0].state.cache.A.clone();
 
     for i in 1..self.layers.len() {
       //println!("Forward prop: Layer {i} - {} nodes", self.layers[i].nodes);
@@ -216,21 +261,21 @@ impl NNUE {
       //println!("Zl +{}: {:?}", self.layers[i].state.b, Zl);
 
       // Save Zl onto the layer:
-      self.layers[i].state.Z = Zl.clone();
+      self.layers[i].state.cache.Z = Zl.clone();
 
       // Al = gl(Zl) where gl is the activation function for that layer
       match self.layers[i].a {
-        Activation::ReLU => Zip::from(&mut Zl).for_each(|a| *a = relu(*a)),
-        Activation::ClippedReLU => Zip::from(&mut Zl).for_each(|a| *a = clipped_relu(*a)),
+        Activation::ReLU => Zip::from(&mut Zl).par_for_each(|a| *a = relu(*a)),
+        Activation::ClippedReLU => Zip::from(&mut Zl).par_for_each(|a| *a = clipped_relu(*a)),
         Activation::ExtendedClippedReLU => {
-          Zip::from(&mut Zl).for_each(|a| *a = extended_clipped_relu(*a, 200.0))
+          Zip::from(&mut Zl).par_for_each(|a| *a = extended_clipped_relu(*a, 200.0))
         },
-        Activation::Tanh => Zip::from(&mut Zl).for_each(|a| *a = a.tanh()),
-        Activation::Sigmoid => Zip::from(&mut Zl).for_each(|a| *a = sigmoid(*a)),
+        Activation::Tanh => Zip::from(&mut Zl).par_for_each(|a| *a = a.tanh()),
+        Activation::Sigmoid => Zip::from(&mut Zl).par_for_each(|a| *a = sigmoid(*a)),
         Activation::None => {},
       };
       let Al = Zl;
-      self.layers[i].state.A = Al.clone();
+      self.layers[i].state.cache.A = Al.clone();
 
       A_prev = Al;
     }
@@ -254,13 +299,12 @@ impl NNUE {
   /// dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]}
   /// ````
   ///
-  #[allow(non_snake_case)]
   pub fn backwards_propagation(&mut self, AL: &[f32], Y: &[f32]) {
     assert_eq!(AL.len(), Y.len());
 
     // Calculate dc/dAL
     let dC = cost_derivative_vector(AL, Y);
-    println!("dC : {:?}", dC);
+    //println!("dC : {:?}", dC);
     let mut dA_prev = dC;
 
     let m = AL.len() as f32;
@@ -270,40 +314,40 @@ impl NNUE {
     for i in (1..self.layers.len()).rev() {
       //println!("backprop : Layer {i} - {} nodes", self.layers[i].nodes);
 
-      self.layers[i].state.dA = dA_prev;
+      self.layers[i].state.cache.dA = dA_prev;
 
       //println!("dAl-1 dimensions: {}x{}", dA_prev.len(), dA_prev[0].len());
       //println!("dZl");
-      let mut dZl = self.layers[i].state.Z.clone();
+      let mut dZl = self.layers[i].state.cache.Z.clone();
       match self.layers[i].a {
-        Activation::ReLU => Zip::from(&mut dZl).for_each(|a| *a = relu_backwards(*a)),
+        Activation::ReLU => Zip::from(&mut dZl).par_for_each(|a| *a = relu_backwards(*a)),
         Activation::ClippedReLU => {
-          Zip::from(&mut dZl).for_each(|a| *a = clipped_relu_backwards(*a))
+          Zip::from(&mut dZl).par_for_each(|a| *a = clipped_relu_backwards(*a))
         },
         Activation::ExtendedClippedReLU => {
-          Zip::from(&mut dZl).for_each(|a| *a = extended_clipped_relu_backwards(*a, 200.0))
+          Zip::from(&mut dZl).par_for_each(|a| *a = extended_clipped_relu_backwards(*a, 200.0))
         },
-        Activation::Tanh => Zip::from(&mut dZl).for_each(|a| *a = tanh_backwards(*a)),
-        Activation::Sigmoid => Zip::from(&mut dZl).for_each(|a| *a = sigmoid_backwards(*a)),
-        // No activation means that we have to skip the derivative of the activation layer. We will multiply dA by 1.
-        Activation::None => Zip::from(&mut dZl).for_each(|a| *a = 1.0),
+        Activation::Tanh => Zip::from(&mut dZl).par_for_each(|a| *a = tanh_backwards(*a)),
+        Activation::Sigmoid => Zip::from(&mut dZl).par_for_each(|a| *a = sigmoid_backwards(*a)),
+        // No activation means that we have to skip the derivative of the activation layer. Replace everything with 1.0
+        Activation::None => dZl.par_mapv_inplace(|_| 1.0),
       };
 
-      dZl *= &self.layers[i].state.dA;
+      dZl *= &self.layers[i].state.cache.dA;
       //println!("dZl = {:?}", dZl);
       //println!("dZl dimensions: {}x{}", dZl.len(), dZl[0].len());
 
       // Cache the result
-      self.layers[i].state.dZ = dZl.clone();
+      self.layers[i].state.cache.dZ = dZl.clone();
 
       //println!("dWl");
-      let dWl = dZl.dot(&self.layers[i - 1].state.A.t()) / m;
-      self.layers[i].state.dW = dWl.clone();
+      let dWl = dZl.dot(&self.layers[i - 1].state.cache.A.t()) / m;
+      self.layers[i].state.cache.dW = dWl.clone();
       //println!("dWl = {:?}", dWl);
       //println!("dWl dimensions: {}x{}", dWl.len(), dWl[0].len());
 
       //println!("dbl");
-      self.layers[i].state.db = (1.0 / m) * dZl.sum();
+      self.layers[i].state.cache.db = (1.0 / m) * dZl.sum();
       //println!("dbl = {:?}", dbl);
       //println!("dbl dimensions: {}x{}", dbl.len(), dbl[0].len());
 
@@ -320,7 +364,6 @@ impl NNUE {
   /// Then compare it to the previously calculated gradient value
   ///
   ///
-  #[allow(non_snake_case)]
   pub fn check_weight_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
     const EPSILON: f32 = 1e-5;
@@ -337,7 +380,7 @@ impl NNUE {
 
       // Capture a weight at a given layer, row, colum:
       let W = self.layers[layer].state.W[[c, r]];
-      let dW = self.layers[layer].state.dW[[c, r]];
+      let dW = self.layers[layer].state.cache.dW[[c, r]];
 
       // Update W to W + epsilon
       self.layers[layer].state.W[[c, r]] = W + EPSILON;
@@ -361,14 +404,13 @@ impl NNUE {
     }
   }
 
-  #[allow(non_snake_case)]
   pub fn check_bias_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
     const EPSILON: f32 = 1e-5;
 
     // Capture a weight at a given layer, row, colum:
     let b = self.layers[layer].state.b;
-    let db = self.layers[layer].state.db;
+    let db = self.layers[layer].state.cache.db;
     let m = y.len() as f32;
 
     // Update b to b + epsilon
@@ -402,7 +444,7 @@ impl NNUE {
     for i in 1..self.layers.len() {
       let learning_rate = self.layers[i].param.learning_rate;
 
-      let dW = self.layers[i].state.dW.clone();
+      let dW = self.layers[i].state.cache.dW.clone();
       // W = W - alpha*dW
       Zip::from(&mut self.layers[i].state.W)
         .and(&dW)
@@ -410,7 +452,7 @@ impl NNUE {
           *w -= learning_rate * dw;
         });
 
-      self.layers[i].state.b -= learning_rate * self.layers[i].state.db;
+      self.layers[i].state.b -= learning_rate * self.layers[i].state.cache.db;
     }
   }
 
@@ -454,28 +496,94 @@ impl NNUE {
     a0
   }
 
+  /// Converts any sized type to a slice of bytes.
+  ///
+  unsafe fn as_bytes<T: Sized>(p: &T) -> &[u8] {
+    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+  }
+
+  /// Converts any sized type to a slice of bytes.
+  ///
+  unsafe fn as_mut_bytes<T: Sized>(p: &T) -> &mut [u8] {
+    ::core::slice::from_raw_parts_mut((p as *const T) as *mut u8, ::core::mem::size_of::<T>())
+  }
+
   /// Saves the NNUE bytes to a file, so it can be loaded again later
   ///
   pub fn save(&self, output_file: &str) -> std::io::Result<()> {
     let mut writer = BufWriter::new(File::create(output_file)?);
 
-    writer.write_all("NNUE Data\n".as_bytes())?;
-    for i in 0..self.layers.len() {}
-    todo!("Finish this");
+    // Write a magic byte
+    // https://en.wikipedia.org/wiki/List_of_file_signatures
+    //
+    writer.write_all(MAGIC_BYTES.as_bytes())?;
+    for i in 1..self.layers.len() {
+      // Format will be: Layer size - Activation - Weights - Bias
+      let cols = self.layers[i].state.W.shape()[0];
+      let rows = self.layers[i].state.W.shape()[1];
+      writer.write_all(unsafe { NNUE::as_bytes(&cols) })?;
+      writer.write_all(unsafe { NNUE::as_bytes(&self.layers[i].a) })?;
+      // Then dump the Weights and bias
+      for c in 0..cols {
+        for r in 0..rows {
+          let bytes = unsafe { NNUE::as_bytes(&self.layers[i].state.W[[c, r]]) };
+          writer.write_all(bytes)?;
+        }
+      }
+      let bytes = unsafe { NNUE::as_bytes(&self.layers[i].state.b) };
+      writer.write_all(bytes)?;
+    }
 
     Ok(())
   }
-}
 
-impl Default for NNUE {
-  fn default() -> Self {
-    Self::new()
+  /// Saves the NNUE bytes to a file, so it can be loaded again later
+  ///
+  pub fn load(input_file: &str) -> std::io::Result<Self> {
+    let file = File::open(input_file)?;
+    let mut reader = BufReader::new(file);
+    let mut nnue = Self::new();
+    let mut layer = 0;
+
+    let mut magic_bytes = [0; MAGIC_BYTES.len()];
+    reader.read_exact(&mut magic_bytes)?;
+    if magic_bytes != MAGIC_BYTES.as_bytes() {
+      println!("Error: Trying to read NNUE format on wrong file: {input_file}");
+      return Err(std::io::Error::from_raw_os_error(22));
+    }
+
+    loop {
+      layer += 1;
+      let layer_size: usize = 0;
+      assert!(nnue.layers.last().is_some());
+      let last_layer_size = nnue.layers.last().unwrap().nodes;
+      let activation = Activation::None;
+
+      if let Err(_) = reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&layer_size) }) {
+        break;
+      }
+      reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&activation) })?;
+
+      println!("Layer size: {layer_size} - Activation: {:?}", activation);
+      nnue.add_layer(layer_size, HyperParameters::default(), activation);
+
+      for c in 0..layer_size {
+        for r in 0..last_layer_size {
+          reader
+            .read_exact(&mut unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.W[[c, r]]) })?;
+        }
+      }
+      reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.b) })?;
+    }
+
+    Ok(nnue)
   }
 }
 
 //------------------------------------------------------------------------------
 // Tests
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
   use super::*;
 
@@ -499,8 +607,7 @@ mod tests {
     let game_state_1 = GameState::default();
     let game_state_2 =
       GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
-    let mut nnue = NNUE::new();
-
+    let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2];
 
     let Y_hat = nnue.forward_propagation(&mini_batch);
@@ -525,7 +632,7 @@ mod tests {
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
-    let mut nnue = NNUE::new();
+    let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let mut previous_cost = 100000.0;
 
@@ -590,7 +697,7 @@ mod tests {
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
-    let mut nnue = NNUE::new();
+    let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let Y_hat = nnue.forward_propagation(&mini_batch);
     println!("Prediction: {:?}", Y_hat);
@@ -637,7 +744,7 @@ mod tests {
       evals[i] = (evals[i] / 15.0).tanh();
     }
 
-    let mut nnue = NNUE::new();
+    let mut nnue = NNUE::default();
 
     let mini_batch = vec![&game_state_4];
     let Y_hat = nnue.forward_propagation(&mini_batch);
@@ -648,5 +755,46 @@ mod tests {
     nnue.backwards_propagation(&Y_hat, &evals);
 
     nnue.check_bias_gradient(&mini_batch, &evals, 3);
+  }
+
+  #[test]
+  fn test_saving_the_nnue() {
+    let mut nnue = NNUE::default();
+
+    let game_state_1 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
+    let game_state_2 =
+      GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq - 0 2");
+    let game_state_3 =
+      GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
+    let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
+
+    let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
+    for i in 0..evals.len() {
+      evals[i] = (evals[i] / 15.0).tanh();
+    }
+
+    let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
+    // Spin the NNUE a little bit:
+    let initial_Y_hat = nnue.forward_propagation(&mini_batch);
+
+    for _ in 0..100 {
+      let Y_hat = nnue.forward_propagation(&mini_batch);
+      nnue.backwards_propagation(&Y_hat, &evals);
+      nnue.update_parameters();
+    }
+    let Y_hat = nnue.forward_propagation(&mini_batch);
+
+    // Now save to a file:
+    nnue.save("super_net.nnue");
+
+    // Now I expect that if we reload, we get the same prediction again
+    let mut nnue_2 = NNUE::load("super_net.nnue").unwrap();
+
+    let new_Y_hat = nnue_2.forward_propagation(&mini_batch);
+    println!("Prediction before: {:?}", Y_hat);
+    println!("Prediction after: {:?}", new_Y_hat);
+    assert_ne!(initial_Y_hat, Y_hat);
+    assert_eq!(Y_hat, new_Y_hat);
   }
 }

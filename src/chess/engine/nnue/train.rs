@@ -9,11 +9,14 @@ use chess::model::piece::Color;
 
 pub const LICHESS_DATABASE_FILE: &str = "engine/nnue/data/training_set.pgn";
 pub const OUTPUT_TRAINING_FILE: &str = "engine/nnue/data/training_set.csv";
-pub const MINI_BATCH_SIZE: usize = 4000;
+pub const NNUE_OUTPUT_FILE: &str = "engine/nnue/data/net.nuue";
+pub const MINI_BATCH_SIZE: usize = 10000;
+pub const NUMBER_OF_EPOCH: usize = 100;
 
 const ERROR: &str = "\x1B[31m\x1B[1m\x1B[4mError\x1B[24m: \x1B[0m\x1B[31m";
 
 // Main function
+#[allow(non_snake_case)]
 fn main() -> ExitCode {
   println!("\n\x1B[4mWelcome to \x1B[1mNNUE training\x1B[0m. 🙂\n");
 
@@ -51,32 +54,35 @@ fn main() -> ExitCode {
 
   // ---------------------------------------------------------------------------
   // Instantiante the NNUE and train it
-  let mut nnue = NNUE::new();
+  let mut nnue = NNUE::default();
 
   let number_of_mini_batches = training_cache.len() / MINI_BATCH_SIZE;
 
-  for i in 0..(number_of_mini_batches - 1) {
-    let mut training = Vec::new();
-    let mut evals = Vec::new();
-    for j in 0..MINI_BATCH_SIZE {
-      let index = i * MINI_BATCH_SIZE + j;
-      let game_state = &training_cache[index].0;
-      training.push(game_state);
-      let mut eval = (training_cache[index].1 / 6.0).tanh();
-      if game_state.board.side_to_play == Color::Black {
-        eval = -eval;
+  for e in 0..NUMBER_OF_EPOCH {
+    for i in 0..(number_of_mini_batches - 1) {
+      let mut training = Vec::new();
+      let mut evals = Vec::new();
+      for j in 0..MINI_BATCH_SIZE {
+        let index = i * MINI_BATCH_SIZE + j;
+        let game_state = &training_cache[index].0;
+        training.push(game_state);
+        let mut eval = (training_cache[index].1 / 6.0).tanh();
+        if game_state.board.side_to_play == Color::Black {
+          eval = -eval;
+        }
+        evals.push(eval);
       }
-      evals.push(eval);
-    }
-    let Y_hat = nnue.forward_propagation(&training);
-    nnue.backwards_propagation(&Y_hat, &evals);
-    nnue.update_parameters();
+      let Y_hat = nnue.forward_propagation(&training);
+      nnue.backwards_propagation(&Y_hat, &evals);
+      nnue.update_parameters();
 
-    println!(
-      "Cost after iteration {}: {}",
-      i + 1,
-      functions::total_cost(&Y_hat, &evals)
-    );
+      println!(
+        "Cost after iteration {}: {}",
+        i + 1,
+        functions::total_cost(&Y_hat, &evals) / MINI_BATCH_SIZE as f32
+      );
+    }
+    println!("Epoch {e} completed");
   }
 
   // ---------------------------------------------------------------------------
@@ -113,6 +119,11 @@ fn main() -> ExitCode {
     "Cost on test set: {}",
     functions::total_cost(&predictions, &evals)
   );
+
+  // ---------------------------------------------------------------------------
+  // Save the NNUE so it can be restored later
+  println!("Saving the NNUE to file {NNUE_OUTPUT_FILE}");
+  nnue.save(NNUE_OUTPUT_FILE);
 
   println!("TODO:: Implement ADAM optimizer.");
   println!("TODO:: Save the NNUE result into a file, so we can load it again.");
