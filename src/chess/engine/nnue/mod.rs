@@ -465,13 +465,17 @@ impl NNUE {
 
     for m in 0..input.len() {
       // ptp : piece to play (side to play) ; op: opposite pieces
+      let flip_board = input[m].board.side_to_play == Color::Black;
       let (ptp, op) = match input[m].board.side_to_play {
         Color::White => (input[m].board.pieces.white, input[m].board.pieces.black),
         Color::Black => (input[m].board.pieces.black, input[m].board.pieces.white),
       };
 
       // Let's do: rook (offset = 0), queens (offset = 1 x 64), bishops (offset = 2 x 64), knights (offset = 3 x 64), king (offset = 4 x 64), pawn (offset = 5 x 64)
-      for (i, piece) in ptp {
+      for (mut i, piece) in ptp {
+        if flip_board {
+          i = 63 - i;
+        }
         match piece {
           PieceType::King => a0[[i as usize + 4 * 64, m]] = 1.0,
           PieceType::Queen => a0[[i as usize + 1 * 64, m]] = 1.0,
@@ -482,7 +486,10 @@ impl NNUE {
         }
       }
       // Same for opponent pieces, except that we have a 384 offset to everything
-      for (i, piece) in op {
+      for (mut i, piece) in op {
+        if flip_board {
+          i = 63 - i;
+        }
         match piece {
           PieceType::King => a0[[i as usize + 384 + 4 * 64, m]] = 1.0,
           PieceType::Queen => a0[[i as usize + 384 + 1 * 64, m]] = 1.0,
