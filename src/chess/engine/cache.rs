@@ -5,7 +5,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::model::board::*;
-use crate::model::game_state::GamePhase;
 use crate::model::game_state::GameState;
 use crate::model::game_state::GameStatus;
 use crate::model::moves::*;
@@ -41,8 +40,6 @@ pub struct EngineCache {
   evals: Arc<Mutex<HashMap<Board, f32>>>,
   // Game Status of an actual board.
   statuses: Arc<Mutex<HashMap<GameState, GameStatus>>>,
-  // GamePhases saved with each board configuration
-  phases: Arc<Mutex<HashMap<Board, GamePhase>>>,
   // Tree analysis, including alpha/beta
   tree: Arc<Mutex<HashMap<GameState, EvalTree>>>,
   // List of killer moves that we've met recently during the analysis
@@ -58,7 +55,6 @@ impl EngineCache {
       variations: Arc::new(Mutex::new(HashMap::new())),
       evals: Arc::new(Mutex::new(HashMap::new())),
       statuses: Arc::new(Mutex::new(HashMap::new())),
-      phases: Arc::new(Mutex::new(HashMap::new())),
       tree: Arc::new(Mutex::new(HashMap::new())),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
@@ -88,7 +84,6 @@ impl EngineCache {
     self.variations.lock().unwrap().clear();
     self.evals.lock().unwrap().clear();
     self.statuses.lock().unwrap().clear();
-    self.phases.lock().unwrap().clear();
     self.tree.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
   }
@@ -284,9 +279,6 @@ impl EngineCache {
   /// The evaluation of the board. Returns 0 if the evaluation is unknown.
   ///
   pub fn get_eval(&self, board: &Board) -> f32 {
-    if !self.has_eval(board) {
-      return f32::NAN;
-    }
     *self.evals.lock().unwrap().get(board).unwrap_or(&f32::NAN)
   }
 
@@ -347,60 +339,6 @@ impl EngineCache {
       .get(game_state)
       .unwrap_or(&GameStatus::Ongoing)
       .clone()
-  }
-
-  // ---------------------------------------------------------------------------
-  // GamePhase cached data
-
-  /// Checks if a board position has a known game phase
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Board configuration to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// True if the board GameState a known GamePhase in the EngineCache. False otherwise
-  ///
-  pub fn has_game_phase(&self, board: &Board) -> bool {
-    return self.phases.lock().unwrap().contains_key(board);
-  }
-
-  /// Sets the associated game phase to a board position
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Board configuration to look up in the cache
-  /// * `phase` :           GameStatus value to save
-  ///
-  pub fn set_game_phase(&self, board: &Board, phase: GamePhase) {
-    self.phases.lock().unwrap().insert(*board, phase);
-  }
-
-  /// Gets the cached GamePhase for a board position
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `board` :           Board configuration to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// The phase associated with of the board. Returns Endgame if the phase is unknown.
-  ///
-  pub fn get_game_phase(&self, board: &Board) -> GamePhase {
-    if !self.has_game_phase(board) {
-      error!("Looked up a GamePhase without any value for board. Returning Endgame");
-      return GamePhase::Endgame;
-    }
-    *self
-      .phases
-      .lock()
-      .unwrap()
-      .get(board)
-      .unwrap_or(&GamePhase::Endgame)
   }
 
   // ---------------------------------------------------------------------------
@@ -801,7 +739,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      evaluate_board(&engine_cache, &new_game_state);
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
     }
 
     // Now try to sort move list by eval:
@@ -838,7 +776,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      evaluate_board(&engine_cache, &new_game_state);
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
       i += 1;
       if i > 12 {
         break;
@@ -891,7 +829,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      evaluate_board(&engine_cache, &new_game_state);
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
     }
 
     // Now try to sort move list by eval:

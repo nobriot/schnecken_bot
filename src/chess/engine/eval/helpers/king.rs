@@ -18,6 +18,7 @@ use log::*;
 /// divided by the total number of squares around the king.
 ///
 pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
+  //debug_assert!(game_state.board.pieces.white.king != 0 && game_state.board.pieces.black.king != 0);
   if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
     debug!("King disappeared {}", game_state.to_fen());
     return 0.0;

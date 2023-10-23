@@ -317,7 +317,9 @@ impl Engine {
       debug!("Single or no move available. Just evaluating quickly");
       let mut game_state = self.position.clone();
       game_state.apply_move(&self.cache.get_move_list(&self.position.board)[0]);
-      let _ = evaluate_board(&self.cache, &game_state);
+      self
+        .cache
+        .set_eval(&game_state.board, evaluate_board(&game_state));
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
@@ -735,12 +737,12 @@ impl Engine {
         };
       } else if game_status == GameStatus::Ongoing && depth >= max_depth {
         // We are at the end of the depth, let's statically evaluate the board and return this eval
-        eval = if !self.cache.has_eval(&new_game_state.board) {
+        eval = self.cache.get_eval(&new_game_state.board);
+        if eval.is_nan() {
           // Position evaluation: (will be saved in the cache automatically)
-          evaluate_board(&self.cache, &new_game_state)
-        } else {
-          self.cache.get_eval(&new_game_state.board)
-        };
+          eval = evaluate_board(&new_game_state);
+          self.cache.set_eval(&new_game_state.board, eval);
+        }
       }
 
       // Now that we have an eval for sure, save it
@@ -1137,7 +1139,7 @@ mod tests {
       engine.cache.get_eval(&game_state.board)
     );
 
-    let static_eval = evaluate_board(&engine.cache, &game_state);
+    let static_eval = evaluate_board(&game_state);
     println!("Static eval: {static_eval}");
     assert_eq!(true, engine.cache.has_eval(&game_state.board));
 

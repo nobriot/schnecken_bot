@@ -44,6 +44,18 @@ pub struct HyperParameters {
   pub dropout: f32,
 }
 
+impl HyperParameters {
+  fn zeros() -> Self {
+    Self {
+      learning_rate: 0.0,
+      beta_1: 0.0,
+      beta_2: 0.0,
+      lambda: 1.0,
+      dropout: 0.0,
+    }
+  }
+}
+
 impl Default for HyperParameters {
   fn default() -> Self {
     Self {
@@ -69,8 +81,12 @@ pub struct LayerCache {
   pub A: Array2<f32>,
   /// Weight gradients, dW
   pub dW: Array2<f32>,
+  /// Weight gradients Momentum, vdW
+  pub vdW: Array2<f32>,
   /// biases gradients, db
   pub db: f32,
+  /// Bias gradients Momentum, vdb
+  pub vdb: f32,
   /// Linear value gradient cache. dZ
   pub dZ: Array2<f32>,
   /// Activation gradient cache. dA
@@ -89,7 +105,9 @@ impl LayerCache {
       Z: Array2::zeros((layer_size, previous_layer_size)),
       A: Array2::zeros((layer_size, previous_layer_size)),
       dW: Array2::zeros((layer_size, previous_layer_size)),
+      vdW: Array2::zeros((layer_size, previous_layer_size)),
       db: 0.0,
+      vdb: 0.0,
       dZ: Array2::zeros((layer_size, previous_layer_size)),
       dA: Array2::zeros((layer_size, previous_layer_size)),
     }
@@ -205,13 +223,18 @@ impl NNUE {
 
   /// Creates a new NNUE
   ///
-  /// Will only contains the fixed size Input layer. More layers need to be added manually.
+  /// Will only contains the fixed size Input layer.
+  /// More layers need to be added manually.
+  ///
+  /// ### Return value
+  ///
+  /// NNUE with an input layer.
   ///
   pub fn new() -> Self {
     // Input Layer (L0):
     let l0 = Layer {
       nodes: Self::LAYER_0_SIZE,
-      param: HyperParameters::default(),
+      param: HyperParameters::zeros(),
       a: Activation::None,
       state: LayerState::new(Self::LAYER_0_SIZE, 1),
     };
@@ -442,17 +465,28 @@ impl NNUE {
   #[allow(non_snake_case)]
   pub fn update_parameters(&mut self) {
     for i in 1..self.layers.len() {
+      // Compute the new momentum:
+      let beta = self.layers[i].param.beta_1;
+      let dW = self.layers[i].state.cache.dW.clone();
+      Zip::from(&mut self.layers[i].state.cache.vdW)
+        .and(&dW)
+        .par_for_each(|vdw, &dw| *vdw = beta * *vdw + (1.0 - beta) * dw);
+
       let learning_rate = self.layers[i].param.learning_rate;
 
-      let dW = self.layers[i].state.cache.dW.clone();
+      // Apply the momentum update on the parameters:
+      let vdW = self.layers[i].state.cache.vdW.clone();
       // W = W - alpha*dW
       Zip::from(&mut self.layers[i].state.W)
-        .and(&dW)
-        .for_each(|w, &dw| {
-          *w -= learning_rate * dw;
+        .and(&vdW)
+        .for_each(|w, &vdw| {
+          *w -= learning_rate * vdw;
         });
 
-      self.layers[i].state.b -= learning_rate * self.layers[i].state.cache.db;
+      self.layers[i].state.cache.vdb =
+        self.layers[i].state.cache.vdb * beta + (1.0 - beta) * self.layers[i].state.cache.db;
+
+      self.layers[i].state.b -= learning_rate * self.layers[i].state.cache.vdb;
     }
   }
 
@@ -676,7 +710,7 @@ mod tests {
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
-    let mut nnue = NNUE::new();
+    let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let mini_batch = vec![&game_state_4];
     let Y_hat = nnue.forward_propagation(&mini_batch);
@@ -731,7 +765,7 @@ mod tests {
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
-    let mut nnue = NNUE::new();
+    let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let Y_hat = nnue.forward_propagation(&mini_batch);
     println!("Prediction: {:?}", Y_hat);

@@ -146,15 +146,9 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
 }
 
 // Determine the game phrase and update it.
-pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
-  // Do not recalculate when we calculated already
-  if cache.has_game_phase(&game_state.board) {
-    return;
-  }
-
+pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
   if game_state.move_count > 30 {
-    cache.set_game_phase(&game_state.board, GamePhase::Endgame);
-    return;
+    return GamePhase::Endgame;
   }
 
   // Basic material count, disregarding pawns.
@@ -176,11 +170,11 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
     .count_ones();
 
   if material_count < 20 {
-    cache.set_game_phase(&game_state.board, GamePhase::Endgame);
+    return GamePhase::Endgame;
   } else if development_index > 6 {
-    cache.set_game_phase(&game_state.board, GamePhase::Opening);
+    return GamePhase::Opening;
   } else {
-    cache.set_game_phase(&game_state.board, GamePhase::Middlegame);
+    return GamePhase::Middlegame;
   }
 }
 
@@ -257,18 +251,13 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
 /// ### Returns
 ///
 /// Score assigned to the position.
-pub fn evaluate_board(cache: &EngineCache, game_state: &GameState) -> f32 {
-  if !cache.has_game_phase(&game_state.board) {
-    determine_game_phase(cache, game_state);
-  }
-  let mut score = match cache.get_game_phase(&game_state.board) {
+pub fn evaluate_board(game_state: &GameState) -> f32 {
+  let score = match determine_game_phase(game_state) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
   };
 
-  score += default_position_evaluation(game_state);
-  cache.set_eval(&game_state.board, score);
   score
 }
 
@@ -284,21 +273,21 @@ mod tests {
   #[test]
   fn test_evaluate_board() {
     // This is a forced checkmate in 2:
-    let cache = EngineCache::new();
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35";
     let game_state = GameState::from_fen(fen);
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation {evaluation}");
+    assert!(evaluation > 4.0);
   }
 
   #[test]
   fn test_evaluate_board_checkmate_in_one() {
     // This is a forced checkmate in 1:
-    let cache = EngineCache::new();
     let fen = "1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36";
     let game_state = GameState::from_fen(fen);
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation {evaluation}");
+    assert!(evaluation > 4.0);
   }
 
   #[test]
@@ -314,11 +303,10 @@ mod tests {
   #[test]
   fn test_evaluate_board_hanging_queen() {
     // This should obviously be very bad for white:
-    let cache = EngineCache::new();
     let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation : {evaluation}");
     assert!(evaluation < -((HANGING_FACTOR * QUEEN_VALUE) - 1.0));
   }
@@ -326,11 +314,10 @@ mod tests {
   #[test]
   fn test_evaluate_board_queen_standoff() {
     // This should obviously be okay because queen is defended and attacked by a queen.
-    let cache = EngineCache::new();
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < 1.0);
     assert!(evaluation > -1.0);
@@ -338,11 +325,10 @@ mod tests {
 
   #[test]
   fn test_evaluate_queen_down() {
-    let cache = EngineCache::new();
     let fen = "rnbqk2r/pp3ppp/2pb1n2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation < -7.0);
   }
@@ -357,11 +343,10 @@ mod tests {
     Line 3 Eval: 7.735001 - d6e5 a8f3 g7f8 d2c1
     Line 4 Eval: 7.7650003 - e8c6 a8c6 b8c6 f1e1
      */
-    let cache = EngineCache::new();
     let fen = "Qn2q2r/2p2pb1/p2k1n1p/5Bp1/8/2NP4/PPPB1PPP/R4RK1 b - - 0 15";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let evaluation = evaluate_board(&cache, &game_state);
+    let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
     assert!(evaluation > 7.0);
   }
@@ -464,9 +449,8 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     let cache = EngineCache::new();
-
     assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state));
 
-    assert!(evaluate_board(&cache, &game_state) < 0.0);
+    assert!(evaluate_board(&game_state) < 0.0);
   }
 }
