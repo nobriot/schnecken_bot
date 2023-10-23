@@ -11,7 +11,7 @@ pub const LICHESS_DATABASE_FILE: &str = "engine/nnue/data/training_set.pgn";
 pub const OUTPUT_TRAINING_FILE: &str = "engine/nnue/data/training_set.csv";
 pub const NNUE_OUTPUT_FILE: &str = "engine/nnue/data/net.nuue";
 pub const MINI_BATCH_SIZE: usize = 10000;
-pub const NUMBER_OF_EPOCH: usize = 100;
+pub const NUMBER_OF_EPOCH: usize = 200;
 
 const ERROR: &str = "\x1B[31m\x1B[1m\x1B[4mError\x1B[24m: \x1B[0m\x1B[31m";
 
@@ -54,7 +54,8 @@ fn main() -> ExitCode {
 
   // ---------------------------------------------------------------------------
   // Instantiante the NNUE and train it
-  let mut nnue = NNUE::default();
+  println!("Loading the NNUE from file {NNUE_OUTPUT_FILE}");
+  let mut nnue = NNUE::load(NNUE_OUTPUT_FILE).unwrap_or_default();
 
   let number_of_mini_batches = training_cache.len() / MINI_BATCH_SIZE;
 
@@ -72,7 +73,8 @@ fn main() -> ExitCode {
         }
         evals.push(eval);
       }
-      let Y_hat = nnue.forward_propagation(&training);
+      nnue.game_state_to_input_layer(&training);
+      let Y_hat = nnue.forward_propagation();
       nnue.backwards_propagation(&Y_hat, &evals);
       nnue.update_parameters();
 
@@ -101,7 +103,8 @@ fn main() -> ExitCode {
     evals.push(eval);
   }
 
-  let predictions = nnue.forward_propagation(&testing);
+  nnue.game_state_to_input_layer(&testing);
+  let predictions = nnue.forward_propagation();
   let output_file = File::create("predictions.csv").unwrap();
   let mut writer = BufWriter::new(output_file);
   for i in 0..predictions.len() {
@@ -124,9 +127,6 @@ fn main() -> ExitCode {
   // Save the NNUE so it can be restored later
   println!("Saving the NNUE to file {NNUE_OUTPUT_FILE}");
   nnue.save(NNUE_OUTPUT_FILE);
-
-  println!("TODO:: Implement ADAM optimizer.");
-  println!("TODO:: Save the NNUE result into a file, so we can load it again.");
 
   println!("");
   println!("Done! 🙂");

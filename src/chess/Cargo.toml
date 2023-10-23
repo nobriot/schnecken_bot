@@ -46,6 +46,10 @@ path = "model/bin/generate_bishop_table.rs"
 name = "train_nnue"
 path = "engine/nnue/train.rs"
 
+[[bin]]
+name = "nnue_sanity_check"
+path = "engine/nnue/sanity.rs"
+
 # Used for benchmarks:
 [dev-dependencies]
 divan = "0.1.0"

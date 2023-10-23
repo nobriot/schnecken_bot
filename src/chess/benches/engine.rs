@@ -199,6 +199,7 @@ fn nnue_board_evaluation(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
-    let _ = nnue.forward_propagation(&vec![&game_state]);
+    nnue.game_state_to_input_layer(&vec![&game_state]);
+    let _ = nnue.forward_propagation();
   });
 }

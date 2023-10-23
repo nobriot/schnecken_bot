@@ -30,6 +30,7 @@ const MAGIC_BYTES: &str = "nnue";
 /// #### Hyperparameters for Neural Network training
 /// They can be tuned for each layer.
 ///
+#[derive(Debug)]
 pub struct HyperParameters {
   /// Learning rate used for gradient descent
   pub learning_rate: f32,
@@ -74,6 +75,7 @@ impl Default for HyperParameters {
 /// propagation
 ///
 #[allow(non_snake_case)]
+#[derive(Debug)]
 pub struct LayerCache {
   /// Linear value cache
   pub Z: Array2<f32>,
@@ -83,10 +85,14 @@ pub struct LayerCache {
   pub dW: Array2<f32>,
   /// Weight gradients Momentum, vdW
   pub vdW: Array2<f32>,
+  /// Weight gradients Momentum squared, sdW
+  pub sdW: Array2<f32>,
   /// biases gradients, db
   pub db: f32,
   /// Bias gradients Momentum, vdb
   pub vdb: f32,
+  /// Bias gradients Momentum squared, sdb
+  pub sdb: f32,
   /// Linear value gradient cache. dZ
   pub dZ: Array2<f32>,
   /// Activation gradient cache. dA
@@ -106,8 +112,10 @@ impl LayerCache {
       A: Array2::zeros((layer_size, previous_layer_size)),
       dW: Array2::zeros((layer_size, previous_layer_size)),
       vdW: Array2::zeros((layer_size, previous_layer_size)),
+      sdW: Array2::zeros((layer_size, previous_layer_size)),
       db: 0.0,
       vdb: 0.0,
+      sdb: 0.0,
       dZ: Array2::zeros((layer_size, previous_layer_size)),
       dA: Array2::zeros((layer_size, previous_layer_size)),
     }
@@ -120,6 +128,7 @@ impl LayerCache {
 /// Weights have to be of dimension (L,L-1), L being the number of nodes in a layer
 ///
 #[allow(non_snake_case)]
+#[derive(Debug)]
 pub struct LayerState {
   /// Weights.(W)
   pub W: Array2<f32>,
@@ -154,6 +163,7 @@ impl LayerState {
 /// #### Layer in a neural network
 /// They can be tuned for each layer.
 ///
+#[derive(Debug)]
 pub struct Layer {
   /// Number of nodes for that layer.
   pub nodes: usize,
@@ -181,8 +191,12 @@ pub enum Activation {
 ///
 /// Just contains a bunch of Neural Net layers
 ///
+#[derive(Debug)]
 pub struct NNUE {
+  /// Vector of Neural Net layers
   pub layers: Vec<Layer>,
+  /// Keeping tracks of how many times we iterated, i.e. updated the parameters
+  pub iterations: usize,
 }
 
 // Regularization for the weights:
@@ -218,7 +232,7 @@ impl NNUE {
   /// Size of the input layer, has to be squares x piece_types x 2 (color)
   const LAYER_0_SIZE: usize = 64 * 6 * 2;
   const LAYER_1_SIZE: usize = 500;
-  const LAYER_2_SIZE: usize = 64;
+  const LAYER_2_SIZE: usize = 8;
   const LAYER_3_SIZE: usize = 1;
 
   /// Creates a new NNUE
@@ -239,18 +253,31 @@ impl NNUE {
       state: LayerState::new(Self::LAYER_0_SIZE, 1),
     };
 
-    let mut nnue = NNUE { layers: Vec::new() };
+    let mut nnue = NNUE {
+      layers: Vec::new(),
+      iterations: 0,
+    };
     nnue.layers.push(l0);
 
     nnue
   }
 
+  /// Creates a new Neural Net without any layer
+  ///
+  /// ### Return value
+  ///
+  /// NNUE without any layer
+  ///
+  pub fn new_no_layer() -> Self {
+    NNUE {
+      layers: Vec::new(),
+      iterations: 0,
+    }
+  }
+
   /// Adds a layer to the NNUE:
   pub fn add_layer(&mut self, nodes: usize, param: HyperParameters, a: Activation) {
-    // Constructor always creates the input layer, so .last() should never return None.
-    assert!(self.layers.last().is_some());
-    let last_layer_size = self.layers.last().unwrap().nodes;
-
+    let last_layer_size = if self.layers.len() > 0 { self.layers.last().unwrap().nodes } else { 1 };
     let layer = Layer {
       nodes,
       param,
@@ -261,16 +288,23 @@ impl NNUE {
     self.layers.push(layer);
   }
 
+  pub fn f32_slice_to_input_layer(&mut self, input: &[f32]) {
+    let mut a0: Array2<f32> = Array2::zeros((1, input.len()));
+
+    for m in 0..input.len() {
+      a0[[0, m]] = input[m];
+    }
+
+    self.layers[0].state.cache.A = a0;
+  }
+
   /// Calculates the prediction/output given the current state of the NNUE.
   ///
   /// input can be of the size of a mini batch
   ///
   ///
   ///
-  pub fn forward_propagation(&mut self, input: &[&GameState]) -> Vec<f32> {
-    // Convert the board to our input layer.
-    self.layers[0].state.cache.A = NNUE::game_state_to_input_layer(input);
-
+  pub fn forward_propagation(&mut self) -> Vec<f32> {
     // This is A0, input data:
     let mut A_prev = self.layers[0].state.cache.A.clone();
 
@@ -279,9 +313,14 @@ impl NNUE {
 
       // Zl = Wl.A(l-1) + bl
       let mut Zl = self.layers[i].state.W.dot(&A_prev);
-      //println!("Zl: {:?}", Zl);
       Zl += self.layers[i].state.b;
-      //println!("Zl +{}: {:?}", self.layers[i].state.b, Zl);
+      //println!("Zl: {:?}", Zl);
+
+      // Normalize Z to have zero mean and unit standard deviation
+      //let mean = Zl.mean().unwrap();
+      //let sigma = Zl.std(0.0);
+      //Zip::from(&mut Zl).par_for_each(|a| *a = (*a - mean) / (sigma + f32::EPSILON));
+      //println!("Zl normalized: {:?}", Zl);
 
       // Save Zl onto the layer:
       self.layers[i].state.cache.Z = Zl.clone();
@@ -387,7 +426,7 @@ impl NNUE {
   /// Then compare it to the previously calculated gradient value
   ///
   ///
-  pub fn check_weight_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
+  pub fn check_weight_gradient(&mut self, y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
     const EPSILON: f32 = 1e-5;
 
@@ -407,12 +446,12 @@ impl NNUE {
 
       // Update W to W + epsilon
       self.layers[layer].state.W[[c, r]] = W + EPSILON;
-      let y_hat_plus = self.forward_propagation(input);
+      let y_hat_plus = self.forward_propagation();
       let cost_plus = total_cost(&y_hat_plus, y) / m;
 
       // Update W to W - epsilon
       self.layers[layer].state.W[[c, r]] = W - EPSILON;
-      let y_hat_minus = self.forward_propagation(input);
+      let y_hat_minus = self.forward_propagation();
       let cost_minus = total_cost(&y_hat_minus, y) / m;
 
       // Calculate gradient based on these tiny offsets
@@ -427,7 +466,7 @@ impl NNUE {
     }
   }
 
-  pub fn check_bias_gradient(&mut self, input: &[&GameState], y: &[f32], layer: usize) {
+  pub fn check_bias_gradient(&mut self, y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
     const EPSILON: f32 = 1e-5;
 
@@ -438,12 +477,12 @@ impl NNUE {
 
     // Update b to b + epsilon
     self.layers[layer].state.b = b + EPSILON;
-    let y_hat_plus = self.forward_propagation(input);
+    let y_hat_plus = self.forward_propagation();
     let cost_plus = total_cost(&y_hat_plus, y) / m;
 
     // Update b to b - epsilon
     self.layers[layer].state.b = b - EPSILON;
-    let y_hat_minus = self.forward_propagation(input);
+    let y_hat_minus = self.forward_propagation();
     let cost_minus = total_cost(&y_hat_minus, y) / m;
 
     // Calculate gradient based on these tiny offsets
@@ -464,29 +503,68 @@ impl NNUE {
   ///
   #[allow(non_snake_case)]
   pub fn update_parameters(&mut self) {
+    // Increment the number of times we updated the parameters
+    self.iterations += 1;
+
     for i in 1..self.layers.len() {
+      //println!("Updating layer {}: {:?}", i, self.layers[i].state.W);
       // Compute the new momentum:
-      let beta = self.layers[i].param.beta_1;
-      let dW = self.layers[i].state.cache.dW.clone();
+      let beta_1 = self.layers[i].param.beta_1;
+      let beta_2 = self.layers[i].param.beta_2;
+      let learning_rate = self.layers[i].param.learning_rate;
+
+      // Make a separate copy of dW that we can modify locally
+      let mut dW = self.layers[i].state.cache.dW.clone();
       Zip::from(&mut self.layers[i].state.cache.vdW)
         .and(&dW)
-        .par_for_each(|vdw, &dw| *vdw = beta * *vdw + (1.0 - beta) * dw);
+        .par_for_each(|vdw, &dw| *vdw = beta_1 * *vdw + (1.0 - beta_1) * dw);
 
-      let learning_rate = self.layers[i].param.learning_rate;
+      // Now square the dW and compute sdW
+      Zip::from(&mut dW).par_for_each(|dw| *dw = dw.powf(2.0));
+      Zip::from(&mut self.layers[i].state.cache.sdW)
+        .and(&dW)
+        .par_for_each(|sdw, &dw2| *sdw = beta_2 * *sdw + (1.0 - beta_2) * dw2);
 
       // Apply the momentum update on the parameters:
       let vdW = self.layers[i].state.cache.vdW.clone();
-      // W = W - alpha*dW
+      let sdW = self.layers[i].state.cache.sdW.clone();
+
+      let beta_1_correction = 1.0 - beta_1.powf(self.iterations as f32);
+      let beta_2_correction = 1.0 - beta_2.powf(self.iterations as f32);
+
+      // W = W - alpha* (vdW/(1-beta^t)) / sqrt( sdW/((1-beta2^t))) + epsilon
       Zip::from(&mut self.layers[i].state.W)
         .and(&vdW)
-        .for_each(|w, &vdw| {
-          *w -= learning_rate * vdw;
+        .and(&sdW)
+        .for_each(|w, &vdw, &sdw| {
+          *w -= learning_rate * (vdw / beta_1_correction)
+            / (f32::sqrt(sdw / beta_2_correction) + f32::EPSILON);
         });
 
+      // New vdb / sdb
       self.layers[i].state.cache.vdb =
-        self.layers[i].state.cache.vdb * beta + (1.0 - beta) * self.layers[i].state.cache.db;
+        self.layers[i].state.cache.vdb * beta_1 + (1.0 - beta_1) * self.layers[i].state.cache.db;
+      self.layers[i].state.cache.sdb = self.layers[i].state.cache.sdb * beta_2
+        + (1.0 - beta_2) * self.layers[i].state.cache.db.powf(2.0);
 
-      self.layers[i].state.b -= learning_rate * self.layers[i].state.cache.vdb;
+      // Update b:
+      /*
+      println!(
+        "Updating b: {:?} - {} - {} ",
+        self.layers[i].state.b, beta_1_correction, beta_2_correction
+      );
+      println!("sdb: {} ", self.layers[i].state.cache.sdb);
+      println!("vdb: {} ", self.layers[i].state.cache.vdb);
+      println!("Denom: {}", (f32::sqrt(self.layers[i].state.cache.sdb)));
+      */
+
+      self.layers[i].state.b -= learning_rate
+        * (self.layers[i].state.cache.vdb / beta_1_correction)
+        / (f32::sqrt(self.layers[i].state.cache.sdb / beta_2_correction) + f32::EPSILON);
+      //println!("Updated layer {}: {:?}", i, self.layers[i].state.b);
+
+      // Decay a little bit the learning rate
+      //self.layers[i].param.learning_rate *= 1.0 / (1.0 + 0.0001 * self.iterations as f32);
     }
   }
 
@@ -494,7 +572,7 @@ impl NNUE {
   ///
   ///
   ///
-  pub fn game_state_to_input_layer(input: &[&GameState]) -> Array2<f32> {
+  pub fn game_state_to_input_layer(&mut self, input: &[&GameState]) {
     let mut a0: Array2<f32> = Array2::zeros((Self::LAYER_0_SIZE, input.len()));
 
     for m in 0..input.len() {
@@ -534,7 +612,8 @@ impl NNUE {
         }
       }
     }
-    a0
+
+    self.layers[0].state.cache.A = a0;
   }
 
   /// Converts any sized type to a slice of bytes.
@@ -632,14 +711,17 @@ mod tests {
   fn test_game_state_to_input_layer() {
     let game_state = GameState::default();
 
-    let a0 = NNUE::game_state_to_input_layer(&vec![&game_state]);
+    let mut nnue = NNUE::default();
+    nnue.game_state_to_input_layer(&vec![&game_state]);
+    let a0 = nnue.layers[0].state.cache.A.clone();
     //println!("{:?}", a0);
 
     // We expect 32 pieces on the board:
     assert_eq!(32.0, a0.sum());
 
     let game_state = GameState::from_fen("r1b1r1k1/ppp4p/3p3b/8/4P3/7P/PP2Q1P1/RN2K3 b - - 2 0");
-    let a0 = NNUE::game_state_to_input_layer(&vec![&game_state]);
+    nnue.game_state_to_input_layer(&vec![&game_state]);
+    let a0 = nnue.layers[0].state.cache.A.clone();
     assert_eq!(19.0, a0.sum());
   }
 
@@ -651,7 +733,8 @@ mod tests {
     let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2];
 
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
 
     println!("Y hat: {:?}", Y_hat);
   }
@@ -678,7 +761,9 @@ mod tests {
     let mut previous_cost = 100000.0;
 
     for i in 0..100 {
-      let Y_hat = nnue.forward_propagation(&mini_batch);
+      nnue.game_state_to_input_layer(&mini_batch);
+      let Y_hat = nnue.forward_propagation();
+
       println!("Prediction: {:?}", Y_hat);
       nnue.backwards_propagation(&Y_hat, &evals);
 
@@ -688,7 +773,8 @@ mod tests {
       previous_cost = new_cost;
     }
 
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
     println!("True labels: {:?}", evals);
     println!("Cost {}", total_cost(&Y_hat, &evals));
@@ -713,14 +799,15 @@ mod tests {
     let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let mini_batch = vec![&game_state_4];
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
     println!("Actual: {:?}", evals);
     println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
 
     nnue.backwards_propagation(&Y_hat, &evals);
 
-    nnue.check_weight_gradient(&mini_batch, &evals, 1);
+    nnue.check_weight_gradient(&evals, 1);
   }
 
   #[test]
@@ -740,14 +827,14 @@ mod tests {
 
     let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
     println!("Actual: {:?}", evals);
     println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
 
     nnue.backwards_propagation(&Y_hat, &evals);
-
-    nnue.check_weight_gradient(&mini_batch, &evals, 2);
+    nnue.check_weight_gradient(&evals, 2);
   }
 
   #[test]
@@ -767,14 +854,14 @@ mod tests {
 
     let mut nnue = NNUE::default();
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
     println!("Actual: {:?}", evals);
     println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
 
     nnue.backwards_propagation(&Y_hat, &evals);
-
-    nnue.check_weight_gradient(&mini_batch, &evals, 1);
+    nnue.check_weight_gradient(&evals, 1);
   }
 
   #[test]
@@ -788,14 +875,14 @@ mod tests {
     let mut nnue = NNUE::default();
 
     let mini_batch = vec![&game_state_4];
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
     println!("Actual: {:?}", evals);
     println!("Total cost: {:?}", total_cost(&Y_hat, &evals));
 
     nnue.backwards_propagation(&Y_hat, &evals);
-
-    nnue.check_bias_gradient(&mini_batch, &evals, 3);
+    nnue.check_bias_gradient(&evals, 3);
   }
 
   #[test]
@@ -817,14 +904,18 @@ mod tests {
 
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     // Spin the NNUE a little bit:
-    let initial_Y_hat = nnue.forward_propagation(&mini_batch);
+    nnue.game_state_to_input_layer(&mini_batch);
+    let initial_Y_hat = nnue.forward_propagation();
 
     for _ in 0..100 {
-      let Y_hat = nnue.forward_propagation(&mini_batch);
+      nnue.game_state_to_input_layer(&mini_batch);
+      let Y_hat = nnue.forward_propagation();
       nnue.backwards_propagation(&Y_hat, &evals);
       nnue.update_parameters();
     }
-    let Y_hat = nnue.forward_propagation(&mini_batch);
+
+    nnue.game_state_to_input_layer(&mini_batch);
+    let Y_hat = nnue.forward_propagation();
 
     // Now save to a file:
     nnue.save("super_net.nnue");
@@ -832,10 +923,13 @@ mod tests {
     // Now I expect that if we reload, we get the same prediction again
     let mut nnue_2 = NNUE::load("super_net.nnue").unwrap();
 
-    let new_Y_hat = nnue_2.forward_propagation(&mini_batch);
+    nnue_2.game_state_to_input_layer(&mini_batch);
+    let new_Y_hat = nnue_2.forward_propagation();
     println!("Prediction before: {:?}", Y_hat);
     println!("Prediction after: {:?}", new_Y_hat);
     assert_ne!(initial_Y_hat, Y_hat);
     assert_eq!(Y_hat, new_Y_hat);
+
+    std::fs::remove_file("super_net.nnue").unwrap();
   }
 }
