@@ -3,6 +3,7 @@ use super::helpers::king::*;
 use super::position::*;
 use crate::engine::square_affinity::EndgameSquareTable;
 use crate::model::board_geometry::*;
+use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
@@ -124,7 +125,9 @@ fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
     return false;
   }
 
-  if (game_state.board.pieces.white.queen | game_state.board.pieces.black.queen).count_ones() > 1 {
+  if (game_state.board.pieces.white.queen | game_state.board.pieces.black.queen).count_few_ones()
+    > 1
+  {
     return false;
   }
   true
@@ -150,7 +153,8 @@ fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
     return false;
   }
 
-  if (game_state.board.pieces.white.rook | game_state.board.pieces.black.rook).count_ones() > 1 {
+  if (game_state.board.pieces.white.rook | game_state.board.pieces.black.rook).count_few_ones() > 1
+  {
     return false;
   }
   true

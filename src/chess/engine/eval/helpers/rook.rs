@@ -3,6 +3,7 @@ use crate::model::board::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::square_in_mask;
+use crate::model::board_mask::*;
 
 /// Determine if rooks are connected for a color
 ///
@@ -12,7 +13,7 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
     Color::Black => game_state.board.pieces.black.rook,
   };
 
-  if rooks.count_ones() != 2 {
+  if rooks.count_few_ones() != 2 {
     return false;
   }
   let rook_1 = rooks.trailing_zeros() as u8;

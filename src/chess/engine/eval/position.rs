@@ -11,6 +11,7 @@ use super::opening::get_opening_position_evaluation;
 use crate::engine::Engine;
 
 use crate::model::board_geometry::*;
+use crate::model::board_mask::CountFewOnes;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 
@@ -160,8 +161,8 @@ pub fn determine_game_phase(cache: &EngineCache, game_state: &GameState) {
   let mut material_count = 0;
   let mut development_index = 0;
 
-  material_count += game_state.board.pieces.queens().count_ones() * 9;
-  material_count += game_state.board.pieces.rooks().count_ones() * 5;
+  material_count += game_state.board.pieces.queens().count_few_ones() * 9;
+  material_count += game_state.board.pieces.rooks().count_few_ones() * 5;
   material_count += game_state.board.pieces.minors().count_ones() * 3;
 
   development_index += ((game_state.board.pieces.white.minors()

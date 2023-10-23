@@ -26,17 +26,17 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 
   match color {
     Color::White => {
-      score += game_state.board.pieces.white.queen.count_ones() as f32 * QUEEN_VALUE;
-      score += game_state.board.pieces.white.rook.count_ones() as f32 * ROOK_VALUE;
-      score += game_state.board.pieces.white.bishop.count_ones() as f32 * BISHOP_VALUE;
-      score += game_state.board.pieces.white.knight.count_ones() as f32 * KNIGHT_VALUE;
+      score += game_state.board.pieces.white.queen.count_few_ones() as f32 * QUEEN_VALUE;
+      score += game_state.board.pieces.white.rook.count_few_ones() as f32 * ROOK_VALUE;
+      score += game_state.board.pieces.white.bishop.count_few_ones() as f32 * BISHOP_VALUE;
+      score += game_state.board.pieces.white.knight.count_few_ones() as f32 * KNIGHT_VALUE;
       score += game_state.board.pieces.white.pawn.count_ones() as f32 * PAWN_VALUE;
     },
     Color::Black => {
-      score += game_state.board.pieces.black.queen.count_ones() as f32 * QUEEN_VALUE;
-      score += game_state.board.pieces.black.rook.count_ones() as f32 * ROOK_VALUE;
-      score += game_state.board.pieces.black.bishop.count_ones() as f32 * BISHOP_VALUE;
-      score += game_state.board.pieces.black.knight.count_ones() as f32 * KNIGHT_VALUE;
+      score += game_state.board.pieces.black.queen.count_few_ones() as f32 * QUEEN_VALUE;
+      score += game_state.board.pieces.black.rook.count_few_ones() as f32 * ROOK_VALUE;
+      score += game_state.board.pieces.black.bishop.count_few_ones() as f32 * BISHOP_VALUE;
+      score += game_state.board.pieces.black.knight.count_few_ones() as f32 * KNIGHT_VALUE;
       score += game_state.board.pieces.black.pawn.count_ones() as f32 * PAWN_VALUE;
     },
   }
@@ -59,17 +59,17 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
   // Basic material count
   let mut score: f32 = 0.0;
 
-  score += (game_state.board.pieces.white.queen.count_ones() as f32
-    - game_state.board.pieces.black.queen.count_ones() as f32)
+  score += (game_state.board.pieces.white.queen.count_few_ones() as f32
+    - game_state.board.pieces.black.queen.count_few_ones() as f32)
     * QUEEN_VALUE
-    + (game_state.board.pieces.white.rook.count_ones() as f32
-      - game_state.board.pieces.black.rook.count_ones() as f32)
+    + (game_state.board.pieces.white.rook.count_few_ones() as f32
+      - game_state.board.pieces.black.rook.count_few_ones() as f32)
       * ROOK_VALUE
-    + (game_state.board.pieces.white.bishop.count_ones() as f32
-      - game_state.board.pieces.black.bishop.count_ones() as f32)
+    + (game_state.board.pieces.white.bishop.count_few_ones() as f32
+      - game_state.board.pieces.black.bishop.count_few_ones() as f32)
       * BISHOP_VALUE
-    + (game_state.board.pieces.white.knight.count_ones() as f32
-      - game_state.board.pieces.black.knight.count_ones() as f32)
+    + (game_state.board.pieces.white.knight.count_few_ones() as f32
+      - game_state.board.pieces.black.knight.count_few_ones() as f32)
       * KNIGHT_VALUE
     + (game_state.board.pieces.white.pawn.count_ones() as f32
       - game_state.board.pieces.black.pawn.count_ones() as f32)

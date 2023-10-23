@@ -10,6 +10,31 @@ use super::board::Board;
 /// - etc...
 pub type BoardMask = u64;
 
+pub trait CountFewOnes {
+  /// Counts the number of binary ones in the representation when there are few ones.
+  ///
+  /// e.g. 001010110 -> 4
+  /// This function is quicker than `count_ones()` if there are less than 4 ones
+  /// in the binary representation.
+  ///
+  /// use `count_ones()` in other cases.
+  ///
+  fn count_few_ones(&self) -> u32;
+}
+
+impl CountFewOnes for BoardMask {
+  fn count_few_ones(&self) -> u32 {
+    let mut count: u32 = 0;
+    let mut copy = *self;
+    while copy != 0 {
+      copy &= copy - 1;
+      count += 1;
+    }
+
+    count
+  }
+}
+
 // -----------------------------------------------------------------------------
 //  Macros
 

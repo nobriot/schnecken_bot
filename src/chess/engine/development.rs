@@ -34,7 +34,7 @@ pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
 
   // Check for trailing pieces first:
   let mut rooks = pieces.rook;
-  if pieces.rook.count_ones() != 2 {
+  if pieces.rook.count_few_ones() != 2 {
     return score;
   }
   let rook_1 = rooks.trailing_zeros() as u8;

@@ -363,7 +363,7 @@ impl Board {
   ///
   #[inline]
   pub fn checks(&self) -> u32 {
-    return self.checkers.count_ones();
+    return self.checkers.count_few_ones();
   }
 
   /// Computes the boardmask of the possible destinations for a piece on a square.
@@ -625,7 +625,7 @@ impl Board {
       // it removes the checking piece even though outside of the checking ray
       if square_in_mask!(source_square, self.pieces.white.pawn)
         && self.en_passant_square != INVALID_SQUARE
-        && self.checkers.count_ones() == 1
+        && self.checkers.count_few_ones() == 1
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position {
@@ -741,7 +741,7 @@ impl Board {
       // it removes the checking piece even though outside of the checking ray
       if square_in_mask!(source_square, self.pieces.black.pawn)
         && self.en_passant_square != INVALID_SQUARE
-        && self.checkers.count_ones() == 1
+        && self.checkers.count_few_ones() == 1
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position {
