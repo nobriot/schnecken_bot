@@ -301,6 +301,7 @@ pub const ROOK_MAGIC: [u64; 64] = [
   2269946119734274,
 ];
 
+#[cold]
 unsafe fn initialize_rook_table() {
   for i in 0..64 {
     let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
@@ -348,11 +349,18 @@ pub fn get_rook_destinations(
     if !ROOK_TABLE_INITIALIZED {
       initialize_rook_table();
     }
-  };
+  }
 
   let blockers = (same_side_pieces | opponent_pieces) & ROOK_SPAN_WITHOUT_EDGES[square];
   let blockers_key =
     (blockers.wrapping_mul(ROOK_MAGIC[square]) >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
 
-  unsafe { ROOK_DESTINATION_TABLE[square][blockers_key] & !same_side_pieces }
+  // The benchmarks show that get_unchecked here makes the function run a lot faster
+  // than regular slice indexing
+  unsafe {
+    ROOK_DESTINATION_TABLE
+      .get_unchecked(square)
+      .get_unchecked(blockers_key)
+      & !same_side_pieces
+  }
 }

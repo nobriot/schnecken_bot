@@ -38,10 +38,8 @@ pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
     return value;
   }
 
-  let ssp = game_state.board.get_piece_color_mask(color);
-  let op = game_state
-    .board
-    .get_piece_color_mask(Color::opposite(color));
+  let ssp = game_state.board.get_color_mask(color);
+  let op = game_state.board.get_color_mask(Color::opposite(color));
   let destinations = get_bishop_moves(ssp, op, i);
   let mut piece_value_1: f32 = 0.0;
   let mut piece_value_2: f32 = 0.0;
@@ -112,7 +110,7 @@ pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
     return value;
   }
 
-  let ssp = game_state.board.get_piece_color_mask(color);
+  let ssp = game_state.board.get_color_mask(color);
   let op = game_state
     .board
     .get_color_mask_without_major_pieces(Color::opposite(color));

@@ -153,6 +153,7 @@ impl GameState {
   }
 
   /// Get all the possible moves in a position, for the side to play.
+  #[inline]
   pub fn get_moves(&self) -> Vec<Move> {
     self.board.get_moves()
   }

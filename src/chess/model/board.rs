@@ -86,30 +86,45 @@ impl Board {
 
     let mut rng = rand::thread_rng();
 
-    for i in 0..17 {
-      let piece = match i {
+    for i in 0..25 {
+      let mut piece = match i {
         0 => WHITE_KING,
         1 => BLACK_KING,
         _ => rng.gen_range(NO_PIECE..=BLACK_PAWN),
       };
-      match piece {
-        WHITE_KING => continue,
-        BLACK_KING => continue,
-        NO_PIECE => continue,
-        _ => {},
+      if i > 1 {
+        match piece {
+          WHITE_KING | BLACK_KING => {
+            // Convert this into a pawn
+            piece += 5;
+          },
+          NO_PIECE => continue,
+          _ => {},
+        }
       }
-      let mut square = rng.gen_range(0..64);
+      loop {
+        let square = rng.gen_range(0..64);
+        if board.pieces.get(square) != NO_PIECE {
+          continue;
+        }
 
-      while board.pieces.get(square) != NO_PIECE {
-        square = rng.gen_range(0..64);
+        board.pieces.set(square, piece);
+
+        // Avoid creating checks.
+        let checkers = board.get_attackers(board.get_white_king_square(), Color::Black)
+          | board.get_attackers(board.get_black_king_square(), Color::White);
+
+        if checkers != 0 {
+          board.pieces.remove(square);
+        } else {
+          break;
+        }
       }
-
-      board.pieces.set(rng.gen_range(0..64), piece);
     }
 
-    // Clean up white pawns on the 8th rank and black pawns on the first rank.
-    board.pieces.white.pawn &= !BOARD_UP_EDGE;
-    board.pieces.black.pawn &= !BOARD_DOWN_EDGE;
+    // Clean up pawns on the 1st and 8th ranks.
+    board.pieces.white.pawn &= !(BOARD_UP_EDGE | BOARD_DOWN_EDGE);
+    board.pieces.black.pawn &= !(BOARD_UP_EDGE | BOARD_DOWN_EDGE);
 
     board.compute_hash();
     board.update_checkers();
@@ -193,7 +208,7 @@ impl Board {
   ///
   pub fn get_control_boardmask(&self, color: Color) -> BoardMask {
     let mut bitmap: BoardMask = 0;
-    let mut pieces = self.get_piece_color_mask(color);
+    let mut pieces = self.get_color_mask(color);
 
     while pieces != 0 {
       bitmap |= self.get_piece_control_mask(pieces.trailing_zeros() as u8);
@@ -253,10 +268,18 @@ impl Board {
       //print_board_mask(pinning_pieces);
 
       while pinning_pieces != 0 {
-        let ray = LINES[pinning_pieces.trailing_zeros() as usize][king_position];
+        let ray = unsafe {
+          LINES
+            .get_unchecked(pinning_pieces.trailing_zeros() as usize)
+            .get_unchecked(king_position)
+        };
         if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
           // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
-          pins &= LINES[king_position][pinning_pieces.trailing_zeros() as usize];
+          pins &= unsafe {
+            LINES
+              .get_unchecked(king_position)
+              .get_unchecked(pinning_pieces.trailing_zeros() as usize)
+          };
         }
         pinning_pieces &= pinning_pieces - 1;
       }
@@ -271,10 +294,18 @@ impl Board {
       let mut pinning_pieces = BISHOP_SPAN[king_position] & enemy_pieces;
 
       while pinning_pieces != 0 {
-        let ray = DIAGONALS[pinning_pieces.trailing_zeros() as usize][king_position];
+        let ray = unsafe {
+          DIAGONALS
+            .get_unchecked(pinning_pieces.trailing_zeros() as usize)
+            .get_unchecked(king_position)
+        };
         if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
           // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
-          pins &= DIAGONALS[king_position][pinning_pieces.trailing_zeros() as usize];
+          pins &= unsafe {
+            DIAGONALS
+              .get_unchecked(king_position)
+              .get_unchecked(pinning_pieces.trailing_zeros() as usize)
+          };
         }
         pinning_pieces &= pinning_pieces - 1;
       }
@@ -575,8 +606,8 @@ impl Board {
   pub fn get_white_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
 
-    let mut ssp = self.get_piece_color_mask(Color::White);
-    let op = self.get_piece_color_mask(Color::Black);
+    let mut ssp = self.get_color_mask(Color::White);
+    let op = self.get_color_mask(Color::Black);
 
     // Try castling first. This will have an influence on the engine if
     // interesting moves are placed first.
@@ -598,12 +629,18 @@ impl Board {
     let mut checking_ray: BoardMask = u64::MAX;
     let king_position = self.get_white_king_square();
 
-    match self.checkers.count_ones() {
+    match self.checkers.count_few_ones() {
       0 => {},
       1 => {
-        checking_ray = LINES[king_position as usize][self.checkers.trailing_zeros() as usize]
-          | DIAGONALS[king_position as usize][self.checkers.trailing_zeros() as usize]
-          | (1 << self.checkers.trailing_zeros())
+        checking_ray = unsafe {
+          LINES
+            .get_unchecked(king_position as usize)
+            .get_unchecked(self.checkers.trailing_zeros() as usize)
+            | DIAGONALS
+              .get_unchecked(king_position as usize)
+              .get_unchecked(self.checkers.trailing_zeros() as usize)
+            | (1 << self.checkers.trailing_zeros())
+        }
       },
       _ => ssp = self.pieces.white.king,
     }
@@ -614,7 +651,7 @@ impl Board {
       let (mut destinations, promotion) = self.get_piece_destinations(
         source_square as usize,
         op,
-        self.get_piece_color_mask(Color::White),
+        self.get_color_mask(Color::White),
       );
 
       // Restrict destinations not to move out of pins.
@@ -692,8 +729,8 @@ impl Board {
   pub fn get_black_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::new();
 
-    let mut ssp = self.get_piece_color_mask(Color::Black);
-    let op = self.get_piece_color_mask(Color::White);
+    let mut ssp = self.get_color_mask(Color::Black);
+    let op = self.get_color_mask(Color::White);
 
     // Now check castling.
     if self.castling_rights.k()
@@ -717,9 +754,15 @@ impl Board {
     match self.checkers.count_ones() {
       0 => {},
       1 => {
-        checking_ray = LINES[king_position as usize][self.checkers.trailing_zeros() as usize]
-          | DIAGONALS[king_position as usize][self.checkers.trailing_zeros() as usize]
-          | (1 << self.checkers.trailing_zeros())
+        checking_ray = unsafe {
+          LINES
+            .get_unchecked(king_position as usize)
+            .get_unchecked(self.checkers.trailing_zeros() as usize)
+            | DIAGONALS
+              .get_unchecked(king_position as usize)
+              .get_unchecked(self.checkers.trailing_zeros() as usize)
+            | (1 << self.checkers.trailing_zeros())
+        }
       },
       _ => ssp = self.pieces.black.king,
     }
@@ -730,7 +773,7 @@ impl Board {
       let (mut destinations, promotion) = self.get_piece_destinations(
         source_square as usize,
         op,
-        self.get_piece_color_mask(Color::Black),
+        self.get_color_mask(Color::Black),
       );
 
       // Restrict destinations not to move out of pins.
@@ -1234,7 +1277,7 @@ impl Board {
   /// Return a board bismask with squares set to 1 when they
   /// have a piece with a certain color
   #[inline]
-  pub fn get_piece_color_mask(&self, color: Color) -> BoardMask {
+  pub fn get_color_mask(&self, color: Color) -> BoardMask {
     match color {
       Color::White => self.pieces.white.all(),
       Color::Black => self.pieces.black.all(),

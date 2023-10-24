@@ -92,7 +92,7 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
 pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  (FILES[(file - 1) as usize] & game_state.board.pieces.pawns()) == 0
+  (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.pawns()) == 0
 }
 
 /// Checks if a file is half-open
@@ -109,8 +109,10 @@ pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
 pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  let black_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.black.pawn) != 0;
-  let white_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.white.pawn) != 0;
+  let black_pawn =
+    (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.black.pawn) != 0;
+  let white_pawn =
+    (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.white.pawn) != 0;
 
   match (white_pawn, black_pawn) {
     (true, false) => true,
@@ -179,14 +181,12 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 
   let piece_destinations = match piece {
     WHITE_KNIGHT | BLACK_KNIGHT => {
-      let same_side_pieces = game_state.board.get_piece_color_mask(color);
+      let same_side_pieces = game_state.board.get_color_mask(color);
       get_knight_moves(same_side_pieces, 0, index)
     },
     WHITE_BISHOP | BLACK_BISHOP => {
-      let same_side_pieces = game_state.board.get_piece_color_mask(color);
-      let opponent_pieces = game_state
-        .board
-        .get_piece_color_mask(Color::opposite(color));
+      let same_side_pieces = game_state.board.get_color_mask(color);
+      let opponent_pieces = game_state.board.get_color_mask(Color::opposite(color));
       get_bishop_moves(same_side_pieces, opponent_pieces, index)
     },
     _ => 0,

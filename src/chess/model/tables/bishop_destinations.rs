@@ -296,6 +296,7 @@ pub const BISHOP_MAGIC: [u64; 64] = [
   0x0140010801010020,
 ];
 
+#[cold]
 unsafe fn initialize_bishop_table() {
   for i in 0..64 {
     let mut blockers: [u64; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS] =
@@ -343,11 +344,16 @@ pub fn get_bishop_destinations(
     if !BISHOP_TABLE_INITIALIZED {
       initialize_bishop_table();
     }
-  };
+  }
 
   let blockers = (same_side_pieces | opponent_pieces) & BISHOP_SPAN_WITHOUT_EDGES[square];
   let blockers_key =
     (blockers.wrapping_mul(BISHOP_MAGIC[square]) >> (64 - BISHOP_BLOCKER_NUMBERS[square])) as usize;
 
-  unsafe { BISHOP_DESTINATION_TABLE[square][blockers_key] & !same_side_pieces }
+  unsafe {
+    BISHOP_DESTINATION_TABLE
+      .get_unchecked(square)
+      .get_unchecked(blockers_key)
+      & !same_side_pieces
+  }
 }

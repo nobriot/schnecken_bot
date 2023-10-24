@@ -29,6 +29,22 @@ fn compute_legal_moves(bencher: Bencher) {
   });
 }
 
+/// Compare how fast we are with the chess crate
+/// from a given board position
+#[divan::bench(sample_count = 10000)]
+fn compute_legal_moves_external_chess_library(bencher: Bencher) {
+  // Create a bunch of random boards
+  extern crate chess_lib;
+  use std::str::FromStr;
+
+  let fen = GameState::from_board(&Board::new_random()).to_fen();
+  let board =
+    chess_lib::Board::from_str(fen.as_str()).expect(format!("Valid FEN {}", fen).as_str());
+  bencher.bench_local(|| {
+    let movegen = chess_lib::MoveGen::new_legal(&board);
+  });
+}
+
 /// Checks how fast we are at applying moves on a board
 #[divan::bench(sample_count = 10000)]
 fn apply_moves_on_the_board(bencher: Bencher) {
@@ -58,4 +74,21 @@ fn find_attackers(bencher: Bencher) {
   bencher.bench_local(|| {
     let _ = game_state.board.get_attackers(j, Color::White);
   });
+}
+
+/// Checks how fast we are at computing attackers of a square on the board
+#[divan::bench(sample_count = 10000)]
+fn determine_pins_for_square(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let mut rng = rand::thread_rng();
+
+  for i in 0..63 {
+    if game_state.board.has_piece(i) {
+      continue;
+    }
+    bencher.bench_local(|| {
+      let _ = game_state.board.get_pins(i);
+    });
+    break;
+  }
 }
