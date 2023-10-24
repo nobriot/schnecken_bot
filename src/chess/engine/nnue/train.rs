@@ -126,7 +126,10 @@ fn main() -> ExitCode {
   // ---------------------------------------------------------------------------
   // Save the NNUE so it can be restored later
   println!("Saving the NNUE to file {NNUE_OUTPUT_FILE}");
-  nnue.save(NNUE_OUTPUT_FILE);
+  if let Err(error) = nnue.save(NNUE_OUTPUT_FILE) {
+    println!("{ERROR}: Could not save NNUE file to {NNUE_OUTPUT_FILE}: {error}. Exiting\n");
+    return ExitCode::FAILURE;
+  }
 
   println!("");
   println!("Done! 🙂");

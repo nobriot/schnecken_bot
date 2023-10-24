@@ -778,11 +778,12 @@ impl Engine {
     return result;
   }
 
-  /// TODO: Write description
+  /// Finds the best evaluation for white (max) among the evaluations returned
+  /// for each move.
   ///
   /// ### Arguments
   ///
-  /// * `result`:
+  /// * `result`: HashMap of moves with evaluation
   ///
   /// ### Returns
   ///
@@ -800,14 +801,20 @@ impl Engine {
         best_result = *eval;
       }
     }
+
+    // Decrement a little bit in mating sequences, so shorter mates are more attractive.
+    if !best_result.is_nan() && best_result > 100.0 {
+      best_result -= 1.0;
+    }
     best_result
   }
 
-  /// TODO: Write description
+  /// Finds the best evaluation for black (min) among the evaluations returned
+  /// for each move.
   ///
   /// ### Arguments
   ///
-  /// * `result`:
+  /// * `result`: HashMap of moves with evaluation
   ///
   /// ### Returns
   ///
@@ -825,6 +832,12 @@ impl Engine {
         best_result = *eval;
       }
     }
+
+    // Decrement a little bit in mating sequences, so shorter mates are more attractive.
+    if !best_result.is_nan() && best_result < -100.0 {
+      best_result += 1.0;
+    }
+
     best_result
   }
 
@@ -945,7 +958,7 @@ mod tests {
     let expected_move = "c1b2";
     assert_eq!(expected_move, engine.get_best_move().to_string());
     let analysis = engine.get_analysis();
-    assert_eq!(analysis[0].1, 200.0);
+    assert_eq!(analysis[0].1, 199.0);
   }
 
   #[test]

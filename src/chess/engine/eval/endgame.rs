@@ -1,5 +1,4 @@
 use super::helpers::generic::get_material_score;
-use super::helpers::king::*;
 use super::position::*;
 use crate::engine::square_affinity::*;
 use crate::model::board_geometry::*;
@@ -9,7 +8,7 @@ use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
 
 //const PIECE_MOBILITY_FACTOR: f32 = 0.01;
-const KING_DANGER_FACTOR: f32 = 2.0;
+//const KING_DANGER_FACTOR: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.07;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete

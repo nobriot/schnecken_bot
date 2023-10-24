@@ -1,11 +1,10 @@
-use super::helpers::king::*;
 use super::position::default_position_evaluation;
 use crate::engine::square_affinity::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
-const KING_DANGER_FACTOR: f32 = 0.3;
-const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
+//const KING_DANGER_FACTOR: f32 = 0.3;
+//const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Computes a total score based on the square where pieces are located in the

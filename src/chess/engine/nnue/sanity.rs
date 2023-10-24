@@ -25,7 +25,7 @@ fn main() -> ExitCode {
   let mut training = Vec::new();
   let mut labels = Vec::new();
 
-  for i in 0..BATCH_SIZE {
+  for _ in 0..BATCH_SIZE {
     let value = (rng.gen::<f32>() - 0.5) * 200.0; // Uniform between -100 and 100.
     training.push(value);
     labels.push(value.powf(2.0) - 5.0 * value + 45.0);
