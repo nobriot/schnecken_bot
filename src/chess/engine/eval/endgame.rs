@@ -1,7 +1,7 @@
 use super::helpers::generic::get_material_score;
 use super::helpers::king::*;
 use super::position::*;
-use crate::engine::square_affinity::EndgameSquareTable;
+use crate::engine::square_affinity::*;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
@@ -10,7 +10,7 @@ use crate::model::piece_moves::KING_MOVES;
 
 //const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 const KING_DANGER_FACTOR: f32 = 2.0;
-const SQUARE_TABLE_FACTOR: f32 = 0.02;
+const SQUARE_TABLE_FACTOR: f32 = 0.07;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
@@ -30,45 +30,25 @@ pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
   let mut score = 0.0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
-      PieceType::King => score += SQUARE_TABLE_FACTOR * EndgameSquareTable::KING[i as usize] as f32,
-      PieceType::Queen => {
-        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::QUEEN[i as usize] as f32
-      },
-      PieceType::Rook => {
-        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_ROOK[i as usize] as f32
-      },
-      PieceType::Bishop => {
-        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_BISHOP[i as usize] as f32
-      },
-      PieceType::Knight => {
-        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::KNIGHT[i as usize] as f32
-      },
-      PieceType::Pawn => {
-        score += SQUARE_TABLE_FACTOR * EndgameSquareTable::WHITE_PAWN[i as usize] as f32
-      },
+      PieceType::King => score += EndgameSquareTable::KING[i as usize] as f32,
+      PieceType::Queen => score += EndgameSquareTable::QUEEN[i as usize] as f32,
+      PieceType::Rook => score += EndgameSquareTable::WHITE_ROOK[i as usize] as f32,
+      PieceType::Bishop => score += SquareTable::WHITE_BISHOP[i as usize] as f32,
+      PieceType::Knight => score += SquareTable::KNIGHT[i as usize] as f32,
+      PieceType::Pawn => score += SquareTable::WHITE_PAWN[i as usize] as f32,
     }
   }
   for (i, piece) in game_state.board.pieces.black {
     match piece {
-      PieceType::King => score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::KING[i as usize] as f32,
-      PieceType::Queen => {
-        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::QUEEN[i as usize] as f32
-      },
-      PieceType::Rook => {
-        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_ROOK[i as usize] as f32
-      },
-      PieceType::Bishop => {
-        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_BISHOP[i as usize] as f32
-      },
-      PieceType::Knight => {
-        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::KNIGHT[i as usize] as f32
-      },
-      PieceType::Pawn => {
-        score -= SQUARE_TABLE_FACTOR * EndgameSquareTable::BLACK_PAWN[i as usize] as f32
-      },
+      PieceType::King => score -= EndgameSquareTable::KING[i as usize] as f32,
+      PieceType::Queen => score -= EndgameSquareTable::QUEEN[i as usize] as f32,
+      PieceType::Rook => score -= EndgameSquareTable::BLACK_ROOK[i as usize] as f32,
+      PieceType::Bishop => score -= SquareTable::BLACK_BISHOP[i as usize] as f32,
+      PieceType::Knight => score -= SquareTable::KNIGHT[i as usize] as f32,
+      PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize] as f32,
     }
   }
-  score
+  score * SQUARE_TABLE_FACTOR
 }
 
 /// Gives a score based on the endgame situation.
@@ -86,7 +66,7 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
     return get_king_vs_queen_or_rook_score(game_state);
   }
 
-  if is_king_and_pawn_endgame(game_state) {}
+  //if is_king_and_pawn_endgame(game_state) {}
 
   // TODO: Implement a proper evaluation here
   let mut score: f32 = 0.0;
@@ -94,11 +74,11 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   score += PIECE_MOBILITY_FACTOR
     * ((get_piece_mobility(game_state, Color::White) as f32)
       - (get_piece_mobility(game_state, Color::Black) as f32));
-  */
 
-  score += KING_DANGER_FACTOR
-    * (get_king_danger_score(game_state, Color::Black)
+      score += KING_DANGER_FACTOR
+      * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
+      */
 
   score += get_square_table_endgame_score(game_state);
 

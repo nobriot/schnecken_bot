@@ -28,19 +28,6 @@ const HANGING_PENALTY: f32 = 0.15;
 const _REACHABLE_OUTPOST_BONUS: f32 = 0.2;
 const _OUTPOST_BONUS: f32 = 0.9;
 
-// Shows "interesting" squares to control on the board
-// Giving them a score
-pub const HEATMAP_SCORES: [f32; 64] = [
-  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 1st row
-  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 2nd row
-  0.005, 0.005, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, // 3rd row
-  0.005, 0.01, 0.015, 0.02, 0.02, 0.015, 0.01, 0.005, // 4th row
-  0.005, 0.01, 0.015, 0.02, 0.02, 0.015, 0.01, 0.005, // 5th row
-  0.005, 0.005, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, // 6th row
-  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 7th row
-  0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, // 8th row
-];
-
 /// Default way to look at a position regardless of the game phase
 ///
 /// ### Arguments

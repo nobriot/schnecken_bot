@@ -6,7 +6,7 @@ use crate::model::piece::*;
 
 const KING_DANGER_FACTOR: f32 = 0.3;
 const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.1;
+const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Computes a total score based on the square where pieces are located in the
 /// middlegame.
@@ -23,49 +23,25 @@ pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
   let mut score = 0.0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
-      PieceType::King => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KING[i as usize] as f32
-      },
-      PieceType::Queen => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_QUEEN[i as usize] as f32
-      },
-      PieceType::Rook => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_ROOK[i as usize] as f32
-      },
-      PieceType::Bishop => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_BISHOP[i as usize] as f32
-      },
-      PieceType::Knight => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_KNIGHT[i as usize] as f32
-      },
-      PieceType::Pawn => {
-        score += SQUARE_TABLE_FACTOR * MiddleGameSquareTable::WHITE_PAWN[i as usize] as f32
-      },
+      PieceType::King => score += MiddleGameSquareTable::WHITE_KING[i as usize] as f32,
+      PieceType::Queen => score += SquareTable::QUEEN[i as usize] as f32,
+      PieceType::Rook => score += MiddleGameSquareTable::WHITE_ROOK[i as usize] as f32,
+      PieceType::Bishop => score += SquareTable::WHITE_BISHOP[i as usize] as f32,
+      PieceType::Knight => score += SquareTable::KNIGHT[i as usize] as f32,
+      PieceType::Pawn => score += SquareTable::WHITE_PAWN[i as usize] as f32,
     }
   }
   for (i, piece) in game_state.board.pieces.black {
     match piece {
-      PieceType::King => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KING[i as usize] as f32
-      },
-      PieceType::Queen => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_QUEEN[i as usize] as f32
-      },
-      PieceType::Rook => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_ROOK[i as usize] as f32
-      },
-      PieceType::Bishop => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_BISHOP[i as usize] as f32
-      },
-      PieceType::Knight => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_KNIGHT[i as usize] as f32
-      },
-      PieceType::Pawn => {
-        score -= SQUARE_TABLE_FACTOR * MiddleGameSquareTable::BLACK_PAWN[i as usize] as f32
-      },
+      PieceType::King => score -= MiddleGameSquareTable::BLACK_KING[i as usize] as f32,
+      PieceType::Queen => score -= SquareTable::QUEEN[i as usize] as f32,
+      PieceType::Rook => score -= MiddleGameSquareTable::BLACK_ROOK[i as usize] as f32,
+      PieceType::Bishop => score -= SquareTable::BLACK_BISHOP[i as usize] as f32,
+      PieceType::Knight => score -= SquareTable::KNIGHT[i as usize] as f32,
+      PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize] as f32,
     }
   }
-  score
+  score * SQUARE_TABLE_FACTOR
 }
 
 /// Gives a score based on the position in the middlegame
@@ -80,18 +56,18 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   score += PIECE_MOBILITY_FACTOR
     * (get_piece_mobility(game_state, Color::White) as f32
       - get_piece_mobility(game_state, Color::Black) as f32);
-       */
 
-  score += KING_DANGER_FACTOR
-    * (get_king_danger_score(game_state, Color::Black)
+      score += KING_DANGER_FACTOR
+      * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));
 
-  if is_king_too_adventurous(game_state, Color::White) {
-    score -= KING_TOO_ADVENTUROUS_PENALTY;
-  }
-  if is_king_too_adventurous(game_state, Color::Black) {
-    score += KING_TOO_ADVENTUROUS_PENALTY;
-  }
+      if is_king_too_adventurous(game_state, Color::White) {
+        score -= KING_TOO_ADVENTUROUS_PENALTY;
+      }
+      if is_king_too_adventurous(game_state, Color::Black) {
+        score += KING_TOO_ADVENTUROUS_PENALTY;
+      }
+      */
 
   score += get_square_table_middlegame_score(game_state);
 
