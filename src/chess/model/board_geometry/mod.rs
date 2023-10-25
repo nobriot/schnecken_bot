@@ -1,6 +1,7 @@
 pub mod diagonals;
 pub mod holes;
 pub mod lines;
+pub mod rays;
 
 use crate::model::board::*;
 use crate::model::board_mask::BoardMask;
@@ -237,6 +238,109 @@ mod tests {
     println!("c4 -> g4");
     print_board_mask(diagonals[string_to_square("c4") as usize][string_to_square("g4") as usize]);
     print_board_mask(diagonals[string_to_square("g4") as usize][string_to_square("c4") as usize]);
+  }
+
+  #[ignore]
+  #[test]
+  fn generate_rays_between_squares() {
+    use crate::model::board_mask::BoardMask;
+    use crate::model::moves::*;
+    use crate::model::piece_moves::*;
+    use std::fs::File;
+    use std::io::Write;
+
+    println!("Generating lines and diagonal constants...",);
+    let mut output_file = File::create("./model/board_geometry/rays.rs").unwrap();
+    // Here we generate look-up boardmasks that indicate a diagonal between two squares.
+    // Start from i, continue in a diagonal like bishops.
+    let mut rays: [[u64; 64]; 64] = [[0; 64]; 64];
+    for i in 0..64 {
+      for j in 0..64 {
+        let inital_rank = (i / 8) as isize;
+        let inital_file = (i % 8) as isize;
+        let mut mask: BoardMask = 0;
+        let mut destination_reached = false;
+        for (file_offset, rank_offset) in BISHOP_MOVE_OFFSETS {
+          if destination_reached {
+            break;
+          }
+          let mut rank = inital_rank;
+          let mut file = inital_file;
+          mask = 0;
+          // Each move can be repeated until we meet a piece or fall of the board:
+          loop {
+            rank += rank_offset;
+            file += file_offset;
+
+            // Did we go too far ?
+            fr_bounds_or_break!(file, rank);
+
+            let current_square: u64 = 1 << (rank * 8 + file);
+            mask |= current_square;
+            if current_square & (1 << j) != 0 {
+              destination_reached = true;
+              break;
+            }
+          }
+        }
+
+        if destination_reached {
+          rays[i][j] = mask;
+          continue;
+        }
+
+        mask = 0;
+        for (file_offset, rank_offset) in ROOK_MOVE_OFFSETS {
+          if destination_reached {
+            break;
+          }
+          let mut rank = inital_rank;
+          let mut file = inital_file;
+          mask = 0;
+          // Each move can be repeated until we meet a piece or fall of the board:
+          loop {
+            rank += rank_offset;
+            file += file_offset;
+
+            // Did we go too far ?
+            fr_bounds_or_break!(file, rank);
+
+            let current_square: u64 = 1 << (rank * 8 + file);
+            mask |= current_square;
+            if current_square & (1 << j) != 0 {
+              destination_reached = true;
+              break;
+            }
+          }
+        }
+
+        if destination_reached {
+          rays[i][j] = mask;
+        }
+      }
+    }
+
+    let _ = write!(
+      output_file,
+      "/// Represents boardmasks of lines and diagonals between i and j squares\n"
+    );
+    let _ = write!(output_file, "/// i not included, j included.\n");
+    let _ = write!(output_file, "/// use like this: `RAYS[i][j]`.\n");
+
+    let _ = write!(
+      output_file,
+      "pub const RAYS: [[u64; 64]; 64]  = {:#018X?};",
+      rays
+    );
+
+    println!("a1 -> b2");
+    print_board_mask(rays[string_to_square("a1") as usize][string_to_square("b2") as usize]);
+    println!("h7 -> d3");
+    print_board_mask(rays[string_to_square("h7") as usize][string_to_square("d3") as usize]);
+
+    println!("c4 -> g4");
+    print_board_mask(rays[string_to_square("c4") as usize][string_to_square("g4") as usize]);
+    print_board_mask(rays[string_to_square("g4") as usize][string_to_square("c4") as usize]);
   }
 
   #[ignore]

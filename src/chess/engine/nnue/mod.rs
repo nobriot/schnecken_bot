@@ -760,7 +760,7 @@ mod tests {
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let mut previous_cost = 100000.0;
 
-    for i in 0..100 {
+    for _ in 0..100 {
       nnue.game_state_to_input_layer(&mini_batch);
       let Y_hat = nnue.forward_propagation();
 
@@ -916,7 +916,7 @@ mod tests {
     let Y_hat = nnue.forward_propagation();
 
     // Now save to a file:
-    nnue.save("super_net.nnue");
+    let _ = nnue.save("super_net.nnue");
 
     // Now I expect that if we reload, we get the same prediction again
     let mut nnue_2 = NNUE::load("super_net.nnue").unwrap();

@@ -1,5 +1,6 @@
 use crate::model::board_geometry::diagonals::DIAGONALS;
 use crate::model::board_geometry::lines::LINES;
+use crate::model::board_geometry::rays::RAYS;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::castling_rights::*;
@@ -50,6 +51,8 @@ pub struct Board {
   pub castling_rights: CastlingRights,
   /// Boardmask of pieces delivering check to the side to play.
   pub checkers: BoardMask,
+  /// Boardmask of pieces that are pinned
+  pub pins: BoardMask,
   pub hash: u64,
 }
 
@@ -65,6 +68,7 @@ impl Board {
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       checkers: 0,
+      pins: 0,
       hash: 0,
     }
   }
@@ -128,6 +132,7 @@ impl Board {
 
     board.compute_hash();
     board.update_checkers();
+    board.update_pins();
 
     board
   }
@@ -218,7 +223,7 @@ impl Board {
     bitmap
   }
 
-  /// Computes a boardmask of pins if a piece happens to be in an absolute pin.
+  /// Computes a boardmask of absolute pins rays for the side to play
   /// The pins shows the positions that the piece can go to without exposing
   /// their king to enemy attack.
   ///
@@ -231,84 +236,33 @@ impl Board {
   ///
   /// A bitmask indicating squares that the pinned piece can move to.
   ///
-  pub fn get_pins(&self, source_square: u8) -> BoardMask {
-    if !self.has_piece(source_square) {
-      return u64::MAX;
-    }
+  pub fn get_pins_rays(&self) -> BoardMask {
+    let king_position = self.get_king(self.side_to_play) as usize;
+    debug_assert!(king_position < 64);
 
-    let color = match self.has_piece_with_color(source_square, Color::White) {
-      true => Color::White,
-      false => Color::Black,
+    let mut pins: BoardMask = 0;
+
+    // Get the list of potential enemy pinning pieces
+    let enemy_pieces = match self.side_to_play {
+      Color::White => self.pieces.black,
+      Color::Black => self.pieces.white,
     };
 
-    let king_position = match color {
-      Color::White => self.get_white_king_square(),
-      Color::Black => self.get_black_king_square(),
-    } as usize;
+    let mut pinning_pieces = ROOK_SPAN[king_position] & (enemy_pieces.rook | enemy_pieces.queen);
+    pinning_pieces |= BISHOP_SPAN[king_position] & (enemy_pieces.bishop | enemy_pieces.queen);
 
-    if king_position as u8 == INVALID_SQUARE {
-      warn!("Cannot derive pins as there does not seem to be a king.");
-      return u64::MAX;
-    }
+    // Now they are pinning only if we have 1 piece between them and our king.
+    while pinning_pieces != 0 {
+      let pinning_piece = pinning_pieces.trailing_zeros() as usize;
 
-    let mut pins: BoardMask = u64::MAX;
-
-    // Check line pins
-    if square_in_mask!(source_square, ROOK_SPAN[king_position]) {
-      let enemy_pieces = match color {
-        Color::White => self.pieces.black.rook | self.pieces.black.queen,
-        Color::Black => self.pieces.white.rook | self.pieces.white.queen,
-      };
-
-      //print_board_mask(ROOK_SPAN[king_position]);
-      //print_board_mask(enemy_pieces);
-
-      let mut pinning_pieces = ROOK_SPAN[king_position] & enemy_pieces;
-      //println!("Pinning pieces in lines:");
-      //print_board_mask(pinning_pieces);
-
-      while pinning_pieces != 0 {
-        let ray = unsafe {
-          LINES
-            .get_unchecked(pinning_pieces.trailing_zeros() as usize)
-            .get_unchecked(king_position)
-        };
-        if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
-          // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
-          pins &= unsafe {
-            LINES
-              .get_unchecked(king_position)
-              .get_unchecked(pinning_pieces.trailing_zeros() as usize)
-          };
-        }
-        pinning_pieces &= pinning_pieces - 1;
+      let ray = RAYS[king_position][pinning_piece]; // King is excluded from the ray
+      if (ray & self.pieces.all()).count_ones() == 2 {
+        // TBD: This will count enemy pieces as pinnned. See the unit test.
+        // I don't think it is a problem as these pins restrict how our pieces move, not the enemy pieces.
+        pins |= ray;
       }
-    }
 
-    // Check diagonal pins
-    if square_in_mask!(source_square, BISHOP_SPAN[king_position]) {
-      let enemy_pieces = match color {
-        Color::White => self.pieces.black.bishop | self.pieces.black.queen,
-        Color::Black => self.pieces.white.bishop | self.pieces.white.queen,
-      };
-      let mut pinning_pieces = BISHOP_SPAN[king_position] & enemy_pieces;
-
-      while pinning_pieces != 0 {
-        let ray = unsafe {
-          DIAGONALS
-            .get_unchecked(pinning_pieces.trailing_zeros() as usize)
-            .get_unchecked(king_position)
-        };
-        if (ray & self.pieces.all()).count_ones() == 2 && square_in_mask!(source_square, ray) {
-          // The king and the source square are the only ones in the ray, meaning that the piece is pinned.
-          pins &= unsafe {
-            DIAGONALS
-              .get_unchecked(king_position)
-              .get_unchecked(pinning_pieces.trailing_zeros() as usize)
-          };
-        }
-        pinning_pieces &= pinning_pieces - 1;
-      }
+      pinning_pieces &= pinning_pieces - 1;
     }
 
     pins
@@ -555,35 +509,6 @@ impl Board {
   // ---------------------------------------------------------------------------
   // Move related functions
 
-  /// Checks if a move on the board is a capture
-  /// FIXME: Use the move.is_capture() api now
-  ///
-  /// ### Arguments
-  ///
-  /// * `self`: Board to look at
-  /// * `m`:    Reference to a move to examine
-  ///
-  /// ### Return value
-  ///
-  /// True if the move is a capture, false otherwise
-  ///
-  pub fn is_move_a_capture(&self, m: &Move) -> bool {
-    // If a piece is at the destination, it's a capture
-    if square_in_mask!(m.dest(), self.pieces.all()) {
-      return true;
-    }
-
-    // If a pawn moves to the en-passant square, it's a capture.
-    if self.en_passant_square != INVALID_SQUARE
-      && m.dest() == self.en_passant_square as move_t
-      && (square_in_mask!(m.src(), self.pieces.white.pawn | self.pieces.black.pawn))
-    {
-      return true;
-    }
-
-    false
-  }
-
   /// Computes the list of legal moves on the board
   ///
   /// ### Arguments
@@ -627,19 +552,16 @@ impl Board {
     }
 
     let mut checking_ray: BoardMask = u64::MAX;
-    let king_position = self.get_white_king_square();
+    let king_position = self.get_king(Color::White) as usize;
 
     match self.checkers.count_few_ones() {
       0 => {},
       1 => {
         checking_ray = unsafe {
-          LINES
-            .get_unchecked(king_position as usize)
+          RAYS
+            .get_unchecked(king_position)
             .get_unchecked(self.checkers.trailing_zeros() as usize)
-            | DIAGONALS
-              .get_unchecked(king_position as usize)
-              .get_unchecked(self.checkers.trailing_zeros() as usize)
-            | (1 << self.checkers.trailing_zeros())
+            | self.checkers
         }
       },
       _ => ssp = self.pieces.white.king,
@@ -656,7 +578,14 @@ impl Board {
 
       // Restrict destinations not to move out of pins.
       // if there is a check, you can only move into checking rays with other pieces than the king.
-      destinations &= self.get_pins(source_square);
+      if square_in_mask!(source_square, self.pins) {
+        if LINES[king_position][source_square as usize] & self.pins != 0 {
+          destinations &= self.pins & ROOK_SPAN[source_square as usize] & ROOK_SPAN[king_position];
+        } else if DIAGONALS[king_position][source_square as usize] & self.pins != 0 {
+          destinations &=
+            self.pins & BISHOP_SPAN[source_square as usize] & BISHOP_SPAN[king_position];
+        }
+      }
 
       // If a pawn double jump delivers check, we should be able to en-passant it,
       // it removes the checking piece even though outside of the checking ray
@@ -665,7 +594,7 @@ impl Board {
         && self.checkers.count_few_ones() == 1
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
-      } else if source_square != king_position {
+      } else if source_square != king_position as u8 {
         destinations &= checking_ray;
       }
 
@@ -749,19 +678,16 @@ impl Board {
     }
 
     let mut checking_ray: BoardMask = u64::MAX;
-    let king_position = self.get_black_king_square();
+    let king_position = self.get_king(Color::Black) as usize;
 
     match self.checkers.count_ones() {
       0 => {},
       1 => {
         checking_ray = unsafe {
-          LINES
+          RAYS
             .get_unchecked(king_position as usize)
             .get_unchecked(self.checkers.trailing_zeros() as usize)
-            | DIAGONALS
-              .get_unchecked(king_position as usize)
-              .get_unchecked(self.checkers.trailing_zeros() as usize)
-            | (1 << self.checkers.trailing_zeros())
+            | self.checkers
         }
       },
       _ => ssp = self.pieces.black.king,
@@ -778,7 +704,14 @@ impl Board {
 
       // Restrict destinations not to move out of pins.
       // if there is a check, you can only move into checking rays with other pieces than the king.
-      destinations &= self.get_pins(source_square);
+      if square_in_mask!(source_square, self.pins) {
+        if LINES[king_position][source_square as usize] & self.pins != 0 {
+          destinations &= self.pins & ROOK_SPAN[source_square as usize] & ROOK_SPAN[king_position];
+        } else if DIAGONALS[king_position][source_square as usize] & self.pins != 0 {
+          destinations &=
+            self.pins & BISHOP_SPAN[source_square as usize] & BISHOP_SPAN[king_position];
+        }
+      }
 
       // If a pawn double jump delivers check, we should be able to en-passant it,
       // it removes the checking piece even though outside of the checking ray
@@ -787,7 +720,7 @@ impl Board {
         && self.checkers.count_few_ones() == 1
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
-      } else if source_square != king_position {
+      } else if source_square != king_position as u8 {
         destinations &= checking_ray;
       }
 
@@ -991,6 +924,7 @@ impl Board {
     }
     self.update_hash_side_to_play();
     self.update_checkers();
+    self.update_pins();
   }
 
   /// Takes a move notation from a PGN, tries to find the corresponding move
@@ -1193,6 +1127,16 @@ impl Board {
     self.checkers = self.get_attackers(king_position, Color::opposite(self.side_to_play));
   }
 
+  /// Makes sure that the pins on the board is correct.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` - Board object to modify
+  ///
+  pub fn update_pins(&mut self) {
+    self.pins = self.get_pins_rays();
+  }
+
   /// Checks if there is a piece on a square
   ///
   /// ### Arguments
@@ -1238,6 +1182,26 @@ impl Board {
   #[inline]
   pub fn has_king(&self, square: u8) -> bool {
     square_in_mask!(square, self.pieces.white.king | self.pieces.black.king)
+  }
+
+  /// Finds the square with a king of the desired color on it.
+  ///
+  /// ### Arguments
+  ///
+  /// * `color`: The color of the king to find on the board.
+  ///
+  /// ### Return value
+  ///
+  /// `square` - Square index in [0..63] where the black king is located.
+  /// The lowest square value if there are several black kings.
+  /// `INVALID_SQUARE` if no black king is present on the board.
+  ///
+  #[inline]
+  pub fn get_king(&self, color: Color) -> u8 {
+    match color {
+      Color::White => self.pieces.white.king.trailing_zeros() as u8,
+      Color::Black => self.pieces.black.king.trailing_zeros() as u8,
+    }
   }
 
   /// Finds the square with a black king on it.
@@ -1341,6 +1305,7 @@ impl Board {
 
     board.compute_hash();
     board.update_checkers();
+    board.update_pins();
 
     board
   }
@@ -1466,6 +1431,7 @@ mod tests {
       castling_rights: CastlingRights::default(),
       en_passant_square: INVALID_SQUARE,
       checkers: 0,
+      pins: 0,
       hash: 0,
     };
     board.pieces.set(0, WHITE_ROOK);
@@ -1759,51 +1725,37 @@ mod tests {
   }
 
   #[test]
-  fn test_pin_mask_calculations() {
+  fn test_pins_mask_calculations() {
     // Here we have a queen pinning a pawn
     let board = Board::from_fen("rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2");
-
-    for i in 0..63 {
-      //print_board_mask(1 << i);
-      if i != 53 {
-        assert_eq!(u64::MAX, board.get_pins(i));
-      } else {
-        assert_eq!(9078117754732544, board.get_pins(i));
-      }
-    }
+    print_board_mask(board.get_pins_rays());
+    assert_eq!(9078117754732544, board.get_pins_rays());
 
     // Here basically all white pieces are pinned.
     let board = Board::from_fen("4r3/3k4/4r2b/8/4RP2/q2PKN1q/8/8 w - - 0 1");
     println!("Board: {}", board);
 
-    // Pawn is pinned to the rook direction
-    print_board_mask(board.get_pins(19));
-    assert_eq!(983040, board.get_pins(19));
-
-    // knight is pinned to the queen direction
-    print_board_mask(board.get_pins(21));
-    assert_eq!(14680064, board.get_pins(21));
-
-    // Rook is pinned to the rooks direction
-    print_board_mask(board.get_pins(28));
-    assert_eq!(17661173956608, board.get_pins(28));
-
-    // Pawn is pinned to the bishop direction
-    print_board_mask(board.get_pins(29));
-    assert_eq!(141012903133184, board.get_pins(29));
+    // Pawn 19 is pinned to the rook direction
+    // knight 21 is pinned to the queen direction
+    // Rook 28 is pinned to the rooks direction
+    // Pawn 29 is pinned to the bishop direction
+    print_board_mask(board.get_pins_rays());
+    assert_eq!(158674092752896, board.get_pins_rays());
 
     // Try another board without any pin
     let board =
       Board::from_fen("r2qr3/p2n1pkp/1p1p1np1/3bp3/2P1P2P/3B1N2/PP1Q1PP1/R3K2R w KQ - 0 15");
-    print_board_mask(board.get_pins(28));
-    for i in 0..63 {
-      assert_eq!(
-        u64::MAX,
-        board.get_pins(i),
-        "Pins for square {} is incorrect",
-        square_to_string(i)
-      );
-    }
+    println!("Board: {}", board);
+    print_board_mask(board.get_pins_rays());
+    assert_eq!(0, board.get_pins_rays());
+
+    // Same again, a black pawn is in the way of the pin
+    let board =
+      Board::from_fen("r2qr3/p2n1pkp/1p1p1np1/3bp3/2P4P/3B1NP1/PP1Q1PP1/R3K2R w KQ - 0 15");
+    println!("Board: {}", board);
+    print_board_mask(board.get_pins_rays());
+    //FIXME: Decide if this is okay:
+    // assert_eq!(0, board.get_pins_rays());
   }
 
   #[test]

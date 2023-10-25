@@ -76,9 +76,9 @@ fn find_attackers(bencher: Bencher) {
   });
 }
 
-/// Checks how fast we are at computing attackers of a square on the board
+/// Checks how fast we are at computing pins for the board
 #[divan::bench(sample_count = 10000)]
-fn determine_pins_for_square(bencher: Bencher) {
+fn determine_board_pins(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
   let mut rng = rand::thread_rng();
 
@@ -87,7 +87,7 @@ fn determine_pins_for_square(bencher: Bencher) {
       continue;
     }
     bencher.bench_local(|| {
-      let _ = game_state.board.get_pins(i);
+      let _ = game_state.board.get_pins_rays();
     });
     break;
   }
