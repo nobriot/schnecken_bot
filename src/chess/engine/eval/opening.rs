@@ -237,7 +237,7 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let material_score = get_combined_material_score(&game_state);
     println!("Material score: {material_score}");
-    assert!(material_score == KNIGHT_VALUE - PAWN_VALUE);
+    assert!(material_score == (KNIGHT_VALUE - PAWN_VALUE) * 32.0 / 28.0);
 
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");

@@ -90,45 +90,188 @@ impl Board {
 
     let mut rng = rand::thread_rng();
 
-    for i in 0..25 {
-      let mut piece = match i {
-        0 => WHITE_KING,
-        1 => BLACK_KING,
-        _ => rng.gen_range(NO_PIECE..=BLACK_PAWN),
-      };
-      if i > 1 {
-        match piece {
-          WHITE_KING | BLACK_KING => {
-            // Convert this into a pawn
-            piece += 5;
-          },
-          NO_PIECE => continue,
-          _ => {},
-        }
+    // Let's try to place pieces:
+    // White King
+    let square = rng.gen_range(0..64);
+    set_square_in_mask!(square, board.pieces.white.king);
+
+    // Place the black king, try until they do not touch:
+    loop {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
       }
-      loop {
-        let square = rng.gen_range(0..64);
-        if board.pieces.get(square) != NO_PIECE {
-          continue;
-        }
 
-        board.pieces.set(square, piece);
-
-        // Avoid creating checks.
-        let checkers = board.get_attackers(board.get_white_king_square(), Color::Black)
-          | board.get_attackers(board.get_black_king_square(), Color::White);
-
-        if checkers != 0 {
-          board.pieces.remove(square);
-        } else {
-          break;
-        }
+      set_square_in_mask!(square, board.pieces.black.king);
+      if (board.get_attackers(board.get_king(Color::White), Color::Black)) != 0 {
+        board.pieces.black.king = 0;
+        continue;
+      } else {
+        break;
       }
     }
 
-    // Clean up pawns on the 1st and 8th ranks.
+    // Let's try to place 8 pawns of each color:
+    for _ in 0..8 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.white.pawn);
+      board.update_checkers();
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.white.pawn);
+        continue;
+      }
+    }
+    for _ in 0..8 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.black.pawn);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.black.pawn);
+        continue;
+      }
+    }
+
+    // Clean up pawns on the 1st and 8th ranks before adding pieces that could deliver checks
     board.pieces.white.pawn &= !(BOARD_UP_EDGE | BOARD_DOWN_EDGE);
     board.pieces.black.pawn &= !(BOARD_UP_EDGE | BOARD_DOWN_EDGE);
+
+    // Try to add knights:
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.white.knight);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.white.knight);
+        continue;
+      }
+    }
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.black.knight);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.black.knight);
+        continue;
+      }
+    }
+    // Try to add bishops:
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.white.bishop);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.white.bishop);
+        continue;
+      }
+    }
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.black.bishop);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.black.bishop);
+        continue;
+      }
+    }
+    // Try to add rooks:
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.white.rook);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.white.rook);
+        continue;
+      }
+    }
+    for _ in 0..2 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.black.rook);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.black.rook);
+        continue;
+      }
+    }
+    // Try to add queens:
+    for _ in 0..1 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.white.queen);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.white.queen);
+        continue;
+      }
+    }
+    for _ in 0..1 {
+      let square = rng.gen_range(0..64);
+      if board.pieces.get(square) != NO_PIECE {
+        continue;
+      }
+
+      set_square_in_mask!(square, board.pieces.black.queen);
+      if board.get_attackers(board.get_king(Color::White), Color::Black)
+        | board.get_attackers(board.get_king(Color::Black), Color::White)
+        != 0
+      {
+        unset_square_in_mask!(square, board.pieces.black.queen);
+        continue;
+      }
+    }
 
     board.compute_hash();
     board.update_checkers();
@@ -238,7 +381,7 @@ impl Board {
   ///
   pub fn get_pins_rays(&self) -> BoardMask {
     let king_position = self.get_king(self.side_to_play) as usize;
-    debug_assert!(king_position < 64);
+    assert!(king_position < 64, "No king for board: {}", self.to_fen());
 
     let mut pins: BoardMask = 0;
 
@@ -280,10 +423,11 @@ impl Board {
   /// A bitmask indicating squares of the pieces attacking the square
   ///
   pub fn get_attackers(&self, target_square: u8, color: Color) -> BoardMask {
-    if target_square > 63 {
-      warn!("Received get_attackers on square: {}", target_square);
-      return 0;
-    }
+    debug_assert!(
+      target_square < 64,
+      "Received get_attackers on square {}",
+      target_square
+    );
 
     let (attacking_pieces, king_mask) = match color {
       Color::White => (self.pieces.white, self.pieces.black.king),
@@ -789,7 +933,7 @@ impl Board {
     let destination = chess_move.dest() as usize;
 
     // Check if we just castled, we need to move the rooks around!
-    if square_in_mask!(source, self.pieces.white.king) {
+    if chess_move.is_castle() {
       if chess_move.src() == 4 && chess_move.dest() == 2 {
         self.update_hash_piece(0);
         self.pieces.white.remove(0);
@@ -800,9 +944,7 @@ impl Board {
         self.pieces.white.remove(7);
         self.pieces.white.add(5, PieceType::Rook);
         self.update_hash_piece(5);
-      }
-    } else if square_in_mask!(source, self.pieces.black.king) {
-      if chess_move.src() == 60 && chess_move.dest() == 62 {
+      } else if chess_move.src() == 60 && chess_move.dest() == 62 {
         self.update_hash_piece(63);
         self.pieces.black.remove(63);
         self.pieces.black.add(61, PieceType::Rook);
@@ -1194,7 +1336,7 @@ impl Board {
   ///
   /// `square` - Square index in [0..63] where the black king is located.
   /// The lowest square value if there are several black kings.
-  /// `INVALID_SQUARE` if no black king is present on the board.
+  /// `64` if no black king is present on the board.
   ///
   #[inline]
   pub fn get_king(&self, color: Color) -> u8 {

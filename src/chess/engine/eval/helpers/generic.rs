@@ -75,6 +75,9 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
       - game_state.board.pieces.black.pawn.count_ones() as f32)
       * PAWN_VALUE;
 
+  // Scale the value by the amount of material left:
+  score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
+
   score
 }
 
@@ -397,7 +400,7 @@ mod tests {
 
     let fen = "rnbqk1nr/pppppppp/8/8/8/8/PPPPP2P/RNBQKBNR w KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(get_combined_material_score(&game_state), 1.05);
+    assert_eq!(get_combined_material_score(&game_state), 1.05 * 32.0 / 29.0);
     assert_eq!(get_material_score(&game_state, Color::White), 37.6);
     assert_eq!(get_material_score(&game_state, Color::Black), 36.55);
   }
