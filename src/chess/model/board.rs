@@ -933,7 +933,7 @@ impl Board {
     let destination = chess_move.dest() as usize;
 
     // Check if we just castled, we need to move the rooks around!
-    if chess_move.is_castle() {
+    if square_in_mask!(source, self.pieces.white.king) {
       if chess_move.src() == 4 && chess_move.dest() == 2 {
         self.update_hash_piece(0);
         self.pieces.white.remove(0);
@@ -944,7 +944,9 @@ impl Board {
         self.pieces.white.remove(7);
         self.pieces.white.add(5, PieceType::Rook);
         self.update_hash_piece(5);
-      } else if chess_move.src() == 60 && chess_move.dest() == 62 {
+      }
+    } else if square_in_mask!(source, self.pieces.black.king) {
+      if chess_move.src() == 60 && chess_move.dest() == 62 {
         self.update_hash_piece(63);
         self.pieces.black.remove(63);
         self.pieces.black.add(61, PieceType::Rook);

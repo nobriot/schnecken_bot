@@ -14,9 +14,11 @@ fn main() -> ExitCode {
 
   // ---------------------------------------------------------------------------
   // Instantiante the NNUE and train it
-  println!("Creating a neural net with 2 layers of 8 neurons");
+  println!("Creating a neural net with 5 layers of 8 neurons");
   let mut nnue = NNUE::new_no_layer();
   nnue.add_layer(1, HyperParameters::default(), Activation::None);
+  nnue.add_layer(8, HyperParameters::default(), Activation::ReLU);
+  nnue.add_layer(8, HyperParameters::default(), Activation::ReLU);
   nnue.add_layer(8, HyperParameters::default(), Activation::ReLU);
   nnue.add_layer(8, HyperParameters::default(), Activation::ReLU);
   nnue.add_layer(1, HyperParameters::default(), Activation::None);
@@ -32,17 +34,22 @@ fn main() -> ExitCode {
   }
 
   nnue.f32_slice_to_input_layer(&training);
+  let mut last_cost: f32 = f32::INFINITY;
+
   for e in 0..NUMBER_OF_EPOCH {
     let Y_hat = nnue.forward_propagation();
+
+    let new_cost = functions::total_cost(&Y_hat, &labels) / BATCH_SIZE as f32;
+    if new_cost > 2.0 * last_cost {
+      nnue.decay_learning_rate(0.9);
+    }
+    last_cost = new_cost;
+
     nnue.backwards_propagation(&Y_hat, &labels);
     nnue.update_parameters();
 
     if e % 1000 == 0 {
-      println!(
-        "Cost after iteration {}: {}",
-        e + 1,
-        functions::total_cost(&Y_hat, &labels) / BATCH_SIZE as f32
-      );
+      println!("Cost after iteration {}: {}", e, last_cost);
     }
   }
 

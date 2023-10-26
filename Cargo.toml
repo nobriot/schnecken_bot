@@ -33,6 +33,11 @@ anyhow = "1.0.71"
 lichess-api = { path = "src/lichess" }
 chess = { path = "src/chess" }
 
+[profile.dev.build-override]
+opt-level = 3
+[profile.release.build-override]
+opt-level = 3
+
 [[bin]]
 name = "schnecken_bot"
 path = "src/main.rs"

@@ -298,6 +298,24 @@ impl NNUE {
     self.layers[0].state.cache.A = a0;
   }
 
+  /// Decays the learning rate
+  ///
+  /// ```
+  /// let mut nnue = NNUE::default()
+  /// nnue.decay_learning_rate(0.9);
+  /// ```
+  ///
+  /// ### Arguments
+  ///
+  /// * `decay`: Factor by which the learning rate gets multiplied.
+  ///
+  ///
+  pub fn decay_learning_rate(&mut self, decay: f32) {
+    for i in 1..self.layers.len() {
+      self.layers[i].param.learning_rate *= decay;
+    }
+  }
+
   /// Calculates the prediction/output given the current state of the NNUE.
   ///
   /// input can be of the size of a mini batch
@@ -344,6 +362,49 @@ impl NNUE {
 
     // Calculate prediction
     //println!("A for last layer: {:?}", A_prev);
+    let mut Y_hat = vec![0.0; A_prev.len()];
+    for c in 0..A_prev.len() {
+      Y_hat[c] = A_prev[[0, c]];
+    }
+
+    Y_hat
+  }
+
+  /// Calculates the prediction/output given the current state of the NNUE.
+  /// Does not cache any of the intermediate values, so it can run faster
+  ///
+  /// Note: Do not apply backwards propagation after calling this function
+  ///
+  /// input can be of the size of a mini batch
+  ///
+  ///
+  pub fn predict(&mut self) -> Vec<f32> {
+    // This is A0, input data:
+    let mut A_prev = self.layers[0].state.cache.A.clone();
+
+    for i in 1..self.layers.len() {
+      // Calculate Z for that layer:
+      let mut Zl = self.layers[i].state.W.dot(&A_prev);
+      Zl += self.layers[i].state.b;
+
+      // Al = gl(Zl) where gl is the activation function for that layer
+      match self.layers[i].a {
+        Activation::ReLU => Zip::from(&mut Zl).par_for_each(|a| *a = relu(*a)),
+        Activation::ClippedReLU => Zip::from(&mut Zl).par_for_each(|a| *a = clipped_relu(*a)),
+        Activation::ExtendedClippedReLU => {
+          Zip::from(&mut Zl).par_for_each(|a| *a = extended_clipped_relu(*a, 200.0))
+        },
+        Activation::Tanh => Zip::from(&mut Zl).par_for_each(|a| *a = a.tanh()),
+        Activation::Sigmoid => Zip::from(&mut Zl).par_for_each(|a| *a = sigmoid(*a)),
+        Activation::None => {},
+      };
+
+      let Al = Zl;
+
+      A_prev = Al;
+    }
+
+    // Calculate predictions
     let mut Y_hat = vec![0.0; A_prev.len()];
     for c in 0..A_prev.len() {
       Y_hat[c] = A_prev[[0, c]];
@@ -536,10 +597,17 @@ impl NNUE {
       Zip::from(&mut self.layers[i].state.W)
         .and(&vdW)
         .and(&sdW)
-        .for_each(|w, &vdw, &sdw| {
+        .par_for_each(|w, &vdw, &sdw| {
           *w -= learning_rate * (vdw / beta_1_correction)
             / (f32::sqrt(sdw / beta_2_correction) + f32::EPSILON);
         });
+
+      // Regular W = W - alpha*dW
+      /*
+      Zip::from(&mut self.layers[i].state.W)
+        .and(&dW)
+        .par_for_each(|w, &dw| *w -= learning_rate * dw);
+      */
 
       // New vdb / sdb
       self.layers[i].state.cache.vdb =
@@ -564,7 +632,7 @@ impl NNUE {
       //println!("Updated layer {}: {:?}", i, self.layers[i].state.b);
 
       // Decay a little bit the learning rate
-      //self.layers[i].param.learning_rate *= 1.0 / (1.0 + 0.0001 * self.iterations as f32);
+      //self.layers[i].param.learning_rate *= 1.0 / (1.0 + 0.000001 * self.iterations as f32);
     }
   }
 

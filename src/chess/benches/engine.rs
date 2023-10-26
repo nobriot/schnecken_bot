@@ -200,6 +200,6 @@ fn nnue_board_evaluation(bencher: Bencher) {
 
   bencher.bench_local(|| {
     nnue.game_state_to_input_layer(&vec![&game_state]);
-    let _ = nnue.forward_propagation();
+    let _ = nnue.predict();
   });
 }

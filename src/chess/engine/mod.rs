@@ -1,10 +1,10 @@
+pub mod book;
 pub mod cache;
 pub mod development;
 pub mod engine_test;
 pub mod eval;
 pub mod nnue;
 pub mod square_affinity;
-pub mod theory;
 
 use log::*;
 use std::cmp::Ordering;
@@ -15,8 +15,7 @@ use std::time::{Duration, Instant};
 
 // Same module (engine)
 use self::eval::position::{evaluate_board, is_game_over};
-use crate::model::board::Board;
-use crate::model::moves::Promotion;
+use book::*;
 use cache::EngineCache;
 
 // Chess model
@@ -26,6 +25,8 @@ use super::model::game_state::START_POSITION_FEN;
 use super::model::moves::Move;
 use super::model::piece::Color;
 use super::model::piece::*;
+use crate::model::board::Board;
+use crate::model::moves::Promotion;
 
 #[derive(Clone, Debug, Default)]
 pub struct Options {
@@ -158,6 +159,8 @@ impl Engine {
   /// Gets a new engine
   ///
   pub fn new() -> Self {
+    initialize_chess_book();
+
     Engine {
       position: GameState::from_fen(START_POSITION_FEN),
       analysis: Analysis::default(),
@@ -310,6 +313,27 @@ impl Engine {
 
     // Start searching... now
     let start_time = Instant::now();
+
+    // First check if we are in a known book position. If yes, just return the known list
+    let book_entry = get_book_moves(&self.position.board);
+    if book_entry.is_some() {
+      info!("Known position, returning book moves");
+      let mut top_level_result: HashMap<Move, f32> = HashMap::new();
+      let mut move_list = book_entry.unwrap();
+      let scores = self.analysis.scores.lock().unwrap();
+      for m in &move_list {
+        top_level_result.insert(*m, *scores.get(m).unwrap_or(&f32::NAN));
+      }
+      move_list.sort_by(|a, b| {
+        Engine::compare_by_result_eval(self.position.board.side_to_play, a, b, &top_level_result)
+      });
+      self.cache.set_move_list(&self.position.board, &move_list);
+
+      // We are done
+      self.set_stop_requested(false);
+      self.set_engine_active(false);
+      return;
+    }
 
     // If we have only one legal move, we should just give it a score and play it instantaneously.
     Engine::find_move_list(&self.cache, &self.position.board);
@@ -907,6 +931,7 @@ impl Default for Engine {
 
 impl Drop for Engine {
   fn drop(&mut self) {
+    self.clear_cache();
     debug!("Dropping Engine!")
   }
 }
