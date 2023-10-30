@@ -25,8 +25,9 @@ const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.03;
 const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.15;
-const _REACHABLE_OUTPOST_BONUS: f32 = 0.2;
-const _OUTPOST_BONUS: f32 = 0.9;
+const PIN_PENALTY: f32 = 0.25;
+const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
+const OUTPOST_BONUS: f32 = 0.9;
 
 /// Default way to look at a position regardless of the game phase
 ///
@@ -90,15 +91,12 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Check if we have some good positional stuff
-    /*
-    FIXME: This is slow
     if has_reachable_outpost(game_state, i as usize) {
       score += REACHABLE_OUTPOST_BONUS;
     }
     if occupies_reachable_outpost(game_state, i as usize) {
       score += OUTPOST_BONUS;
     }
-    */
   }
 
   for (i, piece) in game_state.board.pieces.black {
@@ -114,15 +112,20 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
 
     // Check if we have some good positional stuff
-    /*
-    FIXME: This is slow
-        if has_reachable_outpost(game_state, i as usize) {
-          score -= REACHABLE_OUTPOST_BONUS;
-        }
-        if occupies_reachable_outpost(game_state, i as usize) {
-          score -= OUTPOST_BONUS;
-        }
-        */
+    if has_reachable_outpost(game_state, i as usize) {
+      score -= REACHABLE_OUTPOST_BONUS;
+    }
+    if occupies_reachable_outpost(game_state, i as usize) {
+      score -= OUTPOST_BONUS;
+    }
+  }
+
+  // Pinned pieces is never confortable
+  if game_state.board.get_pins_rays(Color::White) != 0 {
+    score -= PIN_PENALTY;
+  }
+  if game_state.board.get_pins_rays(Color::Black) != 0 {
+    score += PIN_PENALTY;
   }
 
   // Check on the material imbalance

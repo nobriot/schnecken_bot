@@ -52,7 +52,6 @@ pub const BLACK_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
 
 // -----------------------------------------------------------------------------
 //  Implementations
-
 impl PieceMasks {
   /// Initialize a PieceMasks with all zeroes
   fn new() -> Self {

@@ -11,7 +11,7 @@ pub const LICHESS_DATABASE_FILE: &str = "engine/nnue/data/training_set.pgn";
 pub const OUTPUT_TRAINING_FILE: &str = "engine/nnue/data/training_set.csv";
 pub const NNUE_OUTPUT_FILE: &str = "engine/nnue/data/net.nuue";
 pub const MINI_BATCH_SIZE: usize = 10000;
-pub const NUMBER_OF_EPOCH: usize = 200;
+pub const NUMBER_OF_EPOCH: usize = 30;
 
 const ERROR: &str = "\x1B[31m\x1B[1m\x1B[4mError\x1B[24m: \x1B[0m\x1B[31m";
 
@@ -55,7 +55,8 @@ fn main() -> ExitCode {
   // ---------------------------------------------------------------------------
   // Instantiante the NNUE and train it
   println!("Loading the NNUE from file {NNUE_OUTPUT_FILE}");
-  let mut nnue = NNUE::load(NNUE_OUTPUT_FILE).unwrap_or_default();
+  let nnue_file = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_OUTPUT_FILE);
+  let mut nnue = NNUE::load(nnue_file.as_str()).unwrap_or_default();
 
   let number_of_mini_batches = training_cache.len() / MINI_BATCH_SIZE;
 
@@ -126,7 +127,7 @@ fn main() -> ExitCode {
   // ---------------------------------------------------------------------------
   // Save the NNUE so it can be restored later
   println!("Saving the NNUE to file {NNUE_OUTPUT_FILE}");
-  if let Err(error) = nnue.save(NNUE_OUTPUT_FILE) {
+  if let Err(error) = nnue.save(nnue_file.as_str()) {
     println!("{ERROR}: Could not save NNUE file to {NNUE_OUTPUT_FILE}: {error}. Exiting\n");
     return ExitCode::FAILURE;
   }

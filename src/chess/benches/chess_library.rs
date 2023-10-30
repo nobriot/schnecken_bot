@@ -125,7 +125,7 @@ fn determine_board_pins(bencher: Bencher) {
       continue;
     }
     bencher.bench_local(|| {
-      let _ = game_state.board.get_pins_rays();
+      let _ = game_state.board.get_pins_rays(Color::White);
     });
     break;
   }

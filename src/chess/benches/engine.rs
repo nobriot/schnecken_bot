@@ -1,6 +1,7 @@
 use chess::engine::cache::EngineCache;
 use chess::engine::eval::endgame::*;
 use chess::engine::eval::helpers::generic::get_combined_material_score;
+use chess::engine::eval::helpers::generic::*;
 use chess::engine::eval::middlegame::*;
 use chess::engine::eval::opening::*;
 use chess::engine::eval::position::*;
@@ -201,5 +202,41 @@ fn nnue_board_evaluation(bencher: Bencher) {
   bencher.bench_local(|| {
     nnue.game_state_to_input_layer(&vec![&game_state]);
     let _ = nnue.predict();
+  });
+}
+
+/// Checks how fast some of the evaluation functions are
+#[divan::bench(sample_count = 10000)]
+fn file_open_detection(bencher: Bencher) {
+  let mut nnue = NNUE::default();
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    let _ = is_file_open(&game_state, 3);
+  });
+}
+
+/// Checks how fast some of the evaluation functions are
+#[divan::bench(sample_count = 10000)]
+fn file_half_open_detection(bencher: Bencher) {
+  let mut nnue = NNUE::default();
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    let _ = is_file_half_open(&game_state, 3);
+  });
+}
+
+/// Checks how fast some of the evaluation functions are
+#[divan::bench(sample_count = 10000)]
+fn file_state_detection(bencher: Bencher) {
+  let mut nnue = NNUE::default();
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    let _ = get_file_state(&game_state, 3);
   });
 }

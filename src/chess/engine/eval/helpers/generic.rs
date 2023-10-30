@@ -5,9 +5,16 @@ use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
+use crate::model::piece_set::PieceMasks;
 use crate::model::tables::pawn_destinations::*;
 
 use log::*;
+
+pub enum FileState {
+  Open,
+  Closed,
+  HalfOpen,
+}
 
 /// Computes the material score of a side
 ///
@@ -40,6 +47,30 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
       score += game_state.board.pieces.black.pawn.count_ones() as f32 * PAWN_VALUE;
     },
   }
+
+  score
+}
+
+/// Computes the material score of a side
+///
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the material score
+///
+/// # Return value
+///
+/// Score for material
+pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask) -> f32 {
+  // Basic material count
+  let mut score: f32 = 0.0;
+
+  score += (piece_set.queen & pin_mask).count_few_ones() as f32 * QUEEN_VALUE;
+  score += (piece_set.rook & pin_mask).count_few_ones() as f32 * ROOK_VALUE;
+  score += (piece_set.bishop & pin_mask).count_few_ones() as f32 * BISHOP_VALUE;
+  score += (piece_set.knight & pin_mask).count_few_ones() as f32 * KNIGHT_VALUE;
+  score += (piece_set.pawn & pin_mask).count_ones() as f32 * PAWN_VALUE;
 
   score
 }
@@ -95,7 +126,7 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
 pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.pawns()) == 0
+  (FILES[(file - 1) as usize] & game_state.board.pieces.pawns()) == 0
 }
 
 /// Checks if a file is half-open
@@ -112,15 +143,37 @@ pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
 pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
   fr_bounds_or_return!(file, false);
 
-  let black_pawn =
-    (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.black.pawn) != 0;
-  let white_pawn =
-    (unsafe { FILES.get_unchecked((file - 1) as usize) } & game_state.board.pieces.white.pawn) != 0;
+  let black_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.black.pawn) != 0;
+  let white_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.white.pawn) != 0;
 
   match (white_pawn, black_pawn) {
     (true, false) => true,
     (false, true) => true,
     (_, _) => false,
+  }
+}
+
+/// Gets the file status for a file (Open, closed, half-open)
+///
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `file` -      File number (must be between 1 and 8)
+///
+/// # Return value
+///
+/// FileState
+///
+pub fn get_file_state(game_state: &GameState, file: u8) -> FileState {
+  let black_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.black.pawn) != 0;
+  let white_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.white.pawn) != 0;
+
+  match (white_pawn, black_pawn) {
+    (true, true) => FileState::Closed,
+    (true, false) => FileState::HalfOpen,
+    (false, true) => FileState::HalfOpen,
+    (_, _) => FileState::Open,
   }
 }
 

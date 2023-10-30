@@ -13,7 +13,14 @@ After downloading games, extract them and rename them `training_set.pgn`:
 
 ```console
 zstd -d lichess_db_standard_rated_2023-08.pgn.zst 
-mv lichess_db_standard_rated_2023-08.pgn training_set.pgn
+mv lichess_db_standard_rated_2023-08.pgn training_set_full.pgn
+```
+
+The training set is kinda huge, so it makes sense to train on a fraction at a time.
+Extract for example the first 10 millions lines:
+
+```console
+head -n 10000000 training_set_full.pgn > training_set.pgn
 ```
 
 Then run:
@@ -21,5 +28,8 @@ Then run:
 ```console
 cargo run --bin train_nnue
 ```
+
+Once the neural net is trained, it is tested with the last batch that has been kept out of the training set.
+We can get an idea of how well it performs in `predictions.csv`
 
 FIXME: Finish this up

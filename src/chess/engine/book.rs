@@ -41,6 +41,8 @@ pub fn initialize_chess_book() {
   // Ruy lopez
   let ruy_lopez_pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Na5 10. Bc2 c5 11. d4 Qc7 12. Nbd2 cxd4 13. cxd4 Nc6 14. Nb3 a5";
   add_pgn_to_book(ruy_lopez_pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8 9. Nc3 Ke8 10. h3 h5 11. Bf4 Be7 12. Rad1 Be6 13. Ng5 Rh6 14. Rfe1 Bb4 15. g4 hxg4 16. hxg4 Ne7 17. Nxe6 Rxe6 18. Re3 Ng6 19. Bg3 Bxc3 20. bxc3 Nf8 21. f4 Rg6 22. g5";
+  add_pgn_to_book(pgn);
 
   // Weirdo provocative line:
   let pgn = "1. e4 f6 2. Qh5+ g6 3. Be2 gxh5 4. Bxh5";
@@ -49,6 +51,30 @@ pub fn initialize_chess_book() {
 
   // Budapest:
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
+  add_pgn_to_book(pgn);
+
+  // King's gambit
+  let pgn = "1. e4 e5 2. f4 exf4 3. Nf3 g5 4. h4 g4 5. Ne5 Nf6 6. Bc4 d5 7. exd5 Bd6 8. d4 Nh5 9. O-O O-O 10. Rxf4 Nxf4 11. Bxf4 Qxh4 12. g3 Qh5 13. Nc3 Bf5 14. Qd2 f6 15. Nd3 Nd7 16. Bxd6 cxd6 17. Nf4 Qh6";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. f4 d5 3. exd5 exf4 4. Nf3 Nf6 5. Bc4 Nxd5 6. O-O Be6 7. Bb3 Be7 8. c4 Nb6 9. d4 Nxc4 10. Nc3 Nb6 11. d5";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. f4 Bc5 3. Nf3 d6 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb6 7. Nc3 O-O 8. e5 dxe5 9. fxe5 Nd5 10. Bg5 Nxc3 11. bxc3 Qd5 12. Bd3 Bg4 13. h3 Bh5 14. Qe2 Nc6 15. Be4 Qd7 16. O-O";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. f4 Qh4+ 3. g3 Qe7 4. fxe5 d6 5. exd6 Qxe4+ 6. Qe2 Qxe2+ 7. Nxe2 Bxd6 8. Bg2 Nc6 9. d4 Bg4 10. c3 O-O-O 11. h3 Bxe2 12. Kxe2 Bxg3 13. Bxc6";
+  add_pgn_to_book(pgn);
+
+  // Russian game
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nf3 Nxe4 5. Bd3 Nf6 6. O-O Be7 7. c3 Bg4 8. h3 Bh5 9. Re1 Nbd7 10. Bf1 O-O 11. d4 d5 12. Bf4 Ne4 13. Bd3 f5";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nf3 Nxe4 5. Nc3 Nxc3 6. dxc3 Be7 7. Be3 Nc6 8. Qd2 Be6 9. O-O-O Qd7 10. Kb1 Bf6 11. h4 O-O-O 12. Nd4 Nxd4 13. Bxd4 Be5 14. Qe3 Qa4 15. b3 Bxd4 16. Rxd4 Qc6 17. Kb2 Kb8 18. Bd3 d5";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. d4 Nxe4 4. Nxe5 d5 5. Nd2 Bd6 6. Bd3 Bxe5 7. dxe5 Nc5 8. Nf3 Bg4 9. Be2 Nc6 10. O-O O-O 11. h3 Bh5 12. Be3 Ne4 13. Bf4 Re8 14. Re1 Qd7 15. Qd3 Nc5 16. Qd2 Ne4 17. Qe3 Bxf3 18. Bxf3 Nxe5 19. Bxe4 dxe4 20. Rad1 Qb5 21. Qe2 Qxb2 22. Qxe4 Qxa2";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nxe4 4. Qe2 Qe7 5. Qxe4 d6 6. d4 dxe5 7. dxe5 Nc6 8. Bb5 Bd7 9. Nc3 O-O-O 10. Bf4 g5 11. Bg3 a6 12. Bc4 Be6 13. Bxa6 Qc5 14. Bd3 h5 15. h3 Rd4 16. Qe2 h4 17. Bh2 g4 18. hxg4 h3 19. f4 Qa5 20. Kf1 Qb6 21. Ne4 Qxb2 22. Rd1 Rxd3 23. Rxd3 Nd4 24. Qd2 Bb4 25. c3 Qb1+ 26. Qd1 Qxa2 27. Qd2";
+  add_pgn_to_book(pgn);
+
+  // Scandinavian defence
+  let pgn = "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qa5 4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 e6 8. Nd5 Qd8 9. Nxf6+ gxf6 10. Bb3 Nd7 11. Qe2 Qc7 12. Nh4 Bg6 13. O-O-O O-O-O 14. g3 Bd6 15. Nxg6 hxg6 16. h4 f5 17. Bg5 Rde8 18. h5 gxh5 19. Rxh5 Rhg8 20. Bh4";
   add_pgn_to_book(pgn);
 
   // King indian defence
@@ -87,6 +113,21 @@ pub fn initialize_chess_book() {
   add_single_move_to_book("r1b2b1r/ppp2kpp/2n2q2/3np3/2B5/5Q2/PPPP1PPP/RNB1K2R w KQ - 2 8", "c4d5");
   let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. Ng5 d5 5. exd5 Na5 6. Bb5+ c6 7. dxc6 bxc6 8. Qf3 Be7 9. Bd3";
   add_pgn_to_book(pgn);
+
+  // Vienna game
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. Bc4 Nxe4 4. Qh5 Nd6 5. Bb3 Nc6 6. Nb5 g6 7. Qf3 f5 8. Qd5 Qf6 9. Nxc7+ Kd8 10. Nxa8";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. Bc4 Nxe4 4. Qh5 Nd6 5. Bb3 Be7 6. Qxe5 O-O 7. Nf3 Nc6 8. Qf4 Na5 9. O-O";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. Bc4 Nxe4 4. Nxe4 d5 5. Bd3 dxe4 6. Bxe4 f5 7. Bf3 Bd6 8. d3 O-O 9. Ne2 c6 10. O-O";
+  add_pgn_to_book(pgn);
+
+  // Greek gift:
+  add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kxh7 8. Ng5+ Kg8 9. Qd3 Qxg5 10. Bxg5 Nc6 11. a3 Be7 12. h4");
+  add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kh8 8. Ng5 g6 9. Qd3 Nc6 10. Bxg6 fxg6 11. Qh3+ Kg7 12. Qh7#");
+  add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kxh7 8. Ng5+ Kg6 9. h4 f5 10. h5+ Kh6 11. Nxe6+ Kh7 12. Nxd8");
+  add_pgn_from_position("r1bq4/pp1nbk2/2n1p3/2ppP2Q/2PP3P/P7/1P1N1PP1/R1B1K2R b KQ - 1 6", "1. Bxh7+ Kh8 2. Ng5 g6 3. Bxg6 Kg7 4. Nxf7 Rxf7 5. Bxf7 Kxf7 6. Qh5+");
+  
 
   // Traps:
   add_single_move_to_book("rnbqkbnr/pppp2pp/5p2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3", "f3e5");

@@ -373,20 +373,20 @@ impl Board {
   /// ### Arguments
   ///
   /// * `self` -   A Board object representing a position, side to play, etc.
-  /// * `source_square` -  Square for which we want to know the destinations
+  /// * `color` -  Color for which we want to find pinned pieces
   ///
   /// ### Return value
   ///
   /// A bitmask indicating squares that the pinned piece can move to.
   ///
-  pub fn get_pins_rays(&self) -> BoardMask {
-    let king_position = self.get_king(self.side_to_play) as usize;
+  pub fn get_pins_rays(&self, color: Color) -> BoardMask {
+    let king_position = self.get_king(color) as usize;
     assert!(king_position < 64, "No king for board: {}", self.to_fen());
 
     let mut pins: BoardMask = 0;
 
     // Get the list of potential enemy pinning pieces
-    let enemy_pieces = match self.side_to_play {
+    let enemy_pieces = match color {
       Color::White => self.pieces.black,
       Color::Black => self.pieces.white,
     };
@@ -399,7 +399,9 @@ impl Board {
       let pinning_piece = pinning_pieces.trailing_zeros() as usize;
 
       let ray = RAYS[king_position][pinning_piece]; // King is excluded from the ray
-      if (ray & self.pieces.all()).count_ones() == 2 {
+      if (ray & (self.pieces.all())).count_ones() == 2
+        && (ray & (enemy_pieces.all())).count_ones() == 1
+      {
         // TBD: This will count enemy pieces as pinnned. See the unit test.
         // I don't think it is a problem as these pins restrict how our pieces move, not the enemy pieces.
         pins |= ray;
@@ -1263,10 +1265,7 @@ impl Board {
   /// * `self` - Board object to modify
   ///
   pub fn update_checkers(&mut self) {
-    let king_position = match self.side_to_play {
-      Color::White => self.get_white_king_square(),
-      Color::Black => self.get_black_king_square(),
-    };
+    let king_position = self.get_king(self.side_to_play);
 
     self.checkers = self.get_attackers(king_position, Color::opposite(self.side_to_play));
   }
@@ -1278,7 +1277,7 @@ impl Board {
   /// * `self` - Board object to modify
   ///
   pub fn update_pins(&mut self) {
-    self.pins = self.get_pins_rays();
+    self.pins = self.get_pins_rays(self.side_to_play);
   }
 
   /// Checks if there is a piece on a square
@@ -1872,8 +1871,8 @@ mod tests {
   fn test_pins_mask_calculations() {
     // Here we have a queen pinning a pawn
     let board = Board::from_fen("rnbqkbnr/pppp1ppp/8/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2");
-    print_board_mask(board.get_pins_rays());
-    assert_eq!(9078117754732544, board.get_pins_rays());
+    print_board_mask(board.get_pins_rays(Color::Black));
+    assert_eq!(9078117754732544, board.get_pins_rays(Color::Black));
 
     // Here basically all white pieces are pinned.
     let board = Board::from_fen("4r3/3k4/4r2b/8/4RP2/q2PKN1q/8/8 w - - 0 1");
@@ -1883,23 +1882,22 @@ mod tests {
     // knight 21 is pinned to the queen direction
     // Rook 28 is pinned to the rooks direction
     // Pawn 29 is pinned to the bishop direction
-    print_board_mask(board.get_pins_rays());
-    assert_eq!(158674092752896, board.get_pins_rays());
+    print_board_mask(board.get_pins_rays(Color::White));
+    assert_eq!(158674092752896, board.get_pins_rays(Color::White));
 
     // Try another board without any pin
     let board =
       Board::from_fen("r2qr3/p2n1pkp/1p1p1np1/3bp3/2P1P2P/3B1N2/PP1Q1PP1/R3K2R w KQ - 0 15");
     println!("Board: {}", board);
-    print_board_mask(board.get_pins_rays());
-    assert_eq!(0, board.get_pins_rays());
+    print_board_mask(board.get_pins_rays(Color::White));
+    assert_eq!(0, board.get_pins_rays(Color::White));
 
     // Same again, a black pawn is in the way of the pin
     let board =
       Board::from_fen("r2qr3/p2n1pkp/1p1p1np1/3bp3/2P4P/3B1NP1/PP1Q1PP1/R3K2R w KQ - 0 15");
     println!("Board: {}", board);
-    print_board_mask(board.get_pins_rays());
-    //FIXME: Decide if this is okay:
-    // assert_eq!(0, board.get_pins_rays());
+    print_board_mask(board.get_pins_rays(Color::White));
+    assert_eq!(0, board.get_pins_rays(Color::White));
   }
 
   #[test]

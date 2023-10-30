@@ -60,7 +60,7 @@ impl HyperParameters {
 impl Default for HyperParameters {
   fn default() -> Self {
     Self {
-      learning_rate: 0.1,
+      learning_rate: 0.05,
       beta_1: 0.9,
       beta_2: 0.999,
       lambda: 1.0,
@@ -231,7 +231,7 @@ impl Default for NNUE {
 impl NNUE {
   /// Size of the input layer, has to be squares x piece_types x 2 (color)
   const LAYER_0_SIZE: usize = 64 * 6 * 2;
-  const LAYER_1_SIZE: usize = 500;
+  const LAYER_1_SIZE: usize = 64;
   const LAYER_2_SIZE: usize = 8;
   const LAYER_3_SIZE: usize = 1;
 

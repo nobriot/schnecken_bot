@@ -1,7 +1,7 @@
 use super::board_mask::*;
+use crate::model::tables::bishop_destinations::get_bishop_destinations;
 use crate::model::tables::pawn_destinations::*;
 use crate::model::tables::rook_destinations::get_rook_destinations;
-use crate::model::tables::bishop_destinations::get_bishop_destinations;
 
 // -----------------------------------------------------------------------------
 //  Constants

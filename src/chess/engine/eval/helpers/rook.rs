@@ -1,9 +1,9 @@
 use super::generic::*;
 use crate::model::board::*;
+use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::square_in_mask;
-use crate::model::board_mask::*;
 
 /// Determine if rooks are connected for a color
 ///
@@ -41,10 +41,11 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
   while rooks != 0 {
     let rook = rooks.trailing_zeros() as u8;
     let (file, _) = Board::index_to_fr(rook);
-    if is_file_open(game_state, file) {
-      score += 1.0;
-    } else if is_file_half_open(game_state, file) {
-      score += 0.5;
+
+    match get_file_state(game_state, file) {
+      FileState::Open => score += 1.0,
+      FileState::HalfOpen => score += 0.5,
+      FileState::Closed => {},
     }
 
     rooks &= rooks - 1;
