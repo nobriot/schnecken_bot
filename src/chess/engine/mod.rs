@@ -10,13 +10,13 @@ use log::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 // Same module (engine)
 use self::eval::position::{evaluate_board, is_game_over};
 use book::*;
 use cache::EngineCache;
+use nnue::NNUE;
 
 // Chess model
 use super::model::game_state::GameState;
@@ -27,6 +27,13 @@ use super::model::piece::Color;
 use super::model::piece::*;
 use crate::model::board::Board;
 use crate::model::moves::Promotion;
+
+// -----------------------------------------------------------------------------
+// Constants
+pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
+
+// -----------------------------------------------------------------------------
+// Type definitions
 
 #[derive(Clone, Debug, Default)]
 pub struct Options {
@@ -39,6 +46,8 @@ pub struct Options {
   pub max_time: usize,
   /// Number of threads to use for the search.
   pub max_threads: usize,
+  /// Number of threads to use for the search.
+  pub use_nnue: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -62,8 +71,6 @@ struct EngineState {
   pub active: Arc<Mutex<bool>>,
   /// Indicates that we want the engine to stop resolving positions
   pub stop_requested: Arc<Mutex<bool>>,
-  /// List of active thread handles in the engine
-  pub threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl Analysis {
@@ -150,6 +157,8 @@ pub struct Engine {
   options: Arc<Mutex<Options>>,
   /// Whether the engine is active of not, and if we want to stop it.
   state: EngineState,
+  /// NNUE
+  nnue: Arc<Mutex<NNUE>>,
 }
 
 impl Engine {
@@ -160,6 +169,7 @@ impl Engine {
   ///
   pub fn new() -> Self {
     initialize_chess_book();
+    let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
 
     Engine {
       position: GameState::from_fen(START_POSITION_FEN),
@@ -170,12 +180,15 @@ impl Engine {
         max_depth: 20,
         max_time: 100,
         max_threads: 30,
+        use_nnue: true,
       })),
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
-        threads: Arc::new(Mutex::new(Vec::new())),
       },
+      nnue: Arc::new(Mutex::new(
+        NNUE::load(nnue_path.as_str()).unwrap_or_default(),
+      )),
     }
   }
 
@@ -293,6 +306,9 @@ impl Engine {
     self.position.apply_move(&Move::from_string(chess_move));
     self.cache.clear_killer_moves();
     self.cache.clear_variations();
+    if self.position.move_count >= 2 {
+      self.cache.purge(self.position.move_count - 2);
+    }
     self.analysis.reset();
     self.analysis.set_depth(1);
   }
@@ -712,6 +728,9 @@ impl Engine {
 
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
+      self
+        .cache
+        .set_age(&new_game_state.board, new_game_state.move_count);
 
       let game_status = if !self.cache.has_status(&new_game_state) {
         is_game_over(&self.cache, &new_game_state)
@@ -765,6 +784,13 @@ impl Engine {
         if eval.is_nan() {
           // Position evaluation: (will be saved in the cache automatically)
           eval = evaluate_board(&new_game_state);
+
+          // FIXME: DISABLED for now. NNUE eval is still too slow.
+          if false && depth > 2 && self.options.lock().unwrap().use_nnue == true {
+            let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
+            //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.3 + nnue_eval * 0.7, );
+            eval = eval * 0.5 + nnue_eval * 0.5;
+          }
           self.cache.set_eval(&new_game_state.board, eval);
         }
       }
@@ -910,6 +936,7 @@ impl std::fmt::Display for Engine {
 
 impl Default for Engine {
   fn default() -> Self {
+    let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
     Engine {
       position: GameState::default(),
       analysis: Analysis::default(),
@@ -917,14 +944,17 @@ impl Default for Engine {
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
-        threads: Arc::new(Mutex::new(Vec::new())),
       },
       options: Arc::new(Mutex::new(Options {
         ponder: false,
         max_depth: 1,
         max_time: 0,
         max_threads: 30,
+        use_nnue: true,
       })),
+      nnue: Arc::new(Mutex::new(
+        NNUE::load(nnue_path.as_str()).unwrap_or_default(),
+      )),
     }
   }
 }

@@ -17,10 +17,10 @@ mv lichess_db_standard_rated_2023-08.pgn training_set_full.pgn
 ```
 
 The training set is kinda huge, so it makes sense to train on a fraction at a time.
-Extract for example the first 10 millions lines:
+For example, increment the offset to start from in the tail command, then use head to get only 10 million lines.
 
 ```console
-head -n 10000000 training_set_full.pgn > training_set.pgn
+tail -n +10000000 training_set_full.pgn | head -n 10000000 > training_set.pgn
 ```
 
 Then run:

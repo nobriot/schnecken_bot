@@ -192,6 +192,18 @@ fn endgame_piece_square_table_lookup(bencher: Bencher) {
   });
 }
 
+/// Checks how fast we convert a game state to NNUE input layer
+#[divan::bench(sample_count = 10000)]
+fn nnue_input_layer_conversion(bencher: Bencher) {
+  let mut nnue = NNUE::default();
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    nnue.game_state_to_input_layer(&vec![&game_state]);
+  });
+}
+
 /// Checks how fast the NNUE is evaluating a board position
 #[divan::bench(sample_count = 10000)]
 fn nnue_board_evaluation(bencher: Bencher) {
@@ -200,8 +212,7 @@ fn nnue_board_evaluation(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
-    nnue.game_state_to_input_layer(&vec![&game_state]);
-    let _ = nnue.predict();
+    let _ = nnue.eval(&game_state);
   });
 }
 

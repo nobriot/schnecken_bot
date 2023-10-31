@@ -126,7 +126,7 @@ pub fn initialize_chess_book() {
   add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kxh7 8. Ng5+ Kg8 9. Qd3 Qxg5 10. Bxg5 Nc6 11. a3 Be7 12. h4");
   add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kh8 8. Ng5 g6 9. Qd3 Nc6 10. Bxg6 fxg6 11. Qh3+ Kg7 12. Qh7#");
   add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "7. Bxh7+ Kxh7 8. Ng5+ Kg6 9. h4 f5 10. h5+ Kh6 11. Nxe6+ Kh7 12. Nxd8");
-  add_pgn_from_position("r1bq4/pp1nbk2/2n1p3/2ppP2Q/2PP3P/P7/1P1N1PP1/R1B1K2R b KQ - 1 6", "1. Bxh7+ Kh8 2. Ng5 g6 3. Bxg6 Kg7 4. Nxf7 Rxf7 5. Bxf7 Kxf7 6. Qh5+");
+  add_pgn_from_position("rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7", "1. Bxh7+ Kh8 2. Ng5 g6 3. Bxg6 Kg7 4. Nxf7 Rxf7 5. Bxf7 Kxf7 6. Qh5+");
   
 
   // Traps:

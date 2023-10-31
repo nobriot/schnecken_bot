@@ -33,6 +33,8 @@ impl Default for EvalTree {
 #[derive(Clone, Debug)]
 pub struct EngineCache {
   // List of moves available from a board position
+  age: Arc<Mutex<HashMap<Board, usize>>>,
+  // List of moves available from a board position
   move_lists: Arc<Mutex<HashMap<Board, Vec<Move>>>>,
   // List of variations available from a position
   variations: Arc<Mutex<HashMap<GameState, HashMap<Move, GameState>>>>,
@@ -40,8 +42,6 @@ pub struct EngineCache {
   evals: Arc<Mutex<HashMap<Board, f32>>>,
   // Game Status of an actual board.
   statuses: Arc<Mutex<HashMap<GameState, GameStatus>>>,
-  // Tree analysis, including alpha/beta
-  tree: Arc<Mutex<HashMap<GameState, EvalTree>>>,
   // List of killer moves that we've met recently during the analysis
   killer_moves: Arc<Mutex<HashSet<Move>>>,
 }
@@ -51,11 +51,11 @@ impl EngineCache {
   ///
   pub fn new() -> Self {
     EngineCache {
+      age: Arc::new(Mutex::new(HashMap::new())),
       move_lists: Arc::new(Mutex::new(HashMap::new())),
       variations: Arc::new(Mutex::new(HashMap::new())),
       evals: Arc::new(Mutex::new(HashMap::new())),
       statuses: Arc::new(Mutex::new(HashMap::new())),
-      tree: Arc::new(Mutex::new(HashMap::new())),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
   }
@@ -80,12 +80,99 @@ impl EngineCache {
   /// Erases everything in the cache
   ///
   pub fn clear(&self) {
+    self.age.lock().unwrap().clear();
     self.move_lists.lock().unwrap().clear();
     self.variations.lock().unwrap().clear();
     self.evals.lock().unwrap().clear();
     self.statuses.lock().unwrap().clear();
-    self.tree.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
+  }
+
+  /// Purges board data that is older than the age limit
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:         Reference to a cache
+  /// * `age_limit`:    Minimum age to have in the cache.
+  ///
+  pub fn purge(&self, age_limit: usize) {
+    debug!("Purging cache with age: {age_limit}");
+    let ages = self.age.lock().unwrap();
+    let mut board_to_remove = Vec::new();
+
+    for (board, _) in ages.iter().filter(|(_, a)| **a >= age_limit) {
+      let new_board = board.clone();
+      board_to_remove.push(new_board);
+    }
+    drop(ages);
+
+    for board in board_to_remove {
+      self.age.lock().unwrap().remove(&board);
+      self.move_lists.lock().unwrap().remove(&board);
+      self.evals.lock().unwrap().remove(&board);
+    }
+
+    // Same procedure for game states
+    let mut game_states_to_remove = Vec::new();
+
+    let statuses = self.statuses.lock().unwrap();
+    for (game_state, _) in statuses.iter().filter(|(g, _)| g.move_count >= age_limit) {
+      let g_clone = game_state.clone();
+      game_states_to_remove.push(g_clone);
+    }
+    drop(statuses);
+
+    for game_state in game_states_to_remove {
+      self.statuses.lock().unwrap().remove(&game_state);
+    }
+
+    self.killer_moves.lock().unwrap().clear();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Age of a board - i.e. on which move number did we first meet the board config
+
+  /// Checks if a board position has a known age
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :        EngineCache
+  /// * `board` :       Board configuration to look up in the cache
+  ///
+  /// ### Return value
+  ///
+  /// True if the board has a known age
+  ///
+  pub fn has_age(&self, board: &Board) -> bool {
+    return self.age.lock().unwrap().contains_key(board);
+  }
+
+  /// Sets the age of a board
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Board configuration to look up in the cache
+  /// * `age` :             Move number at which we first met the board configuration
+  ///
+  ///
+  pub fn set_age(&self, board: &Board, age: usize) {
+    self.age.lock().unwrap().insert(*board, age);
+  }
+
+  /// Gets the age of a board
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Board configuration to look up in the cache
+  ///
+  /// ### Return value
+  ///
+  /// Move number at which we first met the board. 0 if we never met the board.
+  ///
+  pub fn get_age(&self, board: &Board) -> usize {
+    *self.age.lock().unwrap().get(board).unwrap_or(&0)
   }
 
   // ---------------------------------------------------------------------------
@@ -342,207 +429,6 @@ impl EngineCache {
   }
 
   // ---------------------------------------------------------------------------
-  // Tree cached data
-
-  /// Checks if a position has a EvalTree entry
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// True if the gameState has a PositionCache in the EngineCache. False otherwise
-  ///
-  pub fn has_tree_key(&self, game_state: &GameState) -> bool {
-    return self.tree.lock().unwrap().contains_key(game_state);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Alpha-Beta pruning data
-
-  /// Gets the alpha value for the board configuration
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// Alpha value that has been cached, f32::MIN if none.
-  ///
-  pub fn get_alpha(&self, game_state: &GameState) -> f32 {
-    return self
-      .tree
-      .lock()
-      .unwrap()
-      .get(game_state)
-      .unwrap_or(&EvalTree::default())
-      .alpha;
-  }
-
-  /// Sets the alpha value for the board configuration.
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :        EngineCache
-  /// * `game_state` :  GameState to look up in the cache
-  /// * `alpha` :       Alpha value to save
-  ///
-  ///
-  pub fn set_alpha(&self, game_state: &GameState, alpha: f32) {
-    if !self.has_tree_key(game_state) {
-      self
-        .tree
-        .lock()
-        .unwrap()
-        .insert(game_state.clone(), EvalTree::default());
-    }
-
-    if let Some(entry) = self.tree.lock().unwrap().get_mut(game_state) {
-      entry.alpha = alpha;
-    } else {
-      error!(
-        "Error setting alpha value in the cache for game state: {}",
-        game_state.to_fen()
-      );
-    }
-  }
-
-  /// Sets the alpha value for the board configuration
-  /// only if the previous value is lower.
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  /// * `alpha` :           Alpha value to compare with the current, replase the current only if it is higher
-  ///
-  ///
-  pub fn update_alpha(&self, game_state: &GameState, alpha: f32) {
-    if !self.has_tree_key(game_state) {
-      self.set_alpha(game_state, alpha);
-      return;
-    }
-
-    if let Some(entry) = self.tree.lock().unwrap().get_mut(game_state) {
-      if entry.alpha < alpha {
-        entry.alpha = alpha;
-      }
-    } else {
-      error!(
-        "Error updating alpha value in the cache for game state {}",
-        game_state.to_fen()
-      );
-    }
-  }
-
-  /// Gets the beta value for the GameState
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// Beta value that has been cached, f32::MIN if none.
-  ///
-  pub fn get_beta(&self, game_state: &GameState) -> f32 {
-    return self
-      .tree
-      .lock()
-      .unwrap()
-      .get(game_state)
-      .unwrap_or(&EvalTree::default())
-      .beta;
-  }
-
-  /// Sets the beta value for the board configuration.
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  /// * `beta` :   Beta value to save
-  ///
-  ///
-  pub fn set_beta(&self, game_state: &GameState, beta: f32) {
-    if !self.has_tree_key(game_state) {
-      self
-        .tree
-        .lock()
-        .unwrap()
-        .insert(game_state.clone(), EvalTree::default());
-    }
-
-    if let Some(entry) = self.tree.lock().unwrap().get_mut(game_state) {
-      entry.beta = beta;
-    } else {
-      error!(
-        "Error updating beta value in the cache for GameState {}",
-        game_state.to_fen()
-      );
-    }
-  }
-
-  /// Updates the beta value for the board configuration only
-  /// if the previous value is higher.
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :            EngineCache
-  /// * `game_state` :      GameState to look up in the cache
-  /// * `beta` :  Beta value to compare with the current, replase the current only if it is lower
-  ///
-  ///
-  pub fn update_beta(&self, game_state: &GameState, beta: f32) {
-    if !self.has_tree_key(game_state) {
-      self.set_beta(game_state, beta);
-      return;
-    }
-
-    if let Some(entry) = self.tree.lock().unwrap().get_mut(game_state) {
-      if entry.beta > beta {
-        entry.beta = beta;
-      }
-    } else {
-      error!(
-        "Error updating beta value in the cache for GameState {}",
-        game_state.to_fen()
-      );
-    }
-  }
-
-  /// Checks if alpha >= beta for a position, in which case the branch should be pruned
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :        EngineCache
-  /// * `game_state` :  GameState to look up in the cache
-  ///
-  /// ### Return value
-  ///
-  /// True if the GameState should be pruned, false otherwise
-  ///
-  pub fn is_pruned(&self, game_state: &GameState) -> bool {
-    self.get_alpha(game_state) >= self.get_beta(game_state)
-  }
-
-  /// Clears the alpha/beta stored data
-  ///
-  /// ### Arguments
-  ///
-  /// * `self` :        EngineCache
-  ///
-  ///
-  pub fn clear_alpha_beta_values(&self) {
-    self.tree.lock().unwrap().clear();
-  }
-
-  // ---------------------------------------------------------------------------
   // Position independant cached data
 
   /// Adds a killer move in the EngineCache
@@ -681,48 +567,6 @@ mod tests {
 
   use super::*;
   use crate::model::game_state::GameState;
-
-  #[test]
-  fn test_alpha_beta_cache() {
-    let engine_cache: EngineCache = EngineCache::new();
-
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let game_state = GameState::from_fen(fen);
-
-    assert_eq!(f32::MIN, engine_cache.get_alpha(&game_state));
-    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state));
-    assert_eq!(false, engine_cache.is_pruned(&game_state));
-
-    let test_alpha: f32 = 3.0;
-    engine_cache.set_alpha(&game_state, test_alpha);
-    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state));
-    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state));
-    assert_eq!(false, engine_cache.is_pruned(&game_state));
-
-    let test_beta: f32 = -343.3;
-    engine_cache.set_beta(&game_state, test_beta);
-    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state));
-    assert_eq!(test_beta, engine_cache.get_beta(&game_state));
-    assert_eq!(true, engine_cache.is_pruned(&game_state));
-
-    // These values won't be accepted, less good than the previous
-    engine_cache.update_beta(&game_state, 0.0);
-    engine_cache.update_alpha(&game_state, 0.0);
-    assert_eq!(test_alpha, engine_cache.get_alpha(&game_state));
-    assert_eq!(test_beta, engine_cache.get_beta(&game_state));
-    assert_eq!(true, engine_cache.is_pruned(&game_state));
-
-    // These values won't be accepted, less good than the previous
-    engine_cache.set_alpha(&game_state, 0.0);
-    engine_cache.set_beta(&game_state, 1.0);
-    assert_eq!(0.0, engine_cache.get_alpha(&game_state));
-    assert_eq!(1.0, engine_cache.get_beta(&game_state));
-    assert_eq!(false, engine_cache.is_pruned(&game_state));
-
-    engine_cache.clear_alpha_beta_values();
-    assert_eq!(f32::MIN, engine_cache.get_alpha(&game_state));
-    assert_eq!(f32::MAX, engine_cache.get_beta(&game_state));
-  }
 
   #[test]
   fn test_sorting_moves_by_eval_1() {

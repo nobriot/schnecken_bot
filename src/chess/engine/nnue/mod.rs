@@ -30,7 +30,7 @@ const MAGIC_BYTES: &str = "nnue";
 /// #### Hyperparameters for Neural Network training
 /// They can be tuned for each layer.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HyperParameters {
   /// Learning rate used for gradient descent
   pub learning_rate: f32,
@@ -60,7 +60,7 @@ impl HyperParameters {
 impl Default for HyperParameters {
   fn default() -> Self {
     Self {
-      learning_rate: 0.05,
+      learning_rate: 0.005,
       beta_1: 0.9,
       beta_2: 0.999,
       lambda: 1.0,
@@ -75,7 +75,7 @@ impl Default for HyperParameters {
 /// propagation
 ///
 #[allow(non_snake_case)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayerCache {
   /// Linear value cache
   pub Z: Array2<f32>,
@@ -128,7 +128,7 @@ impl LayerCache {
 /// Weights have to be of dimension (L,L-1), L being the number of nodes in a layer
 ///
 #[allow(non_snake_case)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayerState {
   /// Weights.(W)
   pub W: Array2<f32>,
@@ -163,7 +163,7 @@ impl LayerState {
 /// #### Layer in a neural network
 /// They can be tuned for each layer.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
   /// Number of nodes for that layer.
   pub nodes: usize,
@@ -177,7 +177,7 @@ pub struct Layer {
 
 /// Enum representing the different activation function we would use for the
 /// layer.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Activation {
   ReLU,
   ClippedReLU,
@@ -191,7 +191,7 @@ pub enum Activation {
 ///
 /// Just contains a bunch of Neural Net layers
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NNUE {
   /// Vector of Neural Net layers
   pub layers: Vec<Layer>,
@@ -199,12 +199,7 @@ pub struct NNUE {
   pub iterations: usize,
 }
 
-// Regularization for the weights:
-// It's a bit like normalization for the activation layer.
-// 1. if using ReLU, then initialize with w = rand / sqrt(2/n[l-1])
-// 2. if using tanh, then initialize with w = rand / sqrt(1/n[l-1])
-// 3. if using sigmoid,... let's not use sigmoid
-
+/// Default for NNUE
 impl Default for NNUE {
   fn default() -> Self {
     let mut nnue = NNUE::new();
@@ -220,7 +215,13 @@ impl Default for NNUE {
     );
     nnue.add_layer(
       NNUE::LAYER_3_SIZE,
-      HyperParameters::default(),
+      HyperParameters {
+        learning_rate: 0.0001,
+        beta_1: 0.9,
+        beta_2: 0.999,
+        lambda: 1.0,
+        dropout: 0.0,
+      },
       Activation::Tanh,
     );
     nnue
@@ -411,6 +412,24 @@ impl NNUE {
     }
 
     Y_hat
+  }
+
+  /// Evaluates the board with NNUE prediction, returns an evaluation
+  /// between -200 and 200.
+  ///
+  /// TODO: Finish description
+  ///
+  pub fn eval(&mut self, game_state: &GameState) -> f32 {
+    self.game_state_to_input_layer(&[game_state]);
+    let eval = self.predict();
+    let eval = eval[0];
+    let mut eval = 6.0 * eval.atanh();
+
+    if game_state.board.side_to_play == Color::Black {
+      eval = -eval;
+    }
+
+    eval
   }
 
   /// Back propagate using gradient descent.
@@ -637,6 +656,8 @@ impl NNUE {
   }
 
   /// TODO: Write description
+  ///
+  /// FIXME: We just need the board here, not the full game state
   ///
   ///
   ///

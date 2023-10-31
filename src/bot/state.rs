@@ -422,8 +422,6 @@ impl BotState {
 
     // Tell the engine to continue thinking while the opponent is playing ;)
     //game.engine.go();
-    // Clear our cache, else we risk running out of memory:
-    game.engine.clear_cache();
 
     Ok(())
   }
