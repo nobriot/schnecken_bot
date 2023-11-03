@@ -67,6 +67,10 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 
   //if is_king_and_pawn_endgame(game_state) {}
 
+  // FIXME: The other day we just exchanged rooks for a knight vs pawn endgame. 
+  // this cannot be winning so we should not material exchange if we are 
+  // left with a minor piece.
+
   // TODO: Implement a proper evaluation here
   let mut score: f32 = 0.0;
   /*

@@ -37,6 +37,8 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(sicilian);
   let pgn = "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. f3 e5 6. Nb3 Be6 7. c4 Nbd7 8. Be3 Rc8 9. Nc3 Bxc4 10. Bxc4 Rxc4 11. Qd3 Rc6 ";
   add_pgn_to_book(pgn);
+  let pgn = "1. e4 c5 2. Nc3 a6 3. Nge2 Nf6 4. e5 Ng4 5. f4 e6 6. d4 d5 7. exd6 Bxd6 8. h3 Nf6 9. dxc5 Bxc5 10. Qxd8+ Kxd8 11. g4 Bd7 12. Bd2 Bc6 13. Rh2 Kc7 14. O-O-O Nbd7 15. Bg2 Nb6 16. Bxc6 bxc6 17. Ng3";
+  add_pgn_to_book(pgn);
 
   // Ruy lopez
   let ruy_lopez_pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Na5 10. Bc2 c5 11. d4 Qc7 12. Nbd2 cxd4 13. cxd4 Nc6 14. Nb3 a5";
@@ -52,6 +54,20 @@ pub fn initialize_chess_book() {
   // Budapest:
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
   add_pgn_to_book(pgn);
+  let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Nc3 Nxe5 5. e4 Bb4 6. Bd2 d6 7. f4 Bg4 8. Qc2 Ned7 9. a3 Bxc3 10. Bxc3 O-O 11. Kf2 a5 12. h3 Be6 13. Nf3 f6 14. Re1 Nc6 15. g4 a4 16. Rg1 Nc5 17. Rg3 Qe7";
+  add_pgn_to_book(pgn);
+
+  // Evans gambit
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 d6 7. Qb3 Qd7 8. dxe5 Nxe5 9. Nxe5 dxe5 10. O-O c6 11. Rd1 Qc7 12. Ba3 Bg4 13. f3 b5 14. fxg4 bxc4 15. Qxc4 Bb6+ 16. Kf1 Nf6 17. h3 Rd8 18. Rxd8+ Qxd8 19. Ke2 Qd7 20. Nd2 c5 21. Rd1";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. b4 Bxb4 5. c3 Ba5 6. d4 exd4 7. Qb3 Qf6 8. O-O Bb6 9. e5 Qg6 10. cxd4 Nge7";
+  add_pgn_to_book(pgn);
+
+  // Center game
+  let pgn = "1. e4 e5 2. d4 exd4 3. Qxd4 Nc6 4. Qe3 Nf6 5. Nc3 Bb4 6. Bd2 O-O 7. O-O-O Re8 8. Qg3 Rxe4 9. a3 Bd6 10. f4 Re8 11. Bd3 Bf8 12. Nf3 d5";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. d4 exd4 3. Nf3 Bb4+ 4. Nbd2 Nc6 5. Bd3 Bc5 6. Nb3 Bb6 7. O-O d6 8. a4 a6 9. Re1 h6 10. a5 Ba7 11. e5 Nge7 12. Bf4 O-O";
+  add_pgn_to_book(pgn);
 
   // King's gambit
   let pgn = "1. e4 e5 2. f4 exf4 3. Nf3 g5 4. h4 g4 5. Ne5 Nf6 6. Bc4 d5 7. exd5 Bd6 8. d4 Nh5 9. O-O O-O 10. Rxf4 Nxf4 11. Bxf4 Qxh4 12. g3 Qh5 13. Nc3 Bf5 14. Qd2 f6 15. Nd3 Nd7 16. Bxd6 cxd6 17. Nf4 Qh6";
@@ -61,6 +77,8 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 e5 2. f4 Bc5 3. Nf3 d6 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb6 7. Nc3 O-O 8. e5 dxe5 9. fxe5 Nd5 10. Bg5 Nxc3 11. bxc3 Qd5 12. Bd3 Bg4 13. h3 Bh5 14. Qe2 Nc6 15. Be4 Qd7 16. O-O";
   add_pgn_to_book(pgn);
   let pgn = "1. e4 e5 2. f4 Qh4+ 3. g3 Qe7 4. fxe5 d6 5. exd6 Qxe4+ 6. Qe2 Qxe2+ 7. Nxe2 Bxd6 8. Bg2 Nc6 9. d4 Bg4 10. c3 O-O-O 11. h3 Bxe2 12. Kxe2 Bxg3 13. Bxc6";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 e5 2. f4 d5 3. Nf3 dxe4 4. Nxe5 Bd6 5. Nc3 Nf6 6. d4 exd3 7. Bxd3 O-O 8. Be3 Nc6 9. Nxc6 bxc6 10. O-O Re8 11. Qf3 Ng4 12. Bf2 Nxf2 13. Qxf2";
   add_pgn_to_book(pgn);
 
   // Russian game
@@ -103,6 +121,8 @@ pub fn initialize_chess_book() {
 
   // More random games
   let pgn = "1. f4 d5 2. Nf3 g6 3. g3 Bg7 4. Bg2 Nf6 5. O-O O-O 6. d3 c5 7. c3 Nc6 8. Na3 Rb8 9. Ne5 Qc7 10. Qa4 a6 11. Nxc6 bxc6 12. e4 Bd7 13. Nc2 h5 14. Ne3 h4 15. Qd1 Nh5 16. Bf3 hxg3 17. Bxh5 gxh5 18. Qxh5 c4 19. Rf3 gxh2+ 20. Kxh2";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 c5 2. Nc3 a6 3. Nge2 Nf6 4. e5 Ng4 5. f4 e6 6. d4 d5 7. exd6 Bxd6 8. h3 Nf6 9. dxc5 Bxc5 10. Qxd8+ Kxd8 11. g4 Bd7 12. Bd2 Bc6 13. Rh2 Kc7 14. O-O-O Nbd7 15. Bg2 Nb6 16. Bxc6 bxc6 17. Ng3";
   add_pgn_to_book(pgn);
 
   // Aggressive games
@@ -207,7 +227,7 @@ pub fn add_line_to_book(line: &str) {
       move_list.push(m);
     }
 
-    game_state.apply_move(&Move::from_string(chess_move));
+    game_state.apply_move_from_notation(chess_move);
   }
 }
 

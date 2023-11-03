@@ -165,6 +165,51 @@ impl GameState {
     }
   }
 
+  /// Looks at the board and finds the move (with all move data associated)
+  /// based on the move notation
+  ///
+  /// ### Arguments
+  ///
+  /// * `move_notation`: Move notation to find on the board, e.g. "e2e4"
+  ///
+  /// ### Return value
+  ///
+  /// Move data. Will return a 0 value if the move is not found.
+  ///
+  pub fn get_move_from_notation(&self, move_notation: &str) -> Move {
+    let candidates = self.board.get_moves();
+
+    for c in candidates {
+      if c.to_string() == move_notation {
+        return c;
+      }
+    }
+
+    warn!(
+      "Could not identify move {} for board: {}",
+      move_notation,
+      self.to_fen()
+    );
+    Move { data: 0 }
+  }
+
+  /// Same as `apply_move`, except that it takes a move notation
+  ///
+  /// ### Arguments
+  ///
+  /// * `chess_move`: Reference to a move.
+  ///
+  pub fn apply_move_from_notation(&mut self, move_notation: &str) {
+    let m = self.get_move_from_notation(move_notation);
+    self.apply_move(&m);
+  }
+
+  /// Applies a move for the game.
+  ///
+  /// ### Arguments
+  ///
+  /// * `chess_move`: Reference to a move.
+  ///
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
     if !square_in_mask!(chess_move.src(), self.board.pieces.all()) {
       error!(
@@ -219,7 +264,7 @@ impl GameState {
 
     let moves: Vec<&str> = move_list.split(' ').collect();
     for chess_move in moves {
-      self.apply_move(&Move::from_string(chess_move));
+      self.apply_move_from_notation(chess_move);
     }
   }
 
@@ -336,8 +381,7 @@ mod tests {
     }
 
     // Apply the en-passant move, check that the destination capture pawn is gone.
-    let en_passant_move = Move::from_string("d5c6");
-    game_state.apply_move(&en_passant_move);
+    game_state.apply_move_from_notation("d5c6");
     let expected_fen = "r2q1rk1/p2b1ppp/2Pbpn2/8/2B5/2N2Q2/PP3PPP/R1B2RK1 b - - 0 14";
     assert_eq!(expected_fen, game_state.to_fen());
   }
@@ -346,7 +390,7 @@ mod tests {
   fn test_apply_some_moves() {
     let fen = "r2qk2r/p1pb1ppp/3bpn2/8/2BP4/2N2Q2/PP3PPP/R1B2RK1 b kq - 2 12";
     let mut game_state = GameState::from_fen(fen);
-    game_state.apply_move(&Move::from_string("a7a5"));
+    game_state.apply_move_from_notation("a7a5");
 
     let expected_fen = "r2qk2r/2pb1ppp/3bpn2/p7/2BP4/2N2Q2/PP3PPP/R1B2RK1 w kq - 0 13";
     assert_eq!(expected_fen, game_state.to_fen().as_str());

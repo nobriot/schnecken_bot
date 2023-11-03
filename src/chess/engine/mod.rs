@@ -303,7 +303,7 @@ impl Engine {
     if self.is_active() {
       self.stop();
     }
-    self.position.apply_move(&Move::from_string(chess_move));
+    self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
     self.cache.clear_variations();
     if self.position.move_count >= 2 {
@@ -700,7 +700,7 @@ impl Engine {
     }
 
     if depth > max_depth {
-      println!("Reached maximum depth {max_depth}. Stopping search");
+      //println!("Reached maximum depth {max_depth}. Stopping search");
       return HashMap::new();
     }
 
@@ -712,11 +712,11 @@ impl Engine {
     for m in &moves {
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      //if (alpha - 3.0) > beta {
-      // TODO: Find why this does not seem to improve anything.
-      //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
-      //break;
-      //}
+      if (alpha - 4.0) > beta {
+        // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
+        //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
+        break;
+      }
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth

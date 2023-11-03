@@ -1,6 +1,7 @@
 maia5
 sargon-2ply
 maia1
+CodingAdventureBot
 Jibbby
 FlounderBot
 ELO_1500

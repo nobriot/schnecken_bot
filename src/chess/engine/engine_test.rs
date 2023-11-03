@@ -78,7 +78,22 @@ fn engine_earch_real_game_w1mLoTRZ() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() != "c3e2");
+  assert!(engine.get_best_move().to_string() == "c3e2");
   let eval = analysis[0].1;
   assert!(eval < -2.0);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_earch_real_game_W89VkRfp() {
+  let mut engine = Engine::new();
+  engine.set_position("4r1k1/2p2ppp/8/p1b5/P3n3/2N4P/1P1B1PP1/R5K1 w - - 1 22");
+  engine.set_search_time_limit(1624);
+  engine.go();
+  engine.print_evaluations();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert!(engine.get_best_move().to_string() == "c3e4");
+  let eval = analysis[0].1;
+  assert!(eval > 1.0);
 }

@@ -90,6 +90,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       score -= HANGING_FACTOR * Piece::material_value_from_type(piece);
     }
 
+    /*
     // Check if we have some good positional stuff
     if has_reachable_outpost(game_state, i as usize) {
       score += REACHABLE_OUTPOST_BONUS;
@@ -97,6 +98,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if occupies_reachable_outpost(game_state, i as usize) {
       score += OUTPOST_BONUS;
     }
+    */
   }
 
   for (i, piece) in game_state.board.pieces.black {
@@ -111,6 +113,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       score += HANGING_FACTOR * Piece::material_value_from_type(piece);
     }
 
+    /*
     // Check if we have some good positional stuff
     if has_reachable_outpost(game_state, i as usize) {
       score -= REACHABLE_OUTPOST_BONUS;
@@ -118,6 +121,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if occupies_reachable_outpost(game_state, i as usize) {
       score -= OUTPOST_BONUS;
     }
+    */
   }
 
   // Pinned pieces is never confortable
@@ -207,14 +211,14 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
     }
   }
   if game_state.ply >= 100 {
-    debug!("100 Ply detected");
+    //debug!("100 Ply detected");
     cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
   }
 
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if game_state.board.is_game_over_by_insufficient_material() {
-    debug!("game over by insufficient material detected");
+    //debug!("game over by insufficient material detected");
     cache.set_eval(&game_state.board, 0.0);
     cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
@@ -222,7 +226,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
 
   // Check the 3-fold repetitions
   if game_state.get_board_repetitions() >= 2 {
-    debug!("3-fold repetition detected");
+    //debug!("3-fold repetition detected");
     cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
   }
@@ -347,43 +351,43 @@ mod tests {
     let mut game_state = GameState::from_fen(fen);
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("c4c3"));
+    game_state.apply_move_from_notation("c4c3");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("a4a2"));
+    game_state.apply_move_from_notation("a4a2");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("c3d4"));
+    game_state.apply_move_from_notation("c3d4");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("a2c2"));
+    game_state.apply_move_from_notation("a2c2");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("d4d5"));
+    game_state.apply_move_from_notation("d4d5");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("c2g2"));
+    game_state.apply_move_from_notation("c2g2");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("d5d6"));
+    game_state.apply_move_from_notation("d5d6");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("g2c2"));
+    game_state.apply_move_from_notation("g2c2");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("d6d5"));
+    game_state.apply_move_from_notation("d6d5");
     assert_eq!(1, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("c2c1"));
+    game_state.apply_move_from_notation("c2c1");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("d5d4"));
+    game_state.apply_move_from_notation("d5d4");
     assert_eq!(0, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("c1c2"));
+    game_state.apply_move_from_notation("c1c2");
     assert_eq!(1, game_state.get_board_repetitions());
 
-    game_state.apply_move(&Move::from_string("d4d5"));
+    game_state.apply_move_from_notation("d4d5");
     println!("{:?}", game_state);
     assert_eq!(2, game_state.get_board_repetitions());
   }
@@ -393,28 +397,27 @@ mod tests {
     // This three-fold repetition was not understood during the game: https://lichess.org/oBjYp62P/white
     let fen = "r2q1b1r/1pp1pkpp/2n1p3/p2p4/3PnB2/2NQ1NP1/PPP1PP1P/R3K2R w KQ - 2 9";
     let mut game_state = GameState::from_fen(fen);
-    game_state.apply_move(&Move::from_string("c3e4"));
-    game_state.apply_move(&Move::from_string("d5e4"));
-    game_state.apply_move(&Move::from_string("f3g5"));
-    game_state.apply_move(&Move::from_string("f7f6"));
-    game_state.apply_move(&Move::from_string("g5e4"));
-    game_state.apply_move(&Move::from_string("f6f7"));
-    game_state.apply_move(&Move::from_string("e4g5"));
-    game_state.apply_move(&Move::from_string("f7f6"));
-    game_state.apply_move(&Move::from_string("g5h7"));
-    game_state.apply_move(&Move::from_string("f6f7"));
-    game_state.apply_move(&Move::from_string("h7g5"));
-    game_state.apply_move(&Move::from_string("f7f6"));
-    game_state.apply_move(&Move::from_string("g5e4"));
-    game_state.apply_move(&Move::from_string("f6f7"));
-    game_state.apply_move(&Move::from_string("e4g5"));
-    game_state.apply_move(&Move::from_string("f7f6"));
-    game_state.apply_move(&Move::from_string("g5h7"));
+    game_state.apply_move_from_notation("c3e4");
+    game_state.apply_move_from_notation("d5e4");
+    game_state.apply_move_from_notation("f3g5");
+    game_state.apply_move_from_notation("f7f6");
+    game_state.apply_move_from_notation("g5e4");
+    game_state.apply_move_from_notation("f6f7");
+    game_state.apply_move_from_notation("e4g5");
+    game_state.apply_move_from_notation("f7f6");
+    game_state.apply_move_from_notation("g5h7");
+    game_state.apply_move_from_notation("f6f7");
+    game_state.apply_move_from_notation("h7g5");
+    game_state.apply_move_from_notation("f7f6");
+    game_state.apply_move_from_notation("g5e4");
+    game_state.apply_move_from_notation("f6f7");
+    game_state.apply_move_from_notation("e4g5");
+    game_state.apply_move_from_notation("f7f6");
+    game_state.apply_move_from_notation("g5h7");
     assert_eq!(1, game_state.get_board_repetitions());
-    game_state.apply_move(&Move::from_string("g5h7"));
-    game_state.apply_move(&Move::from_string("f6f7"));
+    game_state.apply_move_from_notation("f6f7");
     assert_eq!(1, game_state.get_board_repetitions());
-    game_state.apply_move(&Move::from_string("h7g5"));
+    game_state.apply_move_from_notation("h7g5");
     assert_eq!(2, game_state.get_board_repetitions());
   }
 
@@ -442,5 +445,12 @@ mod tests {
     assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state));
 
     assert!(evaluate_board(&game_state) < 0.0);
+  }
+
+  #[test]
+  fn evaluate_position_material_down() {
+    let game_state = GameState::from_fen("4r1k1/2p2ppp/8/p1b5/P7/2N3PP/1P1n1P2/R5K1 w - - 0 23");
+    let eval = evaluate_board(&game_state);
+    assert!(eval < -2.0);
   }
 }

@@ -400,7 +400,7 @@ impl BotState {
         if analysis[cutoff].1.is_nan() {
           break;
         }
-        if (best_eval - analysis[cutoff].1).abs() > 0.15 {
+        if (best_eval - analysis[cutoff].1).abs() > 0.015 {
           break;
         } else {
           cutoff += 1;

@@ -747,15 +747,14 @@ impl Board {
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
 
-        // Determine if this is a capture
-        let mut capture = square_in_mask!(destination_square, self.pieces.black.all()) as move_t;
-        if square_in_mask!(source_square, self.pieces.white.pawn)
-          && destination_square == self.en_passant_square
-        {
-          capture = 1;
-        }
+        // Determine if this is a capture or en-passant
+        let capture = square_in_mask!(destination_square, self.pieces.black.all()) as move_t;
+        let en_passant = square_in_mask!(source_square, self.pieces.white.pawn)
+          && destination_square == self.en_passant_square;
 
-        if !promotion {
+        if en_passant {
+          all_moves.push(en_passant_mv!(source_square, destination_square));
+        } else if !promotion {
           all_moves.push(mv!(
             source_square,
             destination_square,
@@ -873,15 +872,14 @@ impl Board {
       while destinations != 0 {
         let destination_square = destinations.trailing_zeros() as u8;
 
-        // Determine if this is a capture
-        let mut capture = square_in_mask!(destination_square, self.pieces.white.all()) as move_t;
-        if square_in_mask!(source_square, self.pieces.black.pawn)
-          && destination_square == self.en_passant_square
-        {
-          capture = 1;
-        }
+        // Determine if this is a capture or en-passant
+        let capture = square_in_mask!(destination_square, self.pieces.white.all()) as move_t;
+        let en_passant = square_in_mask!(source_square, self.pieces.black.pawn)
+          && destination_square == self.en_passant_square;
 
-        if !promotion {
+        if en_passant {
+          all_moves.push(en_passant_mv!(source_square, destination_square));
+        } else if !promotion {
           all_moves.push(mv!(
             source_square,
             destination_square,

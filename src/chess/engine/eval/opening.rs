@@ -1,10 +1,11 @@
 use super::position::default_position_evaluation;
+use crate::engine::development::get_development_score;
 use crate::engine::square_affinity::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
 // Constants
-//const DEVELOPMENT_FACTOR: f32 = 0.30;
+const DEVELOPMENT_FACTOR: f32 = 0.10;
 //const KING_DANGER_FACTOR: f32 = 0.3;
 //const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
@@ -54,11 +55,11 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
 pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
-  /*
   score += DEVELOPMENT_FACTOR
     * (get_development_score(game_state, Color::White) as f32
       - get_development_score(game_state, Color::Black) as f32);
 
+  /*
   score += KING_DANGER_FACTOR
     * (get_king_danger_score(game_state, Color::Black)
       - get_king_danger_score(game_state, Color::White));

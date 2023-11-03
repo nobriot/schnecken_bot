@@ -60,7 +60,7 @@ impl HyperParameters {
 impl Default for HyperParameters {
   fn default() -> Self {
     Self {
-      learning_rate: 0.005,
+      learning_rate: 0.0001,
       beta_1: 0.9,
       beta_2: 0.999,
       lambda: 1.0,
@@ -215,13 +215,7 @@ impl Default for NNUE {
     );
     nnue.add_layer(
       NNUE::LAYER_3_SIZE,
-      HyperParameters {
-        learning_rate: 0.0001,
-        beta_1: 0.9,
-        beta_2: 0.999,
-        lambda: 1.0,
-        dropout: 0.0,
-      },
+      HyperParameters::default(),
       Activation::Tanh,
     );
     nnue

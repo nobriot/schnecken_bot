@@ -30,6 +30,8 @@ const CHECK_MASK: move_t = 0b11;
 
 /// Bit shift to apply to verify if the move is marked as a castling move
 pub const CASTLE_SHIFT: move_t = 19;
+/// Bit shift to apply to verify if the move is marked as a en-passant move
+pub const EN_PASSANT_SHIFT: move_t = 19;
 
 // -----------------------------------------------------------------------------
 //  Macros
@@ -113,6 +115,32 @@ macro_rules! castle_mv {
   };
 }
 
+/// Helper macro that creates a en-passant Move
+///
+/// Use like this parameters: `mv!(source, destination)`
+///
+/// ### Arguments
+///
+/// * `source`          Source square for the move : 0..63;
+/// * `destination`     Destination square for the move : 0..63;
+///
+/// ### Returns
+///
+/// Move struct with the indicated data packed inside.
+///
+#[macro_export]
+macro_rules! en_passant_mv {
+  // All parameters
+  ($src:expr, $dest:expr) => {
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (1 << CAPTURE_SHIFT)
+        | (1 << EN_PASSANT_SHIFT),
+    }
+  };
+}
+
 /// Helper macro that creates a Capture Move
 ///
 /// Use like this parameters: `mv!(source, destination)`
@@ -138,6 +166,7 @@ macro_rules! capture_mv {
 
 pub use capture_mv;
 pub use castle_mv;
+pub use en_passant_mv;
 pub use mv;
 
 /// List of possible promotions in a chess game
@@ -235,6 +264,7 @@ pub struct Move {
   /// is_capture mask     : 0b 0000 0000 0000 0001 0000 0000 0000 0000
   /// checks mask         : 0b 0000 0000 0000 0110 0000 0000 0000 0000
   /// is_casle mask       : 0b 0000 0000 0000 1000 0000 0000 0000 0000
+  /// en_passant mask     : 0b 0000 0000 0001 0000 0000 0000 0000 0000
   ///
   /// Note that capture/gives_check depends on the board configuration and
   /// does not need to be exact in all use-cases.
@@ -301,6 +331,15 @@ impl Move {
   #[inline]
   pub fn is_castle(&self) -> bool {
     (self.data >> CASTLE_SHIFT) != 0
+  }
+
+  /// Returns whether the move is a en-passant move or not
+  /// This depends on the board, and moves generated e.g. from a notation
+  /// may not have accurate information here.
+  ///
+  #[inline]
+  pub fn is_en_passant(&self) -> bool {
+    (self.data >> EN_PASSANT_SHIFT) != 0
   }
 }
 
