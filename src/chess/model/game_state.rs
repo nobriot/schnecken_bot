@@ -227,8 +227,8 @@ impl GameState {
       if self.last_positions.len() >= LAST_POSITIONS_SIZE {
         self.last_positions.pop_back();
       }
-      self.last_positions.push_front(self.board.hash);
     }
+    self.last_positions.push_front(self.board.hash);
 
     // Check the ply count first:
     if square_in_mask!(chess_move.dest(), self.board.pieces.all())
@@ -250,13 +250,24 @@ impl GameState {
     self.last_moves.push(chess_move.clone());
   }
 
-  // Applies all moves from a vector of moves
+  /// Applies all moves from a vector of moves
+  ///
+  /// ### Arguments
+  ///
+  /// * `move_list`: Vector of moves to apply on the position
+  ///
   pub fn apply_moves(&mut self, move_list: &Vec<Move>) -> () {
     for chess_move in move_list {
       self.apply_move(chess_move);
     }
   }
 
+  /// Applies all moves from a vector of a string of notations
+  ///
+  /// ### Arguments
+  ///
+  /// * `move_list`: String with move notations, e.g. "e2e4 e7e5"
+  ///
   pub fn apply_move_list(&mut self, move_list: &str) -> () {
     if move_list.is_empty() {
       return;
@@ -268,6 +279,17 @@ impl GameState {
     }
   }
 
+  /// Attempts to apply a move on the board based on its PGN notation
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`: Position on which we would like to apply a move.
+  /// * `move_notation`: PGN notation of the move, e.g e4 or Bxf7
+  ///
+  /// ### Return value
+  ///
+  /// Result, indicating if the move was identified and applied or not.
+  ///
   pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
     let board_result = self.board.find_move_from_pgn_notation(move_notation);
     if let Ok(mv) = board_result {

@@ -39,7 +39,7 @@ pub struct EngineCache {
   // List of variations available from a position
   variations: Arc<Mutex<HashMap<GameState, HashMap<Move, GameState>>>>,
   // Evaluation for a given board configuration
-  evals: Arc<Mutex<HashMap<Board, f32>>>,
+  evals: Arc<Mutex<HashMap<Board, (f32, usize)>>>,
   // Game Status of an actual board.
   statuses: Arc<Mutex<HashMap<GameState, GameStatus>>>,
   // List of killer moves that we've met recently during the analysis
@@ -348,10 +348,10 @@ impl EngineCache {
   /// * `self` :            EngineCache
   /// * `board` :           Board configuration to look up in the cache
   /// * `eval` :            Evaluation value to save
+  /// * `depth` :            Depth at which we evaluated the board
   ///
-  ///
-  pub fn set_eval(&self, board: &Board, eval: f32) {
-    self.evals.lock().unwrap().insert(*board, eval);
+  pub fn set_eval(&self, board: &Board, eval: f32, depth: usize) {
+    self.evals.lock().unwrap().insert(*board, (eval, depth));
   }
 
   /// Gets the cached eval for a board position
@@ -365,8 +365,34 @@ impl EngineCache {
   ///
   /// The evaluation of the board. Returns 0 if the evaluation is unknown.
   ///
-  pub fn get_eval(&self, board: &Board) -> f32 {
-    *self.evals.lock().unwrap().get(board).unwrap_or(&f32::NAN)
+  pub fn get_eval(&self, board: &Board) -> (f32, usize) {
+    *self
+      .evals
+      .lock()
+      .unwrap()
+      .get(board)
+      .unwrap_or(&(f32::NAN, 0))
+  }
+
+  /// Gets the cached eval for a board position
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Board configuration to look up in the cache
+  ///
+  /// ### Return value
+  ///
+  /// The depth at which we have evaluated the board. Returns 0 if the board has not been evaluated.
+  ///
+  pub fn get_eval_depth(&self, board: &Board) -> usize {
+    self
+      .evals
+      .lock()
+      .unwrap()
+      .get(board)
+      .unwrap_or(&(f32::NAN, 0))
+      .1
   }
 
   // ---------------------------------------------------------------------------
@@ -503,14 +529,14 @@ impl EngineCache {
     let game_state_b = self.get_variation(game_state, b);
 
     let board_a_eval = match self.get_status(&game_state_a) {
-      GameStatus::Ongoing => self.get_eval(&game_state_a.board),
+      GameStatus::Ongoing => self.get_eval(&game_state_a.board).0,
       GameStatus::WhiteWon => 200.0,
       GameStatus::BlackWon => -200.0,
       GameStatus::Draw | GameStatus::Stalemate => 0.0,
     };
 
     let board_b_eval = match self.get_status(&game_state_b) {
-      GameStatus::Ongoing => self.get_eval(&game_state_b.board),
+      GameStatus::Ongoing => self.get_eval(&game_state_b.board).0,
       GameStatus::WhiteWon => 200.0,
       GameStatus::BlackWon => -200.0,
       GameStatus::Draw | GameStatus::Stalemate => 0.0,
@@ -583,7 +609,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state), 1);
     }
 
     // Now try to sort move list by eval:
@@ -593,9 +619,9 @@ mod tests {
     for m in engine_cache.get_move_list(&game_state.board) {
       let new_game_state = engine_cache.get_variation(&game_state, &m);
       let new_eval = engine_cache.get_eval(&new_game_state.board);
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval <= new_eval);
-      last_eval = new_eval;
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval.0);
+      assert!(last_eval <= new_eval.0);
+      last_eval = new_eval.0;
     }
 
     // Try again with White:
@@ -606,9 +632,9 @@ mod tests {
     for m in engine_cache.get_move_list(&game_state.board) {
       let new_game_state = engine_cache.get_variation(&game_state, &m);
       let new_eval = engine_cache.get_eval(&new_game_state.board);
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval >= new_eval);
-      last_eval = new_eval;
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval.0);
+      assert!(last_eval >= new_eval.0);
+      last_eval = new_eval.0;
     }
 
     // Try again with some moves not evaluated:
@@ -620,7 +646,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state), 1);
       i += 1;
       if i > 12 {
         break;
@@ -632,7 +658,7 @@ mod tests {
     for m in engine_cache.get_move_list(&game_state.board) {
       let new_game_state = engine_cache.get_variation(&game_state, &m);
       let new_eval = if engine_cache.has_eval(&new_game_state.board) {
-        engine_cache.get_eval(&new_game_state.board)
+        engine_cache.get_eval(&new_game_state.board).0
       } else {
         f32::MIN
       };
@@ -648,7 +674,7 @@ mod tests {
     for m in engine_cache.get_move_list(&game_state.board) {
       let new_game_state = engine_cache.get_variation(&game_state, &m);
       let new_eval = if engine_cache.has_eval(&new_game_state.board) {
-        engine_cache.get_eval(&new_game_state.board)
+        engine_cache.get_eval(&new_game_state.board).0
       } else {
         f32::MAX
       };
@@ -673,7 +699,7 @@ mod tests {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
       engine_cache.add_variation(&game_state, &m, &new_game_state);
-      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state));
+      engine_cache.set_eval(&new_game_state.board, evaluate_board(&new_game_state), 1);
     }
 
     // Now try to sort move list by eval:
@@ -683,9 +709,9 @@ mod tests {
     for m in engine_cache.get_move_list(&game_state.board) {
       let new_game_state = engine_cache.get_variation(&game_state, &m);
       let new_eval = engine_cache.get_eval(&new_game_state.board);
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval >= new_eval);
-      last_eval = new_eval;
+      println!("Move: {} - Eval : {}", m.to_string(), new_eval.0);
+      assert!(last_eval >= new_eval.0);
+      last_eval = new_eval.0;
     }
   }
 }

@@ -195,17 +195,17 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
     ) {
       (_, 0) => {
         cache.set_status(game_state, GameStatus::Stalemate);
-        cache.set_eval(&game_state.board, 0.0);
+        cache.set_eval(&game_state.board, 0.0, 1);
         return GameStatus::Stalemate;
       },
       (Color::Black, _) => {
         cache.set_status(game_state, GameStatus::WhiteWon);
-        cache.set_eval(&game_state.board, 200.0);
+        cache.set_eval(&game_state.board, 200.0, 1);
         return GameStatus::WhiteWon;
       },
       (Color::White, _) => {
         cache.set_status(game_state, GameStatus::BlackWon);
-        cache.set_eval(&game_state.board, -200.0);
+        cache.set_eval(&game_state.board, -200.0, 1);
         return GameStatus::BlackWon;
       },
     }
@@ -219,7 +219,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if game_state.board.is_game_over_by_insufficient_material() {
     //debug!("game over by insufficient material detected");
-    cache.set_eval(&game_state.board, 0.0);
+    cache.set_eval(&game_state.board, 0.0, 1);
     cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
   }
@@ -235,7 +235,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
   return GameStatus::Ongoing;
 }
 
-/// Evaluates a position and returns a score and if the game is over.
+/// Evaluates a position and returns a score, assuming that the game is Ongoing
 ///
 /// ### Arguments
 ///
@@ -245,6 +245,7 @@ pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
 /// ### Returns
 ///
 /// Score assigned to the position.
+///
 pub fn evaluate_board(game_state: &GameState) -> f32 {
   let score = match determine_game_phase(game_state) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
@@ -445,6 +446,14 @@ mod tests {
     assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state));
 
     assert!(evaluate_board(&game_state) < 0.0);
+  }
+
+  #[test]
+  fn test_game_over_checkmate() {
+    let fen = "4r1k1/5ppp/p1p5/1QP5/3p2b1/P7/2P1rqPP/2R2NKR w - - 5 26";
+    let game_state = GameState::from_fen(fen);
+    let cache = EngineCache::new();
+    assert_eq!(GameStatus::BlackWon, is_game_over(&cache, &game_state));
   }
 
   #[test]

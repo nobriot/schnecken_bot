@@ -39,6 +39,8 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(pgn);
   let pgn = "1. e4 c5 2. Nc3 a6 3. Nge2 Nf6 4. e5 Ng4 5. f4 e6 6. d4 d5 7. exd6 Bxd6 8. h3 Nf6 9. dxc5 Bxc5 10. Qxd8+ Kxd8 11. g4 Bd7 12. Bd2 Bc6 13. Rh2 Kc7 14. O-O-O Nbd7 15. Bg2 Nb6 16. Bxc6 bxc6 17. Ng3";
   add_pgn_to_book(pgn);
+  let pgn = "1. e4 c5 2. c3 Nf6 3. e5 Nd5 4. d4 cxd4 5. Nf3 d6 6. Bc4 dxe5 7. Nxe5 e6 8. O-O Bd6 9. cxd4 Nc6 10. Bxd5 exd5 11. Re1 Bxe5 12. Bf4 O-O 13. Bxe5 Bf5 14. Nc3 Qd7";
+  add_pgn_to_book(pgn);
 
   // Ruy lopez
   let ruy_lopez_pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Na5 10. Bc2 c5 11. d4 Qc7 12. Nbd2 cxd4 13. cxd4 Nc6 14. Nb3 a5";
@@ -55,6 +57,22 @@ pub fn initialize_chess_book() {
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
   add_pgn_to_book(pgn);
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Nc3 Nxe5 5. e4 Bb4 6. Bd2 d6 7. f4 Bg4 8. Qc2 Ned7 9. a3 Bxc3 10. Bxc3 O-O 11. Kf2 a5 12. h3 Be6 13. Nf3 f6 14. Re1 Nc6 15. g4 a4 16. Rg1 Nc5 17. Rg3 Qe7";
+  add_pgn_to_book(pgn);
+  let pgn = "1. d4 Nf6 2. c4 e5 3. Nf3 e4 4. Nfd2 c6 5. f3 d5 6. fxe4 dxe4 7. e3 c5 8. Nb3 a5 9. Nc3 cxd4 10. Qxd4 Nbd7";
+  add_pgn_to_book(pgn);
+  let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Nf3 Nc6 5. Bf4 Bb4+ 6. Nc3 Bxc3+ 7. bxc3 Qe7 8. Qd5 f6 9. exf6 Nxf6 10. Qd3 d6 11. g3 Ne5 12. Nxe5 dxe5 13. Bg5 c6";
+  add_pgn_to_book(pgn);
+  let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Nf3 Nc6 5. h3 Ngxe5 6. Nxe5 Nxe5 7. Nc3 Bb4 8. Qb3 Qe7 9. e3 O-O 10. Be2 b6 11. O-O Bxc3 12. Qxc3 Bb7 13. b4";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 c5 2. c3 Nf6 3. d3 g6 4. f4 Bg7 5. g3 O-O 6. Bg2 Nc6 7. Ne2 e5 8. fxe5 Nxe5 9. O-O d6 10. h3 h6 11. d4 Nc6 12. Nd2 Re8 13. a3 Qc7 14. Rb1 cxd4 15. cxd4 d5 16. e5 Nxe5 17. dxe5 Qxe5 18. Rf2 Bf5 19. Ra1 Qc7 20. Nf1 Bc2";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 c5 2. c3 Nc6 3. d4 d5 4. exd5 Qxd5 5. Nf3 Nf6 6. dxc5 Qxd1+ 7. Kxd1 e6 8. Be3 Ng4 9. b4 a5 10. b5 Nxe3+ 11. fxe3 Nd8 12. c6 bxc6 13. a4 Bc5 14. Nbd2 Bxe3 15. Ne5 cxb5 16. axb5";
+  add_pgn_to_book(pgn);
+
+  // Alekine defence
+  let pgn = "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. c4 Nb6 5. f4 Bf5 6. Nc3 e6 7. Nf3 dxe5 8. fxe5 Nc6 9. Be3 Bg4 10. Be2 Bxf3 11. gxf3 Qh4+ 12. Bf2 Qf4 13. c5 Nd7 14. Qc1 Qxc1+ 15. Rxc1 O-O-O";
+  add_pgn_to_book(pgn);
+  let pgn = "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. c4 Nb6 5. f4 g6 6. Nc3 Bg7 7. Be3 Be6 8. Rc1 Nxc4 9. Bxc4 Bxc4 10. Qa4+ b5 11. Nxb5 Bxb5 12. Qxb5+ Nd7 13. Nf3 Rb8 14. Qe2 Nb6 15. Bd2 Qd7 16. h4 Nd5 17. b3 h5";
   add_pgn_to_book(pgn);
 
   // Evans gambit

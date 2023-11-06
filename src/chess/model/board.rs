@@ -673,9 +673,17 @@ impl Board {
     }
   }
 
-  // Get all the possible moves for white in a position
+  /// Get all the possible moves for white in a position
+  ///
+  ///
+  /// ### Return value
+  ///
+  /// Vector of Moves
+  ///
   pub fn get_white_moves(&self) -> Vec<Move> {
     let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
+    // This is used to down-prioritize some moves
+    let mut other_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
 
     let mut ssp = self.get_color_mask(Color::White);
     let op = self.get_color_mask(Color::Black);
@@ -754,7 +762,32 @@ impl Board {
 
         if en_passant {
           all_moves.push(en_passant_mv!(source_square, destination_square));
-        } else if !promotion {
+        } else if promotion {
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteQueen,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteRook,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteKnight,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::WhiteBishop,
+            capture
+          ));
+        } else if capture != 0 {
           all_moves.push(mv!(
             source_square,
             destination_square,
@@ -762,28 +795,10 @@ impl Board {
             capture
           ));
         } else {
-          all_moves.push(mv!(
+          other_moves.push(mv!(
             source_square,
             destination_square,
-            Promotion::WhiteQueen,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteRook,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteKnight,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteBishop,
+            Promotion::NoPromotion,
             capture
           ));
         }
@@ -796,12 +811,15 @@ impl Board {
       ssp &= ssp - 1;
     }
 
+    all_moves.append(&mut other_moves);
     all_moves
   }
 
   // Get all the possible moves for black in a position
   pub fn get_black_moves(&self) -> Vec<Move> {
-    let mut all_moves = Vec::new();
+    let mut all_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
+    // This is used to down-prioritize some moves
+    let mut other_moves = Vec::with_capacity(MAXIMUM_LEGAL_MOVES);
 
     let mut ssp = self.get_color_mask(Color::Black);
     let op = self.get_color_mask(Color::White);
@@ -879,7 +897,32 @@ impl Board {
 
         if en_passant {
           all_moves.push(en_passant_mv!(source_square, destination_square));
-        } else if !promotion {
+        } else if promotion {
+          all_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackQueen,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackRook,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackKnight,
+            capture
+          ));
+          other_moves.push(mv!(
+            source_square,
+            destination_square,
+            Promotion::BlackBishop,
+            capture
+          ));
+        } else if capture != 0 {
           all_moves.push(mv!(
             source_square,
             destination_square,
@@ -887,28 +930,10 @@ impl Board {
             capture
           ));
         } else {
-          all_moves.push(mv!(
+          other_moves.push(mv!(
             source_square,
             destination_square,
-            Promotion::BlackQueen,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackRook,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackKnight,
-            capture
-          ));
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackBishop,
+            Promotion::NoPromotion,
             capture
           ));
         }
@@ -921,6 +946,7 @@ impl Board {
       ssp &= ssp - 1;
     }
 
+    all_moves.append(&mut other_moves);
     all_moves
   }
 
@@ -1264,6 +1290,7 @@ impl Board {
   ///
   pub fn update_checkers(&mut self) {
     let king_position = self.get_king(self.side_to_play);
+    debug_assert!(king_position < 64, "No king ?? fen: {}", self.to_fen());
 
     self.checkers = self.get_attackers(king_position, Color::opposite(self.side_to_play));
   }

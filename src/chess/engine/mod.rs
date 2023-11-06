@@ -357,9 +357,12 @@ impl Engine {
       debug!("Single or no move available. Just evaluating quickly");
       let mut game_state = self.position.clone();
       game_state.apply_move(&self.cache.get_move_list(&self.position.board)[0]);
-      self
-        .cache
-        .set_eval(&game_state.board, evaluate_board(&game_state));
+      if self.cache.get_eval_depth(&game_state.board) == 0 {
+        self
+          .cache
+          .set_eval(&game_state.board, evaluate_board(&game_state), 1);
+      }
+      self.analysis.set_depth(1);
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
@@ -381,7 +384,7 @@ impl Engine {
       self.analysis.update_result(result);
 
       let max_depth = self.options.lock().unwrap().max_depth;
-      if max_depth > 0 && self.analysis.get_depth() > max_depth {
+      if max_depth > 0 && self.analysis.get_depth() >= max_depth {
         break;
       }
     }
@@ -393,9 +396,7 @@ impl Engine {
     for m in &move_list {
       top_level_result.insert(*m, *scores.get(m).unwrap_or(&f32::NAN));
     }
-    move_list.sort_by(|a, b| {
-      Engine::compare_by_result_eval(self.position.board.side_to_play, a, b, &top_level_result)
-    });
+    move_list.sort_by(|a, b| self.compare_by_cache_eval(&self.position, a, b));
     self.cache.set_move_list(&self.position.board, &move_list);
 
     // We are done
@@ -441,29 +442,30 @@ impl Engine {
   /// String containing the list of best moves found by the engine
   ///
   pub fn get_line_string(&self, game_state: &GameState, side_to_play: Color, ttl: usize) -> String {
-    if ttl == 0 {
-      return String::new();
-    }
     let line_string = String::new();
-
-    if !self.cache.has_move_list(&game_state.board) {
-      return line_string;
-    }
 
     if self.cache.has_status(game_state) && self.cache.get_status(game_state) != GameStatus::Ongoing
     {
+      return line_string + format!(" / {:?}", self.cache.get_status(game_state)).as_str();
+    }
+    if ttl == 0 {
       return line_string;
+    }
+
+    if !self.cache.has_move_list(&game_state.board) {
+      return line_string + " - no moves in cache...";
     }
 
     let move_list = self.cache.get_move_list(&game_state.board);
     if move_list.is_empty() {
-      return line_string;
+      return line_string
+        + " - Empty move list ?? (check what happened it should not be GameStatus::OnGoing";
     }
     let best_move = move_list[0];
     let mut best_new_state = game_state.clone();
     best_new_state.apply_move(&best_move);
     if !self.cache.has_eval(&best_new_state.board) {
-      return line_string;
+      return best_move.to_string() + " - Not evaluated";
     }
 
     return best_move.to_string()
@@ -490,15 +492,17 @@ impl Engine {
       let mut new_state = self.position.clone();
       new_state.apply_move(&m);
       let eval = scores.get(&m).unwrap_or(&f32::NAN);
+      let ttl = if self.analysis.get_depth() > 0 { self.analysis.get_depth() - 1 } else { 0 };
       println!(
-        "Line {:<2}: Eval {:<10.2} - {} {}",
+        "Line {:<2}: Eval {:<7.2} @ depth {} - {} {}",
         i,
         eval,
+        self.cache.get_eval_depth(&new_state.board),
         m,
         self.get_line_string(
           &new_state,
           Color::opposite(self.position.board.side_to_play),
-          self.analysis.get_depth() + 1,
+          ttl,
         )
       );
       i += 1;
@@ -710,9 +714,10 @@ impl Engine {
     let mut result: HashMap<Move, f32> = HashMap::new();
 
     for m in &moves {
+      // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      if (alpha - 4.0) > beta {
+      if (alpha - 2.0) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;
@@ -758,40 +763,45 @@ impl Engine {
         GameStatus::Ongoing => {},
       }
 
-      if game_status == GameStatus::Ongoing && depth < max_depth {
-        // Recurse until we get to the bottom, spin 1 thread per move at the first level.
+      // Search more if the game is not over.
+      if game_status == GameStatus::Ongoing {
+        // First check if a transposition did not lead us to look at the position at the given depth already:
+        let mut eval_depth;
+        (eval, eval_depth) = self.cache.get_eval(&new_game_state.board);
 
-        /*
-        let self_clone = self.clone();
-        handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
-        */
-        let sub_result = self.search(
-          &new_game_state,
-          depth + 1,
-          max_depth,
-          alpha,
-          beta,
-          start_time,
-        );
-        //println!("SUb result: {:#?}", sub_result);
-        eval = match new_game_state.board.side_to_play {
-          Color::White => Engine::get_best_eval_for_white(&sub_result),
-          Color::Black => Engine::get_best_eval_for_black(&sub_result),
-        };
-      } else if game_status == GameStatus::Ongoing && depth >= max_depth {
-        // We are at the end of the depth, let's statically evaluate the board and return this eval
-        eval = self.cache.get_eval(&new_game_state.board);
-        if eval.is_nan() {
+        if eval_depth >= (max_depth - depth + 1) {
+          // nothing to do here, we already found this position at this depth
+        } else if depth < max_depth {
+          /*
+          // Recurse until we get to the bottom, spin 1 thread per move at the first level.
+          let self_clone = self.clone();
+          handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
+          */
+          let sub_result = self.search(
+            &new_game_state,
+            depth + 1,
+            max_depth,
+            alpha,
+            beta,
+            start_time,
+          );
+          //println!("SUb result: {:#?}", sub_result);
+          eval = match new_game_state.board.side_to_play {
+            Color::White => Engine::get_best_eval_for_white(&sub_result),
+            Color::Black => Engine::get_best_eval_for_black(&sub_result),
+          };
+        } else if game_status == GameStatus::Ongoing && depth >= max_depth {
           // Position evaluation: (will be saved in the cache automatically)
           eval = evaluate_board(&new_game_state);
 
-          // FIXME: DISABLED for now. NNUE eval is still too slow.
-          if false && depth > 2 && self.options.lock().unwrap().use_nnue == true {
+          // FIXME: DISABLED for now. NNUE eval is still too slow, we should implement incremental updates
+          if false && depth > 6 && self.options.lock().unwrap().use_nnue == true {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.3 + nnue_eval * 0.7, );
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
-          self.cache.set_eval(&new_game_state.board, eval);
+          eval_depth = 1;
+          self.cache.set_eval(&new_game_state.board, eval, eval_depth);
         }
       }
 
@@ -824,7 +834,15 @@ impl Engine {
      */
     moves
       .sort_by(|a, b| Engine::compare_by_result_eval(game_state.board.side_to_play, a, b, &result));
+    //println!("Best move for fen {} is {}", game_state.to_fen(), moves[0].to_string());
     self.cache.set_move_list(&game_state.board, &moves);
+    let best_eval = match game_state.board.side_to_play {
+      Color::White => alpha,
+      Color::Black => beta,
+    };
+    self
+      .cache
+      .set_eval(&game_state.board, best_eval, max_depth - depth + 1);
     return result;
   }
 
@@ -918,6 +936,53 @@ impl Engine {
     let a_eval = result.get(a).unwrap_or(&default);
     let b_eval = result.get(b).unwrap_or(&default);
 
+    if a_eval > b_eval {
+      return greater;
+    } else if a_eval < b_eval {
+      return less;
+    }
+
+    Ordering::Equal
+  }
+
+  /// Sorts the list of moves based on the data in the result
+  ///
+  /// ### Arguments
+  ///
+  /// * `Color`:     Side to play, for sorting
+  /// * `a`          Move A
+  /// * `b`          Move B
+  /// * `result`     HashMap with f32 evaluations
+  ///
+  /// ### Return value
+  ///
+  /// Ordering telling if B is Greater, Equal or Less than A
+  ///
+  fn compare_by_cache_eval(&self, game_state: &GameState, a: &Move, b: &Move) -> Ordering {
+    let mut variation_a = game_state.clone();
+    variation_a.apply_move(a);
+    let mut variation_b = game_state.clone();
+    variation_b.apply_move(b);
+
+    let (a_eval, a_depth) = self.cache.get_eval(&variation_a.board);
+    let (b_eval, b_depth) = self.cache.get_eval(&variation_b.board);
+
+    if self.cache.get_status(&variation_a) == GameStatus::Ongoing
+      && self.cache.get_status(&variation_b) == GameStatus::Ongoing
+    {
+      // Compare depths if they are ongoing position
+      if a_depth > b_depth {
+        return Ordering::Less;
+      } else if b_depth > a_depth {
+        return Ordering::Greater;
+      }
+    }
+
+    // Compare Evals
+    let (greater, less) = match game_state.board.side_to_play {
+      Color::White => (Ordering::Less, Ordering::Greater),
+      Color::Black => (Ordering::Greater, Ordering::Less),
+    };
     if a_eval > b_eval {
       return greater;
     } else if a_eval < b_eval {
@@ -1197,14 +1262,14 @@ mod tests {
       GameState::from_fen("rnbqk2r/pp3ppp/2pQpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 6");
     println!(
       "Static intermediate:  {}",
-      engine.cache.get_eval(&game_state1.board)
+      engine.cache.get_eval(&game_state1.board).0
     );
 
     let game_state =
       GameState::from_fen("rnb1k2r/pp3ppp/2pqpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7");
     println!(
       "Static from cache:  {}",
-      engine.cache.get_eval(&game_state.board)
+      engine.cache.get_eval(&game_state.board).0
     );
 
     let static_eval = evaluate_board(&game_state);
@@ -1392,11 +1457,13 @@ mod tests {
     let mut engine = Engine::new();
     engine.set_position("r1b1kbnr/pppp1p1p/4pqp1/8/3nP3/2NQ1N2/PPPP1PPP/R1B1KB1R b KQkq - 7 6");
     engine.set_search_time_limit(1897);
+    //engine.set_maximum_depth(3);
     engine.go();
     engine.print_evaluations();
     let analysis = engine.get_analysis();
     assert!(!analysis.is_empty());
     assert!(engine.get_best_move() != Move::from_string("f8d6"));
+    assert!(engine.get_best_move() != Move::from_string("f6d8"));
   }
 
   #[test]
