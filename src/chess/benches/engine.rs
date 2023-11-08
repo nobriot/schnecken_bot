@@ -149,9 +149,9 @@ fn cache_for_evals(bencher: Bencher) {
 
   bencher.bench_local(|| {
     if false == cache.has_eval(&game_state.board) {
-      cache.set_eval(&game_state.board, eval);
+      cache.set_eval(&game_state.board, eval, 1);
     } else {
-      assert_eq!(eval, cache.get_eval(&game_state.board));
+      assert_eq!(eval, cache.get_eval(&game_state.board).0);
     }
   });
 }

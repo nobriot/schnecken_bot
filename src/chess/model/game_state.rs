@@ -200,7 +200,7 @@ impl GameState {
   /// * `chess_move`: Reference to a move.
   ///
   pub fn apply_move_from_notation(&mut self, move_notation: &str) {
-    let m = self.get_move_from_notation(move_notation);
+    let m = self.get_move_from_notation(move_notation.trim());
     self.apply_move(&m);
   }
 

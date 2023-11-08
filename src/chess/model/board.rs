@@ -695,14 +695,14 @@ impl Board {
       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black) == 0
     {
-      all_moves.push(castle_mv!(4, 6));
+      other_moves.push(castle_mv!(4, 6));
     }
     if self.castling_rights.Q()
       && self.checks() == 0
       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black) == 0
     {
-      all_moves.push(castle_mv!(4, 2));
+      other_moves.push(castle_mv!(4, 2));
     }
 
     let mut checking_ray: BoardMask = u64::MAX;
@@ -830,14 +830,14 @@ impl Board {
       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White) == 0
     {
-      all_moves.push(castle_mv!(60, 62));
+      other_moves.push(castle_mv!(60, 62));
     }
     if self.castling_rights.q()
       && self.checks() == 0
       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White) == 0
     {
-      all_moves.push(castle_mv!(60, 58));
+      other_moves.push(castle_mv!(60, 58));
     }
 
     let mut checking_ray: BoardMask = u64::MAX;

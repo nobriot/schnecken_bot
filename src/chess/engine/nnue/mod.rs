@@ -767,7 +767,7 @@ impl NNUE {
       }
       reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&activation) })?;
 
-      println!("Layer size: {layer_size} - Activation: {:?}", activation);
+      //println!("Layer size: {layer_size} - Activation: {:?}", activation);
       nnue.add_layer(layer_size, HyperParameters::default(), activation);
 
       for c in 0..layer_size {

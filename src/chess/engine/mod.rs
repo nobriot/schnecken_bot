@@ -37,6 +37,9 @@ pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
 
 #[derive(Clone, Debug, Default)]
 pub struct Options {
+  /// Whether this engine is used with the UCI interface and it
+  /// should print information when searching
+  pub uci: bool,
   /// Continue thinking even if we found a winning sequence.
   pub ponder: bool,
   /// Maximum depth to go at
@@ -63,14 +66,18 @@ struct Analysis {
   pub scores: Arc<Mutex<HashMap<Move, f32>>>,
   /// Represent how deep the analysis is/was
   pub depth: Arc<Mutex<usize>>,
+  /// Represent how deep the analysis is/was
+  pub selective_depth: Arc<Mutex<usize>>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct EngineState {
   /// Indicates if the engine is active at resolving positions
   pub active: Arc<Mutex<bool>>,
   /// Indicates that we want the engine to stop resolving positions
   pub stop_requested: Arc<Mutex<bool>>,
+  /// Indicates when the engine was requested to start searching
+  pub start_time: Arc<Mutex<Instant>>,
 }
 
 impl Analysis {
@@ -122,6 +129,19 @@ impl Analysis {
     *analysis_depth += 1;
   }
 
+  /// Decrements the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  pub fn decrement_depth(&self) {
+    let mut analysis_depth = self.depth.lock().unwrap();
+    if *analysis_depth > 0 {
+      *analysis_depth -= 1;
+    }
+  }
+
   /// Increments the depth we have reached during the analysis
   ///
   /// ### Arguments
@@ -135,6 +155,44 @@ impl Analysis {
   pub fn get_depth(&self) -> usize {
     self.depth.lock().unwrap().clone()
   }
+
+  /// Sets the selective depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  /// * `selective_depth`:  New depth to set.
+  ///
+  ///
+  pub fn set_selective_depth(&self, depth: usize) {
+    let mut selective_depth = self.selective_depth.lock().unwrap();
+    *selective_depth = depth;
+  }
+
+  /// Increments the selective depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  pub fn increment_selective_depth(&self) {
+    let mut selective_depth = self.selective_depth.lock().unwrap();
+    *selective_depth += 1;
+  }
+
+  /// Increments the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  /// ### Return value
+  ///
+  /// The value contained in the analysis depth.
+  ///
+  pub fn get_selective_depth(&self) -> usize {
+    self.selective_depth.lock().unwrap().clone()
+  }
 }
 
 impl Default for Analysis {
@@ -142,6 +200,7 @@ impl Default for Analysis {
     Analysis {
       scores: Arc::new(Mutex::new(HashMap::new())),
       depth: Arc::new(Mutex::new(0)),
+      selective_depth: Arc::new(Mutex::new(0)),
     }
   }
 }
@@ -171,25 +230,30 @@ impl Engine {
     initialize_chess_book();
     let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
 
-    Engine {
-      position: GameState::from_fen(START_POSITION_FEN),
+    let mut engine = Engine {
+      position: GameState::default(),
       analysis: Analysis::default(),
       cache: EngineCache::new(),
       options: Arc::new(Mutex::new(Options {
+        uci: true,
         ponder: false,
         max_depth: 20,
-        max_time: 100,
-        max_threads: 30,
+        max_time: 0,
+        max_threads: 16,
         use_nnue: true,
       })),
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
+        start_time: Arc::new(Mutex::new(Instant::now())),
       },
       nnue: Arc::new(Mutex::new(
         NNUE::load(nnue_path.as_str()).unwrap_or_default(),
       )),
-    }
+    };
+
+    engine.set_position(START_POSITION_FEN);
+    engine
   }
 
   /// Checks if the engine is resolving a position
@@ -238,20 +302,17 @@ impl Engine {
   /// It will compare the start time with the current time and the maximum time
   /// set in the engine options
   ///
-  /// ### Arguments
-  ///
-  /// * `start_time`: Time when we started searching
-  ///
   /// ### Return value
   ///
   /// True if the (current_time - start_time) is larger than options.max_time
   /// and max_time is set to a non-zero value.
   ///
-  fn has_been_searching_too_long(&self, start_time: Instant) -> bool {
+  fn has_been_searching_too_long(&self) -> bool {
     let max_time = self.options.lock().unwrap().max_time;
     if max_time == 0 {
       return false;
     }
+    let start_time = self.get_start_time();
     (Instant::now() - start_time) > Duration::from_millis(max_time as u64)
   }
 
@@ -311,6 +372,7 @@ impl Engine {
     }
     self.analysis.reset();
     self.analysis.set_depth(1);
+    self.analysis.set_selective_depth(1);
   }
 
   /// Starts analyzing the current position
@@ -326,9 +388,7 @@ impl Engine {
     // Mark that we are now active and stop is not requested.
     self.set_stop_requested(false);
     self.set_engine_active(true);
-
-    // Start searching... now
-    let start_time = Instant::now();
+    self.set_start_time(); // Capture that we started searching now.
 
     // First check if we are in a known book position. If yes, just return the known list
     let book_entry = get_book_moves(&self.position.board);
@@ -363,24 +423,33 @@ impl Engine {
           .set_eval(&game_state.board, evaluate_board(&game_state), 1);
       }
       self.analysis.set_depth(1);
+      self.analysis.set_selective_depth(1);
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
     }
 
-    while !self.has_been_searching_too_long(start_time) && !self.stop_requested() {
+    while !self.has_been_searching_too_long() && !self.stop_requested() {
       self.analysis.increment_depth();
-      println!("Starting depth {}", self.analysis.get_depth());
+      self.analysis.increment_selective_depth();
 
+      // Try to search for the current depth
       let result = self.search(
         &self.position.clone(),
         1,
         self.analysis.get_depth(),
         f32::MIN,
         f32::MAX,
-        start_time,
       );
 
+      if self.has_been_searching_too_long() || self.stop_requested() {
+        // Toss away unfinished depths
+        self.analysis.decrement_depth();
+        break;
+      }
+
+      // Depth completed - print UCI result if needed
+      self.prints_uci_info(&result);
       self.analysis.update_result(result);
 
       let max_depth = self.options.lock().unwrap().max_depth;
@@ -390,14 +459,22 @@ impl Engine {
     }
 
     // Sort one last time the list of moves from the result: (it may have incomplete sorting if we aborted in the middle of a "depth")
+    /*
     let mut top_level_result: HashMap<Move, f32> = HashMap::new();
-    let mut move_list = self.cache.get_move_list(&self.position.board);
     let scores = self.analysis.scores.lock().unwrap();
     for m in &move_list {
       top_level_result.insert(*m, *scores.get(m).unwrap_or(&f32::NAN));
     }
-    move_list.sort_by(|a, b| self.compare_by_cache_eval(&self.position, a, b));
+    move_list.sort_by(|a, b| {
+      Engine::compare_by_result_eval(self.position.board.side_to_play, a, b, &top_level_result)
+    });
     self.cache.set_move_list(&self.position.board, &move_list);
+    */
+
+    let move_list = self.cache.get_move_list(&self.position.board);
+    if self.get_uci() {
+      println!("bestmove {}", move_list[0].to_string());
+    }
 
     // We are done
     self.set_stop_requested(false);
@@ -414,6 +491,36 @@ impl Engine {
   /// Returns the best move
   pub fn get_best_move(&self) -> Move {
     return self.cache.get_move_list(&self.position.board)[0];
+  }
+
+  /// Prints information to stdout for the GUI using UCI protocol
+  /// Nothing will be sent if the UCI option is not set in the engine
+  ///
+  pub fn prints_uci_info(&self, result: &HashMap<Move, f32>) {
+    if self.get_uci() == false {
+      return;
+    }
+    let depth = self.analysis.get_depth();
+    let selective_depth = self.analysis.get_selective_depth();
+    let start_time = self.get_start_time();
+    let (best_move, eval) =
+      Engine::get_best_move_eval_from_result(result, self.position.board.side_to_play);
+
+    let score_string = if eval.abs() > 100.0 {
+      format!("score mate {}", ((eval.signum() * 200.0) - eval) as isize)
+    } else {
+      format!("score cp {}", (eval * 100.0) as isize)
+    };
+
+    println!(
+      "info {} depth {} seldepth {} nodes {} time {} pv {}",
+      score_string,
+      depth,
+      depth,
+      self.cache.len(),
+      (Instant::now() - start_time).as_millis(),
+      best_move,
+    );
   }
 
   /// Returns the full analysis
@@ -483,6 +590,11 @@ impl Engine {
     let move_list = self.cache.get_move_list(&self.position.board);
     let mut i = 0;
 
+    if move_list.is_empty() {
+      println!("Cannot print results, we do not even know the move list!");
+      return;
+    }
+
     println!(
       "Score for position {}: {}",
       self.position.to_fen(),
@@ -507,6 +619,25 @@ impl Engine {
       );
       i += 1;
     }
+  }
+
+  //----------------------------------------------------------------------------
+  // Engine State
+
+  /// Captures the timestamp of now in an analysis in the engine state
+  ///
+  fn set_start_time(&self) {
+    *self.state.start_time.lock().unwrap() = Instant::now();
+  }
+
+  /// Retrives the start time
+  ///
+  /// ### Arguments
+  ///
+  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving a position
+  ///
+  pub fn get_start_time(&self) -> Instant {
+    *self.state.start_time.lock().unwrap()
   }
 
   //----------------------------------------------------------------------------
@@ -547,6 +678,36 @@ impl Engine {
   ///
   pub fn set_number_of_threads(&self, max_threads: usize) {
     self.options.lock().unwrap().max_threads = max_threads;
+  }
+
+  /// Helper function that sets the "uci" bool value in the engine options
+  ///
+  /// ### Arguments
+  ///
+  /// * `uci`: The new value to apply to uci
+  ///
+  pub fn set_uci(&self, uci: bool) {
+    self.options.lock().unwrap().uci = uci;
+  }
+
+  /// Helper function that sets the "uci" bool value in the engine options
+  ///
+  /// ### Arguments
+  ///
+  /// * `uci`: The new value to apply to uci
+  ///
+  pub fn get_uci(&self) -> bool {
+    return self.options.lock().unwrap().uci;
+  }
+
+  /// Helper function that sets the "use_nnue" bool value in the engine options
+  ///
+  /// ### Arguments
+  ///
+  /// * `use_nnue`: The new value to apply to use_nnue
+  ///
+  pub fn set_use_nnue(&self, nnue: bool) {
+    self.options.lock().unwrap().use_nnue = nnue;
   }
 
   //----------------------------------------------------------------------------
@@ -697,9 +858,8 @@ impl Engine {
     max_depth: usize,
     mut alpha: f32,
     mut beta: f32,
-    start_time: Instant,
   ) -> HashMap<Move, f32> {
-    if self.stop_requested() || self.has_been_searching_too_long(start_time) {
+    if self.stop_requested() || self.has_been_searching_too_long() {
       return HashMap::new();
     }
 
@@ -777,14 +937,7 @@ impl Engine {
           let self_clone = self.clone();
           handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
           */
-          let sub_result = self.search(
-            &new_game_state,
-            depth + 1,
-            max_depth,
-            alpha,
-            beta,
-            start_time,
-          );
+          let sub_result = self.search(&new_game_state, depth + 1, max_depth, alpha, beta);
           //println!("SUb result: {:#?}", sub_result);
           eval = match new_game_state.board.side_to_play {
             Color::White => Engine::get_best_eval_for_white(&sub_result),
@@ -794,8 +947,8 @@ impl Engine {
           // Position evaluation: (will be saved in the cache automatically)
           eval = evaluate_board(&new_game_state);
 
-          // FIXME: DISABLED for now. NNUE eval is still too slow, we should implement incremental updates
-          if false && depth > 6 && self.options.lock().unwrap().use_nnue == true {
+          // FIXME:  NNUE eval is still too slow, we should implement incremental updates
+          if depth > 6 && self.options.lock().unwrap().use_nnue == true {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.3 + nnue_eval * 0.7, );
             eval = eval * 0.5 + nnue_eval * 0.5;
@@ -909,6 +1062,49 @@ impl Engine {
     best_result
   }
 
+  /// Finds the best move and its evaluation within a result
+  ///
+  /// #TODO: Write description
+  ///
+  fn get_best_move_eval_from_result(result: &HashMap<Move, f32>, color: Color) -> (Move, f32) {
+    if result.is_empty() {
+      return (Move::default(), f32::NAN);
+    }
+
+    let mut best_result = match color {
+      Color::White => f32::MIN,
+      Color::Black => f32::MAX,
+    };
+    let mut best_move = Move::default();
+    for (m, eval) in result {
+      if !eval.is_nan() {
+        match color {
+          Color::White => {
+            if *eval > best_result {
+              best_result = *eval;
+              best_move = *m;
+            }
+          },
+          Color::Black => {
+            if *eval < best_result {
+              best_result = *eval;
+              best_move = *m;
+            }
+          },
+        }
+      }
+    }
+
+    // Decrement a little bit in mating sequences, so shorter mates are more attractive.
+    if !best_result.is_nan() && best_result < -100.0 {
+      best_result += 1.0;
+    } else if !best_result.is_nan() && best_result > 100.0 {
+      best_result -= 1.0;
+    }
+
+    (best_move, best_result)
+  }
+
   /// Sorts the list of moves based on the data in the result
   ///
   /// ### Arguments
@@ -1009,12 +1205,14 @@ impl Default for Engine {
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
+        start_time: Arc::new(Mutex::new(Instant::now())),
       },
       options: Arc::new(Mutex::new(Options {
+        uci: true,
         ponder: false,
-        max_depth: 1,
+        max_depth: 20,
         max_time: 0,
-        max_threads: 30,
+        max_threads: 16,
         use_nnue: true,
       })),
       nnue: Arc::new(Mutex::new(
