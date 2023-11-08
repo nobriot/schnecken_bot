@@ -1087,14 +1087,22 @@ impl Board {
     self.pieces.remove(source as u8);
 
     // Update the side to play:
-    if self.side_to_play == Color::White {
-      self.side_to_play = Color::Black;
-    } else {
-      self.side_to_play = Color::White;
-    }
+    self.flip();
+    // Update all additional data
     self.update_hash_side_to_play();
     self.update_checkers();
     self.update_pins();
+  }
+
+  /// Flips the board, i.e. changes the side to play
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`: Board reference to change the side to play
+  ///
+  #[inline]
+  pub fn flip(&mut self) {
+    self.side_to_play = Color::opposite(self.side_to_play);
   }
 
   /// Takes a move notation from a PGN, tries to find the corresponding move

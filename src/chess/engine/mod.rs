@@ -1,20 +1,21 @@
-pub mod book;
+pub mod books;
 pub mod cache;
 pub mod development;
-pub mod engine_test;
 pub mod eval;
 pub mod nnue;
 pub mod square_affinity;
+pub mod test;
 
 use log::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // Same module (engine)
 use self::eval::position::{evaluate_board, is_game_over};
-use book::*;
+use books::*;
 use cache::EngineCache;
 use nnue::NNUE;
 
@@ -35,6 +36,35 @@ pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
 // -----------------------------------------------------------------------------
 // Type definitions
 
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
+pub enum PlayStyle {
+  /// Normal play style for the engine
+  #[default]
+  Normal,
+  /// Engine will try to play very safe lines. Kind of good if the opponent is
+  /// Stronger and we just want to draw
+  Conservative,
+  /// Try spectacular sacrifices to get to the king.
+  Aggressive,
+  /// Use this with weaker opponents, at least the oppening should be provocative
+  /// like the bongcloud.
+  Provocative,
+}
+
+impl FromStr for PlayStyle {
+  type Err = ();
+
+  fn from_str(input: &str) -> Result<PlayStyle, Self::Err> {
+    match input.to_lowercase().as_str() {
+      "normal" => Ok(PlayStyle::Normal),
+      "conservative" => Ok(PlayStyle::Conservative),
+      "aggressive" => Ok(PlayStyle::Aggressive),
+      "provocative" => Ok(PlayStyle::Provocative),
+      _ => Err(()),
+    }
+  }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Options {
   /// Whether this engine is used with the UCI interface and it
@@ -51,6 +81,11 @@ pub struct Options {
   pub max_threads: usize,
   /// Number of threads to use for the search.
   pub use_nnue: bool,
+  /// Debug mode : The engine will print additional info (info string <debug string>)
+  /// if this is set to true
+  pub debug: bool,
+  /// Set the play style of the engine.
+  pub style: PlayStyle,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -227,7 +262,7 @@ impl Engine {
   /// Gets a new engine
   ///
   pub fn new() -> Self {
-    initialize_chess_book();
+    initialize_chess_books();
     let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
 
     let mut engine = Engine {
@@ -241,6 +276,8 @@ impl Engine {
         max_time: 0,
         max_threads: 16,
         use_nnue: true,
+        debug: false,
+        style: PlayStyle::Normal,
       })),
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
@@ -391,7 +428,10 @@ impl Engine {
     self.set_start_time(); // Capture that we started searching now.
 
     // First check if we are in a known book position. If yes, just return the known list
-    let book_entry = get_book_moves(&self.position.board);
+    let book_entry = get_book_moves(
+      &self.position.board,
+      self.options.lock().unwrap().style == PlayStyle::Provocative,
+    );
     if book_entry.is_some() {
       info!("Known position, returning book moves");
       let mut top_level_result: HashMap<Move, f32> = HashMap::new();
@@ -516,11 +556,17 @@ impl Engine {
       "info {} depth {} seldepth {} nodes {} time {} pv {}",
       score_string,
       depth,
-      depth,
+      selective_depth,
       self.cache.len(),
       (Instant::now() - start_time).as_millis(),
       best_move,
     );
+  }
+
+  pub fn print_debug(&self, debug_info: &str) {
+    if self.options.lock().unwrap().debug {
+      println!("info string {}", debug_info);
+    }
   }
 
   /// Returns the full analysis
@@ -708,6 +754,28 @@ impl Engine {
   ///
   pub fn set_use_nnue(&self, nnue: bool) {
     self.options.lock().unwrap().use_nnue = nnue;
+  }
+
+  /// Helper function that sets the "debug" bool value in the engine options
+  /// If debug is set to true, it will print "info string <debug_strings>"
+  /// once in a while.
+  ///
+  /// ### Arguments
+  ///
+  /// * `enabled`: Set this value to enable or disable debug information
+  ///
+  pub fn set_debug(&self, enabled: bool) {
+    self.options.lock().unwrap().debug = enabled;
+  }
+
+  /// Helper function that sets the "play style" value in the engine options
+  ///
+  /// ### Arguments
+  ///
+  /// * `play_style`: Value to set for the play style.
+  ///
+  pub fn set_play_style(&self, play_style: PlayStyle) {
+    self.options.lock().unwrap().style = play_style;
   }
 
   //----------------------------------------------------------------------------
@@ -1214,6 +1282,8 @@ impl Default for Engine {
         max_time: 0,
         max_threads: 16,
         use_nnue: true,
+        debug: false,
+        style: PlayStyle::Normal,
       })),
       nnue: Arc::new(Mutex::new(
         NNUE::load(nnue_path.as_str()).unwrap_or_default(),
@@ -1226,528 +1296,5 @@ impl Drop for Engine {
   fn drop(&mut self) {
     self.clear_cache();
     debug!("Dropping Engine!")
-  }
-}
-
-//------------------------------------------------------------------------------
-// Tests
-#[cfg(test)]
-mod tests {
-
-  use super::*;
-  #[test]
-  fn engine_select_best_move_checkmate_in_one() {
-    // This is a forced checkmate in 1:
-    let mut engine = Engine::new();
-    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36");
-    engine.set_maximum_depth(2);
-    engine.go();
-
-    // println!("engine analysis: {:#?}", engine.analysis.scores);
-    engine.print_evaluations();
-    let expected_move = Move::from_string("b6d5");
-    assert_eq!(expected_move, engine.get_best_move());
-  }
-
-  #[test]
-  fn engine_select_best_move_checkmate_in_one_for_black() {
-    // This is a forced checkmate in 1 for black:
-    let mut engine = Engine::new();
-    engine.set_position("8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55");
-    engine.set_maximum_depth(2);
-    engine.go();
-
-    //println!("engine analysis: {:#?}", engine.analysis.scores);
-    engine.print_evaluations();
-    let expected_move = Move::from_string("g3g1");
-    assert_eq!(expected_move, engine.get_best_move());
-  }
-
-  #[test]
-  fn engine_select_best_move_checkmate_in_two() {
-    // This is a forced checkmate in 2: c1b2 d4e3 b6d5
-    let mut engine = Engine::new();
-    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
-    engine.set_search_time_limit(5000);
-    engine.set_maximum_depth(3);
-    engine.go();
-
-    engine.print_evaluations();
-    let expected_move = "c1b2";
-    assert_eq!(expected_move, engine.get_best_move().to_string());
-    let analysis = engine.get_analysis();
-    assert_eq!(analysis[0].1, 199.0);
-  }
-
-  #[test]
-  fn engine_select_find_best_defensive_move() {
-    // Only good defense is : h8f8
-    let mut engine = Engine::new();
-    engine.set_position("r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7");
-    engine.set_search_time_limit(5000);
-    engine.set_maximum_depth(8);
-    engine.go();
-
-    engine.print_evaluations();
-    let expected_move = "h8f8";
-    assert_eq!(expected_move, engine.get_best_move().to_string());
-  }
-
-  #[test]
-  fn engine_save_the_last_knight() {
-    // Game: https://lichess.org/iavzLpKc
-    let mut engine = Engine::new();
-    engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");
-    engine.set_maximum_depth(20);
-    engine.set_search_time_limit(7863);
-    engine.go();
-
-    let good_moves = [Move::from_string("c3b5"), Move::from_string("c3d5")];
-    let engine_move = engine.get_best_move();
-    engine.print_evaluations();
-    if !good_moves.contains(&engine_move) {
-      assert!(
-        false,
-        "Expected either c3b5 or c3d5, but instead we have {}",
-        engine_move.to_string()
-      );
-    }
-  }
-
-  #[test]
-  fn engine_promote_this_pawn() {
-    let mut engine = Engine::new();
-    engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
-    engine.set_maximum_depth(20);
-    engine.set_search_time_limit(855);
-    engine.go();
-
-    engine.print_evaluations();
-    let expected_move = Move::from_string("a7a8Q");
-    assert_eq!(expected_move, engine.get_best_move());
-  }
-
-  #[test]
-  fn engine_go_and_stop() {
-    let mut engine = Engine::new();
-    engine.set_position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    engine.set_maximum_depth(0);
-    engine.set_search_time_limit(0);
-    engine.set_ponder(true);
-
-    let engine_clone = engine.clone();
-    let handle = std::thread::spawn(move || engine_clone.go());
-
-    std::thread::sleep(std::time::Duration::from_millis(10));
-
-    assert_eq!(true, engine.is_active());
-    std::thread::sleep(std::time::Duration::from_millis(1000));
-    assert_eq!(true, engine.is_active());
-    engine.stop();
-    assert_eq!(true, engine.is_active());
-
-    std::thread::sleep(std::time::Duration::from_millis(50));
-    assert_eq!(false, engine.is_active());
-
-    assert_eq!(true, handle.is_finished());
-  }
-
-  #[test]
-  fn engine_bench_positions_per_second() {
-    let mut engine = Engine::new();
-    engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");
-    engine.set_search_time_limit(1000);
-    engine.go();
-
-    println!("Engine cache length: {}", engine.cache.len());
-    // 100 kNPS would be nice. Right now we are at a very low number LOL
-    assert!(
-      engine.cache.len() > 100_000,
-      "Number of NPS for engine analysis: {}",
-      engine.cache.len()
-    );
-  }
-
-  #[test]
-  fn save_the_bishop() {
-    /*
-     [2023-06-26T13:51:05Z DEBUG schnecken_bot::lichess::api] Lichess get answer: {"nowPlaying":[{"color":"white","fen":"2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12","fullId":"AHbg0nGCsiMN","gameId":"AHbg0nGC","hasMoved":true,"isMyTurn":true,"lastMove":"e7e6","opponent":{"id":"sargon-1ply","rating":1233,"username":"BOT sargon-1ply"},"perf":"blitz","rated":true,"secondsLeft":160,"source":"friend","speed":"blitz","status":{"id":20,"name":"started"},"variant":{"key":"standard","name":"Standard"}}]}
-     [2023-06-26T13:51:05Z INFO  schnecken_bot] Trying to find a move for game id AHbg0nGC
-     [2023-06-26T13:51:05Z INFO  schnecken_bot::chess::engine::core] Using 1777 ms to find a move
-     Line 0 Eval: -1.8000004 - f5e6 d6e6 e2e4
-     Line 1 Eval: -4.4000006 - f3g1 e6f5
-     Line 2 Eval: -16.820002 - c2c3 f8e7
-     Line 3 Eval: -17.800003 - a2a3 f8e7
-     Line 4 Eval: -17.860003 - f3e5 f8e7
-    */
-    let mut engine = Engine::new();
-    engine.set_position("2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12");
-    engine.set_search_time_limit(2000);
-    engine.go();
-    engine.print_evaluations();
-    let expected_move = Move::from_string("f5e4");
-    assert_eq!(
-      expected_move,
-      engine.get_best_move(),
-      "Come on, the only good move is f5e4"
-    );
-  }
-
-  #[test]
-  fn test_dont_hang_pieces_1() {
-    /* Got this in a game, hanging a knight, after thinking for 16_000 ms :
-     Line 0 Eval: 0.79999995 - f8h6 d5e4 d7d5 e4d3
-     Line 1 Eval: -0.30000085 - e4f6 d5d3
-     Line 2 Eval: 2.3999996 - b7b5 d5e4 d7d5 e4d3 e7e5 b1c3
-     Line 3 Eval: 2.5499997 - b7b6 d5e4 d7d5 e4d3 e7e5 b1c3
-     Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
-    */
-    let mut engine = Engine::new();
-    engine.set_position("r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7");
-    engine.set_search_time_limit(3000);
-    engine.go();
-    engine.print_evaluations();
-
-    let best_move = engine.get_best_move().to_string();
-
-    if "e4f6" != best_move && "e4d6" != best_move {
-      assert!(
-        false,
-        "Should have been either e4f6 or e4d6, instead we have: {best_move}"
-      );
-    }
-  }
-
-  #[test]
-  fn test_dont_hang_pieces_2() {
-    /*
-      https://lichess.org/zcQesp7F#69
-      Here we blundered a rook playing e2f2
-      2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35
-      Using 1355 ms to find a move
-      Line 0 Eval: -9.860003 - e2f2 g3f2 c8b8 f2g1 c4c3 g1g2 c3c2 g2g1 c2c1Q
-      Line 1 Eval: -9.250003 - e2e5 d4e5 c8b8 g3g2 c4c3 e5e6 c3c2 e6e7 c2c1Q
-      Line 2 Eval: -7.820003 - e2a2 g3f3 a2a3 f3g2
-      Line 3 Eval: -8.105003 - e2h2 g3g4 h2e2
-      Line 4 Eval: -7.9150023 - e2d2 b4b5 d2d4
-      [2023-05-12T06:06:18Z INFO  schnecken_bot] Playing move e2f2 for game id zcQesp7F
-    */
-
-    let mut engine = Engine::new();
-    engine.set_position("2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35");
-    engine.set_search_time_limit(1000);
-    engine.go();
-    engine.print_evaluations();
-    let not_expected_move = Move::from_string("e2f2");
-    assert!(
-      not_expected_move != engine.get_best_move(),
-      "e2f2 should not be played!!"
-    );
-  }
-
-  // From game : https://lichess.org/SKF7qgMu -
-  // Did not capture the knight, it was very obvious to capture.
-  // Spent 2450 ms to come up with this crap: e5f5
-  #[test]
-  fn save_the_queen() {
-    let mut engine = Engine::new();
-    engine.set_position("rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6");
-    engine.set_search_time_limit(2450);
-    engine.go();
-    engine.print_evaluations();
-
-    let game_state1 =
-      GameState::from_fen("rnbqk2r/pp3ppp/2pQpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 6");
-    println!(
-      "Static intermediate:  {}",
-      engine.cache.get_eval(&game_state1.board).0
-    );
-
-    let game_state =
-      GameState::from_fen("rnb1k2r/pp3ppp/2pqpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7");
-    println!(
-      "Static from cache:  {}",
-      engine.cache.get_eval(&game_state.board).0
-    );
-
-    let static_eval = evaluate_board(&game_state);
-    println!("Static eval: {static_eval}");
-    assert_eq!(true, engine.cache.has_eval(&game_state.board));
-
-    let best_move = engine.get_best_move().to_string();
-    if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
-      assert!(
-        false,
-        "Should have been either e5g5, e5d4 or e5c3, instead we have: {best_move}"
-      );
-    }
-  }
-
-  // From game : https://lichess.org/47V8eE5x -
-  // Did not capture the knight, it was very obvious to capture.
-  // Spent 2900 ms to come up with this crap: d7d5
-  #[test]
-  fn capture_the_damn_knight_1() {
-    let mut engine = Engine::new();
-    engine.set_position("rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9");
-    engine.set_search_time_limit(2900);
-    engine.go();
-    engine.print_evaluations();
-
-    let best_move = engine.get_best_move().to_string();
-    if "f8f6" != best_move && "g7f6" != best_move {
-      assert!(
-        false,
-        "Should have been either f8f6 or g7f6, instead we have: {best_move}"
-      );
-    }
-  }
-
-  #[test]
-  fn evaluate_checkmate_with_castle() {
-    let mut engine = Engine::new();
-    engine.set_position("8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1");
-    engine.set_search_time_limit(10);
-    engine.go();
-    engine.print_evaluations();
-
-    assert_eq!("e1g1", engine.get_best_move().to_string());
-  }
-
-  // Game https://lichess.org/Xjgkf4pp seemed really off. Testing some of the positions here
-  #[test]
-  fn test_select_pawn_capture() {
-    let mut engine = Engine::new();
-    engine.set_position("r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11");
-    engine.set_search_time_limit(2000);
-    engine.go();
-    engine.print_evaluations();
-
-    assert_eq!("g2f3", engine.get_best_move().to_string());
-  }
-
-  #[test]
-  fn test_select_best_move_checkmate_in_two() {
-    // This is a forced checkmate in 2: c1b2 d4e3 b6d5
-    let mut engine = Engine::new();
-    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
-    engine.set_search_time_limit(5000);
-    engine.go();
-    engine.print_evaluations();
-
-    let expected_move = "c1b2";
-    assert_eq!(expected_move, engine.get_best_move().to_string());
-  }
-
-  #[test]
-  fn test_select_best_move_checkmate_in_one() {
-    // This is a forced checkmate in 1:
-    let mut engine = Engine::new();
-    engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36");
-    engine.set_search_time_limit(5000);
-    engine.go();
-    engine.print_evaluations();
-    let expected_move = Move::from_string("b6d5");
-    assert_eq!(expected_move, engine.get_best_move());
-  }
-
-  #[test]
-  fn test_avoid_threefold_repetitions() {
-    use crate::model::board::Board;
-    /* Looks like we had a permutation bug that lead us into some 3-fold repetitions
-     [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms to find a move
-       Line 0 Eval: 10.71348 - d1e2 / Permutation
-       Line 1 Eval: 6.581044 - h2h3 / Permutation
-       Line 2 Eval: 6.461045 - g3g2 / Permutation
-       Line 3 Eval: 6.431045 - a1b1 / Permutation
-       Line 4 Eval: 6.391044 - g3g1 / Permutation
-    */
-
-    let mut engine = Engine::new();
-    engine.set_position("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45");
-    engine.set_search_time_limit(1200);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
-    engine
-      .position
-      .last_positions
-      .push_back(Board::from_fen("r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
-
-    engine.go();
-    engine.print_evaluations();
-    assert!(engine.get_best_move() != Move::from_string("d1e2"));
-  }
-
-  #[test]
-  fn test_only_one_legal_move() {
-    let mut engine = Engine::new();
-    engine.set_position("5k2/R6P/8/2PKB3/1P6/1P1P1N2/5PP1/R7 b - - 0 67");
-    engine.set_search_time_limit(942);
-
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(engine.get_best_move() == Move::from_string("f8e8"));
-  }
-
-  #[test]
-  fn capture_the_bishop() {
-    let mut engine = Engine::new();
-    engine.set_position("rnbqk1nr/pp3ppp/2p5/1Q1p4/1b1Pp3/2N2N2/PPP1PPPP/R1B1KB1R w KQkq - 0 6");
-    engine.set_search_time_limit(1875);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(engine.get_best_move().to_string() == "b5b4");
-  }
-
-  #[test]
-  fn endgame_evaluation_search() {
-    let mut engine = Engine::new();
-    engine.set_position("1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1");
-    engine.set_search_time_limit(800);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-
-    // 26 moves.
-    assert_eq!(analysis.len(), 26);
-    let bad_moves = vec![
-      "c7c4", "c7c3", "c7c2", "c7d8", "c7c8", "c7b7", "c7a7", "c7e7", "c7f7", "c7d7", "c7g7",
-      "c7h7", "b8a8", "b8a7",
-    ];
-    assert!(!bad_moves.contains(&engine.get_best_move().to_string().as_str()));
-  }
-
-  #[test]
-  #[allow(non_snake_case)]
-  fn evaluate_real_game_0BYxLu3V_example_1() {
-    // https://lichess.org/0BYxLu3V has plently of blunders.
-    //
-    let mut engine = Engine::new();
-    engine.set_position("r1b1kbnr/pppp1p1p/4pqp1/8/3nP3/2NQ1N2/PPPP1PPP/R1B1KB1R b KQkq - 7 6");
-    engine.set_search_time_limit(1897);
-    //engine.set_maximum_depth(3);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(engine.get_best_move() != Move::from_string("f8d6"));
-    assert!(engine.get_best_move() != Move::from_string("f6d8"));
-  }
-
-  #[test]
-  #[allow(non_snake_case)]
-  fn evaluate_real_game_0BYxLu3V_example_2() {
-    // https://lichess.org/0BYxLu3V has plently of blunders.
-    //
-    let mut engine = Engine::new();
-    engine.set_position("r1b1k1nr/pppp1p1p/3bpqp1/8/3QP3/2N2N2/PPPP1PPP/R1B1KB1R b KQkq - 0 7");
-    engine.set_search_time_limit(1870);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(engine.get_best_move() != Move::from_string("d6e5"));
-  }
-
-  #[test]
-  fn evaluate_real_game_no8g7oup_example() {
-    // https://lichess.org/no8g7oup
-    //
-    let mut engine = Engine::new();
-    engine.set_position("r4rk1/2p5/p2pq2p/1p4p1/3Qb1n1/2N5/PPn1K1PP/R1B2B1R b - - 1 22");
-    engine.set_search_time_limit(423);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(engine.get_best_move().to_string() == "c2d4");
-  }
-
-  #[test]
-  #[allow(non_snake_case)]
-  fn evaluate_real_game_ov5SZJLX_example() {
-    // https://lichess.org/ov5SZJLX
-    // Engine came up with this:
-    // Depth 2 completed
-    // Score for position rn2kbnr/ppp1pppp/3q4/3p4/P7/2N1P2N/1PPP1PPP/R1BbKB1R w KQkq - 0 5: 21.355005
-    // Line 0 : Eval 21.355005  - f1b5 d6c6
-    // Line 1 : Eval -6.16      - e1d1 d6h2
-    // Line 2 : Eval -6.4399996 - c3d1 d6h2
-    // Line 3 : Eval -8.295     - f1d3 d1c2
-    // Line 4 : Eval -8.605     - d2d4 d1c
-
-    let mut engine = Engine::new();
-    engine.set_position("rn2kbnr/ppp1pppp/3q4/3p4/P7/2N1P2N/1PPP1PPP/R1BbKB1R w KQkq - 0 5");
-    engine.set_search_time_limit(6426);
-    engine.go();
-    engine.print_evaluations();
-    let analysis = engine.get_analysis();
-    assert!(!analysis.is_empty());
-    assert!(analysis[0].1 < -5.0);
-  }
-
-  #[ignore]
-  #[test]
-  fn test_sorting_moves_without_eval() {
-    let fen = "r1bqk2r/pp3ppp/n1pbpn2/3pQ3/B3P3/5N2/PPPP1PPP/RNB1K2R w KQkq - 6 7";
-    let game_state = GameState::from_fen(fen);
-
-    let engine = Engine::new();
-    Engine::find_move_list(&engine.cache, &game_state.board);
-
-    for m in engine.cache.get_move_list(&game_state.board) {
-      println!("Move: {}", m.to_string());
-    }
-
-    assert_eq!(
-      Move::from_string("e5d6"),
-      engine.cache.get_move_list(&game_state.board)[0]
-    );
-    assert_eq!(
-      Move::from_string("e5f6"),
-      engine.cache.get_move_list(&game_state.board)[1]
-    );
-    assert_eq!(
-      Move::from_string("e4d5"),
-      engine.cache.get_move_list(&game_state.board)[2]
-    );
-    assert_eq!(
-      Move::from_string("a4c6"),
-      engine.cache.get_move_list(&game_state.board)[3]
-    );
-    assert_eq!(
-      Move::from_string("e5e6"),
-      engine.cache.get_move_list(&game_state.board)[4]
-    );
   }
 }

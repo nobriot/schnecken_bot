@@ -1,5 +1,5 @@
 // Imports / dependencies
-use chess::engine::Engine;
+use chess::engine::*;
 use chess::model::game_state::START_POSITION_FEN;
 use regex::Regex;
 use std::io::prelude::*;
@@ -8,7 +8,7 @@ use std::process::ExitCode;
 
 // -----------------------------------------------------------------------------
 // Constants
-const POSITION_CMD_FEN_REGEX: &str = r#"^position\s*fen\s*(?P<fen>[1-8kqrbnpKQRBNP/]*\s[bw]?\s?[kqKQ-]?\s?[abcdefgh12345678-]{0,2}\s?\d*\s?\d*)"#;
+const POSITION_CMD_FEN_REGEX: &str = r#"^position\s*fen\s*(?P<fen>[1-8kqrbnpKQRBNP/]*\s[bw]?\s?[kqKQ-]*\s?[abcdefgh12345678-]{0,2}\s?\d*\s?\d*)"#;
 const POSITION_CMD_MOVE_REGEX: &str =
   r#"^position\s*[\s0-9a-zA-Z\/-]*\smoves\s(?P<moves>[\s0-9a-zA-Z\/-]*)"#;
 const SET_OPTION_NAME_VALUE_REGEX: &str =
@@ -23,15 +23,23 @@ const SET_OPTION_NAME_VALUE_REGEX: &str =
 const HELP_MESSAGE: &str = "
 DESCRIPTION
   schnecken_engine is a UCI chess engine.
-  I used this specification: https://www.stmintz.com/ccc/index.php?id=141612,
+  I used this specification: https://backscattering.de/chess/uci/,
   though I am not sure which one is the official one, it's kind of hard to find.
 
   options:
   
     setoption name use_nnue value <bool>
-
       Decides if the engine should use the NNUE. The NNUE is currently very slow
       and not incredible at prediction positions.
+
+    setoption name ponder value <bool>
+      Decides if we should ponder. Same as running \"go ponder\"
+
+    setoption name play_style type combo default Normal var Conservative var Normal var Aggressive var Provocative
+      Decides how the engine should play. Normal is the default.
+      Use Conservative to try to draw stronger opponents.
+      Use Aggressive to play aggressively.
+      Use Provocative to play weaker opponents.
 ";
 
 // Main function
@@ -68,10 +76,20 @@ fn main() -> ExitCode {
         println!("id author Nicolas W");
         println!("");
         println!("option name use_nnue type check default false");
+        println!("option name ponder type check default false");
+        println!("option name play_style type combo default Normal var Conservative var Normal var Aggressive var Provocative");
         println!("uciok");
       },
       "isready" => {
         println!("readyok");
+      },
+
+      "debug" => {
+        if line.contains("on") {
+          engine.set_debug(true);
+        } else {
+          engine.set_debug(false);
+        }
       },
 
       // Engine options
@@ -93,6 +111,14 @@ fn main() -> ExitCode {
           "use_nnue" => {
             let value = value.parse::<bool>().unwrap_or(false);
             engine.set_use_nnue(value);
+          },
+          "ponder" => {
+            let value = value.parse::<bool>().unwrap_or(false);
+            engine.set_ponder(value);
+          },
+          "play_style" => {
+            let value = value.parse::<PlayStyle>().unwrap_or_default();
+            engine.set_play_style(value);
           },
           _ => {},
         }
@@ -138,18 +164,33 @@ fn main() -> ExitCode {
           engine.position.apply_move_list(move_list);
         }
       },
+      "ucinewgame" => {
+        stop_engine_blocking(&engine);
+        engine.reset();
+      },
+
+      "flip" => {
+        if engine.is_active() {
+          continue;
+        }
+        engine.position.board.flip();
+      },
 
       "go" => {
+        // Check some of the options passed:
+        if line.contains("infinite") {
+          engine.set_maximum_depth(0);
+        }
+        if line.contains("ponder") {
+          engine.set_ponder(true);
+        }
+        // Get started searching:
         let engine_clone = engine.clone();
         let _ = std::thread::spawn(move || engine_clone.go());
         // TODO: Find out why the cache is empty when we stop here.
       },
       "stop" => {
-        while engine.is_active() {
-          engine.stop();
-          std::thread::sleep(std::time::Duration::from_millis(10));
-        }
-
+        stop_engine_blocking(&engine);
         engine.print_evaluations();
       },
 
@@ -174,4 +215,17 @@ fn main() -> ExitCode {
   }
 
   return ExitCode::SUCCESS;
+}
+
+// -----------------------------------------------------------------------------
+// Helper functions
+
+/// Synchronously request the engine to stop searching and blocks while the
+/// engine is active, returns as soon as the engine has stopped.
+///
+pub fn stop_engine_blocking(engine: &Engine) {
+  while engine.is_active() {
+    engine.stop();
+    std::thread::sleep(std::time::Duration::from_millis(10));
+  }
 }
