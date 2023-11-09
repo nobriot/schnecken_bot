@@ -1,4 +1,5 @@
-use chess::engine::cache::EngineCache;
+use chess::engine::cache::engine_cache::EngineCache;
+use chess::engine::cache::evaluation_table::EvaluationCache;
 use chess::engine::eval::endgame::*;
 use chess::engine::eval::helpers::generic::get_combined_material_score;
 use chess::engine::eval::helpers::generic::*;
@@ -8,6 +9,7 @@ use chess::engine::eval::position::*;
 use chess::engine::nnue::*;
 use chess::model::board::Board;
 use chess::model::game_state::GameState;
+use chess::model::game_state::GameStatus;
 use chess::model::moves::Move;
 
 use divan::Bencher;
@@ -94,7 +96,7 @@ fn detect_board_game_over(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
-    let _ = is_game_over(&cache, &game_state);
+    let _ = is_game_over(&cache, &game_state.board);
   });
 }
 
@@ -119,7 +121,7 @@ fn cache_for_moves(bencher: Bencher) {
     if false == cache.has_move_list(&game_state.board) {
       cache.set_move_list(&game_state.board, &move_list);
     } else {
-      assert_eq!(move_list, cache.get_move_list(&game_state.board));
+      assert_eq!(move_list, cache.get_move_list(&game_state.board).unwrap());
     }
   });
 }
@@ -129,13 +131,21 @@ fn cache_for_moves(bencher: Bencher) {
 fn cache_for_game_status(bencher: Bencher) {
   let cache: EngineCache = EngineCache::new();
   let game_state: GameState = GameState::from_board(&Board::new_random());
-  let game_status = is_game_over(&cache, &game_state);
+  let game_status = is_game_over(&cache, &game_state.board);
 
   bencher.bench_local(|| {
-    if false == cache.has_status(&game_state) {
-      cache.set_status(&game_state, game_status);
+    let eval_cache = cache.get_eval(&game_state.board).unwrap_or_default();
+    if eval_cache.depth == 0 {
+      cache.set_eval(
+        &game_state.board,
+        EvaluationCache {
+          game_status,
+          eval: f32::NAN,
+          depth: 1,
+        },
+      );
     } else {
-      assert_eq!(game_status, cache.get_status(&game_state));
+      assert_eq!(game_status, eval_cache.game_status);
     }
   });
 }
@@ -148,10 +158,19 @@ fn cache_for_evals(bencher: Bencher) {
   let eval = evaluate_board(&game_state);
 
   bencher.bench_local(|| {
-    if false == cache.has_eval(&game_state.board) {
-      cache.set_eval(&game_state.board, eval, 1);
+    let eval_cache = cache.get_eval(&game_state.board);
+    if eval_cache.is_none() {
+      cache.set_eval(
+        &game_state.board,
+        EvaluationCache {
+          game_status: GameStatus::Ongoing,
+          eval,
+          depth: 1,
+        },
+      );
     } else {
-      assert_eq!(eval, cache.get_eval(&game_state.board).0);
+      let eval_cache = eval_cache.unwrap();
+      assert_eq!(eval, eval_cache.eval);
     }
   });
 }

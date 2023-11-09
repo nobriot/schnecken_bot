@@ -1,15 +1,15 @@
 use log::*;
 
 // From our module
-use super::super::cache::EngineCache;
 use super::endgame::get_endgame_position_evaluation;
 use super::helpers::generic::*;
 use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
+use crate::engine::cache::engine_cache::EngineCache;
 use crate::engine::Engine;
-
+use crate::model::board::Board;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::CountFewOnes;
 use crate::model::game_state::*;
@@ -172,7 +172,45 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
   }
 }
 
-/// Evaluates a position and tells if it seems to be game over or not
+/// Looks at a board and verifies if the game is over.
+/// Does not count game specific sequences like 3-fold repetitions and 100 ply.
+///
+/// ### Arguments
+///
+/// * `cache` -      EngineCache to use to save the results
+/// * `board` -      Board reference to look at.
+///
+/// ### Returns
+///
+/// * GameStatus indicating if the game is ongoing or not.
+///
+pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
+  Engine::find_move_list(cache, board);
+  if cache.get_move_list(board).unwrap().is_empty() {
+    match (board.side_to_play, board.checkers.count_ones()) {
+      (_, 0) => {
+        return GameStatus::Stalemate;
+      },
+      (Color::Black, _) => {
+        return GameStatus::WhiteWon;
+      },
+      (Color::White, _) => {
+        return GameStatus::BlackWon;
+      },
+    }
+  }
+
+  // 2 kings, or 1 king + knight or/bishop vs king is game over:
+  if board.is_game_over_by_insufficient_material() {
+    //debug!("game over by insufficient material detected");
+    return GameStatus::Draw;
+  }
+
+  return GameStatus::Ongoing;
+}
+
+/// Looks at a game state and check if the game can be declared a draw
+/// (3 fold repetitions and 100-ply)
 ///
 /// ### Arguments
 ///
@@ -181,57 +219,20 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
 ///
 /// ### Returns
 ///
-/// * bool -> True if it is a game over (checkmate, stalemate, repetitions, etc.)
-/// All cases included.
-/// false if the game is ongoing and must be evaluated manually
+/// * GameStatus with GameStatus::OnGoing if draw cannot be declared.
+///  GameStatus::Draw if we have exceeded the 100-ply
+///  GameStatus::ThreeFoldRepetition if we have repeated the position
 ///
-///
-pub fn is_game_over(cache: &EngineCache, game_state: &GameState) -> GameStatus {
-  Engine::find_move_list(cache, &game_state.board);
-  if cache.get_move_list(&game_state.board).is_empty() {
-    match (
-      game_state.board.side_to_play,
-      game_state.board.checkers.count_ones(),
-    ) {
-      (_, 0) => {
-        cache.set_status(game_state, GameStatus::Stalemate);
-        cache.set_eval(&game_state.board, 0.0, 1);
-        return GameStatus::Stalemate;
-      },
-      (Color::Black, _) => {
-        cache.set_status(game_state, GameStatus::WhiteWon);
-        cache.set_eval(&game_state.board, 200.0, 1);
-        return GameStatus::WhiteWon;
-      },
-      (Color::White, _) => {
-        cache.set_status(game_state, GameStatus::BlackWon);
-        cache.set_eval(&game_state.board, -200.0, 1);
-        return GameStatus::BlackWon;
-      },
-    }
-  }
+pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
   if game_state.ply >= 100 {
-    //debug!("100 Ply detected");
-    cache.set_status(game_state, GameStatus::Draw);
-    return GameStatus::Draw;
-  }
-
-  // 2 kings, or 1 king + knight or/bishop vs king is game over:
-  if game_state.board.is_game_over_by_insufficient_material() {
-    //debug!("game over by insufficient material detected");
-    cache.set_eval(&game_state.board, 0.0, 1);
-    cache.set_status(game_state, GameStatus::Draw);
     return GameStatus::Draw;
   }
 
   // Check the 3-fold repetitions
   if game_state.get_board_repetitions() >= 2 {
-    //debug!("3-fold repetition detected");
-    cache.set_status(game_state, GameStatus::Draw);
-    return GameStatus::Draw;
+    return GameStatus::ThreeFoldRepetition;
   }
 
-  cache.set_status(game_state, GameStatus::Ongoing);
   return GameStatus::Ongoing;
 }
 
@@ -262,7 +263,6 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::engine::cache::EngineCache;
   use crate::model::moves::Move;
 
   #[test]
@@ -292,7 +292,7 @@ mod tests {
     let fen = "1n4nr/5ppp/8/1P1Np3/1P6/4kP2/1B1NP1PP/R3KB1R b KQ - 2 37";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
-    let game_status = is_game_over(&cache, &game_state);
+    let game_status = is_game_over(&cache, &game_state.board);
     assert_eq!(game_status, GameStatus::WhiteWon);
   }
   #[test]
@@ -443,7 +443,7 @@ mod tests {
     let game_state = GameState::from_fen(fen);
 
     let cache = EngineCache::new();
-    assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state));
+    assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state.board));
 
     assert!(evaluate_board(&game_state) < 0.0);
   }
@@ -453,7 +453,10 @@ mod tests {
     let fen = "4r1k1/5ppp/p1p5/1QP5/3p2b1/P7/2P1rqPP/2R2NKR w - - 5 26";
     let game_state = GameState::from_fen(fen);
     let cache = EngineCache::new();
-    assert_eq!(GameStatus::BlackWon, is_game_over(&cache, &game_state));
+    assert_eq!(
+      GameStatus::BlackWon,
+      is_game_over(&cache, &game_state.board)
+    );
   }
 
   #[test]

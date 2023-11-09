@@ -296,7 +296,8 @@ impl NNUE {
   /// Decays the learning rate
   ///
   /// ```
-  /// let mut nnue = NNUE::default()
+  /// use chess::engine::nnue::NNUE;
+  /// let mut nnue = NNUE::default();
   /// nnue.decay_learning_rate(0.9);
   /// ```
   ///
@@ -607,13 +608,10 @@ impl NNUE {
       let beta_2_correction = 1.0 - beta_2.powf(self.iterations as f32);
 
       // W = W - alpha* (vdW/(1-beta^t)) / sqrt( sdW/((1-beta2^t))) + epsilon
-      Zip::from(&mut self.layers[i].state.W)
-        .and(&vdW)
-        .and(&sdW)
-        .par_for_each(|w, &vdw, &sdw| {
-          *w -= learning_rate * (vdw / beta_1_correction)
-            / (f32::sqrt(sdw / beta_2_correction) + f32::EPSILON);
-        });
+      Zip::from(&mut self.layers[i].state.W).and(&vdW).and(&sdW).par_for_each(|w, &vdw, &sdw| {
+        *w -= learning_rate * (vdw / beta_1_correction)
+          / (f32::sqrt(sdw / beta_2_correction) + f32::EPSILON);
+      });
 
       // Regular W = W - alpha*dW
       /*

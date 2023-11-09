@@ -24,7 +24,7 @@ const NUMBER_OF_SIMULTANEOUS_GAMES: usize = 1;
 // -----------------------------------------------------------------------------
 // Types
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BotState {
   pub api: LichessApi,
   pub username: String,
@@ -39,7 +39,7 @@ pub struct GameClock {
   pub black_increment: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BotGame {
   /// Color played by the bot in the ongoing game
   pub color: lichess::types::Color,
@@ -69,10 +69,7 @@ impl BotState {
     };
 
     // Find out our username with the API token:
-    let username = api
-      .get_lichess_username()
-      .await
-      .unwrap_or(String::from(DEFAULT_USERNAME));
+    let username = api.get_lichess_username().await.unwrap_or(String::from(DEFAULT_USERNAME));
 
     BotState {
       api,
@@ -202,11 +199,10 @@ impl BotState {
     // Write a hello message
     let game_id = game.game_id.clone();
     let api_clone = self.api.clone();
-    let _ = tokio::spawn(async move {
-      api_clone
-        .write_in_chat(game_id.as_str(), "Hey! Have fun!")
-        .await
-    });
+    let _ =
+      tokio::spawn(
+        async move { api_clone.write_in_chat(game_id.as_str(), "Hey! Have fun!").await },
+      );
 
     // Game started, we add it to our games and stream the game events
     let bot_game: BotGame = BotGame {
@@ -241,11 +237,10 @@ impl BotState {
 
     // Write a goodbye message
     let api_clone = self.api.clone();
-    let _ = tokio::spawn(async move {
-      api_clone
-        .write_in_chat(&game.game_id, "Thanks for playing!")
-        .await
-    });
+    let _ =
+      tokio::spawn(
+        async move { api_clone.write_in_chat(&game.game_id, "Thanks for playing!").await },
+      );
   }
 
   /// Handles incoming gameStart events
@@ -279,9 +274,7 @@ impl BotState {
       );
       let api_clone = self.api.clone();
       let _ = tokio::spawn(async move {
-        api_clone
-          .decline_challenge(&challenge.id, lichess::types::DECLINE_VARIANT)
-          .await
+        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_VARIANT).await
       });
       return;
     }
@@ -291,9 +284,7 @@ impl BotState {
       info!("Ignoring non-real-time challenge.");
       let api_clone = self.api.clone();
       let _ = tokio::spawn(async move {
-        api_clone
-          .decline_challenge(&challenge.id, lichess::types::DECLINE_TIME_CONTROL)
-          .await
+        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_TIME_CONTROL).await
       });
       return;
     }
@@ -303,9 +294,7 @@ impl BotState {
       info!("Ignoring challenge as we are already playing too many games");
       let api_clone = self.api.clone();
       let _ = tokio::spawn(async move {
-        api_clone
-          .decline_challenge(&challenge.id, lichess::types::DECLINE_LATER)
-          .await
+        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_LATER).await
       });
       return;
     }
@@ -329,9 +318,7 @@ impl BotState {
       let api_clone = self.api.clone();
       let game_id_clone = String::from(game_id);
       let _ = tokio::spawn(async move {
-        api_clone
-          .write_in_chat_room(game_id_clone.as_str(), message.room, "!help")
-          .await
+        api_clone.write_in_chat_room(game_id_clone.as_str(), message.room, "!help").await
       });
     }
   }
@@ -415,9 +402,7 @@ impl BotState {
     );
 
     let _ = tokio::spawn(async move {
-      api_clone
-        .make_move(&game_id_clone, &analysis[move_index].0.to_string(), false)
-        .await
+      api_clone.make_move(&game_id_clone, &analysis[move_index].0.to_string(), false).await
     });
 
     // Tell the engine to continue thinking while the opponent is playing ;)
@@ -640,9 +625,7 @@ impl GameStreamHandler for BotState {
           if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
             let api_clone = self.api.clone();
             let _ = tokio::spawn(async move {
-              api_clone
-                .claim_victory_after_timeout(timeout, &game_id.clone())
-                .await
+              api_clone.claim_victory_after_timeout(timeout, &game_id.clone()).await
             });
           }
         } else {

@@ -14,9 +14,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // Same module (engine)
-use self::eval::position::{evaluate_board, is_game_over};
+use self::cache::engine_cache::EngineCache;
+use self::cache::evaluation_table::EvaluationCache;
+use self::eval::position::{can_declare_draw, evaluate_board, is_game_over};
 use books::*;
-use cache::EngineCache;
 use nnue::NNUE;
 
 // Chess model
@@ -240,7 +241,7 @@ impl Default for Analysis {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Engine {
   pub position: GameState,
   /// State of the analysis for the game state.
@@ -403,10 +404,6 @@ impl Engine {
     }
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
-    self.cache.clear_variations();
-    if self.position.move_count >= 2 {
-      self.cache.purge(self.position.move_count - 2);
-    }
     self.analysis.reset();
     self.analysis.set_depth(1);
     self.analysis.set_selective_depth(1);
@@ -453,16 +450,23 @@ impl Engine {
 
     // If we have only one legal move, we should just give it a score and play it instantaneously.
     Engine::find_move_list(&self.cache, &self.position.board);
-    if self.cache.get_move_list(&self.position.board).len() == 1 {
+    let moves = self.cache.get_move_list(&self.position.board).unwrap();
+    if moves.len() == 1 {
       debug!("Single or no move available. Just evaluating quickly");
       let mut game_state = self.position.clone();
-      game_state.apply_move(&self.cache.get_move_list(&self.position.board)[0]);
-      if self.cache.get_eval_depth(&game_state.board) == 0 {
-        self
-          .cache
-          .set_eval(&game_state.board, evaluate_board(&game_state), 1);
+      game_state.apply_move(&moves[0]);
+
+      let mut evaluation_cache = self.cache.get_eval(&game_state.board).unwrap_or_default();
+      if evaluation_cache.depth == 0 {
+        let game_status = is_game_over(&self.cache, &game_state.board);
+        evaluation_cache = EvaluationCache {
+          game_status,
+          eval: evaluate_board(&game_state),
+          depth: 1,
+        };
+        self.cache.set_eval(&game_state.board, evaluation_cache);
       }
-      self.analysis.set_depth(1);
+      self.analysis.set_depth(evaluation_cache.depth);
       self.analysis.set_selective_depth(1);
       self.set_stop_requested(false);
       self.set_engine_active(false);
@@ -511,7 +515,7 @@ impl Engine {
     self.cache.set_move_list(&self.position.board, &move_list);
     */
 
-    let move_list = self.cache.get_move_list(&self.position.board);
+    let move_list = self.cache.get_move_list(&self.position.board).unwrap();
     if self.get_uci() {
       println!("bestmove {}", move_list[0].to_string());
     }
@@ -530,7 +534,11 @@ impl Engine {
 
   /// Returns the best move
   pub fn get_best_move(&self) -> Move {
-    return self.cache.get_move_list(&self.position.board)[0];
+    let move_list = self.cache.get_move_list(&self.position.board);
+    if move_list.is_none() {
+      return Move::default();
+    }
+    move_list.unwrap()[0]
   }
 
   /// Prints information to stdout for the GUI using UCI protocol
@@ -573,6 +581,10 @@ impl Engine {
   pub fn get_analysis(&self) -> Vec<(Move, f32)> {
     let mut analysis: Vec<(Move, f32)> = Vec::new();
     let move_list = self.cache.get_move_list(&self.position.board);
+    if move_list.is_none() {
+      return analysis;
+    }
+    let move_list = move_list.unwrap();
     let scores = self.analysis.scores.lock().unwrap();
 
     for m in move_list {
@@ -597,9 +609,9 @@ impl Engine {
   pub fn get_line_string(&self, game_state: &GameState, side_to_play: Color, ttl: usize) -> String {
     let line_string = String::new();
 
-    if self.cache.has_status(game_state) && self.cache.get_status(game_state) != GameStatus::Ongoing
-    {
-      return line_string + format!(" / {:?}", self.cache.get_status(game_state)).as_str();
+    let evaluation_cache = self.cache.get_eval(&game_state.board).unwrap_or_default();
+    if evaluation_cache.game_status != GameStatus::Ongoing {
+      return line_string + format!(" / {:?}", evaluation_cache.game_status).as_str();
     }
     if ttl == 0 {
       return line_string;
@@ -609,7 +621,7 @@ impl Engine {
       return line_string + " - no moves in cache...";
     }
 
-    let move_list = self.cache.get_move_list(&game_state.board);
+    let move_list = self.cache.get_move_list(&game_state.board).unwrap();
     if move_list.is_empty() {
       return line_string
         + " - Empty move list ?? (check what happened it should not be GameStatus::OnGoing";
@@ -617,15 +629,13 @@ impl Engine {
     let best_move = move_list[0];
     let mut best_new_state = game_state.clone();
     best_new_state.apply_move(&best_move);
-    if !self.cache.has_eval(&best_new_state.board) {
+    if evaluation_cache.eval.is_nan() {
       return best_move.to_string() + " - Not evaluated";
     }
 
     return best_move.to_string()
       + " "
-      + self
-        .get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1)
-        .as_str();
+      + self.get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1).as_str();
   }
 
   /// Prints the evaluation result in the console
@@ -636,10 +646,11 @@ impl Engine {
     let move_list = self.cache.get_move_list(&self.position.board);
     let mut i = 0;
 
-    if move_list.is_empty() {
+    if move_list.is_none() {
       println!("Cannot print results, we do not even know the move list!");
       return;
     }
+    let move_list = move_list.unwrap();
 
     println!(
       "Score for position {}: {}",
@@ -655,7 +666,7 @@ impl Engine {
         "Line {:<2}: Eval {:<7.2} @ depth {} - {} {}",
         i,
         eval,
-        self.cache.get_eval_depth(&new_state.board),
+        self.cache.get_eval(&new_state.board).unwrap_or_default().depth,
         m,
         self.get_line_string(
           &new_state,
@@ -796,114 +807,6 @@ impl Engine {
     }
   }
 
-  /// Sorts the list of moves based on their interesting-ness
-  ///
-  /// It will sort using the following ordering:
-  /// 1. Double checks
-  /// 2. Queen promotions
-  /// 3. Captures (ordered by captured material)
-  /// 4. Checks
-  /// 5. Castling
-  /// 6. All the rest
-  ///
-  /// ### Arguments
-  ///
-  /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
-  /// * `game_state` Reference to a GameState on which we want to sort the moves
-  /// * `a`          Move A
-  /// * `b`          Move B
-  ///
-  /// ### Return value
-  ///
-  /// Ordering telling if B is Greater, Equal or Less than A
-  ///
-  pub fn compare_moves(
-    cache: &EngineCache,
-    game_state: &GameState,
-    a: &Move,
-    b: &Move,
-  ) -> Ordering {
-    // Check if any move is a killer move
-    match (cache.is_killer_move(a), cache.is_killer_move(b)) {
-      (true, false) => return Ordering::Less,
-      (false, true) => return Ordering::Greater,
-      (_, _) => {},
-    }
-
-    // Check we know the a continuation:
-    let a_game_state = if !cache.has_variation(&game_state, a) {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(a);
-      cache.add_variation(&game_state, a, &new_game_state);
-      new_game_state
-    } else {
-      cache.get_variation(&game_state, a)
-    };
-
-    // Check we know the b continuation:
-    let b_game_state = if !cache.has_variation(&game_state, b) {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(b);
-      cache.add_variation(&game_state, b, &new_game_state);
-      new_game_state
-    } else {
-      cache.get_variation(&game_state, b)
-    };
-
-    match (a_game_state.board.checks(), b_game_state.board.checks()) {
-      (2, 2) => {},
-      (2, _) => return Ordering::Less,
-      (_, 2) => return Ordering::Greater,
-      (_, _) => {},
-    }
-
-    match (a.promotion(), b.promotion()) {
-      (
-        Promotion::BlackQueen | Promotion::WhiteQueen,
-        Promotion::BlackQueen | Promotion::WhiteQueen,
-      ) => {},
-      (Promotion::BlackQueen | Promotion::WhiteQueen, _) => return Ordering::Less,
-      (_, Promotion::BlackQueen | Promotion::WhiteQueen) => return Ordering::Greater,
-      (_, _) => {},
-    }
-
-    let a_captured_value =
-      Piece::material_value_from_u8(game_state.board.pieces.get(a.dest() as u8));
-    let b_captured_value =
-      Piece::material_value_from_u8(game_state.board.pieces.get(b.dest() as u8));
-
-    if a_captured_value > b_captured_value {
-      return Ordering::Less;
-    } else if a_captured_value < b_captured_value {
-      return Ordering::Greater;
-    } else if a_captured_value > 0.0 {
-      let a_captor = Piece::material_value_from_u8(game_state.board.pieces.get(a.src() as u8));
-      let b_captor = Piece::material_value_from_u8(game_state.board.pieces.get(b.src() as u8));
-
-      if a_captor < b_captor {
-        return Ordering::Less;
-      } else if a_captor > b_captor {
-        return Ordering::Greater;
-      }
-    }
-
-    // We like castling in general:
-    match (a.is_castle(), b.is_castle()) {
-      (true, false) => return Ordering::Less,
-      (false, true) => return Ordering::Greater,
-      (_, _) => {},
-    }
-
-    // Single checks
-    match (a_game_state.board.checks(), b_game_state.board.checks()) {
-      (1, _) => return Ordering::Less,
-      (_, 1) => return Ordering::Greater,
-      (_, _) => {},
-    }
-
-    return Ordering::Equal;
-  }
-
   //----------------------------------------------------------------------------
   // Engine Evaluation
 
@@ -938,7 +841,7 @@ impl Engine {
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
-    let mut moves = self.cache.get_move_list(&game_state.board);
+    let mut moves = self.cache.get_move_list(&game_state.board).unwrap();
     let mut result: HashMap<Move, f32> = HashMap::new();
 
     for m in &moves {
@@ -961,14 +864,48 @@ impl Engine {
 
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
-      self
-        .cache
-        .set_age(&new_game_state.board, new_game_state.move_count);
 
-      let game_status = if !self.cache.has_status(&new_game_state) {
-        is_game_over(&self.cache, &new_game_state)
+      // Check if we just repeated the position too much or did not make progress.
+      let draw = can_declare_draw(&new_game_state);
+      if draw != GameStatus::Ongoing {
+        self.cache.set_eval(
+          &new_game_state.board,
+          EvaluationCache {
+            game_status: draw,
+            eval: 0.0,
+            depth: 1,
+          },
+        );
+        result.insert(*m, 0.0);
+
+        continue;
+      }
+
+      // Check if we already looked at this position.
+      let eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
+      if eval_cache.depth >= (max_depth - depth + 1) {
+        // Nothing to do, we already looked at this position.
+        result.insert(*m, eval_cache.eval);
+        // Get the alpha/beta result propagated upwards.
+        match game_state.board.side_to_play {
+          Color::White => {
+            if alpha < eval_cache.eval {
+              alpha = eval_cache.eval;
+            }
+          },
+          Color::Black => {
+            if beta > eval_cache.eval {
+              beta = eval_cache.eval;
+            }
+          },
+        }
+        continue;
+      }
+
+      let game_status = if eval_cache.depth == 0 {
+        is_game_over(&self.cache, &new_game_state.board)
       } else {
-        self.cache.get_status(&new_game_state)
+        eval_cache.game_status
       };
 
       // No need to look at other moves in this variation if we found a checkmate for the side to play:
@@ -982,10 +919,7 @@ impl Engine {
           self.cache.add_killer_move(&m);
           eval = -200.0;
         },
-        GameStatus::Stalemate => {
-          eval = 0.0;
-        },
-        GameStatus::Draw => {
+        GameStatus::Stalemate | GameStatus::Draw | GameStatus::ThreeFoldRepetition => {
           eval = 0.0;
         },
         GameStatus::Ongoing => {},
@@ -993,13 +927,7 @@ impl Engine {
 
       // Search more if the game is not over.
       if game_status == GameStatus::Ongoing {
-        // First check if a transposition did not lead us to look at the position at the given depth already:
-        let mut eval_depth;
-        (eval, eval_depth) = self.cache.get_eval(&new_game_state.board);
-
-        if eval_depth >= (max_depth - depth + 1) {
-          // nothing to do here, we already found this position at this depth
-        } else if depth < max_depth {
+        if depth < max_depth {
           /*
           // Recurse until we get to the bottom, spin 1 thread per move at the first level.
           let self_clone = self.clone();
@@ -1021,8 +949,15 @@ impl Engine {
             //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.3 + nnue_eval * 0.7, );
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
-          eval_depth = 1;
-          self.cache.set_eval(&new_game_state.board, eval, eval_depth);
+          // save the eval in the transposition table.
+          self.cache.set_eval(
+            &new_game_state.board,
+            EvaluationCache {
+              game_status,
+              eval,
+              depth: 1,
+            },
+          );
         }
       }
 
@@ -1057,13 +992,20 @@ impl Engine {
       .sort_by(|a, b| Engine::compare_by_result_eval(game_state.board.side_to_play, a, b, &result));
     //println!("Best move for fen {} is {}", game_state.to_fen(), moves[0].to_string());
     self.cache.set_move_list(&game_state.board, &moves);
-    let best_eval = match game_state.board.side_to_play {
-      Color::White => alpha,
-      Color::Black => beta,
-    };
-    self
-      .cache
-      .set_eval(&game_state.board, best_eval, max_depth - depth + 1);
+
+    let mut pv = game_state.clone();
+    pv.apply_move(&moves[0]);
+    let mut best_move_eval = self.cache.get_eval(&pv.board).unwrap_or_default();
+
+    best_move_eval.depth += 1;
+    if best_move_eval.eval.abs() > 100.0 {
+      if best_move_eval.eval > 0.0 {
+        best_move_eval.eval -= 1.0;
+      } else {
+        best_move_eval.eval += 1.0;
+      }
+    }
+    self.cache.set_eval(&game_state.board, best_move_eval);
     return result;
   }
 
@@ -1228,16 +1170,14 @@ impl Engine {
     let mut variation_b = game_state.clone();
     variation_b.apply_move(b);
 
-    let (a_eval, a_depth) = self.cache.get_eval(&variation_a.board);
-    let (b_eval, b_depth) = self.cache.get_eval(&variation_b.board);
+    let a_eval = self.cache.get_eval(&variation_a.board).unwrap_or_default();
+    let b_eval = self.cache.get_eval(&variation_b.board).unwrap_or_default();
 
-    if self.cache.get_status(&variation_a) == GameStatus::Ongoing
-      && self.cache.get_status(&variation_b) == GameStatus::Ongoing
-    {
+    if a_eval.game_status == GameStatus::Ongoing && b_eval.game_status == GameStatus::Ongoing {
       // Compare depths if they are ongoing position
-      if a_depth > b_depth {
+      if a_eval.depth > b_eval.depth {
         return Ordering::Less;
-      } else if b_depth > a_depth {
+      } else if b_eval.depth > a_eval.depth {
         return Ordering::Greater;
       }
     }
@@ -1247,9 +1187,9 @@ impl Engine {
       Color::White => (Ordering::Less, Ordering::Greater),
       Color::Black => (Ordering::Greater, Ordering::Less),
     };
-    if a_eval > b_eval {
+    if a_eval.eval > b_eval.eval {
       return greater;
-    } else if a_eval < b_eval {
+    } else if a_eval.eval < b_eval.eval {
       return less;
     }
 

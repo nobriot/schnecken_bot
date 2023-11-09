@@ -323,14 +323,14 @@ fn save_the_queen() {
     GameState::from_fen("rnbqk2r/pp3ppp/2pQpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 6");
   println!(
     "Static intermediate:  {}",
-    engine.cache.get_eval(&game_state1.board).0
+    engine.cache.get_eval(&game_state1.board).unwrap_or_default().eval
   );
 
   let game_state =
     GameState::from_fen("rnb1k2r/pp3ppp/2pqpn2/3p4/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 7");
   println!(
     "Static from cache:  {}",
-    engine.cache.get_eval(&game_state.board).0
+    engine.cache.get_eval(&game_state.board).unwrap_or_default().eval
   );
 
   let static_eval = evaluate_board(&game_state);
@@ -587,29 +587,14 @@ fn test_sorting_moves_without_eval() {
 
   let engine = Engine::new();
   Engine::find_move_list(&engine.cache, &game_state.board);
-
-  for m in engine.cache.get_move_list(&game_state.board) {
+  let move_list = engine.cache.get_move_list(&game_state.board).unwrap();
+  for m in &move_list {
     println!("Move: {}", m.to_string());
   }
 
-  assert_eq!(
-    Move::from_string("e5d6"),
-    engine.cache.get_move_list(&game_state.board)[0]
-  );
-  assert_eq!(
-    Move::from_string("e5f6"),
-    engine.cache.get_move_list(&game_state.board)[1]
-  );
-  assert_eq!(
-    Move::from_string("e4d5"),
-    engine.cache.get_move_list(&game_state.board)[2]
-  );
-  assert_eq!(
-    Move::from_string("a4c6"),
-    engine.cache.get_move_list(&game_state.board)[3]
-  );
-  assert_eq!(
-    Move::from_string("e5e6"),
-    engine.cache.get_move_list(&game_state.board)[4]
-  );
+  assert_eq!(Move::from_string("e5d6"), move_list[0]);
+  assert_eq!(Move::from_string("e5f6"), move_list[1]);
+  assert_eq!(Move::from_string("e4d5"), move_list[2]);
+  assert_eq!(Move::from_string("a4c6"), move_list[3]);
+  assert_eq!(Move::from_string("e5e6"), move_list[4]);
 }

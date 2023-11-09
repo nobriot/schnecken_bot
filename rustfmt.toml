@@ -1,7 +1,7 @@
 indent_style = "Visual"
 wrap_comments = true
 tab_spaces = 2
-struct_field_align_threshold = 40
+struct_field_align_threshold = 50
 group_imports = "One"
 reorder_impl_items = true
 normalize_doc_attributes = true
@@ -10,5 +10,7 @@ imports_granularity = "Module"
 match_block_trailing_comma = true
 single_line_let_else_max_width = 80
 single_line_if_else_max_width = 80
+chain_width = 90
+max_width = 100
 remove_nested_parens = true
-overflow_delimited_expr = false
+overflow_delimited_expr = true

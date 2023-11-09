@@ -19,7 +19,7 @@ pub enum GamePhase {
   Endgame,
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum GameStatus {
   #[default]
@@ -27,6 +27,7 @@ pub enum GameStatus {
   WhiteWon,
   BlackWon,
   Stalemate,
+  ThreeFoldRepetition,
   Draw,
 }
 
