@@ -27,8 +27,8 @@ impl EngineCache {
   ///
   pub fn new() -> Self {
     EngineCache {
-      move_lists: Arc::new(Mutex::new(MoveListCacheTable::new(20))),
-      evals: Arc::new(Mutex::new(EvaluationCacheTable::new(20))),
+      move_lists: Arc::new(Mutex::new(MoveListCacheTable::new(100))),
+      evals: Arc::new(Mutex::new(EvaluationCacheTable::new(100))),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
   }

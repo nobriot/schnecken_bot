@@ -7,6 +7,7 @@ pub mod square_affinity;
 pub mod test;
 
 use log::*;
+use rand::seq::SliceRandom;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -433,9 +434,10 @@ impl Engine {
       info!("Known position, returning book moves");
       let mut top_level_result: HashMap<Move, f32> = HashMap::new();
       let mut move_list = book_entry.unwrap();
+      move_list.shuffle(&mut rand::thread_rng());
       let scores = self.analysis.scores.lock().unwrap();
       for m in &move_list {
-        top_level_result.insert(*m, *scores.get(m).unwrap_or(&f32::NAN));
+        top_level_result.insert(*m, *scores.get(m).unwrap_or(&0.0));
       }
       move_list.sort_by(|a, b| {
         Engine::compare_by_result_eval(self.position.board.side_to_play, a, b, &top_level_result)
@@ -882,7 +884,7 @@ impl Engine {
       }
 
       // Check if we already looked at this position.
-      let eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
+      let mut eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
       if eval_cache.depth >= (max_depth - depth + 1) {
         // Nothing to do, we already looked at this position.
         result.insert(*m, eval_cache.eval);
@@ -902,15 +904,13 @@ impl Engine {
         continue;
       }
 
-      let game_status = if eval_cache.depth == 0 {
-        is_game_over(&self.cache, &new_game_state.board)
-      } else {
-        eval_cache.game_status
+      if eval_cache.depth == 0 {
+        eval_cache.game_status = is_game_over(&self.cache, &new_game_state.board);
       };
 
       // No need to look at other moves in this variation if we found a checkmate for the side to play:
       let mut eval = f32::NAN;
-      match game_status {
+      match eval_cache.game_status {
         GameStatus::WhiteWon => {
           self.cache.add_killer_move(&m);
           eval = 200.0;
@@ -926,7 +926,7 @@ impl Engine {
       }
 
       // Search more if the game is not over.
-      if game_status == GameStatus::Ongoing {
+      if eval_cache.game_status == GameStatus::Ongoing {
         if depth < max_depth {
           /*
           // Recurse until we get to the bottom, spin 1 thread per move at the first level.
@@ -939,7 +939,7 @@ impl Engine {
             Color::White => Engine::get_best_eval_for_white(&sub_result),
             Color::Black => Engine::get_best_eval_for_black(&sub_result),
           };
-        } else if game_status == GameStatus::Ongoing && depth >= max_depth {
+        } else if eval_cache.game_status == GameStatus::Ongoing && depth >= max_depth {
           // Position evaluation: (will be saved in the cache automatically)
           eval = evaluate_board(&new_game_state);
 
@@ -950,14 +950,9 @@ impl Engine {
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
           // save the eval in the transposition table.
-          self.cache.set_eval(
-            &new_game_state.board,
-            EvaluationCache {
-              game_status,
-              eval,
-              depth: 1,
-            },
-          );
+          eval_cache.eval = eval;
+          eval_cache.depth = 1;
+          self.cache.set_eval(&new_game_state.board, eval_cache);
         }
       }
 
@@ -980,10 +975,17 @@ impl Engine {
       }
 
       // Don't look at other moves when we found a checkmate:
-      if game_status == GameStatus::WhiteWon || game_status == GameStatus::BlackWon {
+      if eval_cache.game_status == GameStatus::WhiteWon
+        || eval_cache.game_status == GameStatus::BlackWon
+      {
         break;
       }
     } // for m in &moves
+
+    // If we aborted search, do not sort and backpropagate the evaluation
+    if self.stop_requested() || self.has_been_searching_too_long() {
+      return HashMap::new();
+    }
 
     // Sort the children moves according to their evaluation:
     /*

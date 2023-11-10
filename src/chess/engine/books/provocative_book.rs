@@ -43,6 +43,15 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, desprez);
   let desprez = "1. h4 e5 2. c4 Nf6 3. Nc3 d5 4. cxd5 Nxd5 5. e3 Nxc3 6. bxc3 Bd6 7. Nf3 O-O 8. d4 Nc6 9. Rb1 Qe7 10. Bc4 Bf5 11. Rb2 h6 12. Be2 b6 13. Nd2";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, desprez);
+
+  // Stafford gambit
+  let stafford = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nxc6 dxc6 5. d3 Bc5 6. Be2 Ng4 7. Bxg4 Qh4 8. Qf3 Bxg4 9. Qg3 Qxg3 10. hxg3 Be6 11. Nc3 a5 12. Ne2 a4 13. f3 h5 14. d4 Be7 15. Nf4 Bc4 16. Rxh5 Rxh5 17. Nxh5 g6 18. Nf4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, stafford);
+  add_pgn_from_position(&PROVOCATIVE_CHESS_BOOK,"r1bqk2r/ppp2ppp/2p5/2b5/4P1n1/3P4/PPP1BPPP/RNBQ1RK1 b kq - 4 7", "7... h5 8. Bxg4 hxg4 9. Bf4 Be6 10. Nd2 Qd7 11. Re1 Bd6 12. e5 Be7 13. Ne4 O-O-O 14. Ng5 Bxg5 15. Bxg5 Rdf8");
+  add_pgn_from_position(&PROVOCATIVE_CHESS_BOOK,"r1bqk2r/ppp2ppp/2p5/2b5/4P1n1/3P4/PPP1BPPP/RNBQ1RK1 b kq - 4 7", "7... h5 8. Nc3 Qf6 9. Bxg4 hxg4 10. e5 Qf5 11. Qe1 Be6 12. Qe4 Qh5 13. Bf4 O-O-O 14. Bg3");
+  let stafford = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nxc6 dxc6 5. d3 Qe7 6. Be2 Be6 7. f4 O-O-O 8. Nc3 Qb4 9. a3 Qb6 10. f5 Bd7 11. b4 c5 12. Be3 Qc6 13. b5 Qd6 14. a4 Qe5 15. Qd2 Bd6 ";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, stafford);
+
 }
 
 /// Check our known book moves, known positions that have been computed with an

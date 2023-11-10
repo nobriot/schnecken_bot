@@ -90,6 +90,7 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(&CHESS_BOOK,pgn);
   let pgn = "1. e4 e5 2. f4 d5 3. Nf3 dxe4 4. Nxe5 Bd6 5. Nc3 Nf6 6. d4 exd3 7. Bxd3 O-O 8. Be3 Nc6 9. Nxc6 bxc6 10. O-O Re8 11. Qf3 Ng4 12. Bf2 Nxf2 13. Qxf2";
   add_pgn_to_book(&CHESS_BOOK,pgn);
+  add_pgn_from_position(&CHESS_BOOK, "rnbqkbnr/pppp1p1p/8/6p1/2B1Pp2/5N2/PPPP2PP/RNBQK2R b KQkq - 1 4", "4... g4 5. O-O gxf3 6. Qxf3 Qf6 7. d3 d6 8. Nc3 Ne7");
 
   // Russian game
   let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nf3 Nxe4 5. Bd3 Nf6 6. O-O Be7 7. c3 Bg4 8. h3 Bh5 9. Re1 Nbd7 10. Bf1 O-O 11. d4 d5 12. Bf4 Ne4 13. Bd3 f5";
