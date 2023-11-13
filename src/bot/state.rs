@@ -378,7 +378,7 @@ impl BotState {
     if analysis.is_empty() {
       error!("Empty result from the engine.");
       for m in game.engine.position.get_moves() {
-        analysis.push((m, 0.0));
+        analysis.push((vec![m], 0.0));
       }
       cutoff = analysis.len();
     } else {
@@ -396,14 +396,16 @@ impl BotState {
     }
 
     let move_index = rand::thread_rng().gen_range(0..cutoff);
+    let mv = analysis[move_index].0[0];
     info!(
       "Playing Line {} ({}) for GameID {}",
-      move_index, analysis[move_index].0, game_id
+      move_index, mv, game_id
     );
 
-    let _ = tokio::spawn(async move {
-      api_clone.make_move(&game_id_clone, &analysis[move_index].0.to_string(), false).await
-    });
+    let _ =
+      tokio::spawn(
+        async move { api_clone.make_move(&game_id_clone, &mv.to_string(), false).await },
+      );
 
     // Tell the engine to continue thinking while the opponent is playing ;)
     //game.engine.go();

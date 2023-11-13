@@ -209,6 +209,46 @@ pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
   return GameStatus::Ongoing;
 }
 
+/// Returns evaluation scores based on the game status.
+///
+/// ### Arguments
+///
+/// * `cache` -      EngineCache to use to save the results
+/// * `board` -      Board reference to look at.
+///
+/// ### Returns
+///
+/// * GameStatus indicating if the game is ongoing or not.
+///
+#[inline]
+pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
+  match game_status {
+    GameStatus::Ongoing => f32::NAN,
+    GameStatus::WhiteWon => 200.0,
+    GameStatus::BlackWon => -200.0,
+    GameStatus::ThreeFoldRepetition | GameStatus::Stalemate | GameStatus::Draw => 0.0,
+  }
+}
+/// Returns a decrement of the evaluation scores if we are in a mating sequence.
+///
+/// ### Arguments
+///
+/// * `cache` -      EngineCache to use to save the results
+/// * `eval` -       Eval to decrement if mating.
+///
+/// ### Returns
+///
+/// * New eval value
+///
+#[inline]
+pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
+  if eval.abs() > 100.0 {
+    eval - eval.signum() * 1.0
+  } else {
+    eval
+  }
+}
+
 /// Looks at a game state and check if the game can be declared a draw
 /// (3 fold repetitions and 100-ply)
 ///

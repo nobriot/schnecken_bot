@@ -1,7 +1,7 @@
 use log::*;
 
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use super::evaluation_table::{EvaluationCache, EvaluationCacheTable};
@@ -231,6 +231,13 @@ impl EngineCache {
     let board_a_eval = self.get_eval(&game_state_a.board).unwrap_or_default();
     let board_b_eval = self.get_eval(&game_state_b.board).unwrap_or_default();
 
+    match (board_a_eval.eval.is_nan(), board_b_eval.eval.is_nan()) {
+      (true, true) => return Ordering::Equal,
+      (true, _) => return Ordering::Greater,
+      (_, true) => return Ordering::Less,
+      (_, _) => {},
+    }
+
     let (greater, less) = match color {
       Color::White => (Ordering::Less, Ordering::Greater),
       Color::Black => (Ordering::Greater, Ordering::Less),
@@ -303,6 +310,7 @@ mod tests {
 
     // Now try to sort move list by eval:
     engine_cache.sort_moves_by_eval(&game_state, Color::Black);
+    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
 
     let mut last_eval = f32::MIN;
     for m in &move_list {
@@ -317,6 +325,7 @@ mod tests {
     // Try again with White:
     println!("----------------------------------------------------------------");
     engine_cache.sort_moves_by_eval(&game_state, Color::White);
+    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
 
     let mut last_eval = f32::MAX;
     for m in &move_list {
@@ -349,6 +358,8 @@ mod tests {
     }
 
     engine_cache.sort_moves_by_eval(&game_state, Color::White);
+    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
+
     let mut last_eval = f32::MAX;
     for m in &move_list {
       let mut new_game_state = game_state.clone();
@@ -363,6 +374,7 @@ mod tests {
     // Try again with some moves not evaluated for Black:
     println!("----------------------------------------------------------------");
     engine_cache.sort_moves_by_eval(&game_state, Color::Black);
+    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
     let mut last_eval = f32::MIN;
     for m in &move_list {
       let mut new_game_state = game_state.clone();
@@ -400,6 +412,7 @@ mod tests {
 
     // Now try to sort move list by eval:
     engine_cache.sort_moves_by_eval(&game_state, game_state.board.side_to_play);
+    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
 
     let mut last_eval = f32::MAX;
     for m in &move_list {

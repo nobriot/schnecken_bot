@@ -712,9 +712,7 @@ impl Board {
       0 => {},
       1 => {
         checking_ray = unsafe {
-          RAYS
-            .get_unchecked(king_position)
-            .get_unchecked(self.checkers.trailing_zeros() as usize)
+          RAYS.get_unchecked(king_position).get_unchecked(self.checkers.trailing_zeros() as usize)
             | self.checkers
         }
       },
@@ -1077,9 +1075,7 @@ impl Board {
         chess_move.promotion().to_piece_const(),
       );
     } else {
-      self
-        .pieces
-        .set(chess_move.u8_dest(), self.pieces.get(chess_move.u8_src()));
+      self.pieces.set(chess_move.u8_dest(), self.pieces.get(chess_move.u8_src()));
     }
 
     self.update_hash_piece(destination as u8);
@@ -2029,5 +2025,17 @@ mod tests {
       println!("Move : {}", m.to_string());
     }
     assert_eq!(1, moves.len());
+  }
+
+  #[test]
+  fn check_legal_moves_king_capture_undefended_pieces() {
+    let fen = "1K6/8/8/8/8/3k4/2Q5/8 b - - 1 1";
+    let board = Board::from_fen(fen);
+
+    let moves = board.get_moves();
+    for m in &moves {
+      println!("Move : {}", m.to_string());
+    }
+    assert_eq!(3, moves.len());
   }
 }
