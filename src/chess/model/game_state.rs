@@ -145,11 +145,7 @@ impl GameState {
   /// i.e. 0 the position just occured for the first time. 2 means a threefold repetition
   ///
   pub fn get_board_repetitions(&self) -> usize {
-    self
-      .last_positions
-      .iter()
-      .filter(|x| **x == self.board.hash)
-      .count()
+    self.last_positions.iter().filter(|x| **x == self.board.hash).count()
     // self.last_positions.iter().fold(0,|count, x| if *x == self.board.hash { count + 1 } else { count },)
   }
 
@@ -212,6 +208,16 @@ impl GameState {
   /// * `chess_move`: Reference to a move.
   ///
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
+    /*
+    println!("Applying move {} on game {}", chess_move, self.to_fen());
+    let mut moves = String::new();
+    for m in &self.last_moves {
+      moves += m.to_string().as_str();
+      moves.push(' ');
+    }
+    println!("Last moves: {}", moves);
+    */
+
     if !square_in_mask!(chess_move.src(), self.board.pieces.all()) {
       error!(
         "Input moves with empty source square? {} - board:\n{}",

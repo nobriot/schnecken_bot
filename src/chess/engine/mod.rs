@@ -469,9 +469,9 @@ impl Engine {
           depth: 1,
         };
         self.cache.set_eval(&game_state.board, evaluation_cache);
-        let result = vec![(vec![moves[0]], eval)];
-        self.analysis.update_result(&result);
       }
+      let result = vec![(vec![moves[0]], evaluation_cache.eval)];
+      self.analysis.update_result(&result);
       self.analysis.set_depth(evaluation_cache.depth);
       self.analysis.set_selective_depth(evaluation_cache.depth);
       self.set_stop_requested(false);

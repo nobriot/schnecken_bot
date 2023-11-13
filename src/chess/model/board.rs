@@ -1021,18 +1021,24 @@ impl Board {
         _ => WHITE_PAWN,
       };
       let (file, rank) = Board::index_to_fr(chess_move.u8_dest());
+      let en_passant_target = (chess_move.u8_dest() + chess_move.u8_src()) / 2;
+      let pins = self.get_pins_rays(Color::opposite(self.side_to_play));
       if file > 1 {
         let s = Board::fr_to_index(file - 1, rank) as u8;
-        if self.pieces.get(s) == op_pawn {
-          self.en_passant_square = (chess_move.u8_dest() + chess_move.u8_src()) / 2;
+        if self.pieces.get(s) == op_pawn
+          && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
+        {
+          self.en_passant_square = en_passant_target;
         }
       }
 
       // Check on the right side:
       if file < 8 {
         let s = Board::fr_to_index(file + 1, rank) as u8;
-        if self.pieces.get(s) == op_pawn {
-          self.en_passant_square = (chess_move.u8_dest() + chess_move.u8_src()) / 2;
+        if self.pieces.get(s) == op_pawn
+          && (square_in_mask!(en_passant_target, self.pins) || !square_in_mask!(s, self.pins))
+        {
+          self.en_passant_square = en_passant_target;
         }
       }
     }
@@ -2037,5 +2043,23 @@ mod tests {
       println!("Move : {}", m.to_string());
     }
     assert_eq!(3, moves.len());
+  }
+
+  #[test]
+  fn check_legal_moves_en_passant_discovery() {
+    let fen = "2b1R3/2p2p2/1p3N2/4P3/kp2Q1P1/4B3/2P1PK2/5B2 w - - 2 35";
+    let mut board = Board::from_fen(fen);
+    board.apply_move(&Move::from_string("c2c4"));
+
+    // Here b4c3 is forbidden, it creates a bad-ass discovered check by removing 2 pawns from the pin ray.
+    let moves = board.get_moves();
+    for m in &moves {
+      println!("Move : {}", m.to_string());
+      assert_ne!(
+        *m,
+        en_passant_mv!(string_to_square("b4"), string_to_square("c3"))
+      );
+    }
+    assert_eq!(13, moves.len());
   }
 }
