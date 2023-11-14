@@ -49,6 +49,11 @@ name = "generate_bishop_table"
 path = "model/bin/generate_bishop_table.rs"
 
 [[bin]]
+name = "generate_passed_pawns_areas"
+path = "model/bin/generate_passed_pawns_areas.rs"
+
+# NNUE:
+[[bin]]
 name = "train_nnue"
 path = "engine/nnue/train.rs"
 

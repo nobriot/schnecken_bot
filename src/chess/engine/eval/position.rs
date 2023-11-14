@@ -8,6 +8,7 @@ use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
 use crate::engine::cache::engine_cache::EngineCache;
+use crate::engine::square_affinity::SquareTable;
 use crate::engine::Engine;
 use crate::model::board::Board;
 use crate::model::board_geometry::*;
@@ -17,7 +18,7 @@ use crate::model::piece::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.05;
-const _PASSED_PAWN_FACTOR: f32 = 0.2;
+const PASSED_PAWN_FACTOR: f32 = 0.07;
 const _PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
 const _PROTECTED_PAWN_FACTOR: f32 = 0.05;
 const _BACKWARDS_PAWN_FACTOR: f32 = 0.005;
@@ -78,6 +79,20 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
+  // Check if we have good passed pawns for white.
+  let mut pawns = game_state.board.pieces.white.pawn;
+  let mut passed_pawns_score = 0;
+  while pawns != 0 {
+    let pawn = pawns.trailing_zeros() as usize;
+
+    if is_passed(game_state, pawn as u8) {
+      passed_pawns_score += SquareTable::WHITE_PASSED_PAWN[pawn];
+    }
+
+    pawns &= pawns - 1
+  }
+  score += PASSED_PAWN_FACTOR * passed_pawns_score as f32;
+
   for (i, piece) in game_state.board.pieces.white {
     let defenders = game_state.board.get_attackers(i, Color::White);
     let attackers = game_state.board.get_attackers(i, Color::Black);
@@ -100,6 +115,20 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
     */
   }
+
+  // Check if we have good passed pawns for black.
+  let mut pawns = game_state.board.pieces.black.pawn;
+  let mut passed_pawns_score = 0;
+  while pawns != 0 {
+    let pawn = pawns.trailing_zeros() as usize;
+
+    if is_passed(game_state, pawn as u8) {
+      passed_pawns_score += SquareTable::BLACK_PASSED_PAWN[pawn];
+    }
+
+    pawns &= pawns - 1
+  }
+  score -= PASSED_PAWN_FACTOR * passed_pawns_score as f32;
 
   for (i, piece) in game_state.board.pieces.black {
     let defenders = game_state.board.get_attackers(i, Color::Black);

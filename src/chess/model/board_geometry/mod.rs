@@ -1,6 +1,7 @@
 pub mod diagonals;
 pub mod holes;
 pub mod lines;
+pub mod passed_pawns_areas;
 pub mod rays;
 
 use crate::model::board::*;
@@ -355,8 +356,7 @@ mod tests {
 
     println!("Generating holes constants...",);
     let mut output_file = File::create("./model/board_geometry/holes_temp.rs").unwrap();
-    // Here we generate look-up boardmasks that indicate a diagonal between two squares.
-    // Start from i, continue in a diagonal like bishops.
+
     let mut holes_area: BoardMask = 0;
     for i in 0..64 {
       let (_, rank) = Board::index_to_fr(i);

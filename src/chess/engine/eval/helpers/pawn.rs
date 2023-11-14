@@ -2,6 +2,7 @@ use super::generic::*;
 
 use crate::model::board::*;
 use crate::model::board_geometry::holes::*;
+use crate::model::board_geometry::passed_pawns_areas::*;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
@@ -263,49 +264,13 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Col
 /// or it is not passed.
 ///
 pub fn is_passed(game_state: &GameState, index: u8) -> bool {
-  // Same side pawn
-  let (ss_pawn, op_pawn) = match game_state.board.pieces.get(index) {
-    WHITE_PAWN => (WHITE_PAWN, BLACK_PAWN),
-    BLACK_PAWN => (BLACK_PAWN, WHITE_PAWN),
-    _ => return false,
-  };
-
-  // Determine the rank / File:
-  let (file, mut rank) = Board::index_to_fr(index);
-  // Swipe the board for pawns on the way:
-
-  loop {
-    // Note we decrement for black, as their pawn are going down the board
-    if ss_pawn == WHITE_PAWN {
-      rank += 1;
-    } else {
-      rank -= 1;
-    }
-    if !(1..=8).contains(&rank) {
-      return true;
-    }
-
-    let s = Board::fr_to_index(file, rank);
-
-    // Check straight ahead:
-    if game_state.board.pieces.get(s) == op_pawn {
-      return false;
-    }
-    // Check on the left side:
-    if file > 1 {
-      let s = Board::fr_to_index(file - 1, rank);
-      if game_state.board.pieces.get(s) == op_pawn {
-        return false;
-      }
-    }
-    // Check on the right side:
-    if file < 8 {
-      let s = Board::fr_to_index(file + 1, rank);
-      if game_state.board.pieces.get(s) == op_pawn {
-        return false;
-      }
-    }
+  if square_in_mask!(index, game_state.board.pieces.white.pawn) {
+    return WHITE_PASSED_PAWN_AREA[index as usize] & game_state.board.pieces.black.pawn == 0;
+  } else if square_in_mask!(index, game_state.board.pieces.black.pawn) {
+    return BLACK_PASSED_PAWN_AREA[index as usize] & game_state.board.pieces.white.pawn == 0;
   }
+
+  false
 }
 
 /// Determine the number of passed pawns in a position for a given color.
@@ -321,6 +286,31 @@ pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
     Color::Black => game_state.board.pieces.black.pawn,
   };
   let mut passers: usize = 0;
+
+  while pawns != 0 {
+    if is_passed(game_state, pawns.trailing_zeros() as u8) {
+      passers += 1;
+    }
+
+    pawns &= pawns - 1;
+  }
+
+  passers
+}
+
+/// Determine the number of passed pawns in a position for a given color.
+///
+/// # Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
+pub fn get_passed_pawns(game_state: &GameState, color: Color) -> BoardMask {
+  // Same side pawn
+  let mut pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
+  };
+  let mut passers: BoardMask = 0;
 
   while pawns != 0 {
     if is_passed(game_state, pawns.trailing_zeros() as u8) {
@@ -500,10 +490,7 @@ pub fn pawn_attack(game_state: &GameState, i: u8) -> f32 {
   // Check on the left side:
   if file > 1 {
     let s = Board::fr_to_index(file - 1, rank);
-    if game_state
-      .board
-      .has_piece_with_color(s as u8, Color::opposite(color))
-    {
+    if game_state.board.has_piece_with_color(s as u8, Color::opposite(color)) {
       if !game_state.board.has_king(s) {
         value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
       } else {
@@ -515,10 +502,7 @@ pub fn pawn_attack(game_state: &GameState, i: u8) -> f32 {
   // Check on the right side:
   if file < 8 {
     let s = Board::fr_to_index(file + 1, rank);
-    if game_state
-      .board
-      .has_piece_with_color(s as u8, Color::opposite(color))
-    {
+    if game_state.board.has_piece_with_color(s as u8, Color::opposite(color)) {
       if !game_state.board.has_king(s) {
         value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
       } else {
@@ -724,6 +708,35 @@ mod tests {
         assert_eq!(0.0, pawn_attack(&game_state, i));
       } else {
         assert_eq!(6.05, pawn_attack(&game_state, i));
+      }
+    }
+  }
+
+  #[test]
+  fn test_detect_passed_pawns() {
+    let fen = "r1bqkb1r/pp3ppp/3p4/2pPp3/3nP3/3B1N2/PP1P1PPP/R1BQK2R w KQkq - 1 8";
+    let game_state = GameState::from_fen(fen);
+    for i in 0..64 {
+      assert_eq!(false, is_passed(&game_state, i));
+    }
+
+    let fen = "6k1/r4pp1/8/7p/Pp5P/8/3Q1PP1/6K1 w - - 0 31";
+    let game_state = GameState::from_fen(fen);
+    for i in 0..64 {
+      if i == 24 || i == 25 {
+        assert_eq!(true, is_passed(&game_state, i));
+      } else {
+        assert_eq!(false, is_passed(&game_state, i));
+      }
+    }
+
+    let fen = "nnnnn1k1/rnnnn1p1/nnnnn3/7p/Pp5P/1Pp5/2Q3P1/1QQ3K1 w - - 0 31";
+    let game_state = GameState::from_fen(fen);
+    for i in 0..64 {
+      if i == 24 || i == 18 {
+        assert_eq!(true, is_passed(&game_state, i));
+      } else {
+        assert_eq!(false, is_passed(&game_state, i));
       }
     }
   }

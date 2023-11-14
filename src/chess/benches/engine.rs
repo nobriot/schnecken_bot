@@ -3,6 +3,7 @@ use chess::engine::cache::evaluation_table::EvaluationCache;
 use chess::engine::eval::endgame::*;
 use chess::engine::eval::helpers::generic::get_combined_material_score;
 use chess::engine::eval::helpers::generic::*;
+use chess::engine::eval::helpers::pawn::is_passed;
 use chess::engine::eval::middlegame::*;
 use chess::engine::eval::opening::*;
 use chess::engine::eval::position::*;
@@ -268,5 +269,27 @@ fn file_state_detection(bencher: Bencher) {
 
   bencher.bench_local(|| {
     let _ = get_file_state(&game_state, 3);
+  });
+}
+
+/// Checks how fast we detect the list of passed pawns in a board
+#[divan::bench(sample_count = 10000)]
+fn passed_pawn_detection(bencher: Bencher) {
+  let mut nnue = NNUE::default();
+  let cache: EngineCache = EngineCache::new();
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    let mut pawns = game_state.board.pieces.black.pawn;
+    let mut passed_pawns_score = 0;
+    while pawns != 0 {
+      let pawn = pawns.trailing_zeros() as usize;
+
+      if is_passed(&game_state, pawn as u8) {
+        passed_pawns_score += 1;
+      }
+
+      pawns &= pawns - 1
+    }
   });
 }
