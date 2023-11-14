@@ -1,5 +1,3 @@
-use log::*;
-
 // From our module
 use super::endgame::get_endgame_position_evaluation;
 use super::helpers::generic::*;
@@ -8,7 +6,6 @@ use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
 use crate::engine::cache::engine_cache::EngineCache;
-use crate::engine::square_affinity::SquareTable;
 use crate::engine::Engine;
 use crate::model::board::Board;
 use crate::model::board_geometry::*;
@@ -18,17 +15,11 @@ use crate::model::piece::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.05;
-const PASSED_PAWN_FACTOR: f32 = 0.07;
-const _PROTECTED_PASSED_PAWN_FACTOR: f32 = 0.6;
-const _PROTECTED_PAWN_FACTOR: f32 = 0.05;
-const _BACKWARDS_PAWN_FACTOR: f32 = 0.005;
 const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
 const ROOK_FILE_FACTOR: f32 = 0.03;
 const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.15;
 const PIN_PENALTY: f32 = 0.25;
-const REACHABLE_OUTPOST_BONUS: f32 = 0.2;
-const OUTPOST_BONUS: f32 = 0.9;
 
 /// Default way to look at a position regardless of the game phase
 ///
@@ -79,79 +70,61 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     * (get_rooks_file_score(game_state, Color::Black)
       - get_rooks_file_score(game_state, Color::White));
 
-  // Check if we have good passed pawns for white.
-  let mut pawns = game_state.board.pieces.white.pawn;
-  let mut passed_pawns_score = 0;
-  while pawns != 0 {
-    let pawn = pawns.trailing_zeros() as usize;
-
-    if is_passed(game_state, pawn as u8) {
-      passed_pawns_score += SquareTable::WHITE_PASSED_PAWN[pawn];
-    }
-
-    pawns &= pawns - 1
-  }
-  score += PASSED_PAWN_FACTOR * passed_pawns_score as f32;
-
-  for (i, piece) in game_state.board.pieces.white {
+  let mut white_pieces =
+    game_state.board.pieces.white.minors() & game_state.board.pieces.white.majors();
+  while white_pieces != 0 {
+    let i = white_pieces.trailing_zeros() as u8;
     let defenders = game_state.board.get_attackers(i, Color::White);
     let attackers = game_state.board.get_attackers(i, Color::Black);
+
     if defenders == 0 {
       score -= HANGING_PENALTY;
     }
     if attackers.count_ones() > defenders.count_ones()
       && game_state.board.side_to_play == Color::Black
     {
-      score -= HANGING_FACTOR * Piece::material_value_from_type(piece);
+      // Lowest value of any piece is 3.0.
+      score -= HANGING_FACTOR * 3.0;
     }
-
-    /*
-    // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i as usize) {
-      score += REACHABLE_OUTPOST_BONUS;
-    }
-    if occupies_reachable_outpost(game_state, i as usize) {
-      score += OUTPOST_BONUS;
-    }
-    */
+    white_pieces &= white_pieces - 1;
   }
-
-  // Check if we have good passed pawns for black.
-  let mut pawns = game_state.board.pieces.black.pawn;
-  let mut passed_pawns_score = 0;
-  while pawns != 0 {
-    let pawn = pawns.trailing_zeros() as usize;
-
-    if is_passed(game_state, pawn as u8) {
-      passed_pawns_score += SquareTable::BLACK_PASSED_PAWN[pawn];
-    }
-
-    pawns &= pawns - 1
+  /*
+  // Check if we have some good positional stuff
+  if has_reachable_outpost(game_state, i as usize) {
+    score += REACHABLE_OUTPOST_BONUS;
   }
-  score -= PASSED_PAWN_FACTOR * passed_pawns_score as f32;
+  if occupies_reachable_outpost(game_state, i as usize) {
+    score += OUTPOST_BONUS;
+  }
+  */
 
-  for (i, piece) in game_state.board.pieces.black {
+  let mut black_pieces =
+    game_state.board.pieces.black.minors() & game_state.board.pieces.black.majors();
+  while black_pieces != 0 {
+    let i = black_pieces.trailing_zeros() as u8;
     let defenders = game_state.board.get_attackers(i, Color::Black);
     let attackers = game_state.board.get_attackers(i, Color::White);
+
     if defenders == 0 {
-      score += HANGING_PENALTY;
+      score -= HANGING_PENALTY;
     }
     if attackers.count_ones() > defenders.count_ones()
       && game_state.board.side_to_play == Color::White
     {
-      score += HANGING_FACTOR * Piece::material_value_from_type(piece);
+      // Lowest value of any piece is 3.0.
+      score += HANGING_FACTOR * 3.0;
     }
-
-    /*
-    // Check if we have some good positional stuff
-    if has_reachable_outpost(game_state, i as usize) {
-      score -= REACHABLE_OUTPOST_BONUS;
-    }
-    if occupies_reachable_outpost(game_state, i as usize) {
-      score -= OUTPOST_BONUS;
-    }
-    */
+    black_pieces &= black_pieces - 1;
   }
+  /*
+  // Check if we have some good positional stuff
+  if has_reachable_outpost(game_state, i as usize) {
+    score -= REACHABLE_OUTPOST_BONUS;
+  }
+  if occupies_reachable_outpost(game_state, i as usize) {
+    score -= OUTPOST_BONUS;
+  }
+  */
 
   // Pinned pieces is never confortable
   if game_state.board.get_pins_rays(Color::White) != 0 {

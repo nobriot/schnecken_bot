@@ -360,7 +360,8 @@ impl BotState {
     }
 
     // Play as quick as possible if we have less than 10 seconds left
-    let suggested_time_ms = if time_left < 10_000 { 30 } else { (time_left / 90) + increment_ms };
+    let suggested_time_ms =
+      if time_left < 10_000 { 100 } else { (time_left / 90) + increment_ms * 10 / 9 };
 
     info!(
       "Using {} ms to find a move for position {}",
@@ -600,8 +601,22 @@ impl GameStreamHandler for BotState {
     match json_value["type"].as_str().unwrap() {
       "gameFull" => {
         debug!("Full game state!");
-        let clone = self.clone();
-        let _ = tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
+
+        // Try to find the state in the GameFull payload:
+        let json_state = json_value.get("state");
+        if json_state.is_some() {
+          let result: Result<lichess::types::GameState, serde_json::Error> =
+            serde_json::from_value(json_state.unwrap().clone());
+          if let Err(error) = result {
+            warn!("Error deserializing GameState data !! {:?}", error);
+          } else {
+            self.update_game_and_play(result.unwrap(), game_id.as_str());
+          }
+        } else {
+          // else just check if it is our turn
+          let clone = self.clone();
+          let _ = tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
+        }
       },
       "gameState" => {
         //debug!("Game state update received: {}", json_value);

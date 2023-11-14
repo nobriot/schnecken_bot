@@ -200,7 +200,7 @@ fn engine_go_and_stop() {
   engine.set_ponder(true);
 
   let engine_clone = engine.clone();
-  let handle = std::thread::spawn(move || engine_clone.go());
+  let _handle = std::thread::spawn(move || engine_clone.go());
 
   std::thread::sleep(std::time::Duration::from_millis(10));
 
@@ -600,4 +600,19 @@ fn test_sorting_moves_without_eval() {
   assert_eq!(Move::from_string("e4d5"), move_list[2]);
   assert_eq!(Move::from_string("a4c6"), move_list[3]);
   assert_eq!(Move::from_string("e5e6"), move_list[4]);
+}
+
+#[test]
+fn test_drawn_pawn_and_king_endgame() {
+  // From game : https://lichess.org/KHECoP9m - The bot thought it is completely winning
+  let fen = "8/8/3K2k1/6p1/6P1/8/8/8 w - - 6 50";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(500);
+  engine.go();
+  engine.print_evaluations();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert!(analysis[0].1 < 1.0);
+  assert!(analysis[0].1 > -1.0);
 }

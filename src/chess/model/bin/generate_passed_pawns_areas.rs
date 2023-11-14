@@ -2,12 +2,7 @@ use std::fs::File;
 use std::io::Write;
 
 use chess::model::board::*;
-use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
-use chess::model::piece_moves::*;
-
-// This is where our definitions are exported at the end
-use chess::model::tables::rook_destinations::*;
 
 fn main() {
   let filename = "passed_pawns_areas.rs";

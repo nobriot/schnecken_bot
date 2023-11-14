@@ -29,7 +29,6 @@ use super::model::game_state::START_POSITION_FEN;
 use super::model::moves::Move;
 use super::model::piece::Color;
 use crate::model::board::Board;
-use crate::square_in_mask;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -998,7 +997,8 @@ impl Engine {
         self.cache.add_killer_move(&m);
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
         result.insert(*m, (Vec::new(), eval));
-
+        eval_cache.eval = eval;
+        self.cache.set_eval(&new_game_state.board, eval_cache);
         // Don't look at other moves when we found a checkmate
         break;
       }
@@ -1127,49 +1127,6 @@ impl Engine {
     (best_moves, best_result)
   }
 
-  /// Finds the best move and its evaluation within a result
-  ///
-  /// #TODO: Write description
-  ///
-  fn get_best_move_eval_from_result(result: &HashMap<Move, f32>, color: Color) -> (Move, f32) {
-    if result.is_empty() {
-      return (Move::default(), f32::NAN);
-    }
-
-    let mut best_result = match color {
-      Color::White => f32::MIN,
-      Color::Black => f32::MAX,
-    };
-    let mut best_move = Move::default();
-    for (m, eval) in result {
-      if !eval.is_nan() {
-        match color {
-          Color::White => {
-            if *eval > best_result {
-              best_result = *eval;
-              best_move = *m;
-            }
-          },
-          Color::Black => {
-            if *eval < best_result {
-              best_result = *eval;
-              best_move = *m;
-            }
-          },
-        }
-      }
-    }
-
-    // Decrement a little bit in mating sequences, so shorter mates are more attractive.
-    if !best_result.is_nan() && best_result < -100.0 {
-      best_result += 1.0;
-    } else if !best_result.is_nan() && best_result > 100.0 {
-      best_result -= 1.0;
-    }
-
-    (best_move, best_result)
-  }
-
   /// Sorts the list of moves based on the data in the result
   ///
   /// ### Arguments
@@ -1200,51 +1157,6 @@ impl Engine {
     if a_eval > b_eval {
       return greater;
     } else if a_eval < b_eval {
-      return less;
-    }
-
-    Ordering::Equal
-  }
-
-  /// Sorts the list of moves based on the data in the result
-  ///
-  /// ### Arguments
-  ///
-  /// * `Color`:     Side to play, for sorting
-  /// * `a`          Move A
-  /// * `b`          Move B
-  /// * `result`     HashMap with f32 evaluations
-  ///
-  /// ### Return value
-  ///
-  /// Ordering telling if B is Greater, Equal or Less than A
-  ///
-  fn compare_by_cache_eval(&self, game_state: &GameState, a: &Move, b: &Move) -> Ordering {
-    let mut variation_a = game_state.clone();
-    variation_a.apply_move(a);
-    let mut variation_b = game_state.clone();
-    variation_b.apply_move(b);
-
-    let a_eval = self.cache.get_eval(&variation_a.board).unwrap_or_default();
-    let b_eval = self.cache.get_eval(&variation_b.board).unwrap_or_default();
-
-    if a_eval.game_status == GameStatus::Ongoing && b_eval.game_status == GameStatus::Ongoing {
-      // Compare depths if they are ongoing position
-      if a_eval.depth > b_eval.depth {
-        return Ordering::Less;
-      } else if b_eval.depth > a_eval.depth {
-        return Ordering::Greater;
-      }
-    }
-
-    // Compare Evals
-    let (greater, less) = match game_state.board.side_to_play {
-      Color::White => (Ordering::Less, Ordering::Greater),
-      Color::Black => (Ordering::Greater, Ordering::Less),
-    };
-    if a_eval.eval > b_eval.eval {
-      return greater;
-    } else if a_eval.eval < b_eval.eval {
       return less;
     }
 
