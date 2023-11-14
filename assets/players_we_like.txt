@@ -1,10 +1,11 @@
 maia5
+simplexitor
+FlounderBot
 sunstone_bot
 sargon-2ply
 maia1
 CodingAdventureBot
 Jibbby
-FlounderBot
 ELO_1500
 sargon-1ply
 RustyPigeon
@@ -19,5 +20,4 @@ maia1
 Lynx_BOT
 CHoMPBoT
 sargon-4ply
-simplexitor
 SchnellSchnecke

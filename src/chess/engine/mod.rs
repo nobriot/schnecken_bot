@@ -372,6 +372,19 @@ impl Engine {
     self.cache.clear();
   }
 
+  /// Clears and resize the cache table size.
+  ///
+  /// Note: You should not invoke this function when the engine is active/searching.
+  ///
+  /// ### Arguments
+  ///
+  /// * self : Engine reference
+  /// * capacity_mb : Size in MB to use for the engine cache tables (there are 2 of them).
+  ///
+  pub fn resize_cache_tables(&self, capacity_mb: usize) {
+    self.cache.resize_tables(capacity_mb);
+  }
+
   /// Resets the engine to a default state.
   /// Same as Engine::Default() or Engine::new()
   pub fn reset(&mut self) {

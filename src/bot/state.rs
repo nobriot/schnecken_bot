@@ -222,6 +222,8 @@ impl BotState {
       engine: Engine::new(),
     };
 
+    // Use 1024 MB for cache tables.
+    bot_game.engine.resize_cache_tables(1024);
     self.add_game(bot_game);
   }
 

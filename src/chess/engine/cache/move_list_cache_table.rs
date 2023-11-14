@@ -99,6 +99,25 @@ impl MoveListCacheTable {
       *e = MoveListCacheEntry::default();
     }
   }
+
+  /// Resize the table with a new capacity
+  /// Note that the previous data will be zero'ed out
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:     Table to update.
+  /// * `Capacity`: New size for the table, in MB.
+  ///
+  ///
+  #[inline]
+  pub fn resize(&mut self, capacity_mb: usize) {
+    debug!(
+      "Resizing MoveListCacheTable with capacity {} MB",
+      capacity_mb
+    );
+    let new_table = MoveListCacheTable::new(capacity_mb);
+    *self = new_table;
+  }
 }
 
 // -----------------------------------------------------------------------------

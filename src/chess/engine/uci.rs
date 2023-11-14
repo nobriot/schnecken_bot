@@ -52,6 +52,7 @@ fn main() -> ExitCode {
 
   // Get an engine instance running:
   let mut engine = Engine::new();
+  engine.resize_cache_tables(1024);
 
   // Regex for parsing those commands
   let position_fen_re = Regex::new(POSITION_CMD_FEN_REGEX).unwrap();
@@ -126,7 +127,7 @@ fn main() -> ExitCode {
           },
           "multi_pv" => {
             let mut value = value.parse::<usize>().unwrap_or(3);
-            value = std::cmp::max(value, 5);
+            value = std::cmp::min(value, 5);
             engine.set_multi_pv(value);
           },
           _ => {},

@@ -27,8 +27,8 @@ impl EngineCache {
   ///
   pub fn new() -> Self {
     EngineCache {
-      move_lists: Arc::new(Mutex::new(MoveListCacheTable::new(100))),
-      evals: Arc::new(Mutex::new(EvaluationCacheTable::new(100))),
+      move_lists: Arc::new(Mutex::new(MoveListCacheTable::new(10))),
+      evals: Arc::new(Mutex::new(EvaluationCacheTable::new(10))),
       killer_moves: Arc::new(Mutex::new(HashSet::new())),
     }
   }
@@ -160,6 +160,19 @@ impl EngineCache {
   ///
   pub fn clear_evals(&self) {
     self.evals.lock().unwrap().clear();
+  }
+
+  /// Clears and resizes the cache tables. (both for evals and move lists)
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `capacity_mb`:      New size for the tables, in MB.
+  ///
+  ///
+  pub fn resize_tables(&self, capacity_mb: usize) {
+    self.evals.lock().unwrap().resize(capacity_mb);
+    self.move_lists.lock().unwrap().resize(capacity_mb);
   }
 
   // ---------------------------------------------------------------------------

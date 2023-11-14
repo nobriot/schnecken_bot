@@ -103,6 +103,25 @@ impl EvaluationCacheTable {
     Some(entry.evaluation_cache)
   }
 
+  /// Resize the table with a new capacity
+  /// Note that the previous data will be zero'ed out
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:     Table to update.
+  /// * `Capacity`: New size for the table, in MB.
+  ///
+  ///
+  #[inline]
+  pub fn resize(&mut self, capacity_mb: usize) {
+    debug!(
+      "Resizing EvaluationCacheTable with capacity {} MB",
+      capacity_mb
+    );
+    let new_table = EvaluationCacheTable::new(capacity_mb);
+    *self = new_table;
+  }
+
   /// Adds (or update) an evaluation cache entry.
   #[inline]
   pub fn add(&mut self, hash: BoardHash, evaluation: EvaluationCache) {
@@ -168,6 +187,42 @@ mod tests {
     for i in 3..100000 {
       assert!(cache_table.get(i).is_none());
       //println!("Pointer: {:p}", cache_table.pointer(i));
+    }
+  }
+
+  #[test]
+  fn test_resize() {
+    //use crate::engine::evaluate_board;
+    let mut cache_table = EvaluationCacheTable::new(20);
+
+    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
+    let game_state = GameState::from_fen(fen);
+    let boardcache = EvaluationCache {
+      game_status: GameStatus::WhiteWon,
+      eval: 1.0,
+      depth: 3,
+    };
+
+    cache_table.add(game_state.board.hash, boardcache);
+
+    let board_cache_2 = cache_table.get(game_state.board.hash).unwrap_or_default();
+    assert_eq!(boardcache, board_cache_2);
+
+    for i in 3..100000 {
+      assert!(cache_table.get(i).is_none());
+      cache_table.add(i, boardcache);
+      assert!(cache_table.get(i).is_some());
+    }
+
+    cache_table.resize(10);
+    for i in 3..100000 {
+      assert!(cache_table.get(i).is_none());
+    }
+
+    for i in 3..100000 {
+      assert!(cache_table.get(i).is_none());
+      cache_table.add(i, boardcache);
+      assert!(cache_table.get(i).is_some());
     }
   }
 }
