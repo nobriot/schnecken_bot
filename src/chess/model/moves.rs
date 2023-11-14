@@ -23,22 +23,24 @@ pub const DESTINATION_SHIFT: move_t = 6;
 
 /// Bit shift to apply to verify if the move is a capture
 pub const CAPTURE_SHIFT: move_t = 16;
+/// Bit shift to apply to check which piece has been captured
+pub const CAPTURE_MASK: move_t = 0b111;
 /// Bit shift to apply to verify if the move delivers check
-pub const CHECK_SHIFT: move_t = 17;
+pub const CHECK_SHIFT: move_t = 19;
 /// Mask to apply to the number of checks
 const CHECK_MASK: move_t = 0b11;
 
 /// Bit shift to apply to verify if the move is marked as a castling move
-pub const CASTLE_SHIFT: move_t = 19;
+pub const CASTLE_SHIFT: move_t = 21;
 /// Bit shift to apply to verify if the move is marked as a en-passant move
-pub const EN_PASSANT_SHIFT: move_t = 19;
+pub const EN_PASSANT_SHIFT: move_t = 22;
 
 // -----------------------------------------------------------------------------
 //  Macros
 
 /// Helper macro that creates a Move
 ///
-/// Use like this for all parameters: `mv!(source, destination, promotion, is_capture, gives_check)`
+/// Use like this for all parameters: `mv!(source, destination, promotion, capture, checks)`
 ///
 /// Only 2 madatory parameters are source and destinations: `mv!(source, destination)`
 ///
@@ -47,8 +49,8 @@ pub const EN_PASSANT_SHIFT: move_t = 19;
 /// * `source`          Source square for the move : 0..63;
 /// * `destination`     Destination square for the move : 0..63;
 /// * `promotion`       Whether the move yields a promotion
-/// * `is_capture`      bool value to indicate if this is a capture on the board it is applied.
-/// * `gives_check`     bool value to indicate if this moves gives check on the board it is applied.
+/// * `capture`         PieceType value to indicate if this is a capture on the board. Set to 0 (king) for no capture.
+/// * `checks`          2 bits values indicating the number of checks.
 ///
 /// ### Returns
 ///
@@ -62,7 +64,7 @@ macro_rules! mv {
       data: $src as move_t
         | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
         | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & 1) << CAPTURE_SHIFT)
+        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
         | (($check as move_t & CHECK_MASK) << CHECK_SHIFT),
     }
   };
@@ -72,7 +74,7 @@ macro_rules! mv {
       data: $src as move_t
         | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
         | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & 1) << CAPTURE_SHIFT),
+        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
     }
   };
 
@@ -135,7 +137,7 @@ macro_rules! en_passant_mv {
     Move {
       data: $src as move_t
         | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (1 << CAPTURE_SHIFT)
+        | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
         | (1 << EN_PASSANT_SHIFT),
     }
   };
@@ -157,9 +159,11 @@ macro_rules! en_passant_mv {
 #[macro_export]
 macro_rules! capture_mv {
   // All parameters
-  ($src:expr, $dest:expr) => {
+  ($src:expr, $dest:expr, $piece:expr) => {
     Move {
-      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CAPTURE_SHIFT),
+      data: $src
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
     }
   };
 }
@@ -261,10 +265,10 @@ pub struct Move {
   /// source mask         : 0b 0000 0000 0000 0000 0000 0000 0011 1111
   /// destination mask    : 0b 0000 0000 0000 0000 0000 1111 1100 0000
   /// promotion mask      : 0b 0000 0000 0000 0000 1111 0000 0000 0000
-  /// is_capture mask     : 0b 0000 0000 0000 0001 0000 0000 0000 0000
-  /// checks mask         : 0b 0000 0000 0000 0110 0000 0000 0000 0000
-  /// is_casle mask       : 0b 0000 0000 0000 1000 0000 0000 0000 0000
-  /// en_passant mask     : 0b 0000 0000 0001 0000 0000 0000 0000 0000
+  /// is_capture mask     : 0b 0000 0000 0000 0111 0000 0000 0000 0000
+  /// checks mask         : 0b 0000 0000 0001 1000 0000 0000 0000 0000
+  /// is_casle mask       : 0b 0000 0000 0010 0000 0000 0000 0000 0000
+  /// en_passant mask     : 0b 0000 0000 0100 0000 0000 0000 0000 0000
   ///
   /// Note that capture/gives_check depends on the board configuration and
   /// does not need to be exact in all use-cases.
@@ -312,7 +316,29 @@ impl Move {
   ///
   #[inline]
   pub fn is_capture(&self) -> bool {
-    (self.data >> CAPTURE_SHIFT) != 0
+    (self.data >> CAPTURE_SHIFT) & CAPTURE_MASK != 0
+  }
+
+  /// Returns the piece that was captured by the move
+  #[inline]
+  pub fn get_captured_piece(&self) -> Option<PieceType> {
+    match (self.data >> CAPTURE_SHIFT) & CAPTURE_MASK {
+      1 => Some(PieceType::Queen),
+      2 => Some(PieceType::Rook),
+      3 => Some(PieceType::Bishop),
+      4 => Some(PieceType::Knight),
+      5 => Some(PieceType::Pawn),
+      _ => None,
+    }
+  }
+
+  /// Returns the piece that was captured by the move
+  #[inline]
+  pub fn is_piece_capture(&self) -> bool {
+    match (self.data >> CAPTURE_SHIFT) & CAPTURE_MASK {
+      1..=4 => true,
+      _ => false,
+    }
   }
 
   /// Returns the number of checks if the move has been marked to give checks
@@ -330,7 +356,7 @@ impl Move {
   ///
   #[inline]
   pub fn is_castle(&self) -> bool {
-    (self.data >> CASTLE_SHIFT) != 0
+    (self.data >> CASTLE_SHIFT) & 1 != 0
   }
 
   /// Returns whether the move is a en-passant move or not
@@ -339,7 +365,7 @@ impl Move {
   ///
   #[inline]
   pub fn is_en_passant(&self) -> bool {
-    (self.data >> EN_PASSANT_SHIFT) != 0
+    (self.data >> EN_PASSANT_SHIFT) & 1 != 0
   }
 }
 
@@ -450,12 +476,7 @@ impl Move {
     let dest: move_t = string_to_square(&move_notation[2..4]) as move_t;
 
     let mut promotion = if move_notation.len() == 5 {
-      Promotion::from_char(
-        move_notation
-          .chars()
-          .nth(4)
-          .expect("Invalid promoted piece ??"),
-      )
+      Promotion::from_char(move_notation.chars().nth(4).expect("Invalid promoted piece ??"))
     } else {
       Promotion::NoPromotion
     };

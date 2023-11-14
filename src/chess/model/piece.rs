@@ -80,6 +80,30 @@ pub enum PieceType {
   Pawn,
 }
 
+impl PieceType {
+  /// Looks at the u8 value of a piece and converts it into a piece type
+  ///
+  /// ### Arguments:
+  ///
+  /// * value: u8 value of a piece, e.g. `BLACK_KING`, `WHITE_PAWN`, etc.
+  ///
+  /// ### Return value
+  ///
+  /// PieceType matching the u8 value. /!\ Return PieceType King by default
+  /// if the u8 value is invalid.
+  ///
+  pub fn from_u8(value: u8) -> PieceType {
+    match value {
+      WHITE_QUEEN | BLACK_QUEEN => PieceType::Queen,
+      WHITE_ROOK | BLACK_ROOK => PieceType::Rook,
+      WHITE_BISHOP | BLACK_BISHOP => PieceType::Bishop,
+      WHITE_KNIGHT | BLACK_KNIGHT => PieceType::Knight,
+      WHITE_PAWN | BLACK_PAWN => PieceType::Pawn,
+      _ => PieceType::King,
+    }
+  }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Piece {
   p_type: PieceType,
@@ -155,19 +179,6 @@ impl Piece {
       PieceType::Bishop => BISHOP_VALUE,
       PieceType::Knight => KNIGHT_VALUE,
       PieceType::Pawn => PAWN_VALUE,
-    }
-  }
-
-  /// Indicates the material value of a piece.
-  #[allow(dead_code)]
-  pub fn color_from_u8(piece: u8) -> Color {
-    match piece {
-      WHITE_KING..=WHITE_PAWN => Color::White,
-      BLACK_KING..=BLACK_PAWN => Color::Black,
-      _ => {
-        warn!("Returning a color for an empty square! ");
-        Color::Black
-      },
     }
   }
 

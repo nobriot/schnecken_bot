@@ -29,6 +29,7 @@ use super::model::game_state::START_POSITION_FEN;
 use super::model::moves::Move;
 use super::model::piece::Color;
 use crate::model::board::Board;
+use crate::square_in_mask;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -196,6 +197,21 @@ impl Analysis {
   pub fn set_selective_depth(&self, depth: usize) {
     let mut selective_depth = self.selective_depth.lock().unwrap();
     *selective_depth = depth;
+  }
+
+  /// Updates the selective depth if the new value is higher than the current value.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  /// * `selective_depth`:  New depth to set.
+  ///
+  ///
+  pub fn update_selective_depth(&self, depth: usize) {
+    let mut selective_depth = self.selective_depth.lock().unwrap();
+    if *selective_depth < depth {
+      *selective_depth = depth;
+    }
   }
 
   /// Increments the selective depth we have reached during the analysis
@@ -546,8 +562,9 @@ impl Engine {
     let depth = self.analysis.get_depth();
     let selective_depth = self.analysis.get_selective_depth();
     let start_time = self.get_start_time();
+    let multi_pv_setting = self.options.lock().unwrap().multi_pv;
 
-    for i in 0..min(self.options.lock().unwrap().multi_pv, best_lines.len()) {
+    for i in 0..min(multi_pv_setting, best_lines.len()) {
       let eval = best_lines[i].1;
       let line = best_lines[i].0.clone();
       let mut line_string = String::new();
@@ -560,14 +577,19 @@ impl Engine {
       } else {
         format!("score cp {}", (eval * 100.0) as isize)
       };
+      let multi_pv_string = if multi_pv_setting > 1 {
+        String::from(format!(" multipv {} ", i + 1))
+      } else {
+        String::from(format!(""))
+      };
       println!(
-        "info {} depth {} seldepth {} nodes {} time {} multipv {} pv {}",
+        "info {} depth {} seldepth {} nodes {} time {}{}pv {}",
         score_string,
         depth,
         selective_depth,
         self.cache.len(),
         (Instant::now() - start_time).as_millis(),
-        i + 1,
+        multi_pv_string,
         line_string,
       );
     }
@@ -802,6 +824,16 @@ impl Engine {
     self.options.lock().unwrap().style = play_style;
   }
 
+  /// Helper function that sets the "multi_pv" value in the engine options
+  ///
+  /// ### Arguments
+  ///
+  /// * `multi_pv`: Value to set for the multi_pv.
+  ///
+  pub fn set_multi_pv(&self, value: usize) {
+    self.options.lock().unwrap().multi_pv = value;
+  }
+
   //----------------------------------------------------------------------------
   // Position calculations
 
@@ -887,7 +919,7 @@ impl Engine {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      if (alpha - 2.0) > beta {
+      if (alpha - 0.5) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;
@@ -895,10 +927,13 @@ impl Engine {
 
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
-      //let mut max_line_depth = max_depth;
-      if depth == max_depth && m.is_capture() {
-        //max_line_depth = max_depth + 1;
-        //println!("Continuing to depth {max_line_depth}");
+      let mut max_line_depth = max_depth;
+      if depth == max_depth && m.is_piece_capture() {
+        if depth < self.analysis.get_depth() + 3 {
+          max_line_depth = max_depth + 1;
+          self.analysis.update_selective_depth(max_line_depth);
+          //println!("Continuing to depth {max_line_depth}");
+        }
       }
 
       let mut new_game_state = game_state.clone();
@@ -922,7 +957,7 @@ impl Engine {
 
       // Check if we already looked at this position.
       let mut eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
-      if eval_cache.depth >= (max_depth - depth + 1) {
+      if eval_cache.depth >= (max_line_depth - depth + 1) {
         // Nothing to do, we already looked at this position.
         // FIXME: If the position appears in another variation but leads to a draw, e.g. 3 fold repetitions, we won't detect it and skip it.
         // Get the alpha/beta result propagated upwards.
@@ -957,13 +992,13 @@ impl Engine {
 
       // Search more if the game is not over.
       if eval_cache.game_status == GameStatus::Ongoing {
-        if depth < max_depth {
+        if depth < max_line_depth {
           /*
           // Recurse until we get to the bottom, spin 1 thread per move at the first level.
           let self_clone = self.clone();
           handles.push(std::thread::spawn(move || {self_clone.search(&new_game_state, depth + 1, max_line_depth, start_time) }));
           */
-          let sub_result = self.search(&new_game_state, depth + 1, max_depth, alpha, beta);
+          let sub_result = self.search(&new_game_state, depth + 1, max_line_depth, alpha, beta);
           if sub_result.is_empty() {
             return sub_result;
           }
@@ -973,7 +1008,7 @@ impl Engine {
 
           result.insert(*m, (best_continuation, eval));
           Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
-        } else if eval_cache.game_status == GameStatus::Ongoing && depth >= max_depth {
+        } else if eval_cache.game_status == GameStatus::Ongoing && depth >= max_line_depth {
           // Evaluate our position
           eval = evaluate_board(&new_game_state);
 
@@ -995,7 +1030,7 @@ impl Engine {
 
       // Save the intermediate result in the transposition table
       eval_cache.eval = eval;
-      eval_cache.depth = max_depth - depth + 1;
+      eval_cache.depth = max_line_depth - depth + 1;
       self.cache.set_eval(&new_game_state.board, eval_cache);
     } // for m in &moves
 

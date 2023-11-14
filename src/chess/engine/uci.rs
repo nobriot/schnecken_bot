@@ -40,6 +40,9 @@ DESCRIPTION
       Use Conservative to try to draw stronger opponents.
       Use Aggressive to play aggressively.
       Use Provocative to play weaker opponents.
+  
+    setoption name multi_pv type spin default 3 min 0 max 5
+      Sets how many lines the engine will print in the info during the search.
 ";
 
 // Main function
@@ -78,6 +81,7 @@ fn main() -> ExitCode {
         println!("option name use_nnue type check default false");
         println!("option name ponder type check default false");
         println!("option name play_style type combo default Normal var Conservative var Normal var Aggressive var Provocative");
+        println!("option name multi_pv type spin default 3 min 0 max 5");
         println!("uciok");
       },
       "isready" => {
@@ -119,6 +123,11 @@ fn main() -> ExitCode {
           "play_style" => {
             let value = value.parse::<PlayStyle>().unwrap_or_default();
             engine.set_play_style(value);
+          },
+          "multi_pv" => {
+            let mut value = value.parse::<usize>().unwrap_or(3);
+            value = std::cmp::max(value, 5);
+            engine.set_multi_pv(value);
           },
           _ => {},
         }
