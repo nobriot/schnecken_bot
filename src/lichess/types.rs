@@ -88,7 +88,7 @@ pub struct Challenge {
 pub struct Challenger {
   pub id: String,
   pub name: String,
-  pub online: bool,
+  pub online: Option<bool>,
   pub rating: usize,
   pub title: Option<String>,
 }

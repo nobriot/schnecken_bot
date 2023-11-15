@@ -284,7 +284,7 @@ impl Engine {
         max_depth: 20,
         max_time: 0,
         max_threads: 16,
-        use_nnue: true,
+        use_nnue: false,
         debug: false,
         style: PlayStyle::Normal,
         multi_pv: 3,
@@ -446,6 +446,9 @@ impl Engine {
     self.set_engine_active(true);
     self.set_start_time(); // Capture that we started searching now.
 
+    // Make sure we know the move list:
+    Engine::find_move_list(&self.cache, &self.position.board);
+
     // First check if we are in a known book position. If yes, just return the known list
     let book_entry = get_book_moves(
       &self.position.board,
@@ -470,14 +473,18 @@ impl Engine {
         );
       }
 
+      // Release the mutex to be able to print the best move:
+      drop(move_list);
+
       // We are done
+      self.print_uci_info();
+      self.print_uci_best_move();
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
     }
 
     // If we have only one legal move, we should just give it a score and play it instantaneously.
-    Engine::find_move_list(&self.cache, &self.position.board);
     let moves = self.cache.get_move_list(&self.position.board).unwrap();
     if moves.len() == 1 {
       debug!("Single or no move available. Just evaluating quickly");
@@ -502,6 +509,9 @@ impl Engine {
       self.analysis.update_result(&result);
       self.analysis.set_depth(evaluation_cache.depth);
       self.analysis.set_selective_depth(evaluation_cache.depth);
+
+      self.print_uci_info();
+      self.print_uci_best_move();
       self.set_stop_requested(false);
       self.set_engine_active(false);
       return;
@@ -537,9 +547,7 @@ impl Engine {
     }
 
     // We are done
-    if self.get_uci() {
-      println!("bestmove {}", self.get_best_move());
-    }
+    self.print_uci_best_move();
     self.set_stop_requested(false);
     self.set_engine_active(false);
   }
@@ -565,6 +573,7 @@ impl Engine {
   /// Prints information to stdout for the GUI using UCI protocol
   /// Nothing will be sent if the UCI option is not set in the engine
   ///
+  #[inline]
   pub fn print_uci_info(&self) {
     if self.get_uci() == false {
       return;
@@ -604,6 +613,15 @@ impl Engine {
         multi_pv_string,
         line_string,
       );
+    }
+  }
+
+  /// Prints tyhe best move
+  ///
+  #[inline]
+  pub fn print_uci_best_move(&self) {
+    if self.get_uci() {
+      println!("bestmove {}", self.get_best_move());
     }
   }
 
@@ -1026,7 +1044,7 @@ impl Engine {
           eval = evaluate_board(&new_game_state);
 
           // FIXME:  NNUE eval is still too slow, we should implement incremental updates
-          if depth > 8 && self.options.lock().unwrap().use_nnue == true {
+          if depth > 10 && self.options.lock().unwrap().use_nnue == true {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
             eval = eval * 0.5 + nnue_eval * 0.5;
@@ -1188,7 +1206,7 @@ impl Default for Engine {
         max_depth: 20,
         max_time: 0,
         max_threads: 16,
-        use_nnue: true,
+        use_nnue: false,
         debug: false,
         style: PlayStyle::Normal,
         multi_pv: 3,

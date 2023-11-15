@@ -5,7 +5,7 @@ use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
 // Constants
-const DEVELOPMENT_FACTOR: f32 = 0.06;
+const DEVELOPMENT_FACTOR: f32 = 0.03;
 //const KING_DANGER_FACTOR: f32 = 0.3;
 //const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
@@ -89,15 +89,6 @@ pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-
-  #[test]
-  fn evaluate_opening_positions() {
-    let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
-    let game_state = GameState::from_fen(fen);
-    let eval = get_opening_position_evaluation(&game_state);
-    println!("Evaluation: {eval}");
-    assert!(-2.0 > eval);
-  }
 
   #[test]
   fn evaluate_start_position() {

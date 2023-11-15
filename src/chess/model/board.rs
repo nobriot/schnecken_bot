@@ -381,7 +381,7 @@ impl Board {
   ///
   pub fn get_pins_rays(&self, color: Color) -> BoardMask {
     let king_position = self.get_king(color) as usize;
-    assert!(king_position < 64, "No king for board: {}", self.to_fen());
+    debug_assert!(king_position < 64, "No king for board: {}", self.to_fen());
 
     let mut pins: BoardMask = 0;
 
@@ -427,8 +427,9 @@ impl Board {
   pub fn get_attackers(&self, target_square: u8, color: Color) -> BoardMask {
     debug_assert!(
       target_square < 64,
-      "Received get_attackers on square {}",
-      target_square
+      "get_attackers for square {} - board: {}",
+      target_square,
+      self.to_fen()
     );
 
     let (attacking_pieces, king_mask) = match color {

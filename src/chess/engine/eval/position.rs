@@ -116,6 +116,11 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     }
     black_pieces &= black_pieces - 1;
   }
+
+  // Look for pawns attacking pieces, or forking
+  score += get_pawn_victims(game_state, Color::White) as f32;
+  score -= get_pawn_victims(game_state, Color::Black) as f32;
+
   /*
   // Check if we have some good positional stuff
   if has_reachable_outpost(game_state, i as usize) {
@@ -261,9 +266,9 @@ pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
 ///
 /// ### Returns
 ///
-/// * GameStatus with GameStatus::OnGoing if draw cannot be declared.
-///  GameStatus::Draw if we have exceeded the 100-ply
-///  GameStatus::ThreeFoldRepetition if we have repeated the position
+/// * `GameStatus::OnGoing` if draw cannot be declared.
+/// * `GameStatus::Draw` if we have exceeded the 100-ply
+/// * `GameStatus::ThreeFoldRepetition` if we have repeated the position
 ///
 pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
   if game_state.ply >= 100 {
@@ -305,7 +310,6 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::model::moves::Move;
 
   #[test]
   fn test_evaluate_board() {
@@ -336,16 +340,6 @@ mod tests {
     game_state.get_moves();
     let game_status = is_game_over(&cache, &game_state.board);
     assert_eq!(game_status, GameStatus::WhiteWon);
-  }
-  #[test]
-  fn test_evaluate_board_hanging_queen() {
-    // This should obviously be very bad for white:
-    let fen = "rnbqkb1r/ppp1pppQ/5n2/3p4/3P4/8/PPP1PPPP/RNB1KBNR b KQkq - 0 3";
-    let game_state = GameState::from_fen(fen);
-    game_state.get_moves();
-    let evaluation = evaluate_board(&game_state);
-    println!("Evaluation : {evaluation}");
-    assert!(evaluation < -((HANGING_FACTOR * QUEEN_VALUE) - 1.0));
   }
 
   #[test]

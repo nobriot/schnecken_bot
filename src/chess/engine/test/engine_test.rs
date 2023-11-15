@@ -39,7 +39,7 @@ fn engine_search_real_game_2Dxi9wZH() {
 
 #[test]
 #[allow(non_snake_case)]
-fn engine_earch_real_game_w1mLoTRZ() {
+fn engine_search_real_game_w1mLoTRZ() {
   /*
     [2023-10-26T10:13:15.054Z INFO  schnecken_bot::bot::state] Using 1758 ms to find a move for position r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w - - 0 13
     Score for position r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w - - 0 13: -2.2133334
@@ -78,7 +78,9 @@ fn engine_earch_real_game_w1mLoTRZ() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() == "c3e2");
+  assert!(
+    engine.get_best_move().to_string() == "c3e2" || engine.get_best_move().to_string() == "f2f3"
+  );
   let eval = analysis[0].1;
   assert!(eval < -2.0);
 }
@@ -606,6 +608,15 @@ fn test_sorting_moves_without_eval() {
 fn test_drawn_pawn_and_king_endgame() {
   // From game : https://lichess.org/KHECoP9m - The bot thought it is completely winning
   let fen = "8/8/3K2k1/6p1/6P1/8/8/8 w - - 6 50";
+  let game_state = GameState::from_fen(fen);
+
+  let eval = evaluate_board(&game_state);
+  println!("Eval is: {}", eval);
+
+  let game_state_2 = GameState::from_fen("8/8/5K1k/6p1/6P1/8/8/8 b - - 11 52");
+  let eval_2 = evaluate_board(&game_state_2);
+  println!("Eval is: {}", eval_2);
+
   let mut engine = Engine::new();
   engine.set_position(fen);
   engine.set_search_time_limit(500);

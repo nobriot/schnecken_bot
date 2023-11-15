@@ -1,5 +1,3 @@
-use super::generic::*;
-
 use crate::model::board::*;
 use crate::model::board_geometry::holes::*;
 use crate::model::board_geometry::passed_pawns_areas::*;
@@ -7,6 +5,7 @@ use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::tables::pawn_destinations::*;
 
 // State to track pawn islands
 #[derive(PartialEq)]
@@ -448,70 +447,46 @@ pub fn get_holes(game_state: &GameState, color: Color) -> BoardMask {
   holes
 }
 
-/// Computes the values of the pieces that a pawn attacks.
+/// Computes the number of pieces attacked by defended pawns
 ///
-/// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play, etc.
-/// * `i`         : Index of the square on the board
-///
-/// ### Returns
-///
-/// Zero if there is no pawn on the square
-/// The value of attacked enemy pieces if it attacks them.
-///
-pub fn pawn_attack(game_state: &GameState, i: u8) -> f32 {
-  let mut value: f32 = 0.0;
-
-  // If we have no pawn on the square, return immediately.
-  let color = if game_state.board.pieces.get(i as u8) == WHITE_PAWN {
-    Color::White
-  } else if game_state.board.pieces.get(i as u8) == BLACK_PAWN {
-    Color::Black
-  } else {
-    return value;
+#[inline]
+pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
+  let mut victims: u32 = 0;
+  // Look for pawns attacking pieces, or forking
+  let mut pawns = match color {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
   };
+  while pawns != 0 {
+    let pawn = pawns.trailing_zeros() as u8;
+    let defenders = game_state.board.get_attackers(pawn, color);
+    let attackers = game_state.board.get_attackers(pawn, Color::opposite(color));
 
-  // If the knight is attacked by the opponent and not defended, we do not even
-  // consider anything here:
-  if is_hanging(game_state, i) && is_attacked(game_state, i) {
-    return value;
-  }
+    if attackers.count_ones() <= defenders.count_ones() {
+      // Check that the pawn cannot be taken out too easily before assigning a bonus for the pawn attack.
+      let attacked_pieces = match color {
+        Color::White => (WHITE_PAWN_CONTROL[pawn as usize]
+          & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.minors()))
+        .count_few_ones(),
+        Color::Black => (BLACK_PAWN_CONTROL[pawn as usize]
+          & (game_state.board.pieces.white.majors()
+            | game_state.board.pieces.white.minors()
+            | game_state.board.pieces.white.king))
+          .count_few_ones(),
+      };
 
-  // Check if controlled by op_pawns:
-  let (file, mut rank) = Board::index_to_fr(i);
-  match color {
-    Color::White => rank += 1,
-    Color::Black => rank -= 1,
-  }
-  if rank > 8 || rank == 0 {
-    return value;
-  }
-
-  // Check on the left side:
-  if file > 1 {
-    let s = Board::fr_to_index(file - 1, rank);
-    if game_state.board.has_piece_with_color(s as u8, Color::opposite(color)) {
-      if !game_state.board.has_king(s) {
-        value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
-      } else {
-        value += 1.0 * Color::score_factor(Color::opposite(color));
-      }
+      (WHITE_PAWN_CONTROL[pawn as usize]
+        & (game_state.board.pieces.black.majors()
+          | game_state.board.pieces.black.minors()
+          | game_state.board.pieces.black.king))
+        .count_few_ones();
+      victims += attacked_pieces;
     }
+
+    pawns &= pawns - 1;
   }
 
-  // Check on the right side:
-  if file < 8 {
-    let s = Board::fr_to_index(file + 1, rank);
-    if game_state.board.has_piece_with_color(s as u8, Color::opposite(color)) {
-      if !game_state.board.has_king(s) {
-        value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
-      } else {
-        value += 1.0 * Color::score_factor(Color::opposite(color));
-      }
-    }
-  }
-
-  value.abs()
+  victims
 }
 
 // -----------------------------------------------------------------------------
@@ -660,56 +635,34 @@ mod tests {
     // Black pawn attacking white pieces:
     let fen = "rnbq1rk1/ppp1bppp/3p1n2/8/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 7 9";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      assert_eq!(0.0, pawn_attack(&game_state, i));
-    }
+    assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 34 {
-        assert_eq!(0.0, pawn_attack(&game_state, i));
-      } else {
-        assert_eq!(3.0, pawn_attack(&game_state, i));
-      }
-    }
+    assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(1, get_pawn_victims(&game_state, Color::Black));
 
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 34 {
-        assert_eq!(0.0, pawn_attack(&game_state, i));
-      } else {
-        assert_eq!(6.0, pawn_attack(&game_state, i));
-      }
-    }
+    assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(2, get_pawn_victims(&game_state, Color::Black));
 
     // White pawn attacking black pieces:
     let fen = "rnbq1rk1/pp2bppp/n2p4/2p5/8/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      assert_eq!(0.0, pawn_attack(&game_state, i));
-    }
+    assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
 
     let fen = "rnbq1rk1/pp2bppp/3p4/2p5/1n6/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 18 {
-        assert_eq!(0.0, pawn_attack(&game_state, i));
-      } else {
-        assert_eq!(3.0, pawn_attack(&game_state, i));
-      }
-    }
+    assert_eq!(1, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
 
     let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 18 {
-        assert_eq!(0.0, pawn_attack(&game_state, i));
-      } else {
-        assert_eq!(6.05, pawn_attack(&game_state, i));
-      }
-    }
+    assert_eq!(2, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
   }
 
   #[test]

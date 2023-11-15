@@ -10,7 +10,7 @@ use crate::model::piece_moves::KING_MOVES;
 
 //const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 //const KING_DANGER_FACTOR: f32 = 2.0;
-const SQUARE_TABLE_FACTOR: f32 = 0.07;
+const SQUARE_TABLE_FACTOR: f32 = 0.03;
 const PASSED_PAWN_FACTOR: f32 = 0.02;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
@@ -59,19 +59,13 @@ pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
 /// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
-  if is_king_and_queen_endgame(game_state)
-    || is_king_and_rook_endgame(game_state)
-    || just_the_opponent_king_left(game_state)
-  {
-    //debug!("Queen and/or rook vs King detected");
+  if just_the_opponent_king_left(game_state) {
     return get_king_vs_queen_or_rook_score(game_state);
   }
 
-  //if is_king_and_pawn_endgame(game_state) {}
-
-  // FIXME: The other day we just exchanged rooks for a knight vs pawn endgame.
-  // this cannot be winning so we should not material exchange if we are
-  // left with a minor piece.
+  // Check if we cannot win, cap the score to 0:
+  let max_score = if one_minor_left(game_state, Color::White) { 0.0 } else { 200.0 };
+  let min_score = if one_minor_left(game_state, Color::Black) { 0.0 } else { -200.0 };
 
   // TODO: Implement a proper evaluation here
   let mut score: f32 = 0.0;
@@ -116,62 +110,14 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 
   score += get_square_table_endgame_score(game_state);
 
-  score + default_position_evaluation(game_state)
-}
-
-/// Checks if it is a King-Queen vs King endgame
-///
-/// # Arguments
-///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine if development is completed.
-fn is_king_and_queen_endgame(game_state: &GameState) -> bool {
-  if (game_state.board.pieces.white.pawn
-    | game_state.board.pieces.black.pawn
-    | game_state.board.pieces.white.bishop
-    | game_state.board.pieces.black.bishop
-    | game_state.board.pieces.white.knight
-    | game_state.board.pieces.black.knight
-    | game_state.board.pieces.white.rook
-    | game_state.board.pieces.black.rook)
-    != 0
-  {
-    return false;
+  score += default_position_evaluation(game_state);
+  if score < min_score {
+    score = min_score;
+  } else if score > max_score {
+    score = max_score;
   }
 
-  if (game_state.board.pieces.white.queen | game_state.board.pieces.black.queen).count_few_ones()
-    > 1
-  {
-    return false;
-  }
-  true
-}
-
-/// Checks if it is a King-Queen vs King endgame
-///
-/// # Arguments
-///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine if development is completed.
-fn is_king_and_rook_endgame(game_state: &GameState) -> bool {
-  if (game_state.board.pieces.white.pawn
-    | game_state.board.pieces.black.pawn
-    | game_state.board.pieces.white.bishop
-    | game_state.board.pieces.black.bishop
-    | game_state.board.pieces.white.knight
-    | game_state.board.pieces.black.knight
-    | game_state.board.pieces.white.queen
-    | game_state.board.pieces.black.queen)
-    != 0
-  {
-    return false;
-  }
-
-  if (game_state.board.pieces.white.rook | game_state.board.pieces.black.rook).count_few_ones() > 1
-  {
-    return false;
-  }
-  true
+  score
 }
 
 /// Checks if we just have the opponent king left against us
@@ -187,22 +133,29 @@ fn just_the_opponent_king_left(game_state: &GameState) -> bool {
     | (game_state.board.pieces.white.all() == game_state.board.pieces.white.king)
 }
 
-/// Checks if it is a King and pawns endgame
+/// Checks if a color just has one minor piece left
 ///
-/// # Arguments
+/// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state`: State of the game
+/// * `color`:      Side for which we want to look at minor pieces.
+///
+/// ### Return value
+///
+/// True if we have the king and one minor, false otherwhise.
+///
 #[inline]
-fn is_king_and_pawn_endgame(game_state: &GameState) -> bool {
-  (game_state.board.pieces.white.rook
-    | game_state.board.pieces.black.rook
-    | game_state.board.pieces.white.bishop
-    | game_state.board.pieces.black.bishop
-    | game_state.board.pieces.white.knight
-    | game_state.board.pieces.black.knight
-    | game_state.board.pieces.white.queen
-    | game_state.board.pieces.black.queen)
-    == 0
+pub fn one_minor_left(game_state: &GameState, color: Color) -> bool {
+  match color {
+    Color::White => {
+      (game_state.board.pieces.white.pawn | game_state.board.pieces.white.majors()) == 0
+        && game_state.board.pieces.white.minors().count_few_ones() == 1
+    },
+    Color::Black => {
+      (game_state.board.pieces.black.pawn | game_state.board.pieces.black.majors()) == 0
+        && game_state.board.pieces.black.minors().count_few_ones() == 1
+    },
+  }
 }
 
 /// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
@@ -313,5 +266,25 @@ mod tests {
     //FIXME: Blunder scores higher for now.
     //assert!(blunder_score < expected_score);
     assert!(expected_score < better_score);
+  }
+
+  #[test]
+  fn test_max_min_score_with_one_minor_left() {
+    let fen = "2k5/2p5/8/8/3N4/2K5/8/8 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let expected_score = 0.0;
+    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
+
+    let fen = "2k5/2p5/8/8/3B4/2K5/8/8 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
+
+    let fen = "2k5/3b4/8/8/3P4/2K5/8/8 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
+
+    let fen = "2k5/3n4/8/8/3P4/2K5/8/8 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
   }
 }
