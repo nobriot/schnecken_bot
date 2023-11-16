@@ -66,6 +66,28 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Ng6 8. e5 Ng8 9. Qe2 Bb4 10. f5 N6e7 11. Bg5 Kf8 12. Qf3 f6 13. Bh4 Bxc3+ 14. bxc3 h5 15. O-O-O d6 16. e6 Nh6 17. Bd3 Ng4 18. Bg3 Ne5 19. Bxe5 dxe5 20. g4 hxg4 21. Qxg4";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
 
+  // Cochrane gambit
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nxf7 Kxf7 5. d4 g6 6. Nc3 Kg7 7. f3 c5 8. dxc5 Nc6 9. Bf4 Be6 10. Bxd6 Bxd6 11. cxd6 Ne8 12. Qd2 Qxd6 13. O-O-O Qc5 14. Na4 Qe7 15. Qc3+ Nf6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nxf7 Kxf7 5. Nc3 g6 6. d4 Kg7 7. f3 c5 8. dxc5 Be7 9. cxd6 Bxd6 10. Nb5 Be5 11. Qxd8 Rxd8 12. f4 Bd4 13. e5 Ng4 14. Nxd4 Rxd4 15. Bd3 Bf5 16. Bxf5 gxf5 17. h3 Nh6 18. Ke2 Rd7 19. Be3 Nc6 20. Rhd1 Rad8 21. Rxd7+ Rxd7 22. Rg1 a6 23. g4 Kg6 24. c4 a5";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nxf7 Kxf7 5. Bc4+ d5 6. Bb3 a5 7. Nc3 a4 8. Bxd5+ Nxd5 9. Nxd5 c6 10. Ne3 Qh4 11. d3 Bb4+ 12. c3 Bd6 13. g3 Qh3 14. Qf3+ Ke8 15. Qe2 Rf8 16. Bd2 Be6 17. Rf1 Kf7 18. d4 Kg8 19. f4 Nd7 20. e5 Be7 21. c4 Kh8 22. g4 b5 23. d5 Bg8 24. O-O-O a3 25. b4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 4. Nxf7 Kxf7 5. Bc4+ Be6 6. Bxe6+ Kxe6 7. d4 Kf7 8. Nc3 Be7 9. g4 Rf8 10. g5 Nfd7 11. Qg4 Kg8 12. Be3 Nc6 13. h4 Nb6 14. O-O-O";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+
+  // Scotch
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bb4+ 5. c3 dxc3 6. O-O cxb2 7. Bxb2 Nf6 8. e5 Nh5 9. Nbd2 b5 10. Bxb5 Rb8 11. Qa4 a6 12. Bxc6 dxc6 13. Rad1 Qd5 14. Qc2 Be6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Bc4 cxb2 6. Bxb2 Bb4+ 7. Nc3 Bxc3+ 8. Bxc3 Nf6 9. Ng5 O-O 10. O-O h6 11. Nxf7 Rxf7 12. Bxf7+ Kxf7 13. Qb3+ d5 14. Rfd1 Ne7 15. Bxf6 Kxf6 16. exd5 Nf5 17. Qc3+ Kg6 18. Qc2 Kf7 19. Rac1 Nd6 20. Qxc7+ Qxc7 21. Rxc7+ Kf6";
+
+  // Wing gambit
+  let pgn = "1. e4 c5 2. b4 cxb4 3. a3 e5 4. Bb2 Nc6 5. Nf3 Qb6 6. Nxe5 bxa3 7. Bc3 a2 8. Nxf7 Kxf7 9. Bc4+ Ke7 10. Rxa2 Nf6 11. O-O";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 c5 2. b4 d5 3. exd5 Qxd5 4. Nf3 cxb4 5. a3 e6 6. Bb2 Nf6 7. Be2 Qd8 8. O-O a5 9. Ne5 Nbd7 10. Bf3 Qc7 11. Qe2 Ra6 12. axb4 axb4 13. Nxd7 Nxd7 14. d3 Bd6 15. Bxg7 Rg8 16. Bb2 Bxh2+ 17. Kh1 Bf4 18. Re1 Rg5 19. Qe4 Rc5 20. Rxa6 bxa6 21. Qxb4 Bd6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 c5 2. b4 cxb4 3. d4 d5 4. exd5 Nf6 5. a3 Nxd5 6. axb4 Nxb4 7. Nf3 e6 8. Be2 Be7 9. c3 N4c6 10. Bf4 Nd7 11. O-O O-O 12. Na3 Nf6 13. c4 a6 14. Nb5 Bd7 15. Nc3 Nb4 16. Ne5 Bc6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
 
   // Some other random openings:
   let pgn = "1. e4 h5 2. Nf3 c5 3. c3 d5 4. exd5 Qxd5 5. d4 Nf6 6. Na3 cxd4 7. Bc4 Qe4+ 8. Be2 d3 9. Qxd3 Qxd3 10. Bxd3";

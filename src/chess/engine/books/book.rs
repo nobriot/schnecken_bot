@@ -39,6 +39,12 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(&CHESS_BOOK,ruy_lopez_pgn);
   let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8 9. Nc3 Ke8 10. h3 h5 11. Bf4 Be7 12. Rad1 Be6 13. Ng5 Rh6 14. Rfe1 Bb4 15. g4 hxg4 16. hxg4 Ne7 17. Nxe6 Rxe6 18. Re3 Ng6 19. Bg3 Bxc3 20. bxc3 Nf8 21. f4 Rg6 22. g5";
   add_pgn_to_book(&CHESS_BOOK,pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. Re1 Nd6 6. Nxe5 Be7 7. Bf1 Nxe5 8. Rxe5 O-O 9. d4 Bf6 10. Re1 Re8 11. c3 Rxe1 12. Qxe1 Ne8 13. Bf4 d5 14. Bd3 g6 15. Nd2 Ng7 16. Nf3 Bf5 17. Bxf5 Nxf5 18. Qd2 a5 19. Re1 a4";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+
+  // Berlin draw
+  let pgn = "1.e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. dxe5 Nxb5 7. a4 Nbd4 8. Nxd4 Nxd4 9. Qxd4 d5 10. exd6 Qxd6 11. Qe4+ Qe6 12. Qd4 Qd6 13. Qe4+";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
 
   // Budapest:
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
@@ -99,6 +105,10 @@ pub fn initialize_chess_book() {
 
   // Scandinavian defence
   let pgn = "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qa5 4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 e6 8. Nd5 Qd8 9. Nxf6+ gxf6 10. Bb3 Nd7 11. Qe2 Qc7 12. Nh4 Bg6 13. O-O-O O-O-O 14. g3 Bd6 15. Nxg6 hxg6 16. h4 f5 17. Bg5 Rde8 18. h5 gxh5 19. Rxh5 Rhg8 20. Bh4";
+  add_pgn_to_book(&CHESS_BOOK,pgn);
+
+  // Queen gambit
+  let pgn = "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 e6 5. Bg5 h6 6. Bh4 dxc4 7. e4 g5 8. Bg3 b5 9. Be2 Bb7 10. O-O Nbd7 11. Ne5 Bg7 12. Nxd7 Nxd7 13. Bd6 a6 14. a4 b4 15. Bxb4 Qb6 16. Ba3 Qxd4 17. Qc2 c5";
   add_pgn_to_book(&CHESS_BOOK,pgn);
 
   // King indian defence
