@@ -117,7 +117,6 @@ impl Analysis {
   /// Resets the analysis
   pub fn reset(&self) {
     self.best_lines.lock().unwrap().clear();
-    self.set_depth(0);
     self.set_selective_depth(0);
   }
 
@@ -196,6 +195,19 @@ impl Analysis {
   pub fn set_selective_depth(&self, depth: usize) {
     let mut selective_depth = self.selective_depth.lock().unwrap();
     *selective_depth = depth;
+  }
+
+  /// Decrements the depth we have reached during the analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `self`:   Instance of the Chess Engine
+  ///
+  pub fn decrement_selective_depth(&self) {
+    let mut selective_depth = self.selective_depth.lock().unwrap();
+    if *selective_depth > 0 {
+      *selective_depth -= 1;
+    }
   }
 
   /// Updates the selective depth if the new value is higher than the current value.
@@ -403,6 +415,9 @@ impl Engine {
   ///
   pub fn set_position(&mut self, fen: &str) {
     self.reset();
+    self.analysis.set_depth(0);
+    self.analysis.set_selective_depth(0);
+
     let game_state = GameState::from_fen(fen);
     self.position = game_state.clone();
     let move_list = self.position.get_moves();
@@ -427,8 +442,7 @@ impl Engine {
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
     self.analysis.reset();
-    self.analysis.set_depth(1);
-    self.analysis.set_selective_depth(1);
+    self.analysis.decrement_depth();
   }
 
   /// Starts analyzing the current position
@@ -515,6 +529,17 @@ impl Engine {
       return;
     }
 
+    // Fill up a dummy result based on previous state, in case the main search does not reach a new depth
+    let mut temporary_result: SearchResult = Vec::new();
+    for m in &moves {
+      let mut game_state = self.position.clone();
+      game_state.apply_move(&m);
+      let evaluation_cache = self.cache.get_eval(&game_state.board).unwrap_or_default();
+      temporary_result.push((vec![*m], evaluation_cache.eval));
+    }
+    self.analysis.update_result(&temporary_result);
+
+    // Main search
     while !self.has_been_searching_too_long() && !self.stop_requested() {
       self.analysis.increment_depth();
       self.analysis.increment_selective_depth();
@@ -537,6 +562,14 @@ impl Engine {
       // Depth completed - print UCI result if needed
       self.analysis.update_result(&result);
       self.print_uci_info();
+
+      // If the best move is just winning for us, stop searching unless requested to.
+      if Engine::best_move_is_mating_sequence(self.position.board.side_to_play, &result)
+        && self.options.lock().unwrap().ponder == false
+      {
+        debug!("Winning sequence found! Stopping search");
+        break;
+      }
 
       let max_depth = self.options.lock().unwrap().max_depth;
       if max_depth > 0 && self.analysis.get_depth() >= max_depth {
@@ -947,7 +980,7 @@ impl Engine {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      if (alpha - 1.0) > beta {
+      if (alpha - 0.5) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;
@@ -1141,6 +1174,22 @@ impl Engine {
     }
 
     (best_moves, best_result)
+  }
+
+  /// Checks the best move in the result and check if it is a winning sequence
+  /// for the color indicated in argument
+  ///
+  #[inline]
+  fn best_move_is_mating_sequence(color: Color, result: &SearchResult) -> bool {
+    if result.is_empty() {
+      return false;
+    }
+
+    let eval = result[0].1;
+    match color {
+      Color::White => eval > 150.0,
+      Color::Black => eval < -150.0,
+    }
   }
 
   /// Sorts the list of moves based on the data in the result

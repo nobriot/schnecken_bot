@@ -17,8 +17,8 @@ use crate::model::piece::*;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.05;
-const CONNECTED_ROOKS_FACTOR: f32 = 0.01;
-const ROOK_FILE_FACTOR: f32 = 0.03;
+const CONNECTED_ROOKS_FACTOR: f32 = 0.03;
+const ROOK_FILE_FACTOR: f32 = 0.06;
 const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.15;
 const PIN_PENALTY: f32 = 0.25;
@@ -132,8 +132,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   score -= 0.5 * get_bishop_victims(game_state, Color::Black) as f32;
 
   // Look for rook attacks
-  score += 0.5 * get_rook_victims(game_state, Color::White) as f32;
-  score -= 0.5 * get_rook_victims(game_state, Color::Black) as f32;
+  score += 0.3 * get_rook_victims(game_state, Color::White) as f32;
+  score -= 0.3 * get_rook_victims(game_state, Color::Black) as f32;
 
   /*
   // Check if we have some good positional stuff

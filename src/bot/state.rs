@@ -244,7 +244,13 @@ impl BotState {
     bot_game.engine.resize_cache_tables(1024);
 
     // If the opponent is 300 less points than us, play provocative oppenings.
-    if self.ratings.contains_key(&game.speed) && game.opponent.rating < self.ratings[&game.speed] {
+    if self.ratings.contains_key(&game.speed)
+      && game.opponent.rating < (self.ratings[&game.speed] - 125)
+    {
+      info!(
+        "Weaker opponent detected (ratings {} vs {}). Setting play style to provocative",
+        game.opponent.rating, self.ratings[&game.speed]
+      );
       bot_game.engine.set_play_style(PlayStyle::Provocative);
       let game_id = bot_game.id.clone();
       let api_clone = self.api.clone();
@@ -261,7 +267,7 @@ impl BotState {
     self.add_game(bot_game);
   }
 
-  /// Handles incoming gameFinish  events
+  /// Handles incoming gameFinish events
   ///
   /// ### Arguments
   ///
@@ -433,7 +439,7 @@ impl BotState {
       for m in game.engine.position.get_moves() {
         analysis.push((vec![m], 0.0));
       }
-      cutoff = analysis.len();
+      cutoff = 1;
     } else {
       let best_eval = analysis[0].1;
       while analysis.len() > cutoff {
