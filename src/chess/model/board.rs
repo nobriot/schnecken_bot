@@ -1039,7 +1039,7 @@ impl Board {
       if file < 8 {
         let s = Board::fr_to_index(file + 1, rank) as u8;
         if self.pieces.get(s) == op_pawn
-          && (square_in_mask!(en_passant_target, self.pins) || !square_in_mask!(s, self.pins))
+          && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
         {
           self.en_passant_square = en_passant_target;
         }
@@ -2064,5 +2064,20 @@ mod tests {
       );
     }
     assert_eq!(13, moves.len());
+
+    // Another example
+    let fen = "8/1r3p2/1p2p1p1/1b2P3/k2p1R1P/5P2/2P5/2K1Q3 w - - 4 60";
+    let mut board = Board::from_fen(fen);
+    board.apply_move(&Move::from_string("c2c4"));
+    // Same story here with d4c3
+    let moves = board.get_moves();
+    for m in &moves {
+      println!("Move : {}", m.to_string());
+      assert_ne!(
+        *m,
+        en_passant_mv!(string_to_square("d4"), string_to_square("c3"))
+      );
+    }
+    assert_eq!(16, moves.len());
   }
 }

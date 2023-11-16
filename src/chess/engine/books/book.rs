@@ -40,11 +40,6 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. Bxc6 dxc6 7. dxe5 Nf5 8. Qxd8+ Kxd8 9. Nc3 Ke8 10. h3 h5 11. Bf4 Be7 12. Rad1 Be6 13. Ng5 Rh6 14. Rfe1 Bb4 15. g4 hxg4 16. hxg4 Ne7 17. Nxe6 Rxe6 18. Re3 Ng6 19. Bg3 Bxc3 20. bxc3 Nf8 21. f4 Rg6 22. g5";
   add_pgn_to_book(&CHESS_BOOK,pgn);
 
-  // Weirdo provocative line:
-  let pgn = "1. e4 f6 2. Qh5+ g6 3. Be2 gxh5 4. Bxh5";
-  add_pgn_to_book(&CHESS_BOOK,pgn);
-  add_single_move_to_book(&CHESS_BOOK, "rnbqk1nr/ppppp2p/5ppb/7Q/4P3/8/PPPPBPPP/RNB1K1NR w KQkq - 2 4", "h5c5");
-
   // Budapest:
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
   add_pgn_to_book(&CHESS_BOOK,pgn);

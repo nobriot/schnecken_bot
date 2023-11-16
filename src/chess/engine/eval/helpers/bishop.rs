@@ -1,152 +1,70 @@
-use super::generic::*;
-
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
-use crate::model::piece_moves::*;
+use crate::model::tables::bishop_destinations::*;
 
-/// Computes the values of the pieces that a bishop/queen would attack with the
-/// diagonal movements.
+/// Computes the number of pieces attacked by defended bishops
+/// It will count as if the bishop can go through enemy rooks and queens.
 ///
-/// FIXME: refactor this later
+/// ### Arguments
 ///
-/// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play, etc.
-/// * `i`         : Index of the square on the board
-/// * `color`         : Which color is attacking.
+/// * `game_state` :  Game to look at
+/// * `color` :       Color of the bishops to look at
+///  
+/// ### Return value
 ///
-/// ### Returns
+/// Number of majors/kings attacked by bishops.
 ///
-/// The value of the top 2 attacked enemy pieces if it attacks them.
-/// A +1.0 point bonus if the enemy king is under attack
-///
-pub fn bishop_attack(game_state: &GameState, i: usize) -> f32 {
-  let mut value: f32 = 0.0;
-
-  // If we have no bishop on the square, return immediately.
-  let color = if game_state.board.pieces.get(i as u8) == WHITE_BISHOP {
-    Color::White
-  } else if game_state.board.pieces.get(i as u8) == BLACK_BISHOP {
-    Color::Black
-  } else {
-    return value;
+#[inline]
+pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
+  let mut victims: u32 = 0;
+  // Look for bishops attacking major pieces, either forking or skewering
+  let (mut bishops, op) = match color {
+    Color::White => (
+      game_state.board.pieces.white.bishop,
+      (game_state.board.pieces.black.all()
+        & !game_state.board.pieces.black.majors()
+        & !game_state.board.pieces.black.king),
+    ),
+    Color::Black => (
+      game_state.board.pieces.black.bishop,
+      (game_state.board.pieces.white.all()
+        & !game_state.board.pieces.white.majors()
+        & !game_state.board.pieces.white.king),
+    ),
   };
 
-  // If the bishop is attacked by the opponent and not defended, we do not even
-  // consider anything here:
-  if is_hanging(game_state, i as u8) && is_attacked(game_state, i as u8) {
-    return value;
+  while bishops != 0 {
+    let bishop = bishops.trailing_zeros() as u8;
+    let defenders = game_state.board.get_attackers(bishop, color);
+    let attackers = game_state.board.get_attackers(bishop, Color::opposite(color));
+
+    // Check that the pawn cannot be taken out too easily before assigning a bonus for the bishop attack.
+    if attackers.count_ones() <= defenders.count_ones() {
+      let attacked_pieces = match color {
+        Color::White => {
+          let destinations =
+            get_bishop_destinations(game_state.board.pieces.white.all(), op, bishop as usize);
+          (destinations
+            & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
+            .count_few_ones()
+        },
+        Color::Black => {
+          let destinations =
+            get_bishop_destinations(game_state.board.pieces.black.all(), op, bishop as usize);
+          (destinations
+            & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
+            .count_few_ones()
+        },
+      };
+
+      victims += attacked_pieces;
+    }
+
+    bishops &= bishops - 1;
   }
 
-  let ssp = game_state.board.get_color_mask(color);
-  let op = game_state.board.get_color_mask(Color::opposite(color));
-  let destinations = get_bishop_moves(ssp, op, i);
-  let mut piece_value_1: f32 = 0.0;
-  let mut piece_value_2: f32 = 0.0;
-
-  for s in 0..64 {
-    if !square_in_mask!(s, destinations) {
-      continue;
-    }
-    if game_state
-      .board
-      .has_piece_with_color(s as u8, Color::opposite(color))
-    {
-      if !game_state.board.has_king(s) {
-        let value_to_update = if piece_value_1.abs() < piece_value_2.abs() {
-          &mut piece_value_1
-        } else {
-          &mut piece_value_2
-        };
-
-        if value_to_update.abs()
-          < Piece::material_value_from_u8(game_state.board.pieces.get(s)).abs()
-        {
-          *value_to_update = Piece::material_value_from_u8(game_state.board.pieces.get(s));
-        }
-      } else {
-        // 1 pt bonus for attacking the king
-        value += 1.0 * Color::score_factor(Color::opposite(color));
-      }
-    }
-  }
-  value += piece_value_1;
-  value += piece_value_2;
-
-  value.abs()
-}
-
-/// Computes the values of the pieces that a bishop attacks, including major pieces
-/// pins
-///
-/// FIXME: refactor this later
-///
-///
-/// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play, etc.
-/// * `i`         : Index of the square on the board
-///
-/// ### Returns
-///
-/// Zero if there is no bishop on the square
-/// The value of the top 2 attacked enemy pieces if it attacks them
-/// A +1.0 point bonus if the enemy king is under attack.
-///
-pub fn bishop_attack_with_pins(game_state: &GameState, i: usize) -> f32 {
-  let mut value: f32 = 0.0;
-
-  // If we have no bishop on the square, return immediately.
-  let color = if game_state.board.pieces.get(i as u8) == WHITE_BISHOP {
-    Color::White
-  } else if game_state.board.pieces.get(i as u8) == BLACK_BISHOP {
-    Color::Black
-  } else {
-    return value;
-  };
-
-  // If the bishop is attacked by the opponent and not defended, we do not even
-  // consider anything here:
-  if is_hanging(game_state, i as u8) && is_attacked(game_state, i as u8) {
-    return value;
-  }
-
-  let ssp = game_state.board.get_color_mask(color);
-  let op = game_state
-    .board
-    .get_color_mask_without_major_pieces(Color::opposite(color));
-  let destinations = get_bishop_moves(ssp, op, i);
-  let mut piece_value_1: f32 = 0.0;
-  let mut piece_value_2: f32 = 0.0;
-
-  for s in 0..64_u8 {
-    if !square_in_mask!(s, destinations) {
-      continue;
-    }
-    if game_state
-      .board
-      .has_piece_with_color(s as u8, Color::opposite(color))
-    {
-      if !game_state.board.has_king(s) {
-        let value_to_update = if piece_value_1.abs() < piece_value_2.abs() {
-          &mut piece_value_1
-        } else {
-          &mut piece_value_2
-        };
-
-        if *value_to_update < Piece::material_value_from_u8(game_state.board.pieces.get(s)) {
-          *value_to_update = Piece::material_value_from_u8(game_state.board.pieces.get(s));
-        }
-      } else {
-        // 1 pt bonus for attacking the king
-        value += 1.0 * Color::score_factor(Color::opposite(color));
-      }
-    }
-  }
-
-  value += piece_value_1;
-  value += piece_value_2;
-
-  value.abs()
+  victims
 }
 
 #[cfg(test)]
@@ -158,46 +76,35 @@ mod tests {
   fn test_bishop_attack() {
     let fen = "8/2q3r1/8/4B3/8/2k3n1/8/1K2R3 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 36 {
-        assert_eq!(0.0, bishop_attack(&game_state, i));
-      } else {
-        assert_eq!(15.0, bishop_attack(&game_state, i));
-      }
-    }
+    assert_eq!(3, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(0, get_bishop_victims(&game_state, Color::Black));
 
-    let fen = "8/2Q3R1/8/4b3/8/2K3N1/8/1k2r3 w - - 0 1";
+    // We do not like it particularly if the bishop is under attack and un-defended
+    let fen = "8/2q3r1/8/4B3/8/2k3n1/8/1K6 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 36 {
-        assert_eq!(0.0, bishop_attack(&game_state, i));
-      } else {
-        assert_eq!(15.0, bishop_attack(&game_state, i));
-      }
-    }
-  }
+    assert_eq!(0, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(0, get_bishop_victims(&game_state, Color::Black));
 
-  #[ignore]
-  #[test]
-  fn test_bishop_attack_with_pins() {
+    // Bishop can x-ray through majors
+    let fen = "8/8/5B2/4r3/3q4/2k3n1/8/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(3, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(0, get_bishop_victims(&game_state, Color::Black));
+
+    // Bishop cannot x-ray through minors
+    let fen = "8/6B1/5n2/4r3/3q4/2k5/8/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(0, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(0, get_bishop_victims(&game_state, Color::Black));
+
     let fen = "4r3/6R1/8/4b3/3Q4/2K3N1/8/1k6 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 36 {
-        assert_eq!(0.0, bishop_attack_with_pins(&game_state, i));
-      } else {
-        assert_eq!(15.0, bishop_attack_with_pins(&game_state, i));
-      }
-    }
+    assert_eq!(0, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(3, get_bishop_victims(&game_state, Color::Black));
 
     let fen = "8/6R1/5Q2/3K4/8/6N1/1b6/1k6 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      if i != 9 {
-        assert_eq!(0.0, bishop_attack_with_pins(&game_state, i));
-      } else {
-        assert_eq!(14.0, bishop_attack_with_pins(&game_state, i));
-      }
-    }
+    assert_eq!(0, get_bishop_victims(&game_state, Color::White));
+    assert_eq!(2, get_bishop_victims(&game_state, Color::Black));
   }
 }

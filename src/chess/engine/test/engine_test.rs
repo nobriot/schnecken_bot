@@ -627,3 +627,62 @@ fn test_drawn_pawn_and_king_endgame() {
   assert!(analysis[0].1 < 1.0);
   assert!(analysis[0].1 > -1.0);
 }
+
+#[test]
+fn test_under_promotion_got_evaluated_better() {
+  /*
+    Got this in game uPyVb71j
+
+    [2023-11-15T10:18:28.537Z INFO  schnecken_bot::bot::state] Trying to find a move for game id uPyVb71j
+  [2023-11-15T10:18:28.537Z INFO  schnecken_bot::bot::state] Using 1067 ms to find a move for position 8/8/4K3/7k/8/8/6Rp/8 b - - 2 58
+  info score cp 180 depth 5 seldepth 7 nodes 14909878 time 126 multipv 1 pv h2h1r e6d5 h1d1 d5e4 d1d2
+  info score cp 900 depth 5 seldepth 7 nodes 14909878 time 126 multipv 2 pv h5h4 g2h2 h4g3 h2h1
+  info score cp 1100 depth 5 seldepth 7 nodes 14909878 time 126 multipv 3 pv h2h1q
+  bestmove h2h1r
+  Score for position 8/8/4K3/7k/8/8/6Rp/8 b - - 2 58: 1.8
+  Line 0 : Eval 1.80    @ depth 5 - h2h1r e6d5 h1d1 d5e4 d1d2
+  Line 1 : Eval 9.00    @ depth 4 - h5h4 g2h2 h4g3 h2h1
+  Line 2 : Eval 11.00   @ depth 1 - h2h1q
+  Line 3 : Eval 11.00   @ depth 4 - h2h1b g2g1 h1d5 e6d5
+  Line 4 : Eval 12.00   @ depth 4 - h2h1n g2g1 h1g3 g1g3
+  Line 5 : Eval 14.00   @ depth 3 - h5h6 g2h2 h6g7
+  */
+
+  let queen_fen = "8/8/4K3/7k/8/8/6R1/7q w - - 0 59";
+  let queen_game_state = GameState::from_fen(queen_fen);
+
+  let rook_fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
+  let rook_game_state = GameState::from_fen(rook_fen);
+
+  let queen_eval = evaluate_board(&queen_game_state);
+  let rook_eval = evaluate_board(&rook_game_state);
+  println!("Queen eval : {} - Rook Eval : {}", queen_eval, rook_eval);
+  assert!(queen_eval < rook_eval);
+
+  let fen = "8/8/4K3/7k/8/8/6Rp/8 b - - 2 58";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(1067);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert_eq!(best_move.to_string(), "h2h1q");
+  assert_eq!(analysis[1].0[0].to_string(), "h2h1r");
+  assert!(analysis[1].1 < 1.0);
+  assert!(analysis[1].1 > -1.0);
+
+  // Same but from the next move perspective:
+  let fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(1067);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert!(analysis[0].1 < 1.0);
+  assert!(analysis[0].1 > -1.0);
+}

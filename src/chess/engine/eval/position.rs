@@ -1,6 +1,8 @@
 // From our module
 use super::endgame::get_endgame_position_evaluation;
+use super::helpers::bishop::get_bishop_victims;
 use super::helpers::generic::*;
+use super::helpers::knight::get_knight_victims;
 use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
@@ -120,6 +122,18 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   // Look for pawns attacking pieces, or forking
   score += get_pawn_victims(game_state, Color::White) as f32;
   score -= get_pawn_victims(game_state, Color::Black) as f32;
+
+  // Look for knight spans
+  score += 0.5 * get_knight_victims(game_state, Color::White) as f32;
+  score -= 0.5 * get_knight_victims(game_state, Color::Black) as f32;
+
+  // Look for bishop tricks
+  score += 0.5 * get_bishop_victims(game_state, Color::White) as f32;
+  score -= 0.5 * get_bishop_victims(game_state, Color::Black) as f32;
+
+  // Look for rook attacks
+  score += 0.5 * get_rook_victims(game_state, Color::White) as f32;
+  score -= 0.5 * get_rook_victims(game_state, Color::Black) as f32;
 
   /*
   // Check if we have some good positional stuff

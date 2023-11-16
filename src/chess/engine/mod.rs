@@ -458,9 +458,8 @@ impl Engine {
       info!("Known position, returning book moves");
       let mut move_list = book_entry.unwrap();
       move_list.shuffle(&mut rand::thread_rng());
-      let mut best_lines = self.analysis.best_lines.lock().unwrap();
+      let mut result: SearchResult = Vec::new();
       for m in &move_list {
-        best_lines.push((vec![*m], 0.0));
         let mut new_game_state = self.position.clone();
         new_game_state.apply_move(m);
         self.cache.set_eval(
@@ -471,10 +470,9 @@ impl Engine {
             depth: 1,
           },
         );
+        result.push((vec![*m], 0.0));
       }
-
-      // Release the mutex to be able to print the best move:
-      drop(move_list);
+      self.analysis.update_result(&result);
 
       // We are done
       self.print_uci_info();
@@ -949,7 +947,7 @@ impl Engine {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      if (alpha - 0.5) > beta {
+      if (alpha - 0.0) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;
@@ -987,7 +985,7 @@ impl Engine {
 
       // Check if we already looked at this position.
       let mut eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
-      if eval_cache.depth >= (max_line_depth - depth + 1) {
+      if eval_cache.depth > 0 && depth >= max_line_depth {
         // Nothing to do, we already looked at this position.
         // FIXME: If the position appears in another variation but leads to a draw, e.g. 3 fold repetitions, we won't detect it and skip it.
         // Get the alpha/beta result propagated upwards.

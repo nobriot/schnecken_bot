@@ -3,6 +3,7 @@ use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::tables::rook_destinations::get_rook_destinations;
 use crate::square_in_mask;
 
 /// Determine if rooks are connected for a color
@@ -54,6 +55,63 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
   score
 }
 
+/// Checks skewers / forks with the rook
+///
+/// ### Argument
+/// * `game_state`: A GameState object representing a position, side to play, etc.
+/// * `i`         : Index of the square on the board
+///
+/// ### Returns
+///
+/// Number of majors/king pieces attacked by a rook.
+/// The rook will x-ray though kings and queens.
+///
+pub fn get_rook_victims(game_state: &GameState, color: Color) -> u32 {
+  let mut victims: u32 = 0;
+
+  let (mut rooks, op) = match color {
+    Color::White => (
+      game_state.board.pieces.white.rook,
+      (game_state.board.pieces.black.all()
+        & !(game_state.board.pieces.black.queen | game_state.board.pieces.black.king)),
+    ),
+    Color::Black => (
+      game_state.board.pieces.black.rook,
+      (game_state.board.pieces.white.all()
+        & !(game_state.board.pieces.white.queen | game_state.board.pieces.white.king)),
+    ),
+  };
+  while rooks != 0 {
+    let rook = rooks.trailing_zeros() as u8;
+    let defenders = game_state.board.get_attackers(rook, color);
+    let attackers = game_state.board.get_attackers(rook, Color::opposite(color));
+
+    if attackers.count_ones() <= defenders.count_ones() {
+      let attacked_pieces = match color {
+        Color::White => {
+          let destinations =
+            get_rook_destinations(game_state.board.pieces.white.all(), op, rook as usize);
+          (destinations
+            & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
+            .count_few_ones()
+        },
+        Color::Black => {
+          let destinations =
+            get_rook_destinations(game_state.board.pieces.black.all(), op, rook as usize);
+          (destinations
+            & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
+            .count_few_ones()
+        },
+      };
+
+      victims += attacked_pieces;
+    }
+    rooks &= rooks - 1;
+  }
+
+  victims
+}
+
 // -----------------------------------------------------------------------------
 //  Tests
 
@@ -98,5 +156,33 @@ mod tests {
     println!("Evaluation: closed: {eval_closed} - half open: {eval_half_open} - open: {eval_open}");
     assert!(eval_open > eval_half_open);
     assert!(eval_half_open > eval_closed);
+  }
+
+  #[test]
+  fn test_rook_attack() {
+    let fen = "8/2q3r1/8/8/8/2k1R1n1/8/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(1, get_rook_victims(&game_state, Color::White));
+    assert_eq!(0, get_rook_victims(&game_state, Color::Black));
+
+    let fen = "4r3/4q3/8/4k3/8/4R1n1/8/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(3, get_rook_victims(&game_state, Color::White));
+    assert_eq!(0, get_rook_victims(&game_state, Color::Black));
+
+    let fen = "4r3/4q3/8/4k3/8/4R1n1/8/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(3, get_rook_victims(&game_state, Color::White));
+    assert_eq!(0, get_rook_victims(&game_state, Color::Black));
+
+    let fen = "4r3/n3q3/8/1r2k3/8/4R1n1/1Q6/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(3, get_rook_victims(&game_state, Color::White));
+    assert_eq!(2, get_rook_victims(&game_state, Color::Black));
+
+    let fen = "4r3/4q3/8/1r2k3/4n3/1N2R3/1Q6/1K6 w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(0, get_rook_victims(&game_state, Color::White));
+    assert_eq!(0, get_rook_victims(&game_state, Color::Black));
   }
 }

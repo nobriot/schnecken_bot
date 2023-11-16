@@ -52,6 +52,10 @@ pub fn initialize_chess_book() {
   let stafford = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nxc6 dxc6 5. d3 Qe7 6. Be2 Be6 7. f4 O-O-O 8. Nc3 Qb4 9. a3 Qb6 10. f5 Bd7 11. b4 c5 12. Be3 Qc6 13. b5 Qd6 14. a4 Qe5 15. Qd2 Bd6 ";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, stafford);
 
+  // Weirdo provocative line:
+  let pgn = "1. e4 f6 2. Qh5+ g6 3. Be2";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK,pgn);
+  
 }
 
 /// Check our known book moves, known positions that have been computed with an

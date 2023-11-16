@@ -1,11 +1,9 @@
+use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::*;
 
-use super::generic::is_attacked;
-use super::generic::is_hanging;
-
-/// Computes the values of the pieces that a knight attacks.
+/// Computes the number of major / king pieces that a knight attacks.
 ///
 /// ### Argument
 /// * `game_state`: A GameState object representing a position, side to play, etc.
@@ -13,48 +11,39 @@ use super::generic::is_hanging;
 ///
 /// ### Returns
 ///
-/// Zero if there is no bishop on the square
-/// The value of attacked enemy pieces if it attacks them.
-/// Puts a value of 1.0 for a king check, in case we're forking king + something else.
+/// Number of majors/king pieces attacked by a knight.
 ///
-pub fn knight_attack(game_state: &GameState, i: u8) -> f32 {
-  let mut value: f32 = 0.0;
-
-  // If we have no knight on the square, return immediately.
-  let color = if game_state.board.pieces.get(i as u8) == WHITE_KNIGHT {
-    Color::White
-  } else if game_state.board.pieces.get(i as u8) == BLACK_KNIGHT {
-    Color::Black
-  } else {
-    return value;
+#[inline]
+pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
+  let mut victims: u32 = 0;
+  // Look for knights attacking pieces, or forking
+  let mut knights = match color {
+    Color::White => game_state.board.pieces.white.knight,
+    Color::Black => game_state.board.pieces.black.knight,
   };
+  while knights != 0 {
+    let knight = knights.trailing_zeros() as u8;
+    let defenders = game_state.board.get_attackers(knight, color);
+    let attackers = game_state.board.get_attackers(knight, Color::opposite(color));
 
-  // If the knight is attacked by the opponent and not defended, we do not even
-  // consider anything here:
-  if is_hanging(game_state, i) && is_attacked(game_state, i) {
-    return value;
+    // Check that the knight can be taken down too easily
+    if attackers.count_ones() <= defenders.count_ones() {
+      let attacked_pieces = match color {
+        Color::White => (KNIGHT_MOVES[knight as usize]
+          & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
+          .count_few_ones(),
+        Color::Black => (KNIGHT_MOVES[knight as usize]
+          & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
+          .count_few_ones(),
+      };
+
+      victims += attacked_pieces;
+    }
+
+    knights &= knights - 1;
   }
 
-  let destinations = get_knight_moves(0, 0, i as usize);
-
-  // Get the knight destinations
-  for s in 0..64 {
-    if destinations & (1 << s) == 0 {
-      continue;
-    }
-    if game_state
-      .board
-      .has_piece_with_color(s as u8, Color::opposite(color))
-    {
-      if !game_state.board.has_king(s) {
-        value += Piece::material_value_from_u8(game_state.board.pieces.get(s));
-      } else {
-        value += 1.0 * Color::score_factor(Color::opposite(color));
-      }
-    }
-  }
-
-  value.abs()
+  victims
 }
 
 #[cfg(test)]
@@ -66,26 +55,22 @@ mod tests {
   fn test_knight_attack() {
     let fen = "rq3b1r/pp1nkp2/2n1p2p/2pp3p/Q4P2/P1PPPb2/1P1N2P1/R1B1KBR1 w Q - 0 17";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(0.0, knight_attack(&game_state, 0));
-    assert_eq!(0.0, knight_attack(&game_state, 1));
-    assert_eq!(3.05, knight_attack(&game_state, 11));
+    assert_eq!(1, get_knight_victims(&game_state, Color::White));
+    assert_eq!(0, get_knight_victims(&game_state, Color::Black));
 
     let fen = "1r3b2/ppqnkpr1/2n4p/2ppp2p/Q1P2P2/P1NPP3/1P4P1/R1B1KBR1 w Q - 0 22";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(0.0, knight_attack(&game_state, 0));
-    assert_eq!(0.0, knight_attack(&game_state, 1));
-    assert_eq!(1.0, knight_attack(&game_state, 18));
+    assert_eq!(0, get_knight_victims(&game_state, Color::White));
+    assert_eq!(0, get_knight_victims(&game_state, Color::Black));
 
     let fen = "1r3b2/ppqnkpr1/2n4p/2pNp2p/Q1P2P2/P2PP3/1P4P1/R1B1KBR1 b Q - 0 22";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(0.0, knight_attack(&game_state, 0));
-    assert_eq!(0.0, knight_attack(&game_state, 1));
-    assert_eq!(10.0, knight_attack(&game_state, 35));
+    assert_eq!(2, get_knight_victims(&game_state, Color::White));
+    assert_eq!(0, get_knight_victims(&game_state, Color::Black));
 
     let fen = "2kr1b1r/ppp2ppp/2nqp3/6P1/4B3/2nP1N1P/PPP1PP2/R1BQK2R w KQ - 2 13";
     let game_state = GameState::from_fen(fen);
-    for i in 0..64 {
-      assert_eq!(0.0, knight_attack(&game_state, i));
-    }
+    assert_eq!(0, get_knight_victims(&game_state, Color::White));
+    assert_eq!(2, get_knight_victims(&game_state, Color::Black));
   }
 }

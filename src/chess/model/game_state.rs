@@ -216,7 +216,7 @@ impl GameState {
       moves.push(' ');
     }
     println!("Last moves: {}", moves);
-    */
+     */
 
     if !square_in_mask!(chess_move.src(), self.board.pieces.all()) {
       error!(
