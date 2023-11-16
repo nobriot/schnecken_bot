@@ -686,3 +686,17 @@ fn test_under_promotion_got_evaluated_better() {
   assert!(analysis[0].1 < 1.0);
   assert!(analysis[0].1 > -1.0);
 }
+
+#[ignore]
+#[test]
+fn king_disappeared() {
+  let fen = "r1b3k1/2Bp1ppp/p1p5/2P5/3b1K2/P7/1P3rPP/4q3 w - - 2 24";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(3000);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+}

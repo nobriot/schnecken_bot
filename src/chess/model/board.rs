@@ -742,9 +742,11 @@ impl Board {
 
       // If a pawn double jump delivers check, we should be able to en-passant it,
       // it removes the checking piece even though outside of the checking ray
+      // If a pawn double jumps but no pawn is delivering check, it's a discovered check.
       if square_in_mask!(source_square, self.pieces.white.pawn)
         && self.en_passant_square != INVALID_SQUARE
         && self.checkers.count_few_ones() == 1
+        && (self.checkers & self.pieces.black.pawn) != 0
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position as u8 {
@@ -878,9 +880,11 @@ impl Board {
 
       // If a pawn double jump delivers check, we should be able to en-passant it,
       // it removes the checking piece even though outside of the checking ray
+      // If a pawn double jumps but no pawn is delivering check, it's a discovered check.
       if square_in_mask!(source_square, self.pieces.black.pawn)
         && self.en_passant_square != INVALID_SQUARE
         && self.checkers.count_few_ones() == 1
+        && (self.checkers & self.pieces.white.pawn) != 0
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position as u8 {
@@ -2079,5 +2083,23 @@ mod tests {
       );
     }
     assert_eq!(16, moves.len());
+  }
+
+  #[test]
+  fn check_with_discovery_no_en_passant() {
+    let fen = "r1b3k1/2Bp1ppp/p1p5/2P5/3b2K1/P7/1P3rPP/4q3 b - - 3 24";
+    let mut board = Board::from_fen(fen);
+    board.apply_move(&Move::from_string("d7d5"));
+
+    // Here c5d6 is forbidden
+    let moves = board.get_moves();
+    for m in &moves {
+      println!("Move : {}", m.to_string());
+      assert_ne!(
+        *m,
+        en_passant_mv!(string_to_square("c5"), string_to_square("d6"))
+      );
+    }
+    //assert_eq!(13, moves.len());
   }
 }
