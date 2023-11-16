@@ -947,7 +947,7 @@ impl Engine {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
-      if (alpha - 0.0) > beta {
+      if (alpha - 1.0) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;

@@ -54,7 +54,22 @@ pub fn initialize_chess_book() {
 
   // Weirdo provocative line:
   let pgn = "1. e4 f6 2. Qh5+ g6 3. Be2";
-  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK,pgn);
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+
+  // Halloween gambit:
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Ng6 6. e5 Ng8 7. Bc4 c6 8. Qe2 Bb4 9. O-O d5 10. exd6+ Kf8 11. Bxf7 Bxc3 12. Bxg8 Kxg8 13. Qc4+ Kf8 14. Qxc3";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Ng6 6. e5 Ng8 7. Bc4 d6 8. Qf3 Qd7 9. O-O Kd8 10. Bxf7 Qf5 11. Qd5 Nh6 12. Bxh6 gxh6 13. f4 Nxf4 14. Qb3 Qg4 15. g3 Nh3+ 16. Kg2 Ng5 17. Rae1 Qxd4 18. Kh1 a5 19. Bg8 Be7 20. Rf4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Ng6 8. e5 Bc5 9. exf6 O-O 10. Be2 Qxf6 11. Ne4 Qb6 12. Nxc5 Qxc5 13. a4 Re8 14. Ra3 d6 15. Rc3 Qb6 16. Rb3 Qxb3 17. cxb3 Bg4 18. h3 Rxe2+ 19. Qxe2 Bxe2 20. Kxe2";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Ng6 8. e5 Ng8 9. Qe2 Bb4 10. f5 N6e7 11. Bg5 Kf8 12. Qf3 f6 13. Bh4 Bxc3+ 14. bxc3 h5 15. O-O-O d6 16. e6 Nh6 17. Bd3 Ng4 18. Bg3 Ne5 19. Bxe5 dxe5 20. g4 hxg4 21. Qxg4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+
+
+  // Some other random openings:
+  let pgn = "1. e4 h5 2. Nf3 c5 3. c3 d5 4. exd5 Qxd5 5. d4 Nf6 6. Na3 cxd4 7. Bc4 Qe4+ 8. Be2 d3 9. Qxd3 Qxd3 10. Bxd3";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
   
 }
 

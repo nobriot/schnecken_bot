@@ -1,6 +1,7 @@
 use log::*;
 use rand::Rng;
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 use std::fs;
 use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
@@ -11,6 +12,7 @@ use lichess::types::Clock;
 use lichess::types::Color;
 
 use chess::engine::Engine;
+use chess::engine::PlayStyle;
 use chess::model::game_state::START_POSITION_FEN;
 use chess::model::moves::Move;
 
@@ -28,6 +30,7 @@ const NUMBER_OF_SIMULTANEOUS_GAMES: usize = 3;
 pub struct BotState {
   pub api: LichessApi,
   pub username: String,
+  pub ratings: HashMap<String, usize>,
   pub games: Arc<Mutex<Vec<BotGame>>>,
 }
 
@@ -69,11 +72,26 @@ impl BotState {
     };
 
     // Find out our username with the API token:
-    let username = api.get_lichess_username().await.unwrap_or(String::from(DEFAULT_USERNAME));
+    let mut username = String::from(DEFAULT_USERNAME);
+    let mut ratings: HashMap<String, usize> = HashMap::new();
+
+    let account_info = api.get_profile().await;
+    if account_info.is_ok() {
+      let json = account_info.unwrap();
+      if json["id"].as_str().is_some() {
+        username = String::from(json["id"].as_str().unwrap());
+      }
+      if json.get("perfs").is_some() {
+        for (key, value) in json["perfs"].as_object().unwrap() {
+          ratings.insert(key.clone(), value["rating"].as_u64().unwrap() as usize);
+        }
+      }
+    }
 
     BotState {
       api,
       username,
+      ratings,
       games: Arc::new(Mutex::new(Vec::new())),
     }
   }
@@ -224,6 +242,22 @@ impl BotState {
 
     // Use 1024 MB for cache tables.
     bot_game.engine.resize_cache_tables(1024);
+
+    // If the opponent is 300 less points than us, play provocative oppenings.
+    if self.ratings.contains_key(&game.speed) && game.opponent.rating < self.ratings[&game.speed] {
+      bot_game.engine.set_play_style(PlayStyle::Provocative);
+      let game_id = bot_game.id.clone();
+      let api_clone = self.api.clone();
+      let _ = tokio::spawn(async move {
+        api_clone
+          .write_in_spectator_room(
+            game_id.as_str(),
+            "Weaker opponent detected. Will play funky openings! :)",
+          )
+          .await
+      });
+    }
+
     self.add_game(bot_game);
   }
 
@@ -277,6 +311,22 @@ impl BotState {
       let api_clone = self.api.clone();
       let _ = tokio::spawn(async move {
         api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_VARIANT).await
+      });
+      return;
+    }
+
+    // If we play other bots, it should be rated
+    if challenge.rated == false
+      && challenge.challenger.title.is_some()
+      && challenge.challenger.title.as_ref().unwrap() == "BOT"
+    {
+      info!(
+        "Ignoring casual challenge from another bot {:?}. We play only rated here.",
+        challenge.challenger
+      );
+      let api_clone = self.api.clone();
+      let _ = tokio::spawn(async move {
+        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_CASUAL).await
       });
       return;
     }

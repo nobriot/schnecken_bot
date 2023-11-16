@@ -6,11 +6,11 @@ pub const DECLINE_GENERIC: &str = "generic";
 pub const DECLINE_TOO_FAST: &str = "tooFast";
 pub const DECLINE_TOO_SLOW: &str = "tooSlow";
 pub const DECLINE_RATED: &str = "rated";
-pub const DECLINE_CASUAL: &str = "casual";
 pub const DECLINE_STANDARD: &str = "standard";
 pub const DECLINE_NOT_BOTS: &str = "noBot";
 pub const DECLINE_ONLY_BOTS: &str = "onlyBot";
 */
+pub const DECLINE_CASUAL: &str = "casual";
 pub const DECLINE_VARIANT: &str = "variant";
 pub const DECLINE_LATER: &str = "later";
 pub const DECLINE_TIME_CONTROL: &str = "timeControl";
@@ -28,7 +28,6 @@ pub struct GameStart {
   pub is_my_turn: bool,
   #[serde(rename = "lastMove")]
   pub last_move: Option<String>,
-  #[serde(rename = "fullId")]
   pub speed: String,
   pub rated: bool,
   pub opponent: Player,
@@ -118,9 +117,9 @@ pub struct Clock {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Player {
-  id: String,
-  username: String,
-  rating: usize,
+  pub id: String,
+  pub username: String,
+  pub rating: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
