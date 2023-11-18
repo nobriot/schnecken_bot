@@ -243,9 +243,9 @@ impl BotState {
     // Use 1024 MB for cache tables.
     bot_game.engine.resize_cache_tables(1024);
 
-    // If the opponent is 300 less points than us, play provocative oppenings.
+    // If the opponent is 100 less points than us, play provocative oppenings.
     if self.ratings.contains_key(&game.speed)
-      && game.opponent.rating < (self.ratings[&game.speed] - 125)
+      && game.opponent.rating < (self.ratings[&game.speed] - 99)
     {
       info!(
         "Weaker opponent detected (ratings {} vs {}). Setting play style to provocative",

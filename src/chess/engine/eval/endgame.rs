@@ -179,7 +179,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::Black
   };
 
-  let mut score = get_material_score(game_state, attacking_side);
+  // Assign extra weight to the fact that just the opponent king left is very good.
+  let mut score = get_material_score(game_state, attacking_side) + 30.0;
 
   let king_position = match attacking_side {
     Color::White => game_state.board.get_black_king_square(),

@@ -1264,10 +1264,3 @@ impl Default for Engine {
     }
   }
 }
-
-impl Drop for Engine {
-  fn drop(&mut self) {
-    self.clear_cache();
-    debug!("Dropping Engine!")
-  }
-}

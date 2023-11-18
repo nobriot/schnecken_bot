@@ -162,13 +162,14 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
 
 // Determine the game phrase and update it.
 pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
-  if game_state.move_count > 30 {
-    return GamePhase::Endgame;
-  }
-
   // Basic material count, disregarding pawns.
   let mut material_count = 0;
   let mut development_index = 0;
+
+  // If one side lost their queen, consider this endgame:
+  if game_state.board.pieces.white.queen == 0 || game_state.board.pieces.black.queen == 0 {
+    return GamePhase::Endgame;
+  }
 
   material_count += game_state.board.pieces.queens().count_few_ones() * 9;
   material_count += game_state.board.pieces.rooks().count_few_ones() * 5;

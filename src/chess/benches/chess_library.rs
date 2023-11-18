@@ -29,30 +29,6 @@ fn compute_legal_moves(bencher: Bencher) {
   });
 }
 
-/// Compare how fast we are with the chess crate
-/// from a given board position
-#[divan::bench(sample_count = 10000)]
-fn compute_legal_moves_external_chess_library(bencher: Bencher) {
-  // Create a bunch of random boards
-  extern crate chess_lib;
-  use std::str::FromStr;
-
-  const NUMBER_OF_BOARDS: usize = 10_000;
-  let mut boards: Vec<chess_lib::Board> = Vec::with_capacity(NUMBER_OF_BOARDS);
-  for _ in 0..NUMBER_OF_BOARDS {
-    let fen = GameState::from_board(&Board::new_random()).to_fen();
-    boards
-      .push(chess_lib::Board::from_str(fen.as_str()).expect(format!("Valid FEN {}", fen).as_str()));
-  }
-
-  let mut rng = rand::thread_rng();
-
-  bencher.bench_local(|| {
-    let i = rng.gen_range(0..NUMBER_OF_BOARDS);
-    let movegen = chess_lib::MoveGen::new_legal(&boards[i]);
-  });
-}
-
 /// Checks how fast we are at applying moves on a board
 #[divan::bench(sample_count = 10000)]
 fn apply_moves_on_a_game_state(bencher: Bencher) {

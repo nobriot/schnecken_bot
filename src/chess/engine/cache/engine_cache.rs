@@ -282,13 +282,6 @@ impl EngineCache {
   }
 }
 
-impl Drop for EngineCache {
-  fn drop(&mut self) {
-    self.clear();
-    debug!("Dropping EngineCache");
-  }
-}
-
 // -----------------------------------------------------------------------------
 //  Tests
 

@@ -62,6 +62,16 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 c5 2. c3 Nc6 3. d4 d5 4. exd5 Qxd5 5. Nf3 Nf6 6. dxc5 Qxd1+ 7. Kxd1 e6 8. Be3 Ng4 9. b4 a5 10. b5 Nxe3+ 11. fxe3 Nd8 12. c6 bxc6 13. a4 Bc5 14. Nbd2 Bxe3 15. Ne5 cxb5 16. axb5";
   add_pgn_to_book(&CHESS_BOOK,pgn);
 
+  // Vienna Game
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. f4 d5 4. fxe5 Nxe4 5. Nf3 Be7 6. Qe2 Nxc3 7. dxc3 c5 8. Bf4 Nc6 9. O-O-O Be6 10. h4 h6 11. g3 Qd7 12. Bg2 O-O-O ";
+  add_pgn_to_book(&CHESS_BOOK,pgn);
+
+  // Danish gambit
+  let pgn = "1. e4 e5 2. d4 exd4 3. c3 dxc3 4. Nxc3 Bc5 5. Nf3 d6 6. Bc4 Nf6 7. e5 dxe5 8. Qxd8+ Kxd8 9. Nxe5 Re8 10. Bf4 Be6 11. O-O-O+ Kc8 12. Bxe6+ fxe6 13. Nd3 Bf8 14. Rhe1 Nc6 15. Bg3 b6";
+  add_pgn_to_book(&CHESS_BOOK,pgn);
+  let pgn = "1. e4 e5 2. d4 exd4 3. c3 Qe7 4. Bd3 d5 5. cxd4 dxe4 6. Bc2 Nc6 7. Nc3 Bd7 8. Nge2 f5 9. Bf4 Nf6 10. O-O O-O-O";
+  add_pgn_to_book(&CHESS_BOOK,pgn);
+
   // Alekine defence
   let pgn = "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. c4 Nb6 5. f4 Bf5 6. Nc3 e6 7. Nf3 dxe5 8. fxe5 Nc6 9. Be3 Bg4 10. Be2 Bxf3 11. gxf3 Qh4+ 12. Bf2 Qf4 13. c5 Nd7 14. Qc1 Qxc1+ 15. Rxc1 O-O-O";
   add_pgn_to_book(&CHESS_BOOK,pgn);

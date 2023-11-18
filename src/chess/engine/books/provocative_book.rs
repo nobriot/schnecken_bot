@@ -28,6 +28,10 @@ pub fn initialize_chess_book() {
   let bongcloud = "1. e4 e5 2. Ke2 d5 3. d3 Nc6 4. c3 Nf6 5. Qc2 Bc5 6. Nf3 Qd6 7. b4 Bb6 8. a4 a6 9. h3 Be6 10. Nbd2 Ba7 11. Ke1 O-O 12. Be2 b5 13. exd5 Nxd5 14. Ne4 Qd7 15. Nfg5 Bf5 16. Qb3 h6 17. g4 Bg6 18. Nf3"; 
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, bongcloud);
 
+  // Double bongcloud
+  let pgn = "1. e4 e5 2. Ke2 Ke7 3. Nf3 d5 4. d4 dxe4 5. Nxe5 Nd7 6. Nc4 Nb6 7. Ne3 f5 8. c4 Nf6 9. Nc3 Kf7 10. g3 c5 11. d5 g5 12. Qc2 f4 13. h4 fxe3 14. hxg5 Ng4 15. Nxe4 exf2 16. Bf4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, bongcloud);
+
   // Wayward Queen attack:
   let wayward = "1. e4 e5 2. Qh5 d6 3. Bc4 g6 4. Qd1 Nf6 5. d3 c6 6. Nf3 Bg7 7. O-O b5 8. Bb3 O-O 9. a4 b4 10. Be3 a5 11. Nbd2 Nbd7 12. c3 bxc3 13. bxc3 Qc7 14. Re1 d5 15. Qc2 Re8";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, wayward);
@@ -35,6 +39,13 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, wayward);
   let wayward = "1. e4 e5 2. Qh5 Nf6 3. Qxe5+ Be7 4. Qf4 Nc6 5. d3 O-O 6. Nf3 d5 7. Be2 Bb4+ 8. Bd2 Re8 9. Nc3 Bd6 10. Qh4 Be7 11. exd5 Nxd5 12. Qa4 Nxc3 13. Bxc3 Bd6 14. Kf1 ";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, wayward);
+  let wayward = "1. e4 e5 2. Qh5 Nc6 3. Bc4 g6 4. Qf3 Nf6 5. Ne2 Bg7 6. d3 O-O 7. a3 d6 8. Nbc3 Bg4 9. Qg3 Be6 10. Bg5 Nh5 11. Qe3 Nd4 12. Qd2 Qe8";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, wayward);
+  let pgn = "1. e4 e5 2. Qh5 Nc6 3. Bc4 g6 4. Qf3 Nf6 5. Ne2 Bg7 6. d3 O-O 7. a3 d6 8. Nbc3 h6 9. O-O Kh7 10. Bd2";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Qh5 d6 3. Bc4 g6 4. Qd1 Nf6 5. d3 c6 6. Nf3 Bg7 7. O-O b5 8. Bb3 O-O 9. Be3";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+  
 
   // Desprez
   let desprez = "1. h4 d5 2. e3 c5 3. Nf3 Nc6 4. Bb5 Qc7 5. O-O a6 6. Bxc6+ Qxc6 7. Ne5 Qc7 8. d4 e6 9. c4 dxc4 10. a4 b6 11. Nd2 Bb7 12. Ndxc4 Rd8 13. b3 Nf6";
@@ -80,6 +91,7 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bb4+ 5. c3 dxc3 6. O-O cxb2 7. Bxb2 Nf6 8. e5 Nh5 9. Nbd2 b5 10. Bxb5 Rb8 11. Qa4 a6 12. Bxc6 dxc6 13. Rad1 Qd5 14. Qc2 Be6";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
   let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Bc4 cxb2 6. Bxb2 Bb4+ 7. Nc3 Bxc3+ 8. Bxc3 Nf6 9. Ng5 O-O 10. O-O h6 11. Nxf7 Rxf7 12. Bxf7+ Kxf7 13. Qb3+ d5 14. Rfd1 Ne7 15. Bxf6 Kxf6 16. exd5 Nf5 17. Qc3+ Kg6 18. Qc2 Kf7 19. Rac1 Nd6 20. Qxc7+ Qxc7 21. Rxc7+ Kf6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
 
   // Wing gambit
   let pgn = "1. e4 c5 2. b4 cxb4 3. a3 e5 4. Bb2 Nc6 5. Nf3 Qb6 6. Nxe5 bxa3 7. Bc3 a2 8. Nxf7 Kxf7 9. Bc4+ Ke7 10. Rxa2 Nf6 11. O-O";
@@ -89,10 +101,13 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 c5 2. b4 cxb4 3. d4 d5 4. exd5 Nf6 5. a3 Nxd5 6. axb4 Nxb4 7. Nf3 e6 8. Be2 Be7 9. c3 N4c6 10. Bf4 Nd7 11. O-O O-O 12. Na3 Nf6 13. c4 a6 14. Nb5 Bd7 15. Nc3 Nb4 16. Ne5 Bc6";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
 
+  // Vienna game, black bongcloud
+  let pgn = "1. e4 e5 2. Nc3 Ke7 3. f4 d6 4. d4 Ke8 5. Nf3 exd4 6. Qxd4 Nc6 7. Qf2 g6 8. Be3 Bg7 9. e5 Nh6 10. h3 Nf5 11. O-O-O Nxe3 12. Qxe3 Kf8 13. Bc4 Na5 14. Be2 Be6 15. Rhe1";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
+
   // Some other random openings:
   let pgn = "1. e4 h5 2. Nf3 c5 3. c3 d5 4. exd5 Qxd5 5. d4 Nf6 6. Na3 cxd4 7. Bc4 Qe4+ 8. Be2 d3 9. Qxd3 Qxd3 10. Bxd3";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
-  
 }
 
 /// Check our known book moves, known positions that have been computed with an
