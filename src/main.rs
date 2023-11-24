@@ -32,7 +32,7 @@ async fn main_loop() -> Result<()> {
   info!("Lichess API token loaded successfully");
 
   // Starts the bot, it will stream incoming events
-  let mut schnecken_bot = bot::state::BotState::new(api_token.as_str()).await;
+  let schnecken_bot = bot::state::BotState::new(api_token.as_str()).await;
   schnecken_bot.start();
 
   loop {

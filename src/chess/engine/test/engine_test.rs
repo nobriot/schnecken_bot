@@ -687,6 +687,39 @@ fn test_under_promotion_got_evaluated_better() {
   assert!(analysis[0].1 > -1.0);
 }
 
+#[test]
+fn test_knight_bonanza_on_real_game() {
+  /*
+    [2023-11-18T16:08:38.256Z INFO  schnecken_bot::bot::state] Trying to find a move for game id g5m6cPhb
+    [2023-11-18T16:08:38.256Z INFO  schnecken_bot::bot::state] Using 7509 ms to find a move for position r1bq1rk1/ppp2pbp/3ppnp1/3Pn3/2P1PP2/2N1B2P/PP4P1/RQ2KBNR b KQ - 0 9
+    info score cp 9 depth 4 seldepth 7 nodes 38111518 time 13 multipv 1 pv e5d7 g1f3 e6d5 c4d5
+    info score cp 65 depth 4 seldepth 7 nodes 38111518 time 13 multipv 2 pv e5c4 f1c4 f6g4 e3a7
+    info score cp 76 depth 4 seldepth 7 nodes 38111518 time 13 multipv 3 pv e6d5 f4e5 d6e5 c3d5
+    info score cp -110 depth 5 seldepth 8 nodes 38186672 time 82 multipv 1 pv e5d7 g1f3 e6d5 e4d5 f6d5
+    info score cp -59 depth 5 seldepth 8 nodes 38186672 time 82 multipv 2 pv e5g4 h3g4 g6g5 h1h7 g8h7 e3a7
+    info score cp -58 depth 5 seldepth 8 nodes 38186672 time 82 multipv 3 pv f6g4 h3g4 e6d5 h1h7 g8h7 c4d5
+    info score cp 51 depth 6 seldepth 9 nodes 39647298 time 1481 multipv 1 pv f6g4 e3a7 d8h4 e1d1 a8a7 g1f3
+    info score cp 59 depth 6 seldepth 9 nodes 39647298 time 1481 multipv 2 pv e5g4 e3d2 g4h6 g1f3 e6d5 c4d5
+    info score cp 73 depth 6 seldepth 9 nodes 39647298 time 1481 multipv 3 pv e5d7 d5e6 f7e6 g1f3 d7c5 e4e5
+
+  [2023-11-18T16:08:45.765Z INFO  schnecken_bot::bot::state] Playing Line 0 (f6g4) for GameID g5m6cPhb
+  [2023-11-18T16:08:45.765Z INFO  lichess::api::game] Trying chess move f6g4 on game id g5m6cPhb - Draw offer: false
+  [2023-11-18T16:08:45.765Z DEBUG lichess::api] Lichess POST request at https://lichess.org/api/bot/game/g5m6cPhb/move/f6g4?offeringDraw=false
+  [2023-11-18T16:08:45.765Z DEBUG reqwest::connect] starting new connection: https://lichess.org/
+  [2023-11-18T16:08:45.875Z DEBUG lichess::api] Lichess post answer: {"ok":true}
+   */
+  let fen = "r1bq1rk1/ppp2pbp/3ppnp1/3Pn3/2P1PP2/2N1B2P/PP4P1/RQ2KBNR b KQ - 0 9";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(7509);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert_eq!(best_move.to_string(), "e5d7");
+}
+
 #[ignore]
 #[test]
 fn king_disappeared() {

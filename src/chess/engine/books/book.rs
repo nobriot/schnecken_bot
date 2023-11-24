@@ -46,6 +46,30 @@ pub fn initialize_chess_book() {
   let pgn = "1.e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O Nxe4 5. d4 Nd6 6. dxe5 Nxb5 7. a4 Nbd4 8. Nxd4 Nxd4 9. Qxd4 d5 10. exd6 Qxd6 11. Qe4+ Qe6 12. Qd4 Qd6 13. Qe4+";
   add_pgn_to_book(&CHESS_BOOK, pgn);
 
+  // Stafford gambit
+  let stafford = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nxc6 dxc6 5. d3 Bc5 6. Be2 Ng4 7. Bxg4 Qh4 8. Qf3 Bxg4 9. Qg3 Qxg3 10. hxg3 Be6 11. Nc3 a5 12. Ne2 a4 13. f3 h5 14. d4 Be7 15. Nf4 Bc4 16. Rxh5 Rxh5 17. Nxh5 g6 18. Nf4";
+  add_pgn_to_book(&CHESS_BOOK, stafford);
+  add_pgn_from_position(&CHESS_BOOK,"r1bqk2r/ppp2ppp/2p5/2b5/4P1n1/3P4/PPP1BPPP/RNBQ1RK1 b kq - 4 7", "7... h5 8. Bxg4 hxg4 9. Bf4 Be6 10. Nd2 Qd7 11. Re1 Bd6 12. e5 Be7 13. Ne4 O-O-O 14. Ng5 Bxg5 15. Bxg5 Rdf8");
+  add_pgn_from_position(&CHESS_BOOK,"r1bqk2r/ppp2ppp/2p5/2b5/4P1n1/3P4/PPP1BPPP/RNBQ1RK1 b kq - 4 7", "7... h5 8. Nc3 Qf6 9. Bxg4 hxg4 10. e5 Qf5 11. Qe1 Be6 12. Qe4 Qh5 13. Bf4 O-O-O 14. Bg3");
+  let stafford = "1. e4 e5 2. Nf3 Nf6 3. Nxe5 Nc6 4. Nxc6 dxc6 5. d3 Qe7 6. Be2 Be6 7. f4 O-O-O 8. Nc3 Qb4 9. a3 Qb6 10. f5 Bd7 11. b4 c5 12. Be3 Qc6 13. b5 Qd6 14. a4 Qe5 15. Qd2 Bd6 ";
+  add_pgn_to_book(&CHESS_BOOK, stafford);
+
+  // Scotch
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bb4+ 5. c3 dxc3 6. O-O cxb2 7. Bxb2 Nf6 8. e5 Nh5 9. Nbd2 b5 10. Bxb5 Rb8 11. Qa4 a6 12. Bxc6 dxc6 13. Rad1 Qd5 14. Qc2 Be6";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Bc4 cxb2 6. Bxb2 Bb4+ 7. Nc3 Bxc3+ 8. Bxc3 Nf6 9. Ng5 O-O 10. O-O h6 11. Nxf7 Rxf7 12. Bxf7+ Kxf7 13. Qb3+ d5 14. Rfd1 Ne7 15. Bxf6 Kxf6 16. exd5 Nf5 17. Qc3+ Kg6 18. Qc2 Kf7 19. Rac1 Nd6 20. Qxc7+ Qxc7 21. Rxc7+ Kf6";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+
+  // Halloween gambit:
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Ng6 6. e5 Ng8 7. Bc4 c6 8. Qe2 Bb4 9. O-O d5 10. exd6+ Kf8 11. Bxf7 Bxc3 12. Bxg8 Kxg8 13. Qc4+ Kf8 14. Qxc3";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Ng6 6. e5 Ng8 7. Bc4 d6 8. Qf3 Qd7 9. O-O Kd8 10. Bxf7 Qf5 11. Qd5 Nh6 12. Bxh6 gxh6 13. f4 Nxf4 14. Qb3 Qg4 15. g3 Nh3+ 16. Kg2 Ng5 17. Rae1 Qxd4 18. Kh1 a5 19. Bg8 Be7 20. Rf4";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Ng6 8. e5 Bc5 9. exf6 O-O 10. Be2 Qxf6 11. Ne4 Qb6 12. Nxc5 Qxc5 13. a4 Re8 14. Ra3 d6 15. Rc3 Qb6 16. Rb3 Qxb3 17. cxb3 Bg4 18. h3 Rxe2+ 19. Qxe2 Bxe2 20. Kxe2";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 e5 2. Nc3 Nf6 3. Nf3 Nc6 4. Nxe5 Nxe5 5. d4 Nc6 6. d5 Ne5 7. f4 Ng6 8. e5 Ng8 9. Qe2 Bb4 10. f5 N6e7 11. Bg5 Kf8 12. Qf3 f6 13. Bh4 Bxc3+ 14. bxc3 h5 15. O-O-O d6 16. e6 Nh6 17. Bd3 Ng4 18. Bg3 Ne5 19. Bxe5 dxe5 20. g4 hxg4 21. Qxg4";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+
   // Budapest:
   let pgn = "1. d4 Nf6 2. c4 e5 3. dxe5 Ng4 4. Bf4 Nc6 5. Nf3 Bb4+ 6. Nbd2 Qe7 7. e3 Ngxe5 8. Nxe5 Nxe5 9. Be2 O-O 10. O-O Bxd2 11. Qxd2 d6 12. b4";
   add_pgn_to_book(&CHESS_BOOK,pgn);
@@ -115,7 +139,11 @@ pub fn initialize_chess_book() {
 
   // Scandinavian defence
   let pgn = "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qa5 4. d4 Nf6 5. Nf3 c6 6. Bc4 Bf5 7. Bd2 e6 8. Nd5 Qd8 9. Nxf6+ gxf6 10. Bb3 Nd7 11. Qe2 Qc7 12. Nh4 Bg6 13. O-O-O O-O-O 14. g3 Bd6 15. Nxg6 hxg6 16. h4 f5 17. Bg5 Rde8 18. h5 gxh5 19. Rxh5 Rhg8 20. Bh4";
-  add_pgn_to_book(&CHESS_BOOK,pgn);
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qd6 4. d4 Nf6 5. Nf3 Nc6 6. d5 Nb4 7. Nb5 Qd8 8. c4 e6 9. a3 Na6 10. Qa4 c6 11. dxc6 bxc6 12. Nc3 Nc5 13. Qc2 Qc7 14. g3 a5 15. Bf4 Bd6 16. Bxd6 Qxd6 17. Rd1 Qc7 18. Bg2 O-O 19. O-O";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
+  let pgn = "1. e4 d5 2. e5 c5 3. c3 Nc6 4. d4 a6 5. Be2 h6 6. Be3 cxd4 7. cxd4 Bf5 8. a3 e6 9. Nf3 Nge7 10. O-O Bh7 11. Nc3 Nf5 12. b4 Nxe3 13. fxe3 Be7 14. Na4 O-O 15. Rc1 Nb8 16. Qb3";
+  add_pgn_to_book(&CHESS_BOOK, pgn);
 
   // Queen gambit
   let pgn = "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 e6 5. Bg5 h6 6. Bh4 dxc4 7. e4 g5 8. Bg3 b5 9. Be2 Bb7 10. O-O Nbd7 11. Ne5 Bg7 12. Nxd7 Nxd7 13. Bd6 a6 14. a4 b4 15. Bxb4 Qb6 16. Ba3 Qxd4 17. Qc2 c5";
@@ -144,6 +172,14 @@ pub fn initialize_chess_book() {
   add_pgn_to_book(&CHESS_BOOK,pgn);
   let pgn = "1. e4 c5 2. Nf3 d6 3. Bb5+ Nc6 4. O-O Bd7 5. Re1 Nf6 6. h3 a6 7. Bf1 g5 8. d4 g4 9. d5 gxf3 10. dxc6 Bxc6 11. Qxf3 Nd7";
   add_pgn_to_book(&CHESS_BOOK,pgn);
+
+  // Desprez
+  let desprez = "1. h4 d5 2. e3 c5 3. Nf3 Nc6 4. Bb5 Qc7 5. O-O a6 6. Bxc6+ Qxc6 7. Ne5 Qc7 8. d4 e6 9. c4 dxc4 10. a4 b6 11. Nd2 Bb7 12. Ndxc4 Rd8 13. b3 Nf6";
+  add_pgn_to_book(&CHESS_BOOK, desprez);
+  let desprez = "1. h4 d5 2. d4 c5 3. e3 Nc6 4. c4 e6 5. Nf3 Nf6 6. a3 a6 7. dxc5 Bxc5 8. b4 Be7 9. Bb2 dxc4 10. Qxd8+ Bxd8 11. Bxc4 b5 12. Bd3 O-O 13. Nbd2 Be7 14. Ke2 Bb7 15. Rhc1 Rfc8 16. Nb3 Nd7 17. Rc2 Nd8 18. Rac1 Rxc2+ 19. Rxc2 Rc8 20. Rxc8 Bxc8 21. g4";
+  add_pgn_to_book(&CHESS_BOOK, desprez);
+  let desprez = "1. h4 e5 2. c4 Nf6 3. Nc3 d5 4. cxd5 Nxd5 5. e3 Nxc3 6. bxc3 Bd6 7. Nf3 O-O 8. d4 Nc6 9. Rb1 Qe7 10. Bc4 Bf5 11. Rb2 h6 12. Be2 b6 13. Nd2";
+  add_pgn_to_book(&CHESS_BOOK, desprez);
 
   // More random games
   let pgn = "1. f4 d5 2. Nf3 g6 3. g3 Bg7 4. Bg2 Nf6 5. O-O O-O 6. d3 c5 7. c3 Nc6 8. Na3 Rb8 9. Ne5 Qc7 10. Qa4 a6 11. Nxc6 bxc6 12. e4 Bd7 13. Nc2 h5 14. Ne3 h4 15. Qd1 Nh5 16. Bf3 hxg3 17. Bxh5 gxh5 18. Qxh5 c4 19. Rf3 gxh2+ 20. Kxh2";

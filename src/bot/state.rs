@@ -98,7 +98,7 @@ impl BotState {
 
   /// Get the bot started with its activity on Lichess
   /// Will spawn a thread handling incoming stream events.
-  pub fn start(&mut self) {
+  pub fn start(&self) {
     info!("Starting the Lichess bot... ");
     info!("Watch it at: https://lichess.org/@/{}", self.username);
     // Start streaming incoming events
@@ -140,10 +140,7 @@ impl BotState {
         // The thread rarely dies, however, sometimes the HTTP stream stops and we do not receive chunks anymore.
         // Look up if the bot appears offline, and if so, restart the incoming event stream
         warn!("Bot seems offline, restarting event stream");
-        handle.abort();
-        let api_clone = bot.api.clone();
-        let bot_clone = bot.clone();
-        handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
+        handle.abort(); // This will trigger the is_finished() to be to true at the next iteration.
       }
     }
   }
@@ -478,6 +475,14 @@ impl BotState {
   /// Checks if any of the players we like is online and sends a challenge.
   ///
   pub fn update_game_and_play(&self, game_state: lichess::types::GameState, game_id: &str) {
+    // Check if we just got a notification that the game is over, and make sure to
+    // remove the game from our list if that's the case.
+    if game_state.status != lichess::types::GameStatus::Started {
+      debug!("Game ID {game_id} is not ongoing. Removing it from our list");
+      self.remove_game(game_id);
+      return;
+    }
+
     let mut binding = self.games.lock().unwrap();
     let games: &mut Vec<BotGame> = binding.as_mut();
 
@@ -488,16 +493,9 @@ impl BotState {
         break;
       }
     }
-
     debug!("Data for GameState: {:?}", game_state);
 
     if let Some(game) = games.get_mut(game_index) {
-      if game_state.status != lichess::types::GameStatus::Started {
-        debug!("Game ID {game_id} is not ongoing. Removing it from our list");
-        //FIXME: Find why this make the bot stall
-        //self.remove_game(game_id);
-        return;
-      }
       game.move_list = game_state.moves;
       game.clock.white_time = game_state.wtime;
       game.clock.white_increment = game_state.winc;

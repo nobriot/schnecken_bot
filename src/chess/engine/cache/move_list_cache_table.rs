@@ -47,7 +47,7 @@ impl MoveListCacheTable {
       "Creating new MoveList cache table with capacity {} MB",
       capacity_mb
     );
-    let entry_size = mem::size_of::<MoveListCacheTable>();
+    let entry_size = mem::size_of::<MoveListCacheEntry>();
     let number_of_entries = capacity_mb * 1024 * 1024 / entry_size;
 
     // Find the power of 2 immediately under
