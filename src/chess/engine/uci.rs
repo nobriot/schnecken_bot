@@ -33,7 +33,7 @@ DESCRIPTION
       and not incredible at prediction positions.
 
     setoption name ponder value <bool>
-      Decides if we should ponder. Same as running \"go ponder\"
+      Decides if we should ponder. Same as running \"go ponder\" if set to true
 
     setoption name play_style type combo default Normal var Conservative var Normal var Aggressive var Provocative
       Decides how the engine should play. Normal is the default.

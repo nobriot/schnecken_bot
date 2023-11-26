@@ -60,6 +60,8 @@ pub struct BotGame {
   pub clock: GameClock,
   // Chess engine instance used to analyze the game
   pub engine: Engine,
+  // Set to true if we bragged/complained about the evaluation in the spectator room
+  pub mating_sequence_announced: bool,
 }
 
 impl BotState {
@@ -201,6 +203,20 @@ impl BotState {
     debug!("Could not remove Game ID {} as it is now known.", game_id);
   }
 
+  /// Finds which color we are in a GameID.
+  pub fn get_my_color(&self, game_id: &str) -> Option<Color> {
+    // Wait to get our Mutex:
+    let mut binding = self.games.lock().unwrap();
+    let games: &mut Vec<BotGame> = binding.as_mut();
+
+    for g in games.iter() {
+      if g.id == game_id {
+        return Some(g.color);
+      }
+    }
+    None
+  }
+
   //----------------------------------------------------------------------------
   // Stream handlers
 
@@ -211,7 +227,7 @@ impl BotState {
   /// * `json_value` - JSON payload received in the HTTP stream.
   ///
   fn on_game_start(&self, game: lichess::types::GameStart) {
-    // Write a hello message
+    // Write a hello message -
     let game_id = game.game_id.clone();
     let api_clone = self.api.clone();
     let _ =
@@ -220,9 +236,14 @@ impl BotState {
       );
 
     // Game started, we add it to our games and stream the game events
+    let fen = game.fen.unwrap_or(String::from(START_POSITION_FEN));
+    let mut engine = Engine::new();
+    engine.set_position(&fen);
+    engine.resize_cache_tables(1024); // Use 1024 MB for cache tables.
+
     let bot_game: BotGame = BotGame {
       color: game.color,
-      start_fen: game.fen.unwrap_or(String::from(START_POSITION_FEN)),
+      start_fen: fen,
       id: game.game_id,
       has_moved: game.has_moved,
       is_my_turn: game.is_my_turn,
@@ -234,11 +255,9 @@ impl BotState {
         black_time: game.seconds_left,
         black_increment: 0,
       },
-      engine: Engine::new(),
+      engine,
+      mating_sequence_announced: false,
     };
-
-    // Use 1024 MB for cache tables.
-    bot_game.engine.resize_cache_tables(1024);
 
     // If the opponent is 100 less points than us, play provocative oppenings.
     if self.ratings.contains_key(&game.speed)
@@ -378,6 +397,7 @@ impl BotState {
     }
   }
 
+  /// Attempts to make a move on a game
   async fn play_on_game(&self, game_id: &str) -> Result<(), ()> {
     let mut binding = self.games.lock().unwrap();
     let games: &mut Vec<BotGame> = binding.as_mut();
@@ -390,12 +410,12 @@ impl BotState {
       }
     }
 
-    let game = games.get(game_index);
+    let game = games.get_mut(game_index);
     if game.is_none() {
       return Err(());
     }
 
-    let game = game.unwrap();
+    let game: &mut BotGame = game.unwrap();
 
     if !game.is_my_turn {
       info!("Not our turn for Game ID {game_id}. Waiting.");
@@ -451,6 +471,30 @@ impl BotState {
       }
     }
 
+    // Make a comment in the spectator room depending on the eval.
+    if !game.mating_sequence_announced && analysis[0].1.abs() > 150.0 {
+      let mate = ((analysis[0].1.signum() * 200.0) - analysis[0].1) / 2.0 as isize;
+      let message = if (game.color == lichess::types::Color::White && analysis[0].1 > 150.0)
+        || (game.color == lichess::types::Color::Black && analysis[0].1 < -150.0)
+      {
+        format!(
+          "Found a mating sequence (#{})  =) - Opponent crush activated 8-)",
+          mate
+        )
+      } else {
+        format!("Oh no, I am getting mated (#{})  ='(", mate)
+      };
+
+      game.mating_sequence_announced = true;
+      let game_id = game.id.clone();
+      let api_clone = self.api.clone();
+      let _ = tokio::spawn(async move {
+        api_clone.write_in_spectator_room(game_id.as_str(), message.as_str()).await
+      });
+    } else if analysis[0].1.abs() < 100.0 {
+      game.mating_sequence_announced = false;
+    }
+
     let move_index = rand::thread_rng().gen_range(0..cutoff);
     let mv = analysis[move_index].0[0];
     info!(
@@ -478,6 +522,13 @@ impl BotState {
     // Check if we just got a notification that the game is over, and make sure to
     // remove the game from our list if that's the case.
     if game_state.status != lichess::types::GameStatus::Started {
+      // Write a well played / goodbye message
+      let bot_clone = self.clone();
+      let game_id_clone = String::from(game_id);
+      let _ = tokio::spawn(async move {
+        bot_clone.send_end_of_game_message(&game_id_clone, game_state.winner).await
+      });
+
       debug!("Game ID {game_id} is not ongoing. Removing it from our list");
       self.remove_game(game_id);
       return;
@@ -565,6 +616,35 @@ impl BotState {
         break;
       }
     }
+  }
+
+  /// Looks at the game outcome and sends a message depending on who won
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id`:  Identifier of the game that just finished
+  /// * `winner`:   Option of a color indicating who won.
+  ///
+  pub async fn send_end_of_game_message(&self, game_id: &str, winner: Option<Color>) {
+    let my_color = self.get_my_color(game_id);
+
+    let message = match (my_color, winner) {
+      // This is a draw:
+      (_, None) => "Good game",
+      (None, _) => "Thanks for playing",
+      (Some(me), Some(w)) => {
+        if me == w {
+          "Always a pleasure to win =)"
+        } else {
+          "Well played ! I'll get my revanche next time ;-)"
+        }
+      },
+    };
+
+    // Write a goodbye message
+    let api_clone = self.api.clone();
+    let game_id_clone = String::from(game_id);
+    let _ = tokio::spawn(async move { api_clone.write_in_chat(&game_id_clone, message).await });
   }
 }
 
