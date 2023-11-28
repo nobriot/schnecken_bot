@@ -31,7 +31,8 @@ pub struct BotState {
   pub api: LichessApi,
   pub username: String,
   pub ratings: HashMap<String, usize>,
-  pub games: Arc<Mutex<Vec<BotGame>>>,
+  // TODO: Find if we can improve this.
+  pub games: Arc<Mutex<Vec<Arc<Mutex<BotGame>>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -164,17 +165,17 @@ impl BotState {
   pub fn add_game(&self, game: BotGame) {
     // Wait to get our Mutex:
     let mut binding = self.games.lock().unwrap();
-    let games: &mut Vec<BotGame> = binding.as_mut();
+    let games: &mut Vec<Arc<Mutex<BotGame>>> = binding.as_mut();
 
     for g in games.iter() {
-      if g.id == game.id {
+      if g.lock().unwrap().id == game.id {
         debug!("Game ID {} already in the cache. Ignoring", game.id);
         return;
       }
     }
     debug!("Adding Game ID {} in the cache", &game.id);
     let game_id = game.id.clone();
-    games.push(game);
+    games.push(Arc::new(Mutex::new(game)));
     // Stream the game in a separate thread.
     let api_clone = self.api.clone();
     let bot_clone = self.clone();
@@ -184,12 +185,13 @@ impl BotState {
   pub fn remove_game(&self, game_id: &str) {
     // Wait to get our Mutex:
     let mut binding = self.games.lock().unwrap();
-    let games: &mut Vec<BotGame> = binding.as_mut();
+    let games: &mut Vec<Arc<Mutex<BotGame>>> = binding.as_mut();
 
     for i in 0..games.len() {
-      if games[i].id == game_id {
+      if games[i].lock().unwrap().id == game_id {
         debug!("Removing Game ID {} as it is completed", game_id);
-        let game = games.swap_remove(i);
+        let game_arc = games.swap_remove(i);
+        let game = game_arc.lock().unwrap();
         // Make sure the engine is stopped
         game.engine.stop();
         while game.engine.is_active() {
@@ -207,11 +209,12 @@ impl BotState {
   pub fn get_my_color(&self, game_id: &str) -> Option<Color> {
     // Wait to get our Mutex:
     let mut binding = self.games.lock().unwrap();
-    let games: &mut Vec<BotGame> = binding.as_mut();
+    let games: &mut Vec<Arc<Mutex<BotGame>>> = binding.as_mut();
 
     for g in games.iter() {
-      if g.id == game_id {
-        return Some(g.color);
+      let game = g.lock().unwrap();
+      if game.id == game_id {
+        return Some(game.color);
       }
     }
     None
@@ -279,6 +282,37 @@ impl BotState {
           .await
       });
     }
+    // TODO : Implement provocative for non-master humans and bullet games
+    /*
+    else if game.opponent.title.is_none()
+    || game.opponent.title.unwrap() != "BOT"
+        && game.clock.initial < 60_000
+        && game.clock.increment == 0
+    {
+      info!("Human player trying to play bullet. Setting play style to provocative");
+      bot_game.engine.set_play_style(PlayStyle::Provocative);
+      let game_id = bot_game.id.clone();
+      let api_clone = self.api.clone();
+      let _ = tokio::spawn(async move {
+        api_clone
+        .write_in_spectator_room(
+          game_id.as_str(),
+          "Human player trying to play bullet with no increment... Will play funky openings! :)",
+          )
+          .await
+        });
+        let game_id = bot_game.id.clone();
+        let api_clone = self.api.clone();
+        let _ = tokio::spawn(async move {
+          api_clone
+          .write_in_chat(
+            game_id.as_str(),
+            "Hey! You're a human player trying to play bullet with no increment. I don't think you stand a chance. Will play funky openings! ;)",
+          )
+          .await
+        });
+      }
+      */
 
     self.add_game(bot_game);
   }
@@ -399,12 +433,11 @@ impl BotState {
 
   /// Attempts to make a move on a game
   async fn play_on_game(&self, game_id: &str) -> Result<(), ()> {
-    let mut binding = self.games.lock().unwrap();
-    let games: &mut Vec<BotGame> = binding.as_mut();
+    let mut games = self.games.lock().unwrap();
 
     let mut game_index = games.len() + 1;
     for (i, game) in games.iter().enumerate() {
-      if game.id == game_id {
+      if game.lock().unwrap().id == game_id {
         game_index = i;
         break;
       }
@@ -415,7 +448,7 @@ impl BotState {
       return Err(());
     }
 
-    let game: &mut BotGame = game.unwrap();
+    let game: &mut BotGame = &mut game.unwrap().lock().unwrap();
 
     if !game.is_my_turn {
       info!("Not our turn for Game ID {game_id}. Waiting.");
@@ -473,7 +506,7 @@ impl BotState {
 
     // Make a comment in the spectator room depending on the eval.
     if !game.mating_sequence_announced && analysis[0].1.abs() > 150.0 {
-      let mate = ((analysis[0].1.signum() * 200.0) - analysis[0].1) / 2.0 as isize;
+      let mate = (((analysis[0].1.signum() * 200.0) - analysis[0].1) + 0.5 / 2.0) as isize;
       let message = if (game.color == lichess::types::Color::White && analysis[0].1 > 150.0)
         || (game.color == lichess::types::Color::Black && analysis[0].1 < -150.0)
       {
@@ -491,7 +524,7 @@ impl BotState {
       let _ = tokio::spawn(async move {
         api_clone.write_in_spectator_room(game_id.as_str(), message.as_str()).await
       });
-    } else if analysis[0].1.abs() < 100.0 {
+    } else if analysis[0].1.abs() < 150.0 {
       game.mating_sequence_announced = false;
     }
 
@@ -535,11 +568,11 @@ impl BotState {
     }
 
     let mut binding = self.games.lock().unwrap();
-    let games: &mut Vec<BotGame> = binding.as_mut();
+    let games: &mut Vec<Arc<Mutex<BotGame>>> = binding.as_mut();
 
     let mut game_index = games.len() + 1;
     for i in 0..games.len() {
-      if games[i].id == game_id {
+      if games[i].lock().unwrap().id == game_id {
         game_index = i;
         break;
       }
@@ -547,6 +580,7 @@ impl BotState {
     debug!("Data for GameState: {:?}", game_state);
 
     if let Some(game) = games.get_mut(game_index) {
+      let mut game = game.lock().unwrap();
       game.move_list = game_state.moves;
       game.clock.white_time = game_state.wtime;
       game.clock.white_increment = game_state.winc;
@@ -566,6 +600,7 @@ impl BotState {
 
       // Make sure the engine knows the latest move:
       if move_list.len() > game.engine.position.last_moves.len() {
+        ///FIXME: This fails when restarting the bot in the middle of a game
         for i in game.engine.position.last_moves.len()..move_list.len() {
           game.engine.apply_move(move_list[i].to_string().as_str());
         }

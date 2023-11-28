@@ -720,6 +720,34 @@ fn test_knight_bonanza_on_real_game() {
   assert_eq!(best_move.to_string(), "e5d7");
 }
 
+#[test]
+fn real_game_was_winning() {
+  /*
+      2023-11-26T17:16:06.000Z INFO  schnecken_bot::bot::state] Trying to find a move for game id VwCbe7lf
+    [2023-11-26T17:16:06.000Z INFO  schnecken_bot::bot::state] Using 3627 ms to find a move for position 6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31
+    info score cp 202 depth 5 seldepth 8 nodes 17914126 time 267 multipv 1 pv f7e6 f5h5 g8a8 h5e5 e6a2
+    info score cp 202 depth 5 seldepth 8 nodes 17914126 time 267 multipv 2 pv g8h8 h2g3 f7a2 f5e5 a2d5
+    info score cp 248 depth 5 seldepth 8 nodes 17914126 time 267 multipv 3 pv g8f8 e7g6 f7g6 f5f8 b7a7 h2g3
+    [2023-11-26T17:16:06.719Z DEBUG lichess::api] Received keep-alive message for Game State stream
+    info score cp 248 depth 6 seldepth 9 nodes 18375657 time 2535 multipv 1 pv g8f8 e7g6 f7g6 f5f8 b7a7 h2g3
+    info score cp 298 depth 6 seldepth 9 nodes 18375657 time 2535 multipv 2 pv e3g1 h2g1 g8f8 f5f7 f8f7 a7b6
+    info score cp 298 depth 6 seldepth 9 nodes 18375657 time 2535 multipv 3 pv e3f4 f5f4 g8h8 h2g1 h8f8 f4f7 f8f7 a7b6
+    bestmove g8f8
+    Score for position 6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31: 2.485385
+  */
+  let fen = "6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
+  engine.set_search_time_limit(0);
+  engine.set_maximum_depth(6);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert!(best_move.to_string() == "f7e6" || best_move.to_string() == "g8h8");
+}
+
 #[ignore]
 #[test]
 fn king_disappeared() {

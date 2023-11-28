@@ -197,19 +197,6 @@ impl Analysis {
     *selective_depth = depth;
   }
 
-  /// Decrements the depth we have reached during the analysis
-  ///
-  /// ### Arguments
-  ///
-  /// * `self`:   Instance of the Chess Engine
-  ///
-  pub fn decrement_selective_depth(&self) {
-    let mut selective_depth = self.selective_depth.lock().unwrap();
-    if *selective_depth > 0 {
-      *selective_depth -= 1;
-    }
-  }
-
   /// Updates the selective depth if the new value is higher than the current value.
   ///
   /// ### Arguments
