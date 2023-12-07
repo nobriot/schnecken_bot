@@ -173,14 +173,6 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 c5 2. Nf3 d6 3. Bb5+ Nc6 4. O-O Bd7 5. Re1 Nf6 6. h3 a6 7. Bf1 g5 8. d4 g4 9. d5 gxf3 10. dxc6 Bxc6 11. Qxf3 Nd7";
   add_pgn_to_book(&CHESS_BOOK,pgn);
 
-  // Desprez
-  let desprez = "1. h4 d5 2. e3 c5 3. Nf3 Nc6 4. Bb5 Qc7 5. O-O a6 6. Bxc6+ Qxc6 7. Ne5 Qc7 8. d4 e6 9. c4 dxc4 10. a4 b6 11. Nd2 Bb7 12. Ndxc4 Rd8 13. b3 Nf6";
-  add_pgn_to_book(&CHESS_BOOK, desprez);
-  let desprez = "1. h4 d5 2. d4 c5 3. e3 Nc6 4. c4 e6 5. Nf3 Nf6 6. a3 a6 7. dxc5 Bxc5 8. b4 Be7 9. Bb2 dxc4 10. Qxd8+ Bxd8 11. Bxc4 b5 12. Bd3 O-O 13. Nbd2 Be7 14. Ke2 Bb7 15. Rhc1 Rfc8 16. Nb3 Nd7 17. Rc2 Nd8 18. Rac1 Rxc2+ 19. Rxc2 Rc8 20. Rxc8 Bxc8 21. g4";
-  add_pgn_to_book(&CHESS_BOOK, desprez);
-  let desprez = "1. h4 e5 2. c4 Nf6 3. Nc3 d5 4. cxd5 Nxd5 5. e3 Nxc3 6. bxc3 Bd6 7. Nf3 O-O 8. d4 Nc6 9. Rb1 Qe7 10. Bc4 Bf5 11. Rb2 h6 12. Be2 b6 13. Nd2";
-  add_pgn_to_book(&CHESS_BOOK, desprez);
-
   // More random games
   let pgn = "1. f4 d5 2. Nf3 g6 3. g3 Bg7 4. Bg2 Nf6 5. O-O O-O 6. d3 c5 7. c3 Nc6 8. Na3 Rb8 9. Ne5 Qc7 10. Qa4 a6 11. Nxc6 bxc6 12. e4 Bd7 13. Nc2 h5 14. Ne3 h4 15. Qd1 Nh5 16. Bf3 hxg3 17. Bxh5 gxh5 18. Qxh5 c4 19. Rf3 gxh2+ 20. Kxh2";
   add_pgn_to_book(&CHESS_BOOK,pgn);

@@ -117,7 +117,7 @@ impl BotState {
     // Start a thread that sends challenges with a given interval:
     let bot_clone = self.clone();
     let _ =
-      tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 3600).await });
+      tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 7200).await });
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's the case.
@@ -239,14 +239,16 @@ impl BotState {
       );
 
     // Game started, we add it to our games and stream the game events
-    let fen = game.fen.unwrap_or(String::from(START_POSITION_FEN));
+    //let fen = game.fen.unwrap_or(String::from(START_POSITION_FEN));
+    // Fen in the bot game is indicating latest position, not the start position.
+    // we ignore the information here.
     let mut engine = Engine::new();
-    engine.set_position(&fen);
+    engine.set_position(START_POSITION_FEN);
     engine.resize_cache_tables(1024); // Use 1024 MB for cache tables.
 
     let bot_game: BotGame = BotGame {
       color: game.color,
-      start_fen: fen,
+      start_fen: String::from(START_POSITION_FEN),
       id: game.game_id,
       has_moved: game.has_moved,
       is_my_turn: game.is_my_turn,
@@ -264,7 +266,7 @@ impl BotState {
 
     // If the opponent is 100 less points than us, play provocative oppenings.
     if self.ratings.contains_key(&game.speed)
-      && game.opponent.rating < (self.ratings[&game.speed] - 99)
+      && game.opponent.rating < (self.ratings[&game.speed] - 199)
     {
       info!(
         "Weaker opponent detected (ratings {} vs {}). Setting play style to provocative",
@@ -478,8 +480,6 @@ impl BotState {
     game.engine.set_search_time_limit(suggested_time_ms);
     game.engine.go();
     game.engine.print_evaluations();
-    let api_clone = self.api.clone();
-    let game_id_clone = String::from(game_id);
 
     // Select randomly one of the good moves.
     let mut analysis = game.engine.get_analysis();
@@ -511,7 +511,7 @@ impl BotState {
         || (game.color == lichess::types::Color::Black && analysis[0].1 < -150.0)
       {
         format!(
-          "Found a mating sequence (#{})  =) - Opponent crush activated 8-)",
+          "Found a mating sequence (#{}) Opponent crush activated 8-)",
           mate
         )
       } else {
@@ -535,6 +535,24 @@ impl BotState {
       move_index, mv, game_id
     );
 
+    //TODO: Brag about under-promotions in winning positions, like here: https://lichess.org/PypYT8Ok
+    // Also another list of things the bot should comment on:
+    // en-passant mate
+    // smothered mate
+    // When it seems to be losing but we can deliver mate aka call an ambulance... but not for me
+    // This needs improvement
+    if analysis[0].1.abs() >= 219.0 {
+      let game_id = game.id.clone();
+      let api_clone = self.api.clone();
+      let _ = tokio::spawn(async move {
+        api_clone
+          .write_in_spectator_room(game_id.as_str(), "Smothered mate baby!! This is the best!")
+          .await
+      });
+    }
+
+    let api_clone = self.api.clone();
+    let game_id_clone = String::from(game_id);
     let _ =
       tokio::spawn(
         async move { api_clone.make_move(&game_id_clone, &mv.to_string(), false).await },
@@ -695,7 +713,7 @@ impl EventStreamHandler for BotState {
       return;
     }
 
-    //debug!("Event Stream payload: \n{}", json_value);
+    debug!("Event Stream payload: \n{}", json_value);
 
     match json_value["type"].as_str().unwrap() {
       "gameStart" => {
@@ -706,7 +724,9 @@ impl EventStreamHandler for BotState {
           warn!("Error deserializing GameStart event data !! {:?}", error);
           println!("JSON object: {}", json_value["game"]);
         } else {
-          self.on_game_start(result.unwrap());
+          let game_start = result.unwrap();
+          debug!("Parsed data: {:?}", game_start);
+          self.on_game_start(game_start);
         }
       },
       "gameFinish" => {
@@ -721,7 +741,9 @@ impl EventStreamHandler for BotState {
           warn!("Error deserializing gameFinish event data !! {:?}", error);
           println!("JSON object: {}", json_value["game"]);
         } else {
-          self.on_game_end(result.unwrap());
+          let game_end = result.unwrap();
+          debug!("Parsed data: {:?}", game_end);
+          self.on_game_end(game_end);
         }
       },
       "challenge" => {
@@ -767,24 +789,20 @@ impl GameStreamHandler for BotState {
       return;
     }
 
+    debug!("Game Stream payload: \n{}", json_value);
+
     match json_value["type"].as_str().unwrap() {
       "gameFull" => {
         debug!("Full game state!");
 
-        // Try to find the state in the GameFull payload:
-        let json_state = json_value.get("state");
-        if json_state.is_some() {
-          let result: Result<lichess::types::GameState, serde_json::Error> =
-            serde_json::from_value(json_state.unwrap().clone());
-          if let Err(error) = result {
-            warn!("Error deserializing GameState data !! {:?}", error);
-          } else {
-            self.update_game_and_play(result.unwrap(), game_id.as_str());
-          }
+        let game_full: Result<lichess::types::GameFull, serde_json::Error> =
+          serde_json::from_value(json_value.clone());
+        if let Err(error) = game_full {
+          warn!("Error deserializing GameState data !! {:?}", error);
         } else {
-          // else just check if it is our turn
-          let clone = self.clone();
-          let _ = tokio::spawn(async move { clone.play_on_game(&game_id.clone()).await });
+          let game_full = game_full.unwrap();
+          debug!("Parsed data: {:?}", game_full);
+          self.update_game_and_play(game_full.state, game_id.as_str());
         }
       },
       "gameState" => {

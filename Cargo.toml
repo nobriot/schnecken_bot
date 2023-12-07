@@ -33,9 +33,9 @@ anyhow = "1.0.71"
 lichess-api = { path = "src/lichess" }
 chess = { path = "src/chess" }
 
-[profile.dev.build-override]
+[profile.dev]
 opt-level = 3
-[profile.release.build-override]
+[profile.release]
 opt-level = 3
 
 [[bin]]

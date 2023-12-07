@@ -1028,6 +1028,15 @@ impl Engine {
       if eval_cache.game_status == GameStatus::WhiteWon
         || eval_cache.game_status == GameStatus::BlackWon
       {
+        if is_smothered_mate(&game_state.board, eval_cache.game_status) {
+          // Just assign a higher score to smothered mates
+          if eval_cache.game_status == GameStatus::WhiteWon {
+            eval = 220.0;
+          } else {
+            eval = -220.0;
+          }
+        }
+
         // FIXME: We should make this a bit smarter, go one level up to save the good move
         // Also if there is an eval swing, not just checkmate.
         self.cache.add_killer_move(&m);

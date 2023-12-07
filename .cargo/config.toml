@@ -5,6 +5,7 @@
 
 [env]
 RUST_LOG = "debug"
+RUSTFLAGS = "-Clinker-plugin-lto"
 
 [doc]
 browser = "firefox" # browser to use with `cargo doc --open`,

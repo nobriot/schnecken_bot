@@ -14,6 +14,7 @@ use crate::model::board_geometry::*;
 use crate::model::board_mask::CountFewOnes;
 use crate::model::game_state::*;
 use crate::model::piece::*;
+use crate::model::piece_moves::KING_MOVES;
 
 // Constants
 const PAWN_ISLAND_FACTOR: f32 = 0.05;
@@ -298,6 +299,48 @@ pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
   return GameStatus::Ongoing;
 }
 
+/// Looks a board and detects if it is a smothered mate... The best of all !
+///
+/// ### Arguments
+///
+/// * `board` -          Reference to a board position
+/// * `game_status` -    Return value from `is_game_over()` (to avoid to compute this again)
+///
+/// ### Returns
+///
+/// True if this is a smothered mate, false otherwise
+///
+pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
+  let mating_color: Color;
+  match game_status {
+    GameStatus::WhiteWon => mating_color = Color::White,
+    GameStatus::BlackWon => mating_color = Color::Black,
+    _ => return false,
+  }
+
+  // To be a smothered mate, we check that we have a knight in the checkers
+  // It can be a double-check we are happy about that too.
+  let knights = match mating_color {
+    Color::White => board.pieces.white.knight,
+    Color::Black => board.pieces.black.knight,
+  };
+
+  if knights & board.checkers == 0 {
+    return false;
+  }
+
+  // Now that a knight is checking, we need to check if the mated king is
+  // surrounded by its own pieces
+  let king = board.get_king(Color::opposite(mating_color)) as usize;
+
+  let surrounding_squares = KING_MOVES[king];
+
+  match mating_color {
+    Color::White => return (surrounding_squares & board.pieces.black.all()) == surrounding_squares,
+    Color::Black => return (surrounding_squares & board.pieces.white.all()) == surrounding_squares,
+  }
+}
+
 /// Evaluates a position and returns a score, assuming that the game is Ongoing
 ///
 /// ### Arguments
@@ -515,5 +558,52 @@ mod tests {
     let game_state = GameState::from_fen("4r1k1/2p2ppp/8/p1b5/P7/2N3PP/1P1n1P2/R5K1 w - - 0 23");
     let eval = evaluate_board(&game_state);
     assert!(eval < -2.0);
+  }
+
+  #[test]
+  fn test_is_smothered_mate() {
+    // Position 1:
+    let fen = "r1bqkb1r/pp1npppp/2pN1n2/8/3P4/8/PPP1QPPP/R1B1KBNR b KQkq - 4 6";
+    let game_state = GameState::from_fen(fen);
+    let cache = EngineCache::new();
+    let game_status = is_game_over(&cache, &game_state.board);
+    assert!(is_smothered_mate(&game_state.board, game_status));
+
+    // Position 2:
+    let fen = "r1b1k2r/ppppqppp/2n5/8/1PP2B2/3n1N2/1P1NPPPP/R2QKB1R w KQkq - 1 9";
+    let game_state = GameState::from_fen(fen);
+    let cache = EngineCache::new();
+    let game_status = is_game_over(&cache, &game_state.board);
+    assert!(is_smothered_mate(&game_state.board, game_status));
+
+    // Test if the game status is not WhiteWon / BlackWon
+    assert_eq!(
+      false,
+      is_smothered_mate(&game_state.board, GameStatus::Draw)
+    );
+    assert_eq!(
+      false,
+      is_smothered_mate(&game_state.board, GameStatus::Ongoing)
+    );
+    assert_eq!(
+      false,
+      is_smothered_mate(&game_state.board, GameStatus::Stalemate)
+    );
+    assert_eq!(
+      false,
+      is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition)
+    );
+    // Here it is Black who won, the black king is not smothered
+    assert_eq!(
+      false,
+      is_smothered_mate(&game_state.board, GameStatus::WhiteWon)
+    );
+
+    // Position 3:
+    let fen = "rnbq3r/pppppppp/8/8/QPPk4/2N5/P2PPnPP/2B2BRK w - - 0 1";
+    let game_state = GameState::from_fen(fen);
+    let cache = EngineCache::new();
+    let game_status = is_game_over(&cache, &game_state.board);
+    assert!(is_smothered_mate(&game_state.board, game_status));
   }
 }

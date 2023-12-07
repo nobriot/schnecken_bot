@@ -44,6 +44,14 @@ pub fn initialize_chess_book() {
   let pgn = "1. e4 e5 2. Ke2 Ke7 3. Nf3 d5 4. d4 dxe4 5. Nxe5 Nd7 6. Nc4 Nb6 7. Ne3 f5 8. c4 Nf6 9. Nc3 Kf7 10. g3 c5 11. d5 g5 12. Qc2 f4 13. h4 fxe3 14. hxg5 Ng4 15. Nxe4 exf2 16. Bf4";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, pgn);
 
+  // Desprez
+  let desprez = "1. h4 d5 2. e3 c5 3. Nf3 Nc6 4. Bb5 Qc7 5. O-O a6 6. Bxc6+ Qxc6 7. Ne5 Qc7 8. d4 e6 9. c4 dxc4 10. a4 b6 11. Nd2 Bb7 12. Ndxc4 Rd8 13. b3 Nf6";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, desprez);
+  let desprez = "1. h4 d5 2. d4 c5 3. e3 Nc6 4. c4 e6 5. Nf3 Nf6 6. a3 a6 7. dxc5 Bxc5 8. b4 Be7 9. Bb2 dxc4 10. Qxd8+ Bxd8 11. Bxc4 b5 12. Bd3 O-O 13. Nbd2 Be7 14. Ke2 Bb7 15. Rhc1 Rfc8 16. Nb3 Nd7 17. Rc2 Nd8 18. Rac1 Rxc2+ 19. Rxc2 Rc8 20. Rxc8 Bxc8 21. g4";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, desprez);
+  let desprez = "1. h4 e5 2. c4 Nf6 3. Nc3 d5 4. cxd5 Nxd5 5. e3 Nxc3 6. bxc3 Bd6 7. Nf3 O-O 8. d4 Nc6 9. Rb1 Qe7 10. Bc4 Bf5 11. Rb2 h6 12. Be2 b6 13. Nd2";
+  add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, desprez);
+
   // Wayward Queen attack:
   let wayward = "1. e4 e5 2. Qh5 d6 3. Bc4 g6 4. Qd1 Nf6 5. d3 c6 6. Nf3 Bg7 7. O-O b5 8. Bb3 O-O 9. a4 b4 10. Be3 a5 11. Nbd2 Nbd7 12. c3 bxc3 13. bxc3 Qc7 14. Re1 d5 15. Qc2 Re8";
   add_pgn_to_book(&PROVOCATIVE_CHESS_BOOK, wayward);

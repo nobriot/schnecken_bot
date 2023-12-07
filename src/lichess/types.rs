@@ -33,7 +33,7 @@ pub struct GameStart {
   pub opponent: Player,
   #[serde(rename = "secondsLeft")]
   pub seconds_left: usize,
-  //pub winner: Option<String>
+  pub winner: Option<Color>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -42,6 +42,22 @@ pub struct GameStart {
 pub enum Color {
   White,
   Black,
+}
+
+/// Full game state
+#[derive(Debug, Deserialize, Serialize)]
+pub struct GameFull {
+  #[serde(rename = "type")]
+  pub typ: String,
+  pub id: String,
+  pub rated: bool,
+  pub variant: Variant,
+  pub clock: Clock,
+  pub speed: Speed,
+
+  #[serde(rename = "initialFen")]
+  pub initial_fen: String,
+  pub state: GameState,
 }
 
 /// Game state object received during the games
@@ -108,6 +124,20 @@ pub enum TimeControlType {
   Correspondence,
 }
 
+/// Player title, can be any FIDE title for titled players and BOT for bots.
+#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+pub enum Title {
+  CM,
+  FM,
+  IM,
+  GM,
+  WFM,
+  WIM,
+  WGM,
+  BOT,
+}
+
+/// Clock used for the game.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clock {
   pub initial: i32,
@@ -118,8 +148,11 @@ pub struct Clock {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Player {
   pub id: String,
+  #[serde(alias = "name")]
   pub username: String,
   pub rating: usize,
+  pub provisional: Option<bool>,
+  pub title: Option<Title>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
