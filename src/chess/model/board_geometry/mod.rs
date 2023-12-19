@@ -19,6 +19,13 @@ pub const BOARD_DOWN_EDGE: BoardMask = 0x00000000000000FF;
 pub const BOARD_BOTTOM_2_RANKS: BoardMask = 0x000000000000FFFF;
 pub const BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
 pub const BOARD_UPPER_2_RANKS: BoardMask = 0xFFFF000000000000;
+/// Queen Side mask
+///
+pub const QUEEN_SIDE_MASK: BoardMask = 0x0F0F0F0F0F0F0F0F;
+
+/// King Side mask
+///
+pub const KING_SIDE_MASK: BoardMask = 0xF0F0F0F0F0F0F0F0;
 
 /// Ranks boardmasks
 pub const RANKS: [u64; 8] = [

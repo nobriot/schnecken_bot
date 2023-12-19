@@ -21,7 +21,7 @@ use chess::model::moves::Move;
 const DEFAULT_USERNAME: &str = "schnecken_bot";
 const LICHESS_PLAYERS_FILE_NAME: &str = "/assets/players_we_like.txt";
 /// How many games do we want to play simultaneously ?
-const NUMBER_OF_SIMULTANEOUS_GAMES: usize = 3;
+const NUMBER_OF_SIMULTANEOUS_GAMES: usize = 1;
 
 // -----------------------------------------------------------------------------
 // Types

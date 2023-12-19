@@ -28,10 +28,13 @@ pub struct PieceMasks {
 
 // -----------------------------------------------------------------------------
 //  Constants
+pub const WHITE_KING_START_SQUARE: usize = 4;
+pub const BLACK_KING_START_SQUARE: usize = 60;
+
 pub const WHITE_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
   iter_type: None,
   iter_mask: 0,
-  king: 1 << 4,
+  king: 1 << WHITE_KING_START_SQUARE,
   queen: 1 << 3,
   rook: 1 | 1 << 7,
   bishop: 1 << 2 | 1 << 5,
@@ -42,7 +45,7 @@ pub const WHITE_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
 pub const BLACK_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
   iter_type: None,
   iter_mask: 0,
-  king: 1 << 60,
+  king: 1 << BLACK_KING_START_SQUARE,
   queen: 1 << 59,
   rook: 1 << 56 | 1 << 63,
   bishop: 1 << 58 | 1 << 61,
