@@ -118,6 +118,7 @@ impl Analysis {
   pub fn reset(&self) {
     self.best_lines.lock().unwrap().clear();
     self.set_selective_depth(0);
+    self.set_depth(0);
   }
 
   /// Saves the nth best continuations in the analysis.best_lines

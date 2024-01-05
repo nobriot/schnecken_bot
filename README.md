@@ -23,10 +23,10 @@ all the necessary rights to your token.
 
 ### Compile and run
 
-In order to compile, run, just run
+In order to compile and run, do the following:
 
 ```console
-cargo run
+cargo run --release
 ```
 
 I have not tried to check dependencies, it may give you an error message
