@@ -158,6 +158,12 @@ fn cache_for_evals(bencher: Bencher) {
   let game_state: GameState = GameState::from_board(&Board::new_random());
   let eval = evaluate_board(&game_state);
 
+  assert!(
+    !eval.is_nan(),
+    "Evaluate board returned NaN eval for : {}",
+    game_state.to_fen()
+  );
+
   bencher.bench_local(|| {
     let eval_cache = cache.get_eval(&game_state.board);
     if eval_cache.is_none() {

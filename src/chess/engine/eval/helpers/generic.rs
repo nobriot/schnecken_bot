@@ -107,7 +107,7 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
       * PAWN_VALUE;
 
   // Scale the value by the amount of material left:
-  score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
+  //score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
 
   score
 }
@@ -225,7 +225,7 @@ pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
 ///  True if the piece on the square is a knight or bishop and has a reachable outpost.
 ///
 pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
-  let piece = game_state.board.pieces.get(index as u8);
+  let piece = game_state.board.pieces.get_usize(index);
   let color;
   match piece {
     WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
@@ -268,7 +268,7 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 /// False otherwise
 ///
 pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool {
-  let piece = game_state.board.pieces.get(index as u8);
+  let piece = game_state.board.pieces.get_usize(index);
   let color = match piece {
     WHITE_KNIGHT | WHITE_BISHOP => Color::White,
     BLACK_KNIGHT | BLACK_BISHOP => Color::Black,
@@ -453,7 +453,7 @@ mod tests {
 
     let fen = "rnbqk1nr/pppppppp/8/8/8/8/PPPPP2P/RNBQKBNR w KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(get_combined_material_score(&game_state), 1.05 * 32.0 / 29.0);
+    assert_eq!(get_combined_material_score(&game_state), 1.05);
     assert_eq!(get_material_score(&game_state, Color::White), 37.6);
     assert_eq!(get_material_score(&game_state, Color::Black), 36.55);
   }

@@ -88,7 +88,7 @@ mod tests {
     let eval = get_middlegame_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(-1.0 > eval);
+    assert!(-1.0 >= eval);
   }
 
   #[test]

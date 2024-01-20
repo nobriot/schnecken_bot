@@ -86,7 +86,7 @@ macro_rules! set_square_in_mask {
 #[macro_export]
 macro_rules! unset_square_in_mask {
   ($square:expr, $mask:expr) => {
-    $mask &= !(1 << $square);
+    $mask &= !(1 << $square)
   };
 }
 

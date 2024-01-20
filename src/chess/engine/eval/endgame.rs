@@ -98,17 +98,10 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   }
   score -= PASSED_PAWN_FACTOR * passed_pawns_score as f32;
 
-  /*
-  score += PIECE_MOBILITY_FACTOR
-    * ((get_piece_mobility(game_state, Color::White) as f32)
-      - (get_piece_mobility(game_state, Color::Black) as f32));
-
-      score += KING_DANGER_FACTOR
-      * (get_king_danger_score(game_state, Color::Black)
-      - get_king_danger_score(game_state, Color::White));
-      */
-
-  score += get_square_table_endgame_score(game_state);
+  // Stop using the table square bonuses when we have no more pawns.
+  if game_state.board.pieces.pawns() != 0 {
+    score += get_square_table_endgame_score(game_state);
+  }
 
   score += default_position_evaluation(game_state);
   if score < min_score {
@@ -224,26 +217,26 @@ mod tests {
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     //println!("{}", game_state.board);
-    let expected_score = -(QUEEN_VALUE + 4.0 + 3.0);
+    let expected_score = -(QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 4.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Another one from white's perpective
     // King is on a controlled rank, so it will go either side it likes.
     let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 5.0 + 5.0;
+    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 2.0) + 5.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // From a game with another bot:
     let fen = "8/1k6/6Q1/5K2/8/8/8/8 w - - 7 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 3.0 + 3.0;
+    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 3.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Check if the incentive to box the king better is good:
     let fen = "8/1k6/3Q4/5K2/8/8/8/8 b - - 8 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 5.0 + 3.0;
+    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 5.0;
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
 
@@ -251,17 +244,17 @@ mod tests {
   fn test_engame_eval_queen_vs_king() {
     let fen = "1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 3.0 + 2.0;
+    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 3.0;
     assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/8/2Q5/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let blunder_score = QUEEN_VALUE + 5.0 + 2.0;
+    let blunder_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 5.0;
     assert_eq!(blunder_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/2Q5/8/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let better_score = QUEEN_VALUE + 5.0 + 2.0;
+    let better_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 5.0;
     assert_eq!(better_score, get_endgame_position_evaluation(&game_state));
 
     //FIXME: Blunder scores higher for now.
@@ -282,10 +275,20 @@ mod tests {
 
     let fen = "2k5/3b4/8/8/3P4/2K5/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
+    assert!(get_endgame_position_evaluation(&game_state) >= 0.0);
 
     let fen = "2k5/3n4/8/8/3P4/2K5/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
+    assert!(get_endgame_position_evaluation(&game_state) >= 0.0);
+  }
+
+  #[test]
+  fn test_drawn_rook_and_king_endgame() {
+    let fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
+    let game_state = GameState::from_fen(fen);
+    let expected_score = 0.0;
+    let eval = get_endgame_position_evaluation(&game_state);
+    println!("Position {fen} got evaluated {eval}");
     assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
   }
 }

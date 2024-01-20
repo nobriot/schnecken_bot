@@ -606,4 +606,16 @@ mod tests {
     let game_status = is_game_over(&cache, &game_state.board);
     assert!(is_smothered_mate(&game_state.board, game_status));
   }
+
+  #[test]
+  fn test_eval_equalish_endgame() {
+    let fen = "5R2/k1p3p1/1p4b1/8/8/4bP2/PPP3PK/8 w - - 0 34";
+    let game_state = GameState::from_fen(fen);
+    let eval = evaluate_board(&game_state);
+    let material_eval = get_combined_material_score(&game_state);
+    println!("Position {fen} got material score {material_eval}");
+    println!("Position {fen} got evaluated {eval}");
+    assert!(eval < 0.6);
+    assert!(eval > -0.6);
+  }
 }

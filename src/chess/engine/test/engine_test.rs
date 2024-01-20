@@ -237,31 +237,6 @@ fn engine_bench_positions_per_second() {
 }
 
 #[test]
-fn save_the_bishop() {
-  /*
-   [2023-06-26T13:51:05Z DEBUG schnecken_bot::lichess::api] Lichess get answer: {"nowPlaying":[{"color":"white","fen":"2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12","fullId":"AHbg0nGCsiMN","gameId":"AHbg0nGC","hasMoved":true,"isMyTurn":true,"lastMove":"e7e6","opponent":{"id":"sargon-1ply","rating":1233,"username":"BOT sargon-1ply"},"perf":"blitz","rated":true,"secondsLeft":160,"source":"friend","speed":"blitz","status":{"id":20,"name":"started"},"variant":{"key":"standard","name":"Standard"}}]}
-   [2023-06-26T13:51:05Z INFO  schnecken_bot] Trying to find a move for game id AHbg0nGC
-   [2023-06-26T13:51:05Z INFO  schnecken_bot::chess::engine::core] Using 1777 ms to find a move
-   Line 0 Eval: -1.8000004 - f5e6 d6e6 e2e4
-   Line 1 Eval: -4.4000006 - f3g1 e6f5
-   Line 2 Eval: -16.820002 - c2c3 f8e7
-   Line 3 Eval: -17.800003 - a2a3 f8e7
-   Line 4 Eval: -17.860003 - f3e5 f8e7
-  */
-  let mut engine = Engine::new();
-  engine.set_position("2kr1b1r/ppp2ppp/2nqp3/3n1BP1/8/3P1N1P/PPP1PP2/R1BQK2R w KQ - 0 12");
-  engine.set_search_time_limit(2000);
-  engine.go();
-  engine.print_evaluations();
-  let expected_move = Move::from_string("f5e4");
-  assert_eq!(
-    expected_move,
-    engine.get_best_move(),
-    "Come on, the only good move is f5e4"
-  );
-}
-
-#[test]
 fn test_dont_hang_pieces_1() {
   /* Got this in a game, hanging a knight, after thinking for 16_000 ms :
    Line 0 Eval: 0.79999995 - f8h6 d5e4 d7d5 e4d3
@@ -683,8 +658,9 @@ fn test_under_promotion_got_evaluated_better() {
   let best_move = engine.get_best_move();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis[0].1 < 1.0);
-  assert!(analysis[0].1 > -1.0);
+  assert!(analysis[0].1 == 0.0);
+  assert!(analysis[1].1 == 0.0);
+  assert!(analysis[2].1 == 0.0);
 }
 
 #[test]

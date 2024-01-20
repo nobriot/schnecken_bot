@@ -388,20 +388,22 @@ pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> us
 ///
 pub fn get_distance_left_for_closest_pawn_to_promotion(game_state: &GameState, color: Color) -> u8 {
   let mut best_distance: u8 = 8;
+
   // Same side pawn
-  let (ss_pawn, target_rank) = match color {
-    Color::White => (WHITE_PAWN, 8),
-    Color::Black => (BLACK_PAWN, 1),
+  let (mut pawns, target_rank) = match color {
+    Color::White => (game_state.board.pieces.white.pawn, 8),
+    Color::Black => (game_state.board.pieces.black.pawn, 1),
   };
 
-  for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) == ss_pawn {
-      let (_, rank) = Board::index_to_fr(i);
-      let distance = rank.abs_diff(target_rank);
-      if distance < best_distance {
-        best_distance = distance;
-      }
+  while pawns != 0 {
+    let square = pawns.trailing_zeros();
+    let (_, rank) = Board::index_to_fr(square as u8);
+    let distance = rank.abs_diff(target_rank);
+    if distance < best_distance {
+      best_distance = distance;
     }
+
+    pawns &= pawns - 1;
   }
 
   best_distance

@@ -1,5 +1,3 @@
-use log::*;
-
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};

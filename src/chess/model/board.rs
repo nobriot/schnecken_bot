@@ -517,7 +517,7 @@ impl Board {
     ssp: BoardMask,
   ) -> (BoardMask, bool) {
     let mut promotion: bool = false;
-    let destinations = match self.pieces.get(source_square as u8) {
+    let destinations = match self.pieces.get_usize(source_square) {
       WHITE_KING => get_king_moves(
         ssp,
         self.get_attacked_squares(KING_MOVES[source_square], Color::Black),
@@ -967,25 +967,25 @@ impl Board {
     if square_in_mask!(source, self.pieces.white.king) {
       if chess_move.src() == 4 && chess_move.dest() == 2 {
         self.update_hash_piece(0);
-        self.pieces.white.remove(0);
-        self.pieces.white.add(3, PieceType::Rook);
+        self.pieces.remove(0);
+        self.pieces.update(WHITE_ROOK, 3);
         self.update_hash_piece(3);
       } else if chess_move.src() == 4 && chess_move.dest() == 6 {
         self.update_hash_piece(7);
-        self.pieces.white.remove(7);
-        self.pieces.white.add(5, PieceType::Rook);
+        self.pieces.remove(7);
+        self.pieces.update(WHITE_ROOK, 5);
         self.update_hash_piece(5);
       }
     } else if square_in_mask!(source, self.pieces.black.king) {
       if chess_move.src() == 60 && chess_move.dest() == 62 {
         self.update_hash_piece(63);
-        self.pieces.black.remove(63);
-        self.pieces.black.add(61, PieceType::Rook);
+        self.pieces.remove(63);
+        self.pieces.update(BLACK_ROOK, 61);
         self.update_hash_piece(61);
       } else if chess_move.src() == 60 && chess_move.dest() == 58 {
         self.update_hash_piece(56);
-        self.pieces.black.remove(56);
-        self.pieces.black.add(59, PieceType::Rook);
+        self.pieces.remove(56);
+        self.pieces.update(BLACK_ROOK, 59);
         self.update_hash_piece(59);
       }
     }
@@ -1083,12 +1083,12 @@ impl Board {
     }
 
     if chess_move.promotion() != Promotion::NoPromotion {
-      self.pieces.set(
-        chess_move.u8_dest(),
+      self.pieces.update(
         chess_move.promotion().to_piece_const(),
+        chess_move.u8_dest(),
       );
     } else {
-      self.pieces.set(chess_move.u8_dest(), self.pieces.get(chess_move.u8_src()));
+      self.pieces.update(self.pieces.get(chess_move.u8_src()), chess_move.u8_dest());
     }
 
     self.update_hash_piece(destination as u8);
@@ -1619,39 +1619,39 @@ mod tests {
       pins: 0,
       hash: 0,
     };
-    board.pieces.set(0, WHITE_ROOK);
-    board.pieces.set(1, WHITE_KNIGHT);
-    board.pieces.set(2, WHITE_BISHOP);
-    board.pieces.set(3, WHITE_QUEEN);
-    board.pieces.set(4, WHITE_KING);
-    board.pieces.set(5, WHITE_BISHOP);
-    board.pieces.set(6, WHITE_KNIGHT);
-    board.pieces.set(7, WHITE_ROOK);
-    board.pieces.set(8, WHITE_PAWN);
-    board.pieces.set(9, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
-    board.pieces.set(1, WHITE_PAWN);
+    board.pieces.update(WHITE_ROOK, 0);
+    board.pieces.update(WHITE_KNIGHT, 1);
+    board.pieces.update(WHITE_BISHOP, 2);
+    board.pieces.update(WHITE_QUEEN, 3);
+    board.pieces.update(WHITE_KING, 4);
+    board.pieces.update(WHITE_BISHOP, 5);
+    board.pieces.update(WHITE_KNIGHT, 6);
+    board.pieces.update(WHITE_ROOK, 7);
+    board.pieces.update(WHITE_PAWN, 8);
+    board.pieces.update(WHITE_PAWN, 9);
+    board.pieces.update(WHITE_PAWN, 10);
+    board.pieces.update(WHITE_PAWN, 11);
+    board.pieces.update(WHITE_PAWN, 12);
+    board.pieces.update(WHITE_PAWN, 13);
+    board.pieces.update(WHITE_PAWN, 14);
+    board.pieces.update(WHITE_PAWN, 15);
 
-    board.pieces.set(48, BLACK_PAWN);
-    board.pieces.set(49, BLACK_PAWN);
-    board.pieces.set(50, BLACK_PAWN);
-    board.pieces.set(51, BLACK_PAWN);
-    board.pieces.set(52, BLACK_PAWN);
-    board.pieces.set(53, BLACK_PAWN);
-    board.pieces.set(54, BLACK_PAWN);
-    board.pieces.set(55, BLACK_PAWN);
-    board.pieces.set(56, BLACK_ROOK);
-    board.pieces.set(57, BLACK_KNIGHT);
-    board.pieces.set(58, BLACK_BISHOP);
-    board.pieces.set(59, BLACK_QUEEN);
-    board.pieces.set(60, BLACK_KING);
-    board.pieces.set(61, BLACK_BISHOP);
-    board.pieces.set(62, BLACK_KNIGHT);
-    board.pieces.set(63, BLACK_ROOK);
+    board.pieces.update(BLACK_PAWN, 48);
+    board.pieces.update(BLACK_PAWN, 49);
+    board.pieces.update(BLACK_PAWN, 50);
+    board.pieces.update(BLACK_PAWN, 51);
+    board.pieces.update(BLACK_PAWN, 52);
+    board.pieces.update(BLACK_PAWN, 53);
+    board.pieces.update(BLACK_PAWN, 54);
+    board.pieces.update(BLACK_PAWN, 55);
+    board.pieces.update(BLACK_ROOK, 56);
+    board.pieces.update(BLACK_KNIGHT, 57);
+    board.pieces.update(BLACK_BISHOP, 58);
+    board.pieces.update(BLACK_QUEEN, 59);
+    board.pieces.update(BLACK_KING, 60);
+    board.pieces.update(BLACK_BISHOP, 61);
+    board.pieces.update(BLACK_KNIGHT, 62);
+    board.pieces.update(BLACK_ROOK, 63);
 
     println!("Board: {}", board);
   }
