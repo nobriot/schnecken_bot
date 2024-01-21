@@ -8,3 +8,5 @@ pub mod piece;
 pub mod piece_moves;
 pub mod piece_set;
 pub mod tables;
+#[cfg(test)]
+pub mod tests;

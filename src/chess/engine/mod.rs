@@ -4,7 +4,9 @@ pub mod development;
 pub mod eval;
 pub mod nnue;
 pub mod square_affinity;
-pub mod test;
+
+#[cfg(test)]
+pub mod tests;
 
 use log::*;
 use rand::seq::SliceRandom;

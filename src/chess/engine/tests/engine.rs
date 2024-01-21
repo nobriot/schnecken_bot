@@ -1,6 +1,5 @@
 //------------------------------------------------------------------------------
 // Engine black-box Tests, checking sanity
-#[cfg(test)]
 use crate::engine::*;
 
 #[test]
