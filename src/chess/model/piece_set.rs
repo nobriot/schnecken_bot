@@ -118,22 +118,6 @@ impl PieceMasks {
     }
   }
 
-  /// Returns true if we have a piece on the square
-  ///
-  /// ### Arguments
-  ///
-  /// * `self`    Reference to the PieceMasks object where we're looking for a king
-  /// * `square`  Square on which we want to check if there is a piece
-  ///
-  /// ### Return value
-  ///
-  /// bool value indicating if we have a piece on the square.
-  ///
-  #[inline]
-  pub fn has_piece(&self, square: u8) -> bool {
-    square_in_mask!(square, self.all())
-  }
-
   /// Returns a boardmask of all minor pieces.
   ///
   /// ### Return value
@@ -571,7 +555,7 @@ impl PieceSet {
   ///
   #[inline]
   pub fn has_piece(&self, square: u8) -> bool {
-    square_in_mask!(square, self.all())
+    self.squares[square as usize] != NO_PIECE
   }
 
   /// Returns true if we have a piece of a certain color on the square
@@ -588,9 +572,21 @@ impl PieceSet {
   ///
   #[inline]
   pub fn has_piece_with_color(&self, square: u8, color: Color) -> bool {
-    match color {
-      Color::White => square_in_mask!(square, self.white.all()),
-      Color::Black => square_in_mask!(square, self.black.all()),
+    let piece = self.squares[square as usize];
+    match (color, piece) {
+      (Color::White, WHITE_KING) => true,
+      (Color::White, WHITE_QUEEN) => true,
+      (Color::White, WHITE_BISHOP) => true,
+      (Color::White, WHITE_KNIGHT) => true,
+      (Color::White, WHITE_ROOK) => true,
+      (Color::White, WHITE_PAWN) => true,
+      (Color::Black, BLACK_KING) => true,
+      (Color::Black, BLACK_QUEEN) => true,
+      (Color::Black, BLACK_BISHOP) => true,
+      (Color::Black, BLACK_KNIGHT) => true,
+      (Color::Black, BLACK_ROOK) => true,
+      (Color::Black, BLACK_PAWN) => true,
+      _ => false,
     }
   }
 }

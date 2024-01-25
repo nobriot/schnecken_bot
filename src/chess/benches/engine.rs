@@ -12,6 +12,7 @@ use chess::model::board::Board;
 use chess::model::game_state::GameState;
 use chess::model::game_state::GameStatus;
 use chess::model::moves::Move;
+use chess::model::piece::Color;
 
 use divan::Bencher;
 
@@ -72,7 +73,7 @@ fn endgame_evaluation(bencher: Bencher) {
 
 /// Benches the common part of all board evaluation (regardless of game phase)
 #[divan::bench(sample_count = 10000)]
-fn board_generic_evaluation(bencher: Bencher) {
+fn board_default_position_evaluation(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
@@ -297,5 +298,15 @@ fn passed_pawn_detection(bencher: Bencher) {
 
       pawns &= pawns - 1
     }
+  });
+}
+
+/// Checks how fast we are evaluating the board in the "simple" mode
+#[divan::bench(sample_count = 10000)]
+fn board_simple_evaluation(bencher: Bencher) {
+  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+
+  bencher.bench_local(|| {
+    let _ = evaluate_board_simple(&game_state);
   });
 }

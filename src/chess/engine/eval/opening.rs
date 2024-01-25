@@ -23,28 +23,28 @@ const _CASTLING_PENATLY: f32 = 1.0;
 /// f32 score that can be applied to the evaluation
 ///
 pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
-  let mut score = 0.0;
+  let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
-      PieceType::King => score += OpeningSquareTable::WHITE_KING[i as usize] as f32,
-      PieceType::Queen => score += OpeningSquareTable::QUEEN[i as usize] as f32,
-      PieceType::Rook => score += OpeningSquareTable::WHITE_ROOK[i as usize] as f32,
-      PieceType::Bishop => score += SquareTable::WHITE_BISHOP[i as usize] as f32,
-      PieceType::Knight => score += SquareTable::KNIGHT[i as usize] as f32,
-      PieceType::Pawn => score += SquareTable::WHITE_PAWN[i as usize] as f32,
+      PieceType::King => score += OpeningSquareTable::WHITE_KING[i as usize],
+      PieceType::Queen => score += OpeningSquareTable::QUEEN[i as usize],
+      PieceType::Rook => score += OpeningSquareTable::WHITE_ROOK[i as usize],
+      PieceType::Bishop => score += SquareTable::WHITE_BISHOP[i as usize],
+      PieceType::Knight => score += SquareTable::KNIGHT[i as usize],
+      PieceType::Pawn => score += SquareTable::WHITE_PAWN[i as usize],
     }
   }
   for (i, piece) in game_state.board.pieces.black {
     match piece {
-      PieceType::King => score -= OpeningSquareTable::BLACK_KING[i as usize] as f32,
-      PieceType::Queen => score -= OpeningSquareTable::QUEEN[i as usize] as f32,
-      PieceType::Rook => score -= OpeningSquareTable::BLACK_ROOK[i as usize] as f32,
-      PieceType::Bishop => score -= SquareTable::WHITE_BISHOP[i as usize] as f32,
-      PieceType::Knight => score -= SquareTable::KNIGHT[i as usize] as f32,
-      PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize] as f32,
+      PieceType::King => score -= OpeningSquareTable::BLACK_KING[i as usize],
+      PieceType::Queen => score -= OpeningSquareTable::QUEEN[i as usize],
+      PieceType::Rook => score -= OpeningSquareTable::BLACK_ROOK[i as usize],
+      PieceType::Bishop => score -= SquareTable::WHITE_BISHOP[i as usize],
+      PieceType::Knight => score -= SquareTable::KNIGHT[i as usize],
+      PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize],
     }
   }
-  score * SQUARE_TABLE_FACTOR
+  score as f32 * SQUARE_TABLE_FACTOR
 }
 
 /// Gives a score based on the position in the opening

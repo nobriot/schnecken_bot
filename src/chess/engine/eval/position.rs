@@ -174,7 +174,7 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
 
   material_count += game_state.board.pieces.queens().count_few_ones() * 9;
   material_count += game_state.board.pieces.rooks().count_few_ones() * 5;
-  material_count += game_state.board.pieces.minors().count_ones() * 3;
+  material_count += game_state.board.pieces.minors().count_few_ones() * 3;
 
   development_index += ((game_state.board.pieces.white.minors()
     | game_state.board.pieces.white.queen)
@@ -210,7 +210,7 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
 pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
   Engine::find_move_list(cache, board);
   if cache.get_move_list(board).unwrap().is_empty() {
-    match (board.side_to_play, board.checkers.count_ones()) {
+    match (board.side_to_play, board.checkers.count_few_ones()) {
       (_, 0) => {
         return GameStatus::Stalemate;
       },
@@ -360,6 +360,31 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
   };
 
   score
+}
+
+/// Very minimalistic version of evaluate board
+///
+/// ### Arguments
+///
+/// * `cache` -      EngineCache to use to store calculations
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+///
+/// ### Returns
+///
+/// Score assigned to the position.
+///
+pub fn evaluate_board_simple(game_state: &GameState) -> f32 {
+  use crate::engine::eval::endgame::get_square_table_endgame_score;
+  use crate::engine::eval::middlegame::get_square_table_middlegame_score;
+  use crate::engine::eval::opening::get_square_table_opening_score;
+
+  let score = match determine_game_phase(game_state) {
+    GamePhase::Opening => get_square_table_opening_score(game_state),
+    GamePhase::Middlegame => get_square_table_middlegame_score(game_state),
+    GamePhase::Endgame => get_square_table_endgame_score(game_state),
+  };
+
+  score + get_combined_material_score(game_state)
 }
 
 // -----------------------------------------------------------------------------
