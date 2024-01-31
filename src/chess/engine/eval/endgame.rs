@@ -1,7 +1,7 @@
 use super::helpers::generic::get_material_score;
 use super::position::*;
 use crate::engine::eval::helpers::pawn::is_passed;
-use crate::engine::square_affinity::*;
+use crate::engine::tables::squares::*;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;

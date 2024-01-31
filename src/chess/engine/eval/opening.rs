@@ -1,6 +1,6 @@
 use super::position::default_position_evaluation;
 use crate::engine::development::get_development_score;
-use crate::engine::square_affinity::*;
+use crate::engine::tables::squares::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 

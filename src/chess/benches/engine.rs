@@ -178,6 +178,14 @@ fn cache_for_evals(bencher: Bencher) {
       );
     } else {
       let eval_cache = eval_cache.unwrap();
+      if eval_cache.eval.is_nan() {
+        assert!(
+          false,
+          "Eval is Nan For board: {} - hash {}",
+          &game_state.to_fen(),
+          &game_state.board.hash
+        )
+      }
       assert_eq!(eval, eval_cache.eval);
     }
   });

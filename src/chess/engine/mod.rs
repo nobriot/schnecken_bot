@@ -3,7 +3,7 @@ pub mod cache;
 pub mod development;
 pub mod eval;
 pub mod nnue;
-pub mod square_affinity;
+pub mod tables;
 
 #[cfg(test)]
 pub mod tests;
