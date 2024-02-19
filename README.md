@@ -7,7 +7,8 @@ Watch me play on [Lichess](https://lichess.org/@/schnecken_bot/).
 
 I intend to use all the possible nasty tricks to get a win!
 
-> Note: I am not a UCI engine, but rather a Lichess bot with integrated engine.
+> [!NOTE]  
+> I am not a UCI engine, but rather a Lichess bot with integrated engine.
 
 ## How to use this with your own bot account
 

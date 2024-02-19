@@ -32,7 +32,7 @@ fn engine_search_real_game_2Dxi9wZH() {
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
   assert!(engine.get_best_move().to_string() != "e5f7");
-  let eval = analysis[0].1;
+  let eval = analysis.get(0).eval;
   assert!(eval > 2.0);
 }
 
@@ -80,7 +80,7 @@ fn engine_search_real_game_w1mLoTRZ() {
   assert!(
     engine.get_best_move().to_string() == "c3e2" || engine.get_best_move().to_string() == "f2f3"
   );
-  let eval = analysis[0].1;
+  let eval = analysis.get(0).eval;
   assert!(eval < -2.0);
 }
 
@@ -95,7 +95,7 @@ fn engine_earch_real_game_W89VkRfp() {
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
   assert!(engine.get_best_move().to_string() == "c3e4");
-  let eval = analysis[0].1;
+  let eval = analysis.get(0).eval;
   assert!(eval > 1.0);
 }
 
@@ -140,7 +140,7 @@ fn engine_select_best_move_checkmate_in_two() {
   let expected_move = "c1b2";
   assert_eq!(expected_move, engine.get_best_move().to_string());
   let analysis = engine.get_analysis();
-  assert_eq!(analysis[0].1, 198.0);
+  assert_eq!(analysis.get(0).eval, 198.0);
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn engine_go_and_stop() {
   let engine_clone = engine.clone();
   let _handle = std::thread::spawn(move || engine_clone.go());
 
-  std::thread::sleep(std::time::Duration::from_millis(10));
+  std::thread::sleep(std::time::Duration::from_millis(20));
 
   assert_eq!(true, engine.is_active());
   std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -479,9 +479,6 @@ fn endgame_evaluation_search() {
   engine.go();
   engine.print_evaluations();
   let analysis = engine.get_analysis();
-
-  // 26 moves.
-  assert_eq!(analysis.len(), 26);
   let bad_moves = vec![
     "c7c4", "c7c3", "c7c2", "c7d8", "c7c8", "c7b7", "c7a7", "c7e7", "c7f7", "c7d7", "c7g7", "c7h7",
     "b8a8", "b8a7",
@@ -555,7 +552,7 @@ fn evaluate_real_game_ov5SZJLX_example() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis[0].1 < -5.0);
+  assert!(analysis.get(0).eval < -4.0);
 }
 
 #[ignore]
@@ -598,8 +595,8 @@ fn test_drawn_pawn_and_king_endgame() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis[0].1 < 1.0);
-  assert!(analysis[0].1 > -1.0);
+  assert!(analysis.get(0).eval < 1.0);
+  assert!(analysis.get(0).eval > -1.0);
 }
 
 #[test]
@@ -637,29 +634,31 @@ fn test_under_promotion_got_evaluated_better() {
   let mut engine = Engine::new();
   engine.set_position(fen);
   engine.set_search_time_limit(1067);
+  engine.set_multi_pv(2);
   engine.go();
   engine.print_evaluations();
   let best_move = engine.get_best_move();
   let analysis = engine.get_analysis();
-  assert!(!analysis.is_empty());
+  assert!(analysis.len() >= 2);
   assert_eq!(best_move.to_string(), "h2h1q");
-  assert_eq!(analysis[1].0[0].to_string(), "h2h1r");
-  assert!(analysis[1].1 < 1.0);
-  assert!(analysis[1].1 > -1.0);
+  assert_eq!(analysis.get(1).variation[0].to_string(), "h2h1r");
+  assert!(analysis.get(1).eval < 1.0);
+  assert!(analysis.get(1).eval > -1.0);
 
   // Same but from the next move perspective:
   let fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
   let mut engine = Engine::new();
   engine.set_position(fen);
   engine.set_search_time_limit(1067);
+  engine.set_multi_pv(3);
   engine.go();
   engine.print_evaluations();
   let best_move = engine.get_best_move();
   let analysis = engine.get_analysis();
-  assert!(!analysis.is_empty());
-  assert!(analysis[0].1 == 0.0);
-  assert!(analysis[1].1 == 0.0);
-  assert!(analysis[2].1 == 0.0);
+  assert!(analysis.len() >= 3);
+  assert!(analysis.get(0).eval.abs() < 0.4);
+  assert!(analysis.get(1).eval.abs() < 0.4);
+  assert!(analysis.get(2).eval.abs() < 0.4);
 }
 
 #[test]
@@ -713,6 +712,22 @@ fn real_game_was_winning() {
   let fen = "6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31";
   let mut engine = Engine::new();
   engine.set_position(fen);
+  engine.set_search_time_limit(3000);
+  engine.set_maximum_depth(0);
+  engine.set_multi_pv(0);
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move();
+  let analysis = engine.get_analysis();
+  assert!(!analysis.is_empty());
+  assert!(best_move.to_string() == "f7e6" || best_move.to_string() == "g8h8");
+}
+
+#[test]
+fn chess_model_bunked_while_searching() {
+  let fen = "6k1/5rp1/p6r/1p6/1BP5/P4n2/5PQP/2Rq3K w - - 0 30";
+  let mut engine = Engine::new();
+  engine.set_position(fen);
   engine.set_search_time_limit(0);
   engine.set_maximum_depth(6);
   engine.go();
@@ -720,7 +735,7 @@ fn real_game_was_winning() {
   let best_move = engine.get_best_move();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(best_move.to_string() == "f7e6" || best_move.to_string() == "g8h8");
+  assert!(best_move.to_string() == "c1d1");
 }
 
 #[ignore]

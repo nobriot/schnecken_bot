@@ -11,6 +11,7 @@ use lichess::api::*;
 use lichess::types::Clock;
 use lichess::types::Color;
 
+use chess::engine::search_result::VariationWithEval;
 use chess::engine::Engine;
 use chess::engine::PlayStyle;
 use chess::model::game_state::START_POSITION_FEN;
@@ -111,13 +112,11 @@ impl BotState {
     let handle = tokio::spawn(async move { api_clone.stream_incoming_events(&bot_clone).await });
 
     let bot_clone = self.clone();
-    let _ =
-      tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
+    tokio::spawn(async move { BotState::restart_incoming_streams(handle, &bot_clone).await });
 
     // Start a thread that sends challenges with a given interval:
     let bot_clone = self.clone();
-    let _ =
-      tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 7200).await });
+    tokio::spawn(async move { BotState::send_challenges_with_interval(&bot_clone, 7200).await });
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's the case.
@@ -179,7 +178,7 @@ impl BotState {
     // Stream the game in a separate thread.
     let api_clone = self.api.clone();
     let bot_clone = self.clone();
-    let _ = tokio::spawn(async move { api_clone.stream_game_state(&bot_clone, &game_id).await });
+    tokio::spawn(async move { api_clone.stream_game_state(&bot_clone, &game_id).await });
   }
 
   pub fn remove_game(&self, game_id: &str) {
@@ -233,10 +232,7 @@ impl BotState {
     // Write a hello message -
     let game_id = game.game_id.clone();
     let api_clone = self.api.clone();
-    let _ =
-      tokio::spawn(
-        async move { api_clone.write_in_chat(game_id.as_str(), "Hey! Have fun!").await },
-      );
+    tokio::spawn(async move { api_clone.write_in_chat(game_id.as_str(), "Hey! Have fun!").await });
 
     // Game started, we add it to our games and stream the game events
     //let fen = game.fen.unwrap_or(String::from(START_POSITION_FEN));
@@ -252,7 +248,7 @@ impl BotState {
       id: game.game_id,
       has_moved: game.has_moved,
       is_my_turn: game.is_my_turn,
-      move_list: game.last_move.unwrap_or(String::new()),
+      move_list: game.last_move.unwrap_or_default(),
       rated: game.rated,
       clock: GameClock {
         white_time: game.seconds_left,
@@ -275,7 +271,7 @@ impl BotState {
       bot_game.engine.set_play_style(PlayStyle::Provocative);
       let game_id = bot_game.id.clone();
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone
           .write_in_spectator_room(
             game_id.as_str(),
@@ -295,7 +291,7 @@ impl BotState {
       bot_game.engine.set_play_style(PlayStyle::Provocative);
       let game_id = bot_game.id.clone();
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone
         .write_in_spectator_room(
           game_id.as_str(),
@@ -305,7 +301,7 @@ impl BotState {
         });
         let game_id = bot_game.id.clone();
         let api_clone = self.api.clone();
-        let _ = tokio::spawn(async move {
+        tokio::spawn(async move {
           api_clone
           .write_in_chat(
             game_id.as_str(),
@@ -331,10 +327,9 @@ impl BotState {
 
     // Write a goodbye message
     let api_clone = self.api.clone();
-    let _ =
-      tokio::spawn(
-        async move { api_clone.write_in_chat(&game.game_id, "Thanks for playing!").await },
-      );
+    tokio::spawn(
+      async move { api_clone.write_in_chat(&game.game_id, "Thanks for playing!").await },
+    );
   }
 
   /// Handles incoming gameStart events
@@ -367,14 +362,14 @@ impl BotState {
         challenge.variant
       );
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_VARIANT).await
       });
       return;
     }
 
     // If we play other bots, it should be rated
-    if challenge.rated == false
+    if !challenge.rated
       && challenge.challenger.title.is_some()
       && challenge.challenger.title.as_ref().unwrap() == "BOT"
     {
@@ -383,7 +378,7 @@ impl BotState {
         challenge.challenger
       );
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_CASUAL).await
       });
       return;
@@ -393,7 +388,7 @@ impl BotState {
     if challenge.time_control.control_type != lichess::types::TimeControlType::Clock {
       info!("Ignoring non-real-time challenge.");
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_TIME_CONTROL).await
       });
       return;
@@ -403,7 +398,7 @@ impl BotState {
     if self.games.lock().unwrap().len() >= NUMBER_OF_SIMULTANEOUS_GAMES {
       info!("Ignoring challenge as we are already playing too many games");
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_LATER).await
       });
       return;
@@ -411,7 +406,7 @@ impl BotState {
 
     // Else we just accept.
     let api = self.api.clone();
-    let _ = tokio::spawn(async move { api.accept_challenge(&challenge.id).await });
+    tokio::spawn(async move { api.accept_challenge(&challenge.id).await });
   }
 
   //----------------------------------------------------------------------------
@@ -427,7 +422,7 @@ impl BotState {
     if message.text.contains("type !help") {
       let api_clone = self.api.clone();
       let game_id_clone = String::from(game_id);
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.write_in_chat_room(game_id_clone.as_str(), message.room, "!help").await
       });
     }
@@ -487,16 +482,19 @@ impl BotState {
     if analysis.is_empty() {
       error!("Empty result from the engine.");
       for m in game.engine.position.get_moves() {
-        analysis.push((vec![m], 0.0));
+        analysis.update(VariationWithEval {
+          variation: vec![m],
+          eval: 0.0,
+        });
       }
       cutoff = 1;
     } else {
-      let best_eval = analysis[0].1;
+      let best_eval = analysis.get_best_eval();
       while analysis.len() > cutoff {
-        if analysis[cutoff].1.is_nan() {
+        if analysis.get(cutoff).eval.is_nan() {
           break;
         }
-        if (best_eval - analysis[cutoff].1).abs() > 0.015 {
+        if (best_eval - analysis.get(cutoff).eval).abs() > 0.015 {
           break;
         } else {
           cutoff += 1;
@@ -505,10 +503,11 @@ impl BotState {
     }
 
     // Make a comment in the spectator room depending on the eval.
-    if !game.mating_sequence_announced && analysis[0].1.abs() > 150.0 {
-      let mate = (((analysis[0].1.signum() * 200.0) - analysis[0].1) + 0.5 / 2.0) as isize;
-      let message = if (game.color == lichess::types::Color::White && analysis[0].1 > 150.0)
-        || (game.color == lichess::types::Color::Black && analysis[0].1 < -150.0)
+    let best_eval = analysis.get_best_eval();
+    if !game.mating_sequence_announced && analysis.get_best_eval() > 150.0 {
+      let mate = (((best_eval.signum() * 200.0) - best_eval) + 0.5 / 2.0) as isize;
+      let message = if (game.color == lichess::types::Color::White && best_eval > 150.0)
+        || (game.color == lichess::types::Color::Black && best_eval < -150.0)
       {
         format!(
           "Found a mating sequence (#{}) Opponent crush activated 8-)",
@@ -521,15 +520,15 @@ impl BotState {
       game.mating_sequence_announced = true;
       let game_id = game.id.clone();
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone.write_in_spectator_room(game_id.as_str(), message.as_str()).await
       });
-    } else if analysis[0].1.abs() < 150.0 {
+    } else if best_eval.abs() < 150.0 {
       game.mating_sequence_announced = false;
     }
 
     let move_index = rand::thread_rng().gen_range(0..cutoff);
-    let mv = analysis[move_index].0[0];
+    let mv = analysis.get(move_index).variation[0];
     info!(
       "Playing Line {} ({}) for GameID {}",
       move_index, mv, game_id
@@ -541,10 +540,10 @@ impl BotState {
     // smothered mate
     // When it seems to be losing but we can deliver mate aka call an ambulance... but not for me
     // This needs improvement
-    if analysis[0].1.abs() >= 219.0 {
+    if best_eval.abs() >= 219.0 {
       let game_id = game.id.clone();
       let api_clone = self.api.clone();
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         api_clone
           .write_in_spectator_room(game_id.as_str(), "Smothered mate baby!! This is the best!")
           .await
@@ -553,10 +552,7 @@ impl BotState {
 
     let api_clone = self.api.clone();
     let game_id_clone = String::from(game_id);
-    let _ =
-      tokio::spawn(
-        async move { api_clone.make_move(&game_id_clone, &mv.to_string(), false).await },
-      );
+    tokio::spawn(async move { api_clone.make_move(&game_id_clone, &mv.to_string(), false).await });
 
     // Tell the engine to continue thinking while the opponent is playing ;)
     //game.engine.go();
@@ -576,7 +572,7 @@ impl BotState {
       // Write a well played / goodbye message
       let bot_clone = self.clone();
       let game_id_clone = String::from(game_id);
-      let _ = tokio::spawn(async move {
+      tokio::spawn(async move {
         bot_clone.send_end_of_game_message(&game_id_clone, game_state.winner).await
       });
 
@@ -589,8 +585,8 @@ impl BotState {
     let games: &mut Vec<Arc<Mutex<BotGame>>> = binding.as_mut();
 
     let mut game_index = games.len() + 1;
-    for i in 0..games.len() {
-      if games[i].lock().unwrap().id == game_id {
+    for (i, game_mutex) in games.iter().enumerate() {
+      if game_mutex.lock().unwrap().id == game_id {
         game_index = i;
         break;
       }
@@ -618,7 +614,7 @@ impl BotState {
 
       // Make sure the engine knows the latest move:
       if move_list.len() > game.engine.position.last_moves.len() {
-        ///FIXME: This fails when restarting the bot in the middle of a game
+        // FIXME: This fails when restarting the bot in the middle of a game
         for i in game.engine.position.last_moves.len()..move_list.len() {
           game.engine.apply_move(move_list[i].to_string().as_str());
         }
@@ -627,7 +623,7 @@ impl BotState {
       if game.is_my_turn {
         let clone = self.clone();
         let game_id_clone = String::from(game_id);
-        let _ = tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
+        tokio::spawn(async move { clone.play_on_game(&game_id_clone).await });
       }
     }
   }
@@ -638,7 +634,7 @@ impl BotState {
     let player_list =
       fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + LICHESS_PLAYERS_FILE_NAME)
         .unwrap();
-    let clock_setting = rand::thread_rng().gen_range(0..40);
+    let clock_setting = rand::thread_rng().gen_range(0..15);
     let clock: Clock = match clock_setting {
       0..=15 => Clock {
         initial: 60,
@@ -697,7 +693,7 @@ impl BotState {
     // Write a goodbye message
     let api_clone = self.api.clone();
     let game_id_clone = String::from(game_id);
-    let _ = tokio::spawn(async move { api_clone.write_in_chat(&game_id_clone, message).await });
+    tokio::spawn(async move { api_clone.write_in_chat(&game_id_clone, message).await });
   }
 }
 
@@ -830,7 +826,7 @@ impl GameStreamHandler for BotState {
           info!("Opponent gone! We'll just claim victory as soon as possible!");
           if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
             let api_clone = self.api.clone();
-            let _ = tokio::spawn(async move {
+            tokio::spawn(async move {
               api_clone.claim_victory_after_timeout(timeout, &game_id.clone()).await
             });
           }

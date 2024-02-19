@@ -83,11 +83,11 @@ impl MoveListCacheTable {
 
   /// Adds (or update) an evaluation cache entry.
   #[inline]
-  pub fn add(&mut self, hash: BoardHash, list: &Vec<Move>) {
+  pub fn add(&mut self, hash: BoardHash, list: &[Move]) {
     let e = unsafe { self.table.get_unchecked_mut((hash as usize) & self.max_index_mask) };
     *e = MoveListCacheEntry {
       hash: hash,
-      move_list: Some(list.clone()),
+      move_list: Some(list.to_vec().clone()),
     };
   }
 

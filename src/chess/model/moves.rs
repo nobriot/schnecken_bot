@@ -496,7 +496,7 @@ impl Move {
     mv!(string_to_square(&move_notation[0..2]), dest, promotion)
   }
 
-  pub fn vec_to_string(move_list: &Vec<Move>) -> String {
+  pub fn vec_to_string(move_list: &[Move]) -> String {
     let mut string: String = String::new();
     for &chess_move in move_list {
       string += &chess_move.to_string();

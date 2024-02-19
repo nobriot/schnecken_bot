@@ -83,7 +83,7 @@ impl EngineCache {
   /// * `move_list` :       Move list to save for the GameState
   ///
   ///
-  pub fn set_move_list(&self, board: &Board, move_list: &Vec<Move>) {
+  pub fn set_move_list(&self, board: &Board, move_list: &[Move]) {
     self.move_lists.lock().unwrap().add(board.hash, move_list);
   }
 

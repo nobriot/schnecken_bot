@@ -239,9 +239,13 @@ impl PieceSet {
   ///
   #[inline]
   pub fn add(&mut self, piece: u8, square: u8) {
-    debug_assert!(square < 64);
+    debug_assert!(square < 64, "Received invalid square: {}", square);
     let color = Piece::color(piece);
-    debug_assert!(!color.is_none());
+    debug_assert!(
+      !color.is_none(),
+      "Cannot derive color from piece: {}",
+      piece
+    );
     let color = color.unwrap();
     let piece_type = PieceType::from_u8(piece);
 

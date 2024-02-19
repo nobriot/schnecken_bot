@@ -219,9 +219,10 @@ impl GameState {
      */
     debug_assert!(
       self.board.pieces.get(chess_move.src() as u8) != NO_PIECE,
-      "Input moves with empty source square? {} - board:\n{}",
+      "Input moves with empty source square? {} - board:{}\n{:#?}",
       chess_move,
-      self.board
+      self.board,
+      self
     );
 
     // Save the last position:
@@ -261,7 +262,7 @@ impl GameState {
   ///
   /// * `move_list`: Vector of moves to apply on the position
   ///
-  pub fn apply_moves(&mut self, move_list: &Vec<Move>) -> () {
+  pub fn apply_moves(&mut self, move_list: &[Move]) -> () {
     for chess_move in move_list {
       self.apply_move(chess_move);
     }
