@@ -33,13 +33,12 @@ pub fn initialize_chess_books() {
   provocative_book::initialize_chess_book();
 }
 
-/// Retrives the book moves
+/// Retrieves the book moves
 ///
 /// ### Arguments
 ///
 /// * `board`:        Board configuration to look up in the books
 /// * `provocative`:  Set this to true to play provocative openings
-///
 ///
 pub fn get_book_moves(board: &Board, provocative: bool) -> Option<Vec<Move>> {
   if provocative {
@@ -49,7 +48,7 @@ pub fn get_book_moves(board: &Board, provocative: bool) -> Option<Vec<Move>> {
   }
 }
 
-/// Adds a line in the opnening to the book
+/// Adds a line in the opening to the book
 ///
 /// ### Arguments
 ///
@@ -77,7 +76,7 @@ pub fn add_line_to_book(chess_book: &ChessBook, line: &str) {
   }
 }
 
-/// Adds a line in the opnening to the book
+/// Adds a line in the opening to the book
 ///
 /// ### Arguments
 ///
@@ -167,7 +166,7 @@ pub fn add_pgn_from_position(chess_book: &ChessBook, fen: &str, pgn: &str) {
   } // for value in captures
 }
 
-/// Adds a position in the opnening to the book
+/// Adds a position in the opening to the book
 ///
 /// ### Arguments
 ///

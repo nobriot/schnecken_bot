@@ -634,7 +634,7 @@ impl BotState {
     let player_list =
       fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + LICHESS_PLAYERS_FILE_NAME)
         .unwrap();
-    let clock_setting = rand::thread_rng().gen_range(0..15);
+    let clock_setting = rand::thread_rng().gen_range(0..40);
     let clock: Clock = match clock_setting {
       0..=15 => Clock {
         initial: 60,

@@ -42,7 +42,7 @@ pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
 // -----------------------------------------------------------------------------
 // Type definitions
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
 pub enum PlayStyle {
   /// Normal play style for the engine
   #[default]
@@ -476,14 +476,16 @@ impl Engine {
     Engine::find_move_list(&self.cache, &self.position.board);
 
     // First check if we are in a known book position. If yes, just return the known list
-    let book_entry = get_book_moves(
-      &self.position.board,
-      self.options.lock().unwrap().style == PlayStyle::Provocative,
-    );
+    let play_style = self.options.lock().unwrap().style;
+    let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
     if book_entry.is_some() {
-      info!("Known position, returning book moves");
+      info!(
+        "Known position, returning book moves for {:?} play",
+        play_style
+      );
       let mut move_list = book_entry.unwrap();
-      move_list.shuffle(&mut rand::thread_rng());
+      let mut rng = rand::thread_rng();
+      move_list.shuffle(&mut rng);
 
       let mut result: SearchResult = SearchResult::new(
         self.options.lock().unwrap().multi_pv,
@@ -561,13 +563,14 @@ impl Engine {
         f32::MAX,
       );
 
-      if self.has_been_searching_too_long() || self.stop_requested() {
+      if self.has_been_searching_too_long() || self.stop_requested() || result.is_none() {
         // Toss away unfinished depths
         self.analysis.decrement_depth();
         break;
       }
 
       // Depth completed - print UCI result if needed
+      let result = result.unwrap(); // Safe due to is_none() above
       let best_eval = result.get_best_eval();
       self.analysis.update_result(result);
       self.print_uci_info();
@@ -903,7 +906,7 @@ impl Engine {
   //----------------------------------------------------------------------------
   // Engine Evaluation
 
-  /// Searchs and evaluate a position with the configured engine options
+  /// Search and evaluate a position with the configured engine options
   ///
   /// ### Arguments
   ///
@@ -922,19 +925,19 @@ impl Engine {
     max_depth: usize,
     mut alpha: f32,
     mut beta: f32,
-  ) -> SearchResult {
+  ) -> Option<SearchResult> {
     if self.stop_requested() || self.has_been_searching_too_long() {
-      return SearchResult::default();
+      return None;
     }
 
     if depth > max_depth {
       //println!("Reached maximum depth {max_depth}. Stopping search");
-      return SearchResult::default();
+      return None;
     }
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
-    let moves = self.cache.get_move_list(&game_state.board).unwrap();
+    let mut moves = self.cache.get_move_list(&game_state.board).unwrap();
     let mut result = SearchResult::new(
       self.options.lock().unwrap().multi_pv,
       game_state.board.side_to_play,
@@ -945,7 +948,7 @@ impl Engine {
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
       if (alpha - 0.5) > beta {
-        // TODO: Test this a bit better, I think we are pruning stuff that should not get prunned.
+        // TODO: Test this a bit better, I think we are pruning stuff that should not get pruned.
         //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
         break;
       }
@@ -1037,7 +1040,11 @@ impl Engine {
       // Search more if the game is not over.
       if eval_cache.game_status == GameStatus::Ongoing {
         if depth < max_line_depth {
-          let mut sub_result = self.search(&new_game_state, depth + 1, max_line_depth, alpha, beta);
+          let sub_result = self.search(&new_game_state, depth + 1, max_line_depth, alpha, beta);
+          if sub_result.is_none() {
+            continue;
+          }
+          let mut sub_result = sub_result.unwrap();
           sub_result.push_move_to_variations(*m);
           if !sub_result.is_empty() {
             result.update(sub_result.get(0));
@@ -1083,8 +1090,8 @@ impl Engine {
       }
     } // for m in &moves
 
-    // Save in the cache table:
     if !result.is_empty() {
+      // Save in the cache table:
       let mut pv = game_state.clone();
       pv.apply_move(&result.get_best_move());
       let mut best_move_eval = self.cache.get_eval(&pv.board).unwrap_or_default();
@@ -1092,10 +1099,17 @@ impl Engine {
       best_move_eval.depth += 1;
       best_move_eval.eval = result.get_best_eval();
       self.cache.set_eval(&game_state.board, best_move_eval);
+
+      // Influence next visit by promoting the multi_pv best moves to be first
+      // in the move list
+      let mut top_moves = result.get_top_moves();
+      moves.retain(|&m| !top_moves.contains(&m));
+      top_moves.extend(moves);
+      self.cache.set_move_list(&game_state.board, &top_moves);
     }
 
     // Return our result
-    result
+    Some(result)
   }
 
   /// Checks the best move in the result and check if it is a winning sequence
@@ -1110,42 +1124,6 @@ impl Engine {
       Color::White => eval > 150.0,
       Color::Black => eval < -150.0,
     }
-  }
-
-  /// Sorts the list of moves based on the data in the result
-  ///
-  /// ### Arguments
-  ///
-  /// * `Color`:     Side to play, for sorting
-  /// * `a`          Move A
-  /// * `b`          Move B
-  /// * `result`     HashMap with f32 evaluations
-  ///
-  /// ### Return value
-  ///
-  /// Ordering telling if B is Greater, Equal or Less than A
-  ///
-  fn compare_by_result_eval(
-    color: Color,
-    a: &Move,
-    b: &Move,
-    result: &HashMap<Move, (Vec<Move>, f32)>,
-  ) -> Ordering {
-    let (greater, less, default) = match color {
-      Color::White => (Ordering::Less, Ordering::Greater, (Vec::new(), f32::MIN)),
-      Color::Black => (Ordering::Greater, Ordering::Less, (Vec::new(), f32::MAX)),
-    };
-
-    let a_eval = result.get(a).unwrap_or(&default).1;
-    let b_eval = result.get(b).unwrap_or(&default).1;
-
-    if a_eval > b_eval {
-      return greater;
-    } else if a_eval < b_eval {
-      return less;
-    }
-
-    Ordering::Equal
   }
 }
 

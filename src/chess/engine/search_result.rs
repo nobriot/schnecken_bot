@@ -16,7 +16,8 @@ pub struct SearchResult {
   lines: usize,
   // How do we sort evals (from white or black point of view)
   sort: Color,
-  // Top `lines` variations.//FIXME: Put that private at some point
+  // Top `lines` variations.
+  //FIXME: Put that private at some point
   pub variations: Vec<VariationWithEval>,
 }
 
@@ -58,8 +59,8 @@ impl SearchResult {
     // Check if we want to insert in the middle of the results
     for position in 0..self.len() {
       let better = match self.sort {
-        Color::White => variation.eval > self.variations[position].eval,
-        Color::Black => variation.eval < self.variations[position].eval,
+        Color::White => variation.eval >= self.variations[position].eval,
+        Color::Black => variation.eval <= self.variations[position].eval,
       };
       if better {
         if self.variations.len() == self.lines {
@@ -98,6 +99,17 @@ impl SearchResult {
     self.variations[0].variation[0]
   }
 
+  pub fn get_top_moves(&self) -> Vec<Move> {
+    let mut move_list = Vec::new();
+    for line in &self.variations {
+      if !line.variation.is_empty() {
+        move_list.push(line.variation[0]);
+      }
+    }
+
+    move_list
+  }
+
   /// Put the previous move in the variations
   /// TODO: Explain well how this works
   pub fn push_move_to_variations(&mut self, mv: Move) {
@@ -106,16 +118,6 @@ impl SearchResult {
       line.eval = decrement_eval_if_mating_sequence(line.eval);
     }
     self.sort = Color::opposite(self.sort);
-  }
-}
-
-impl Default for SearchResult {
-  fn default() -> Self {
-    Self {
-      lines: 0,
-      sort: Color::White,
-      variations: Vec::with_capacity(0),
-    }
   }
 }
 

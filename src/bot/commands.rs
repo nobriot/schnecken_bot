@@ -43,7 +43,7 @@ impl BotCommands for BotState {
     match input.trim() as &str {
       PLAY_COMMAND | P_COMMAND => {
         let clone = self.clone();
-        let _ = tokio::spawn(async move { clone.challenge_somebody().await });
+        tokio::spawn(async move { clone.challenge_somebody().await });
       },
       EXIT_COMMAND | QUIT_COMMAND | Q_COMMAND => {
         *exit_requested = true;
