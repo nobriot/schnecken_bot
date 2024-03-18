@@ -654,6 +654,7 @@ fn test_under_promotion_got_evaluated_better() {
   engine.go();
   engine.print_evaluations();
   let best_move = engine.get_best_move();
+  assert_ne!(best_move, Move::default());
   let analysis = engine.get_analysis();
   assert!(analysis.len() >= 3);
   assert!(analysis.get(0).eval.abs() < 0.4);
@@ -749,5 +750,6 @@ fn king_disappeared() {
   engine.print_evaluations();
   let best_move = engine.get_best_move();
   let analysis = engine.get_analysis();
+  assert_ne!(best_move, Move::default());
   assert!(!analysis.is_empty());
 }

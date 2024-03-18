@@ -1,3 +1,4 @@
+pub mod development;
 pub mod endgame;
 pub mod helpers;
 pub mod middlegame;

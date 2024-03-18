@@ -1,6 +1,6 @@
 pub mod books;
 pub mod cache;
-pub mod development;
+pub mod config;
 pub mod eval;
 pub mod nnue;
 pub mod search_result;
@@ -12,9 +12,6 @@ pub mod tests;
 use log::*;
 use rand::seq::SliceRandom;
 use std::cmp::min;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -24,6 +21,8 @@ use self::cache::evaluation_table::EvaluationCache;
 use self::eval::position::*;
 use self::search_result::SearchResult;
 use books::*;
+use config::options::*;
+use config::play_style::*;
 use nnue::NNUE;
 
 // Chess model
@@ -38,63 +37,10 @@ use crate::model::board::Board;
 // -----------------------------------------------------------------------------
 // Constants
 pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
+pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
 
 // -----------------------------------------------------------------------------
 // Type definitions
-
-#[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
-pub enum PlayStyle {
-  /// Normal play style for the engine
-  #[default]
-  Normal,
-  /// Engine will try to play very safe lines. Kind of good if the opponent is
-  /// Stronger and we just want to draw
-  Conservative,
-  /// Try spectacular sacrifices to get to the king.
-  Aggressive,
-  /// Use this with weaker opponents, to play dangerous/provocative lines
-  /// like the bongcloud.
-  Provocative,
-}
-
-impl FromStr for PlayStyle {
-  type Err = ();
-
-  fn from_str(input: &str) -> Result<PlayStyle, Self::Err> {
-    match input.to_lowercase().as_str() {
-      "normal" => Ok(PlayStyle::Normal),
-      "conservative" => Ok(PlayStyle::Conservative),
-      "aggressive" => Ok(PlayStyle::Aggressive),
-      "provocative" => Ok(PlayStyle::Provocative),
-      _ => Err(()),
-    }
-  }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Options {
-  /// Whether this engine is used with the UCI interface and it
-  /// should print information when searching
-  pub uci: bool,
-  /// Continue thinking even if we found a winning sequence.
-  pub ponder: bool,
-  /// Maximum depth to go at
-  pub max_depth: usize,
-  /// time in miliseconds to spend on a calculation
-  /// Set to 0 for no limit
-  pub max_time: usize,
-  /// Number of threads to use for the search.
-  pub max_threads: usize,
-  /// Number of threads to use for the search.
-  pub use_nnue: bool,
-  /// Debug mode : The engine will print additional info (info string <debug string>)
-  /// if this is set to true
-  pub debug: bool,
-  /// Set the play style of the engine.
-  pub style: PlayStyle,
-  /// Number of best lines that the engine will return.
-  pub multi_pv: usize,
-}
 
 #[derive(Clone, Debug)]
 struct Analysis {
@@ -661,7 +607,7 @@ impl Engine {
     }
   }
 
-  /// Prints tyhe best move
+  /// Prints the best move
   ///
   #[inline]
   pub fn print_uci_best_move(&self) {
@@ -748,7 +694,7 @@ impl Engine {
     *self.state.start_time.lock().unwrap() = Instant::now();
   }
 
-  /// Retrives the start time
+  /// Retrieves the start time
   ///
   /// ### Arguments
   ///
@@ -939,7 +885,7 @@ impl Engine {
     Engine::find_move_list(&self.cache, &game_state.board);
     let mut moves = self.cache.get_move_list(&game_state.board).unwrap();
     let mut result = SearchResult::new(
-      self.options.lock().unwrap().multi_pv,
+      NUMBER_OF_MOVES_IN_SEARCH_RESULTS,
       game_state.board.side_to_play,
     );
 
@@ -1130,35 +1076,5 @@ impl Engine {
 impl std::fmt::Display for Engine {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(self.to_string().as_str())
-  }
-}
-
-impl Default for Engine {
-  fn default() -> Self {
-    let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
-    Engine {
-      position: GameState::default(),
-      analysis: Analysis::default(),
-      cache: EngineCache::new(),
-      state: EngineState {
-        active: Arc::new(Mutex::new(false)),
-        stop_requested: Arc::new(Mutex::new(false)),
-        start_time: Arc::new(Mutex::new(Instant::now())),
-      },
-      options: Arc::new(Mutex::new(Options {
-        uci: true,
-        ponder: false,
-        max_depth: 20,
-        max_time: 0,
-        max_threads: 16,
-        use_nnue: false,
-        debug: false,
-        style: PlayStyle::Normal,
-        multi_pv: 3,
-      })),
-      nnue: Arc::new(Mutex::new(
-        NNUE::load(nnue_path.as_str()).unwrap_or_default(),
-      )),
-    }
   }
 }

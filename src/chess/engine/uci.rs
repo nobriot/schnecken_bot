@@ -1,4 +1,5 @@
 // Imports / dependencies
+use chess::engine::config::play_style::*;
 use chess::engine::*;
 use chess::model::game_state::START_POSITION_FEN;
 use regex::Regex;

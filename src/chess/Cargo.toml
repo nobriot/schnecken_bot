@@ -43,9 +43,9 @@ path = "model/bin/generate_bishop_table.rs"
 name = "generate_passed_pawns_areas"
 path = "model/bin/generate_passed_pawns_areas.rs"
 
-[[bin]]
-name = "generate_various_masks"
-path = "model/bin/generate_various_masks.rs"
+#[[bin]]
+#name = "generate_various_masks"
+#path = "model/bin/generate_various_masks.rs"
 
 # NNUE:
 [[bin]]

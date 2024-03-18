@@ -1,11 +1,8 @@
-use rand::Rng;
 use std::fs::File;
 use std::io::Write;
 
 use chess::model::board::Board;
-use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
-use chess::model::piece_moves::*;
 
 fn main() {
   let filename = "various_masks.rs";

@@ -11,9 +11,9 @@ use lichess::api::*;
 use lichess::types::Clock;
 use lichess::types::Color;
 
+use chess::engine::config::play_style::*;
 use chess::engine::search_result::VariationWithEval;
 use chess::engine::Engine;
-use chess::engine::PlayStyle;
 use chess::model::game_state::START_POSITION_FEN;
 use chess::model::moves::Move;
 
