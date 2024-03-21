@@ -9,7 +9,7 @@ use chess::model::piece::Color;
 
 pub const LICHESS_DATABASE_FILE: &str = "engine/nnue/data/training_set.pgn";
 pub const OUTPUT_TRAINING_FILE: &str = "engine/nnue/data/training_set.csv";
-pub const NNUE_OUTPUT_FILE: &str = "engine/nnue/data/net.nuue";
+pub const NNUE_OUTPUT_FILE: &str = "engine/nnue/data/net.nnue";
 pub const MINI_BATCH_SIZE: usize = 10000;
 pub const NUMBER_OF_EPOCH: usize = 30;
 

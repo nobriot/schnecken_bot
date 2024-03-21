@@ -36,7 +36,7 @@ use crate::model::board::Board;
 
 // -----------------------------------------------------------------------------
 // Constants
-pub const NNUE_FILE: &str = "engine/nnue/net.nuue";
+pub const NNUE_FILE: &str = "engine/nnue/net.nnue";
 pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
 
 // -----------------------------------------------------------------------------
