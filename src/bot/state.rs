@@ -379,7 +379,7 @@ impl BotState {
       );
       let api_clone = self.api.clone();
       tokio::spawn(async move {
-        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_CASUAL).await
+        api_clone.decline_challenge(&challenge.id, lichess::types::DECLINE_RATED).await
       });
       return;
     }
@@ -411,7 +411,7 @@ impl BotState {
 
   //----------------------------------------------------------------------------
   // Game Stream handlers
-  /// Processses incoming messages.
+  /// Processes incoming messages.
   fn on_incoming_message(&self, game_id: &str, message: lichess::types::ChatMessage) {
     info!(
       "Incoming message from {} on GameID {}: {}",
@@ -615,8 +615,8 @@ impl BotState {
       // Make sure the engine knows the latest move:
       if move_list.len() > game.engine.position.last_moves.len() {
         // FIXME: This fails when restarting the bot in the middle of a game
-        for i in game.engine.position.last_moves.len()..move_list.len() {
-          game.engine.apply_move(move_list[i].to_string().as_str());
+        for m in move_list.iter().skip(game.engine.position.last_moves.len()) {
+          game.engine.apply_move(m.to_string().as_str());
         }
       }
 
