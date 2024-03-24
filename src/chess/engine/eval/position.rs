@@ -311,12 +311,11 @@ pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
 /// True if this is a smothered mate, false otherwise
 ///
 pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
-  let mating_color: Color;
-  match game_status {
-    GameStatus::WhiteWon => mating_color = Color::White,
-    GameStatus::BlackWon => mating_color = Color::Black,
+  let mating_color: Color = match game_status {
+    GameStatus::WhiteWon => Color::White,
+    GameStatus::BlackWon => Color::Black,
     _ => return false,
-  }
+  };
 
   // To be a smothered mate, we check that we have a knight in the checkers
   // It can be a double-check we are happy about that too.

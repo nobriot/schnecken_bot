@@ -246,7 +246,7 @@ impl Shl<move_t> for Promotion {
   type Output = move_t;
 
   fn shl(self, rhs: move_t) -> Self::Output {
-    return (unsafe { std::mem::transmute::<Promotion, u8>(self) } as move_t) << rhs;
+    (unsafe { std::mem::transmute::<Promotion, u8>(self) } as move_t) << rhs
   }
 }
 
@@ -367,6 +367,24 @@ impl Move {
   pub fn is_en_passant(&self) -> bool {
     (self.data >> EN_PASSANT_SHIFT) & 1 != 0
   }
+
+  /// Null / illegal move
+  ///
+  pub const fn null() -> Self {
+    Move { data: 0 }
+  }
+
+  /// Null / illegal move
+  ///
+  /// ### Return value
+  ///
+  /// Returns `true` if the current move is a NULL / illegal move.<br>
+  /// False if the move non-null. (Does not mean it is legal)
+  ///
+  #[inline]
+  pub fn is_null(&self) -> bool {
+    self.data == 0
+  }
 }
 
 impl std::fmt::Display for Move {
@@ -377,7 +395,7 @@ impl std::fmt::Display for Move {
 
 impl Default for Move {
   fn default() -> Self {
-    Move { data: 0 }
+    Self::null()
   }
 }
 
@@ -420,7 +438,7 @@ pub fn square_to_string(square: u8) -> String {
     _ => string.push('0'),
   }
 
-  return string;
+  string
 }
 
 /// Converts the square algebraic notation to a number from 0 to 63.

@@ -42,7 +42,7 @@ impl CastlingRights {
   ///
   #[allow(non_snake_case)]
   pub fn K(&self) -> bool {
-    return (self.rights & K_MASK) != 0;
+    (self.rights & K_MASK) != 0
   }
   /// Sets the bit for the if the White Kingside castle right.
   ///
@@ -67,7 +67,7 @@ impl CastlingRights {
   ///
   #[allow(non_snake_case)]
   pub fn Q(&self) -> bool {
-    return (self.rights & Q_MASK) != 0;
+    (self.rights & Q_MASK) != 0
   }
   /// Sets the bit for the if the White Kingside castle right.
   ///
@@ -98,7 +98,7 @@ impl CastlingRights {
   ///
   #[allow(non_snake_case)]
   pub fn k(&self) -> bool {
-    return (self.rights & k_MASK) != 0;
+    (self.rights & k_MASK) != 0
   }
   /// Sets the bit for the if the White Kingside castle right.
   ///
@@ -123,7 +123,7 @@ impl CastlingRights {
   ///
   #[allow(non_snake_case)]
   pub fn q(&self) -> bool {
-    return (self.rights & q_MASK) != 0;
+    (self.rights & q_MASK) != 0
   }
 
   /// Sets the black queenside castle right
@@ -172,7 +172,7 @@ impl CastlingRights {
     if fen.len() == 0 {
       fen.push('-');
     }
-    return fen;
+    fen
   }
 
   /// Returns new castling rights with no rights

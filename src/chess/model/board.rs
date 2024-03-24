@@ -669,8 +669,8 @@ impl Board {
   #[inline]
   pub fn get_moves(&self) -> Vec<Move> {
     match self.side_to_play {
-      Color::White => return self.get_white_moves(),
-      Color::Black => return self.get_black_moves(),
+      Color::White => self.get_white_moves(),
+      Color::Black => self.get_black_moves(),
     }
   }
 

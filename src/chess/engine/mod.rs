@@ -2,6 +2,7 @@ pub mod books;
 pub mod cache;
 pub mod config;
 pub mod eval;
+pub mod game_history;
 pub mod nnue;
 pub mod search_result;
 pub mod tables;
@@ -19,6 +20,7 @@ use std::time::{Duration, Instant};
 use self::cache::engine_cache::EngineCache;
 use self::cache::evaluation_table::EvaluationCache;
 use self::eval::position::*;
+use self::game_history::GameHistory;
 use self::search_result::SearchResult;
 use books::*;
 use config::options::*;
@@ -231,6 +233,8 @@ pub struct Engine {
   state: EngineState,
   /// NNUE
   nnue: Arc<Mutex<NNUE>>,
+  /// Game History
+  history: GameHistory,
 }
 
 impl Engine {
@@ -266,6 +270,7 @@ impl Engine {
       nnue: Arc::new(Mutex::new(
         NNUE::load(nnue_path.as_str()).unwrap_or_default(),
       )),
+      history: GameHistory::new(),
     };
 
     engine.set_position(START_POSITION_FEN);
@@ -372,6 +377,7 @@ impl Engine {
   ///
   pub fn set_position(&mut self, fen: &str) {
     self.reset();
+    self.history.clear();
     self.analysis.set_depth(0);
     self.analysis.set_selective_depth(0);
 
@@ -396,6 +402,12 @@ impl Engine {
     if self.is_active() {
       self.stop();
     }
+
+    // FIXME: THis does not capture evals when opponent applies a move
+    let eval = self.get_best_eval();
+    let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
+    self.history.add(self.position.to_fen(), mv, eval as isize);
+
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
     self.analysis.reset();
@@ -620,6 +632,12 @@ impl Engine {
     if self.options.lock().unwrap().debug {
       println!("info string {}", debug_info);
     }
+  }
+
+  /// Prints out the full game history.
+  ///
+  pub fn print_game_summary(&self) {
+    println!("Game Summary:\n{}", self.history);
   }
 
   /// Returns the full analysis
@@ -1076,5 +1094,11 @@ impl Engine {
 impl std::fmt::Display for Engine {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str(self.to_string().as_str())
+  }
+}
+
+impl Default for Engine {
+  fn default() -> Self {
+    Self::new()
   }
 }

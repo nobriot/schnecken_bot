@@ -142,7 +142,7 @@ impl GameState {
   ///
   /// Number of repetitions that occurred for the current position.
   /// Current position is not counted.
-  /// i.e. 0 the position just occured for the first time. 2 means a threefold repetition
+  /// i.e. 0 the position just occurred for the first time. 2 means a threefold repetition
   ///
   pub fn get_board_repetitions(&self) -> usize {
     self.last_positions.iter().filter(|x| **x == self.board.hash).count()
@@ -171,7 +171,7 @@ impl GameState {
   ///
   /// ### Return value
   ///
-  /// Move data. Will return a 0 value if the move is not found.
+  /// Move data. Will return a Null Move if the move is not found.
   ///
   pub fn get_move_from_notation(&self, move_notation: &str) -> Move {
     let candidates = self.board.get_moves();
@@ -187,7 +187,8 @@ impl GameState {
       move_notation,
       self.to_fen()
     );
-    Move { data: 0 }
+
+    Move::null()
   }
 
   /// Same as `apply_move`, except that it takes a move notation

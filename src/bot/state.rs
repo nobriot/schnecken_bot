@@ -197,6 +197,7 @@ impl BotState {
           debug!("Waiting for the engine to stop before dropping");
           std::thread::sleep(std::time::Duration::from_millis(100));
         }
+        game.engine.print_game_summary();
         drop(game);
         return;
       }
