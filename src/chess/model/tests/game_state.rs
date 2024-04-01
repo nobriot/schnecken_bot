@@ -143,16 +143,17 @@ fn check_blocked_pawns() {
 fn test_copying() {
   let fen = "rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1NR b KQkq - 5 6";
   let mut game_state = GameState::from_fen(fen);
-  let last_position = Board::from_fen("rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1N w");
-  game_state.last_positions.push_front(last_position.hash);
+  let last_position =
+    Board::from_fen("rn1qkb1r/1bp1pppp/p2p1n2/1p6/3PP3/4B1P1/PPPN1PBP/R2QK1N w KQkq - 5 6");
 
+  game_state.last_positions.add(last_position.hash);
   let mut game_state_copy = game_state.clone();
   game_state.get_moves();
 
-  assert!(1 == game_state_copy.last_positions.len());
-  game_state_copy.last_positions.pop_front();
-  assert!(1 == game_state.last_positions.len());
-  assert!(0 == game_state_copy.last_positions.len());
+  assert_eq!(1, game_state_copy.last_positions.len());
+  game_state_copy.last_positions.clear();
+  assert_eq!(1, game_state.last_positions.len());
+  assert_eq!(0, game_state_copy.last_positions.len());
 }
 
 #[test]

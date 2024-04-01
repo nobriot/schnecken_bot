@@ -1,10 +1,11 @@
 use std::fmt;
 use std::fmt::Display;
 
+use crate::engine::search_result::Variation;
 use crate::model::moves::*;
 
 // Keeping here a table of how the game went
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct GameHistoryEntry {
   /// FEN string of a given position
   pub position: String,
@@ -13,10 +14,12 @@ pub struct GameHistoryEntry {
   pub last_move: Move,
   /// Evaluation in centipawns.
   pub eval: isize,
+  /// Evaluation in centipawns.
+  pub pv: Variation,
 }
 
 /// Keeps track of the historical evaluations during a game.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct GameHistory {
   entries: Vec<GameHistoryEntry>,
 }
@@ -43,11 +46,12 @@ impl GameHistory {
   /// ### Arguments
   ///
   /// * `fen`:
-  pub fn add(&mut self, fen: String, last_move: Move, eval: isize) {
+  pub fn add(&mut self, fen: String, last_move: Move, eval: isize, pv: Variation) {
     self.entries.push(GameHistoryEntry {
       position: fen,
       last_move,
       eval,
+      pv: pv.clone(),
     })
   }
 
@@ -88,16 +92,17 @@ impl Display for GameHistory {
       if entry.last_move.is_null() {
         write!(
           f,
-          "{:6} - start position / {}\n",
-          entry.eval, entry.position
+          "{:6} - start position / {} - [{}]\n",
+          entry.eval, entry.position, entry.pv
         )?;
       } else {
         write!(
           f,
-          "{:6} - {:14} / {}\n",
+          "{:6} - {:14} / {} - [{}]\n",
           entry.eval,
           entry.last_move.to_string(),
-          entry.position
+          entry.position,
+          entry.pv
         )?;
       }
     }
@@ -121,7 +126,6 @@ mod tests {
 
   use super::*;
   use crate::model::game_state::*;
-  use crate::model::moves::*;
 
   #[test]
   fn test_game_history() {
@@ -130,17 +134,27 @@ mod tests {
     let fen = "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6";
     let mut game_state = GameState::from_fen(fen);
 
-    history.add(game_state.to_fen(), Move::null(), 40);
+    history.add(game_state.to_fen(), Move::null(), 40, Variation::new());
 
     let mv = "f2f3";
     game_state.apply_move_from_notation(mv);
-    history.add(game_state.to_fen(), Move::from_string(mv), 30);
+    history.add(
+      game_state.to_fen(),
+      Move::from_string(mv),
+      30,
+      Variation::new(),
+    );
 
     assert_eq!(history.len(), 2);
 
     let mv = "e7e5";
     game_state.apply_move_from_notation(mv);
-    history.add(game_state.to_fen(), Move::from_string(mv), -50);
+    history.add(
+      game_state.to_fen(),
+      Move::from_string(mv),
+      -50,
+      Variation::new(),
+    );
 
     assert_eq!(history.len(), 3);
 

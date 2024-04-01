@@ -479,18 +479,15 @@ impl BotState {
 
     // Select randomly one of the good moves.
     let mut analysis = game.engine.get_analysis();
+    let best_eval = analysis.get_eval().unwrap_or(f32::NAN);
     let mut cutoff = 1;
     if analysis.is_empty() {
       error!("Empty result from the engine.");
       for m in game.engine.position.get_moves() {
-        analysis.update(VariationWithEval {
-          variation: vec![m],
-          eval: 0.0,
-        });
+        analysis.update(VariationWithEval::new_from_move(0.0, m));
       }
       cutoff = 1;
     } else {
-      let best_eval = analysis.get_best_eval();
       while analysis.len() > cutoff {
         if analysis.get(cutoff).eval.is_nan() {
           break;
@@ -504,8 +501,7 @@ impl BotState {
     }
 
     // Make a comment in the spectator room depending on the eval.
-    let best_eval = analysis.get_best_eval();
-    if !game.mating_sequence_announced && analysis.get_best_eval() > 150.0 {
+    if !game.mating_sequence_announced && best_eval > 150.0 {
       let mate = (((best_eval.signum() * 200.0) - best_eval) + 0.5 / 2.0) as isize;
       let message = if (game.color == lichess::types::Color::White && best_eval > 150.0)
         || (game.color == lichess::types::Color::Black && best_eval < -150.0)
@@ -529,7 +525,7 @@ impl BotState {
     }
 
     let move_index = rand::thread_rng().gen_range(0..cutoff);
-    let mv = analysis.get(move_index).variation[0];
+    let mv = analysis.get(move_index).variation.get_first_move().unwrap();
     info!(
       "Playing Line {} ({}) for GameID {}",
       move_index, mv, game_id
@@ -614,9 +610,10 @@ impl BotState {
       }
 
       // Make sure the engine knows the latest move:
-      if move_list.len() > game.engine.position.last_moves.len() {
+      let move_count: usize = game.engine.position.move_count.into();
+      if move_list.len() > move_count {
         // FIXME: This fails when restarting the bot in the middle of a game
-        for m in move_list.iter().skip(game.engine.position.last_moves.len()) {
+        for m in move_list.iter().skip(move_count) {
           game.engine.apply_move(m.to_string().as_str());
         }
       }

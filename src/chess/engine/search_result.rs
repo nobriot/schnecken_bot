@@ -7,6 +7,105 @@ use crate::model::piece::Color;
 // Chess Engine
 use crate::engine::decrement_eval_if_mating_sequence;
 
+const VARIATION_LENGTH: usize = 10;
+
+#[derive(Debug, Clone)]
+pub struct Variation {
+  moves: [Move; VARIATION_LENGTH],
+  length: u8,
+}
+
+impl Variation {
+  pub fn new() -> Self {
+    Variation {
+      moves: [Move::null(); 10],
+      length: 0,
+    }
+  }
+
+  pub fn add(&mut self, mv: Move) {
+    if self.length as usize >= VARIATION_LENGTH {
+      return;
+    }
+    self.moves[self.length as usize] = mv;
+    self.length += 1;
+  }
+
+  pub fn push_front(&mut self, mv: Move) {
+    if self.length as usize >= VARIATION_LENGTH {
+      self.length = (VARIATION_LENGTH - 1) as u8;
+    }
+    self.moves.rotate_right(1);
+    self.moves[0] = mv;
+    self.length += 1;
+  }
+
+  pub fn clear(&mut self) {
+    self.moves = [Move::null(); 10];
+    self.length = 0;
+  }
+
+  pub fn pop(&mut self) -> Option<Move> {
+    if self.length == 0 {
+      return None;
+    }
+
+    self.length -= 1;
+    Some(self.moves[self.length as usize])
+  }
+
+  pub fn len(&self) -> usize {
+    self.length as usize
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.length == 0
+  }
+
+  pub fn get_moves(&self) -> Option<[Move; VARIATION_LENGTH]> {
+    if self.length == 0 {
+      return None;
+    }
+    Some(self.moves.clone())
+  }
+
+  pub fn get_first_move(&self) -> Option<Move> {
+    if self.length == 0 {
+      return None;
+    }
+    Some(self.moves[0])
+  }
+}
+
+impl Display for Variation {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    for mv in &self.moves {
+      if mv.is_null() {
+        break;
+      }
+      write!(f, " {}", mv)?;
+    }
+
+    Ok(())
+  }
+}
+
+#[derive(Debug, Clone)]
+pub struct VariationWithEval {
+  pub variation: Variation,
+  pub eval: f32,
+}
+
+impl VariationWithEval {
+  /// Creates a new variation with eval from a single move
+  ///
+  pub fn new_from_move(eval: f32, mv: Move) -> Self {
+    let mut variation = Variation::new();
+    variation.add(mv);
+    VariationWithEval { variation, eval }
+  }
+}
+
 /// Search result. Contains lines (vector of moves) associated with an
 /// evaluation
 ///
@@ -19,12 +118,6 @@ pub struct SearchResult {
   // Top `lines` variations.
   //FIXME: Put that private at some point
   pub variations: Vec<VariationWithEval>,
-}
-
-#[derive(Debug, Clone)]
-pub struct VariationWithEval {
-  pub variation: Vec<Move>,
-  pub eval: f32,
 }
 
 impl SearchResult {
@@ -81,29 +174,31 @@ impl SearchResult {
     self.variations.clear();
   }
 
-  /// Returns the best evaluation in the current result.
-  pub fn get_best_eval(&self) -> f32 {
+  /// Returns the best evaluation in the current position
+  pub fn get_eval(&self) -> Option<f32> {
     if self.variations.is_empty() {
-      return f32::NAN;
+      return None;
     }
 
-    self.variations[0].eval
+    Some(self.variations[0].eval)
   }
 
   /// Returns the best move in the current result.
-  pub fn get_best_move(&self) -> Move {
+  pub fn get_best_move(&self) -> Option<Move> {
     if self.is_empty() {
-      return Move::default();
+      return None;
     }
 
-    self.variations[0].variation[0]
+    self.variations[0].variation.get_first_move()
   }
 
   pub fn get_top_moves(&self) -> Vec<Move> {
-    let mut move_list = Vec::new();
+    let mut move_list = Vec::with_capacity(self.variations.len());
     for line in &self.variations {
       if !line.variation.is_empty() {
-        move_list.push(line.variation[0]);
+        if let Some(mv) = line.variation.get_first_move() {
+          move_list.push(mv);
+        }
       }
     }
 
@@ -114,7 +209,7 @@ impl SearchResult {
   /// TODO: Explain well how this works
   pub fn push_move_to_variations(&mut self, mv: Move) {
     for line in &mut self.variations {
-      line.variation.insert(0, mv);
+      line.variation.push_front(mv);
       line.eval = decrement_eval_if_mating_sequence(line.eval);
     }
     self.sort = Color::opposite(self.sort);
@@ -132,7 +227,7 @@ impl Display for SearchResult {
         i,
         v.eval,
         v.variation.len(),
-        Move::vec_to_string(&v.variation)
+        v.variation
       )?;
       i += 1;
     }

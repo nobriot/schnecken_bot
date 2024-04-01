@@ -123,7 +123,10 @@ fn cache_for_moves(bencher: Bencher) {
     if false == cache.has_move_list(&game_state.board) {
       cache.set_move_list(&game_state.board, &move_list);
     } else {
-      assert_eq!(move_list, cache.get_move_list(&game_state.board).unwrap());
+      assert_eq!(
+        move_list,
+        cache.get_move_list(&game_state.board).unwrap().to_vec()
+      );
     }
   });
 }

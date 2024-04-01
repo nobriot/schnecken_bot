@@ -266,7 +266,7 @@ pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
 #[inline]
 pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
   if eval.abs() > 100.0 {
-    eval - eval.signum() * 1.0
+    eval - eval.signum()
   } else {
     eval
   }

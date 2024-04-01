@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use super::evaluation_table::{EvaluationCache, EvaluationCacheTable};
 use super::move_list_cache_table::MoveListCacheTable;
 use crate::model::board::*;
+use crate::model::containers::move_list::MoveList;
 use crate::model::game_state::GameState;
 use crate::model::moves::*;
 use crate::model::piece::Color;
@@ -98,8 +99,15 @@ impl EngineCache {
   ///
   /// A clone of the Move List cached for the GameState / board
   ///
-  pub fn get_move_list(&self, board: &Board) -> Option<Vec<Move>> {
-    self.move_lists.lock().unwrap().get(board.hash)
+  #[inline]
+  pub fn get_move_list(&self, board: &Board) -> Option<MoveList> {
+    let table = self.move_lists.lock().unwrap();
+    let entry = table.get(board.hash);
+    if entry.is_none() {
+      return None;
+    }
+
+    Some(MoveList::new_from_slice(entry.unwrap()))
   }
 
   // ---------------------------------------------------------------------------
@@ -260,172 +268,5 @@ impl EngineCache {
       return less;
     }
     Ordering::Equal
-  }
-
-  /// Sorts the list of moves based the evaluation of the resulting positions
-  ///
-  /// ### Arguments
-  ///
-  /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
-  /// * `game_state` GameState for which the moves should be ordered
-  /// * `color`      The side to play on the board
-  ///
-  pub fn sort_moves_by_eval(&self, game_state: &GameState, color: Color) {
-    if !self.has_move_list(&game_state.board) {
-      return;
-    }
-    let mut move_list = self.get_move_list(&game_state.board).unwrap();
-    move_list.sort_by(|a, b| self.compare_moves_by_cache_eval(game_state, color, a, b));
-    self.set_move_list(&game_state.board, &move_list);
-  }
-}
-
-// -----------------------------------------------------------------------------
-//  Tests
-
-#[cfg(test)]
-mod tests {
-
-  use super::*;
-  use crate::model::game_state::{GameState, GameStatus};
-
-  #[test]
-  fn test_sorting_moves_by_eval_1() {
-    use crate::engine::evaluate_board;
-    let engine_cache: EngineCache = EngineCache::new();
-
-    let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
-    let game_state = GameState::from_fen(fen);
-
-    // Save a move list
-    engine_cache.set_move_list(&game_state.board, &game_state.get_moves());
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let evaluation_cache = EvaluationCache {
-        game_status: GameStatus::Ongoing,
-        eval: evaluate_board(&new_game_state),
-        depth: 1,
-      };
-      engine_cache.set_eval(&new_game_state.board, evaluation_cache);
-    }
-
-    // Now try to sort move list by eval:
-    engine_cache.sort_moves_by_eval(&game_state, Color::Black);
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    let mut last_eval = f32::MIN;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let new_eval = engine_cache.get_eval(&new_game_state.board).unwrap_or_default();
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval.eval);
-      assert!(last_eval <= new_eval.eval);
-      last_eval = new_eval.eval;
-    }
-
-    // Try again with White:
-    println!("----------------------------------------------------------------");
-    engine_cache.sort_moves_by_eval(&game_state, Color::White);
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    let mut last_eval = f32::MAX;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let new_eval = engine_cache.get_eval(&new_game_state.board).unwrap_or_default();
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval.eval);
-      assert!(last_eval >= new_eval.eval);
-      last_eval = new_eval.eval;
-    }
-
-    // Try again with some moves not evaluated:
-    println!("----------------------------------------------------------------");
-    engine_cache.clear();
-    engine_cache.set_move_list(&game_state.board, &game_state.get_moves());
-    let mut i = 0;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let evaluation_cache = EvaluationCache {
-        game_status: GameStatus::Ongoing,
-        eval: evaluate_board(&new_game_state),
-        depth: 1,
-      };
-      engine_cache.set_eval(&new_game_state.board, evaluation_cache);
-      i += 1;
-      if i > 12 {
-        break;
-      }
-    }
-
-    engine_cache.sort_moves_by_eval(&game_state, Color::White);
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    let mut last_eval = f32::MAX;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let eval_cache = engine_cache.get_eval(&new_game_state.board).unwrap_or_default();
-      let new_eval = if eval_cache.depth > 0 { eval_cache.eval } else { f32::MIN };
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval >= new_eval);
-      last_eval = new_eval;
-    }
-
-    // Try again with some moves not evaluated for Black:
-    println!("----------------------------------------------------------------");
-    engine_cache.sort_moves_by_eval(&game_state, Color::Black);
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-    let mut last_eval = f32::MIN;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let eval_cache = engine_cache.get_eval(&new_game_state.board).unwrap_or_default();
-      let new_eval = if eval_cache.depth != 0 { eval_cache.eval } else { f32::MAX };
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval);
-      assert!(last_eval <= new_eval);
-      last_eval = new_eval;
-    }
-  }
-
-  #[test]
-  fn test_sorting_moves_by_eval_2() {
-    use crate::engine::evaluate_board;
-    let engine_cache: EngineCache = EngineCache::new();
-
-    let fen = "r1bqk2r/ppppbp1p/8/3Bp1pQ/3nP3/3P4/PPPN1PPP/R3K1NR w KQq - 1 8";
-    let game_state = GameState::from_fen(fen);
-
-    // Save a move list
-    engine_cache.set_move_list(&game_state.board, &game_state.get_moves());
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let evaluation_cache = EvaluationCache {
-        game_status: GameStatus::Ongoing,
-        eval: evaluate_board(&new_game_state),
-        depth: 1,
-      };
-      engine_cache.set_eval(&new_game_state.board, evaluation_cache);
-    }
-
-    // Now try to sort move list by eval:
-    engine_cache.sort_moves_by_eval(&game_state, game_state.board.side_to_play);
-    let move_list = engine_cache.get_move_list(&game_state.board).unwrap();
-
-    let mut last_eval = f32::MAX;
-    for m in &move_list {
-      let mut new_game_state = game_state.clone();
-      new_game_state.apply_move(&m);
-      let new_eval = engine_cache.get_eval(&new_game_state.board).unwrap_or_default();
-      println!("Move: {} - Eval : {}", m.to_string(), new_eval.eval);
-      assert!(last_eval >= new_eval.eval);
-      last_eval = new_eval.eval;
-    }
   }
 }

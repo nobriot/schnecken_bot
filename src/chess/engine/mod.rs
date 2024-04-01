@@ -44,6 +44,21 @@ pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
 // -----------------------------------------------------------------------------
 // Type definitions
 
+//TODO: I need to break this file down into simpler/more independent modules
+
+/// Evaluation for a position
+///
+#[derive(Clone, Debug)]
+pub enum Eval {
+  /// Mating sequence.
+  /// Mate(-1) for black to mate in 1 half move
+  /// Mate(4) for white to mate in 4 plys
+  /// Mate(0) for Game Over, either black or white won
+  Mate(i8),
+  /// Score in centipawns for the position
+  Score(i16),
+}
+
 #[derive(Clone, Debug)]
 struct Analysis {
   /// After the search, the nth best lines will be saved in this vector.
@@ -404,9 +419,9 @@ impl Engine {
     }
 
     // FIXME: THis does not capture evals when opponent applies a move
-    let eval = self.get_best_eval();
-    let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
-    self.history.add(self.position.to_fen(), mv, eval as isize);
+    // let eval = self.get_best_eval();
+    //let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
+    // self.history.add(self.position.to_fen(), mv, eval as isize);
 
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
@@ -451,10 +466,7 @@ impl Engine {
       );
 
       for m in &move_list {
-        result.update(VariationWithEval {
-          variation: vec![*m],
-          eval: 0.0,
-        });
+        result.update(VariationWithEval::new_from_move(0.0, *m));
       }
       self.analysis.update_result(result);
 
@@ -491,10 +503,10 @@ impl Engine {
         self.options.lock().unwrap().multi_pv,
         game_state.board.side_to_play,
       );
-      result.update(VariationWithEval {
-        variation: vec![moves[0]],
-        eval: evaluation_cache.eval,
-      });
+      result.update(VariationWithEval::new_from_move(
+        evaluation_cache.eval,
+        moves[0],
+      ));
 
       self.analysis.update_result(result);
       self.analysis.set_depth(evaluation_cache.depth);
@@ -529,7 +541,7 @@ impl Engine {
 
       // Depth completed - print UCI result if needed
       let result = result.unwrap(); // Safe due to is_none() above
-      let best_eval = result.get_best_eval();
+      let best_eval = result.get_eval().unwrap();
       self.analysis.update_result(result);
       self.print_uci_info();
 
@@ -561,15 +573,15 @@ impl Engine {
   }
 
   /// Returns the best move saved in the analysis
-  pub fn get_best_move(&self) -> Move {
+  pub fn get_best_move(&self) -> Option<Move> {
     let analysis = self.analysis.result.lock().unwrap();
     analysis.get_best_move()
   }
 
   /// Returns the best eval saved in the analysis
-  pub fn get_best_eval(&self) -> f32 {
+  pub fn get_eval(&self) -> Option<f32> {
     let analysis = self.analysis.result.lock().unwrap();
-    analysis.get_best_eval()
+    analysis.get_eval()
   }
 
   /// Prints information to stdout for the GUI using UCI protocol
@@ -577,7 +589,7 @@ impl Engine {
   ///
   #[inline]
   pub fn print_uci_info(&self) {
-    if self.get_uci() == false {
+    if !self.get_uci() {
       return;
     }
 
@@ -590,12 +602,6 @@ impl Engine {
 
     for i in 0..min(multi_pv_setting, result.variations.len()) {
       let eval = result.variations[i].eval;
-      let line = result.variations[i].variation.clone();
-      let mut line_string = String::new();
-      for m in &line {
-        line_string += m.to_string().as_str();
-        line_string += " ";
-      }
       let score_string = if eval.abs() > 100.0 {
         format!("score mate {}", ((eval.signum() * 200.0) - eval) as isize)
       } else {
@@ -614,7 +620,7 @@ impl Engine {
         nodes_visited,
         (Instant::now() - start_time).as_millis(),
         multi_pv_string,
-        line_string,
+        result.variations[i].variation,
       );
     }
   }
@@ -624,7 +630,7 @@ impl Engine {
   #[inline]
   pub fn print_uci_best_move(&self) {
     if self.get_uci() {
-      println!("bestmove {}", self.get_best_move());
+      println!("bestmove {}", self.get_best_move().unwrap_or(Move::null()));
     }
   }
 
@@ -672,6 +678,7 @@ impl Engine {
       return line_string + " - no moves in cache...";
     }
 
+    Engine::find_move_list(&self.cache, &game_state.board);
     let move_list = self.cache.get_move_list(&game_state.board).unwrap();
     if move_list.is_empty() {
       return line_string
@@ -901,13 +908,13 @@ impl Engine {
 
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
-    let mut moves = self.cache.get_move_list(&game_state.board).unwrap();
+    let moves = self.cache.get_move_list(&game_state.board).unwrap();
     let mut result = SearchResult::new(
       NUMBER_OF_MOVES_IN_SEARCH_RESULTS,
       game_state.board.side_to_play,
     );
 
-    for m in &moves {
+    for m in moves {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
@@ -943,10 +950,7 @@ impl Engine {
           },
         );
         Engine::update_alpha_beta(game_state.board.side_to_play, 0.0, &mut alpha, &mut beta);
-        result.update(VariationWithEval {
-          variation: vec![*m],
-          eval: 0.0,
-        });
+        result.update(VariationWithEval::new_from_move(0.0, m));
         continue;
       }
 
@@ -962,10 +966,7 @@ impl Engine {
           &mut alpha,
           &mut beta,
         );
-        result.update(VariationWithEval {
-          variation: vec![*m],
-          eval: eval_cache.eval,
-        });
+        result.update(VariationWithEval::new_from_move(eval_cache.eval, m));
         continue;
       }
 
@@ -991,10 +992,7 @@ impl Engine {
         // Also if there is an eval swing, not just checkmate.
         self.cache.add_killer_move(&m);
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
-        result.update(VariationWithEval {
-          variation: vec![*m],
-          eval,
-        });
+        result.update(VariationWithEval::new_from_move(eval, m));
         eval_cache.eval = eval;
         self.cache.set_eval(&new_game_state.board, eval_cache);
         // Don't look at other moves when we found a checkmate
@@ -1009,12 +1007,12 @@ impl Engine {
             continue;
           }
           let mut sub_result = sub_result.unwrap();
-          sub_result.push_move_to_variations(*m);
+          sub_result.push_move_to_variations(m);
           if !sub_result.is_empty() {
             result.update(sub_result.get(0));
             Engine::update_alpha_beta(
               game_state.board.side_to_play,
-              result.get_best_eval(),
+              result.get_eval().expect("valid eval"),
               &mut alpha,
               &mut beta,
             );
@@ -1031,24 +1029,18 @@ impl Engine {
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
 
-          result.update(VariationWithEval {
-            variation: vec![*m],
-            eval,
-          });
+          result.update(VariationWithEval::new_from_move(eval, m));
           Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
         }
       } else {
         // Here the game is no longer ongoing (draw, etc.)
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
-        result.update(VariationWithEval {
-          variation: vec![*m],
-          eval,
-        });
+        result.update(VariationWithEval::new_from_move(eval, m));
       }
 
       // Save the intermediate result in the transposition table
       if !result.is_empty() {
-        eval_cache.eval = result.get_best_eval();
+        eval_cache.eval = result.get_eval().expect("Result is not empty, eval should be valid");
         eval_cache.depth = max_line_depth - depth + 1;
         self.cache.set_eval(&new_game_state.board, eval_cache);
       }
@@ -1056,19 +1048,33 @@ impl Engine {
 
     if !result.is_empty() {
       // Save in the cache table:
+
+      let best_move = &result.get_best_move().expect("Valid move in non-empty result");
+      debug_assert!(!best_move.is_null(), "Best move is NULL.");
       let mut pv = game_state.clone();
-      pv.apply_move(&result.get_best_move());
+      pv.apply_move(&best_move);
       let mut best_move_eval = self.cache.get_eval(&pv.board).unwrap_or_default();
 
       best_move_eval.depth += 1;
-      best_move_eval.eval = result.get_best_eval();
+      best_move_eval.eval = result.get_eval().expect("valid eval in non-empty result");
       self.cache.set_eval(&game_state.board, best_move_eval);
 
       // Influence next visit by promoting the multi_pv best moves to be first
       // in the move list
       let mut top_moves = result.get_top_moves();
+      Engine::find_move_list(&self.cache, &game_state.board);
+      let mut moves = self.cache.get_move_list(&game_state.board).unwrap().to_vec();
+      let initial_length = moves.len();
       moves.retain(|&m| !top_moves.contains(&m));
       top_moves.extend(moves);
+      top_moves.dedup();
+
+      debug_assert!(
+        initial_length == top_moves.len(),
+        "Reordered moves should be the same length {} -> {}",
+        initial_length,
+        top_moves.len()
+      );
       self.cache.set_move_list(&game_state.board, &top_moves);
     }
 

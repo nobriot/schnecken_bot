@@ -31,7 +31,7 @@ fn engine_search_real_game_2Dxi9wZH() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() != "e5f7");
+  assert!(engine.get_best_move().unwrap().to_string() != "e5f7");
   let eval = analysis.get(0).eval;
   assert!(eval > 2.0);
 }
@@ -77,9 +77,8 @@ fn engine_search_real_game_w1mLoTRZ() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(
-    engine.get_best_move().to_string() == "c3e2" || engine.get_best_move().to_string() == "f2f3"
-  );
+  let best_move_string = engine.get_best_move().unwrap().to_string();
+  assert!(best_move_string == "c3e2" || best_move_string == "f2f3");
   let eval = analysis.get(0).eval;
   assert!(eval < -2.0);
 }
@@ -94,7 +93,7 @@ fn engine_earch_real_game_W89VkRfp() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() == "c3e4");
+  assert!(engine.get_best_move().unwrap().to_string() == "c3e4");
   let eval = analysis.get(0).eval;
   assert!(eval > 1.0);
 }
@@ -110,7 +109,7 @@ fn engine_select_best_move_checkmate_in_one() {
   // println!("engine analysis: {:#?}", engine.analysis.scores);
   engine.print_evaluations();
   let expected_move = Move::from_string("b6d5");
-  assert_eq!(expected_move, engine.get_best_move());
+  assert_eq!(expected_move, engine.get_best_move().unwrap());
 }
 
 #[test]
@@ -124,7 +123,7 @@ fn engine_select_best_move_checkmate_in_one_for_black() {
   //println!("engine analysis: {:#?}", engine.analysis.scores);
   engine.print_evaluations();
   let expected_move = Move::from_string("g3g1");
-  assert_eq!(expected_move, engine.get_best_move());
+  assert_eq!(expected_move, engine.get_best_move().unwrap());
 }
 
 #[test]
@@ -138,7 +137,7 @@ fn engine_select_best_move_checkmate_in_two() {
 
   engine.print_evaluations();
   let expected_move = "c1b2";
-  assert_eq!(expected_move, engine.get_best_move().to_string());
+  assert_eq!(expected_move, engine.get_best_move().unwrap().to_string());
   let analysis = engine.get_analysis();
   assert_eq!(analysis.get(0).eval, 198.0);
 }
@@ -154,7 +153,7 @@ fn engine_select_find_best_defensive_move() {
 
   engine.print_evaluations();
   let expected_move = "h8f8";
-  assert_eq!(expected_move, engine.get_best_move().to_string());
+  assert_eq!(expected_move, engine.get_best_move().unwrap().to_string());
 }
 
 #[test]
@@ -167,7 +166,7 @@ fn engine_save_the_last_knight() {
   engine.go();
 
   let good_moves = [Move::from_string("c3b5"), Move::from_string("c3d5")];
-  let engine_move = engine.get_best_move();
+  let engine_move = engine.get_best_move().unwrap();
   engine.print_evaluations();
   if !good_moves.contains(&engine_move) {
     assert!(
@@ -188,7 +187,7 @@ fn engine_promote_this_pawn() {
 
   engine.print_evaluations();
   let expected_move = Move::from_string("a7a8Q");
-  assert_eq!(expected_move, engine.get_best_move());
+  assert_eq!(expected_move, engine.get_best_move().unwrap());
 }
 
 #[test]
@@ -250,7 +249,7 @@ fn test_dont_hang_pieces_1() {
   engine.go();
   engine.print_evaluations();
 
-  let best_move = engine.get_best_move().to_string();
+  let best_move = engine.get_best_move().unwrap().to_string();
 
   if "e4f6" != best_move && "e4d6" != best_move {
     assert!(
@@ -282,7 +281,7 @@ fn test_dont_hang_pieces_2() {
   engine.print_evaluations();
   let not_expected_move = Move::from_string("e2f2");
   assert!(
-    not_expected_move != engine.get_best_move(),
+    not_expected_move != engine.get_best_move().unwrap(),
     "e2f2 should not be played!!"
   );
 }
@@ -316,7 +315,7 @@ fn save_the_queen() {
   println!("Static eval: {static_eval}");
   assert_eq!(true, engine.cache.has_eval(&game_state.board));
 
-  let best_move = engine.get_best_move().to_string();
+  let best_move = engine.get_best_move().unwrap().to_string();
   if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
     assert!(
       false,
@@ -336,7 +335,7 @@ fn capture_the_damn_knight_1() {
   engine.go();
   engine.print_evaluations();
 
-  let best_move = engine.get_best_move().to_string();
+  let best_move = engine.get_best_move().unwrap().to_string();
   if "f8f6" != best_move && "g7f6" != best_move {
     assert!(
       false,
@@ -353,7 +352,7 @@ fn evaluate_checkmate_with_castle() {
   engine.go();
   engine.print_evaluations();
 
-  assert_eq!("e1g1", engine.get_best_move().to_string());
+  assert_eq!("e1g1", engine.get_best_move().unwrap().to_string());
 }
 
 // Game https://lichess.org/Xjgkf4pp seemed really off. Testing some of the positions here
@@ -365,7 +364,7 @@ fn test_select_pawn_capture() {
   engine.go();
   engine.print_evaluations();
 
-  assert_eq!("g2f3", engine.get_best_move().to_string());
+  assert_eq!("g2f3", engine.get_best_move().unwrap().to_string());
 }
 
 #[test]
@@ -378,7 +377,7 @@ fn test_select_best_move_checkmate_in_two() {
   engine.print_evaluations();
 
   let expected_move = "c1b2";
-  assert_eq!(expected_move, engine.get_best_move().to_string());
+  assert_eq!(expected_move, engine.get_best_move().unwrap().to_string());
 }
 
 #[test]
@@ -390,7 +389,7 @@ fn test_select_best_move_checkmate_in_one() {
   engine.go();
   engine.print_evaluations();
   let expected_move = Move::from_string("b6d5");
-  assert_eq!(expected_move, engine.get_best_move());
+  assert_eq!(expected_move, engine.get_best_move().unwrap());
 }
 
 #[test]
@@ -411,39 +410,39 @@ fn test_avoid_threefold_repetitions() {
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1KB2P/R1B5").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1K3P/R1BB4").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    .add(Board::from_fen("r7/1p4p1/5p1p/b3n1k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
   engine
     .position
     .last_positions
-    .push_back(Board::from_fen("r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
+    .add(Board::from_fen("r7/1p4p1/2n2p1p/b5k1/p1b1P1P1/P1N3R1/1P1KB2P/R1B5").hash);
 
   engine.go();
   engine.print_evaluations();
-  assert!(engine.get_best_move() != Move::from_string("d1e2"));
+  assert!(engine.get_best_move().unwrap() != Move::from_string("d1e2"));
 }
 
 #[test]
@@ -456,7 +455,7 @@ fn test_only_one_legal_move() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move() == Move::from_string("f8e8"));
+  assert!(engine.get_best_move().unwrap() == Move::from_string("f8e8"));
 }
 
 #[test]
@@ -468,7 +467,7 @@ fn capture_the_bishop() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() == "b5b4");
+  assert!(engine.get_best_move().unwrap().to_string() == "b5b4");
 }
 
 #[test]
@@ -478,12 +477,11 @@ fn endgame_evaluation_search() {
   engine.set_search_time_limit(800);
   engine.go();
   engine.print_evaluations();
-  let analysis = engine.get_analysis();
   let bad_moves = vec![
     "c7c4", "c7c3", "c7c2", "c7d8", "c7c8", "c7b7", "c7a7", "c7e7", "c7f7", "c7d7", "c7g7", "c7h7",
     "b8a8", "b8a7",
   ];
-  assert!(!bad_moves.contains(&engine.get_best_move().to_string().as_str()));
+  assert!(!bad_moves.contains(&engine.get_best_move().unwrap().to_string().as_str()));
 }
 
 #[test]
@@ -499,8 +497,8 @@ fn evaluate_real_game_0BYxLu3V_example_1() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move() != Move::from_string("f8d6"));
-  assert!(engine.get_best_move() != Move::from_string("f6d8"));
+  assert!(engine.get_best_move().unwrap() != Move::from_string("f8d6"));
+  assert!(engine.get_best_move().unwrap() != Move::from_string("f6d8"));
 }
 
 #[test]
@@ -515,7 +513,7 @@ fn evaluate_real_game_0BYxLu3V_example_2() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move() != Move::from_string("d6e5"));
+  assert!(engine.get_best_move().unwrap() != Move::from_string("d6e5"));
 }
 
 #[test]
@@ -529,7 +527,7 @@ fn evaluate_real_game_no8g7oup_example() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().to_string() == "c2d4");
+  assert!(engine.get_best_move().unwrap().to_string() == "c2d4");
 }
 
 #[test]
@@ -564,7 +562,7 @@ fn test_sorting_moves_without_eval() {
   let engine = Engine::new();
   Engine::find_move_list(&engine.cache, &game_state.board);
   let move_list = engine.cache.get_move_list(&game_state.board).unwrap();
-  for m in &move_list {
+  for m in move_list.get_moves() {
     println!("Move: {}", m.to_string());
   }
 
@@ -637,11 +635,14 @@ fn test_under_promotion_got_evaluated_better() {
   engine.set_multi_pv(2);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert!(analysis.len() >= 2);
   assert_eq!(best_move.to_string(), "h2h1q");
-  assert_eq!(analysis.get(1).variation[0].to_string(), "h2h1r");
+  assert_eq!(
+    analysis.get(1).variation.get_first_move().unwrap().to_string(),
+    "h2h1r"
+  );
   assert!(analysis.get(1).eval < 1.0);
   assert!(analysis.get(1).eval > -1.0);
 
@@ -653,7 +654,7 @@ fn test_under_promotion_got_evaluated_better() {
   engine.set_multi_pv(3);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   assert_ne!(best_move, Move::default());
   let analysis = engine.get_analysis();
   assert!(analysis.len() >= 3);
@@ -689,7 +690,7 @@ fn test_knight_bonanza_on_real_game() {
   engine.set_search_time_limit(7509);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
   assert_eq!(best_move.to_string(), "e5d7");
@@ -718,7 +719,7 @@ fn real_game_was_winning() {
   engine.set_multi_pv(0);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
   assert!(best_move.to_string() == "f7e6" || best_move.to_string() == "g8h8");
@@ -733,7 +734,7 @@ fn chess_model_bunked_while_searching() {
   engine.set_maximum_depth(6);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
   assert!(best_move.to_string() == "c1d1");
@@ -748,7 +749,7 @@ fn king_disappeared() {
   engine.set_search_time_limit(3000);
   engine.go();
   engine.print_evaluations();
-  let best_move = engine.get_best_move();
+  let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert_ne!(best_move, Move::default());
   assert!(!analysis.is_empty());

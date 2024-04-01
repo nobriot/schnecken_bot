@@ -1,11 +1,10 @@
 use log::*;
-use std::collections::VecDeque;
 
 use crate::model::board::*;
 use crate::model::board_mask::*;
+use crate::model::containers::position_list::*;
 use crate::model::moves::*;
 use crate::model::piece::*;
-use crate::model::tables::zobrist::BoardHash;
 
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -20,7 +19,6 @@ pub enum GamePhase {
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd)]
-#[repr(u8)]
 pub enum GameStatus {
   #[default]
   Ongoing,
@@ -31,14 +29,17 @@ pub enum GameStatus {
   Draw,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+/// Captures all the data required in a Chess Game
+/// to identify Stalemates, repetitions, etc.
+///
+#[derive(Clone)]
 pub struct GameState {
   pub board: Board,
   pub ply: u8,
-  pub move_count: usize,
+  // Number of half-moves in the game
+  pub move_count: u16,
   // Vector of position representing the last x positions, from the start
-  pub last_positions: VecDeque<BoardHash>,
-  pub last_moves: Vec<Move>,
+  pub last_positions: PositionList,
 }
 
 // -----------------------------------------------------------------------------
@@ -60,8 +61,7 @@ impl GameState {
       board: board.clone(),
       ply: 0,
       move_count: 0,
-      last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
-      last_moves: Vec::new(),
+      last_positions: PositionList::new(),
     }
   }
 
@@ -84,14 +84,20 @@ impl GameState {
 
     let board = Board::from_fen(fen);
     let ply: u8 = fen_parts[4].parse::<u8>().unwrap_or(0);
-    let move_count: usize = fen_parts[5].parse::<usize>().unwrap_or(0);
+    let mut move_count: u16 = fen_parts[5].parse::<u16>().unwrap_or(1);
+    if move_count > 0 {
+      move_count -= 1;
+    }
+    move_count *= 2;
+    if board.side_to_play == Color::Black {
+      move_count += 1;
+    }
 
     GameState {
-      board: board,
-      ply: ply,
-      move_count: move_count,
-      last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
-      last_moves: Vec::new(),
+      board,
+      ply,
+      move_count,
+      last_positions: PositionList::new(),
     }
   }
 
@@ -127,7 +133,7 @@ impl GameState {
     fen.push(' ');
     fen += self.ply.to_string().as_str();
     fen.push(' ');
-    fen += self.move_count.to_string().as_str();
+    fen += (self.move_count / 2 + 1).to_string().as_str();
 
     fen
   }
@@ -145,7 +151,7 @@ impl GameState {
   /// i.e. 0 the position just occurred for the first time. 2 means a threefold repetition
   ///
   pub fn get_board_repetitions(&self) -> usize {
-    self.last_positions.iter().filter(|x| **x == self.board.hash).count()
+    self.last_positions.count(self.board.hash)
     // self.last_positions.iter().fold(0,|count, x| if *x == self.board.hash { count + 1 } else { count },)
   }
 
@@ -212,12 +218,8 @@ impl GameState {
     /*
     println!("Applying move {} on game {}", chess_move, self.to_fen());
     let mut moves = String::new();
-    for m in &self.last_moves {
-      moves += m.to_string().as_str();
-      moves.push(' ');
-    }
-    println!("Last moves: {}", moves);
      */
+    debug_assert!(!chess_move.is_null(), "Null move passed for applying.");
     debug_assert!(
       self.board.pieces.get(chess_move.src() as u8) != NO_PIECE,
       "Input moves with empty source square? {} - board:{}\n{:#?}",
@@ -228,33 +230,27 @@ impl GameState {
 
     // Save the last position:
     let source_is_pawn: bool = square_in_mask!(chess_move.src(), self.board.pieces.pawns());
-    if source_is_pawn {
-      // Cannot really repeat a position after a pawn moves, assume anything forward is a novel position
+    if source_is_pawn || chess_move.is_capture() {
+      // Cannot really repeat a position after a pawn moves or a capture
+      // assume anything forward is a novel position
       self.last_positions.clear();
     } else {
-      if self.last_positions.len() >= LAST_POSITIONS_SIZE {
-        self.last_positions.pop_back();
-      }
+      self.last_positions.add(self.board.hash);
     }
-    self.last_positions.push_front(self.board.hash);
 
     // Update the ply-count
     let destination_piece = self.board.pieces.get(chess_move.dest() as u8);
     if destination_piece != NO_PIECE || source_is_pawn {
       self.ply = 0;
-    } else if self.ply < 255 {
+    } else if self.ply < u8::MAX {
       self.ply += 1;
     }
 
-    // Move count (keep in that order, as the side to play is updated in the board.apply_move())
-    if self.board.side_to_play == Color::Black {
-      self.move_count += 1;
-    }
+    //Half Move count
+    self.move_count += 1;
+
     // Move the pieces on the board
     self.board.apply_move(chess_move);
-
-    // Save the move we applied.
-    self.last_moves.push(chess_move.clone());
   }
 
   /// Applies all moves from a vector of moves
@@ -331,9 +327,7 @@ impl std::fmt::Debug for GameState {
     message += format!("Board: {}\n", self.board.to_fen()).as_str();
 
     message += "last positions:\n";
-    for i in 0..self.last_positions.len() {
-      message += format!("- {}\n", self.last_positions[i]).as_str();
-    }
+    message += format!("- {}\n", self.last_positions).as_str();
 
     f.write_str(message.as_str())
   }
@@ -344,9 +338,8 @@ impl Default for GameState {
     GameState {
       board: Board::from_fen(START_POSITION_FEN),
       ply: 0,
-      move_count: 1,
-      last_positions: VecDeque::with_capacity(LAST_POSITIONS_SIZE),
-      last_moves: Vec::new(),
+      move_count: 0,
+      last_positions: PositionList::new(),
     }
   }
 }

@@ -53,7 +53,7 @@ pub struct Board {
   pub checkers: BoardMask,
   /// Boardmask of pieces that are pinned
   pub pins: BoardMask,
-  pub hash: u64,
+  pub hash: BoardHash,
 }
 
 // -----------------------------------------------------------------------------

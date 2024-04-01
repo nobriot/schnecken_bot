@@ -3,6 +3,7 @@ use log::*;
 use std::mem;
 
 // From our project
+use crate::model::containers::move_list::*;
 use crate::model::moves::Move;
 use crate::model::tables::zobrist::BoardHash;
 
@@ -11,7 +12,7 @@ use crate::model::tables::zobrist::BoardHash;
 #[derive(Clone)]
 struct MoveListCacheEntry {
   hash: BoardHash,
-  move_list: Option<Vec<Move>>,
+  move_list: Option<MoveList>,
 }
 
 /// Default values for EvaluationCacheEntry
@@ -69,7 +70,7 @@ impl MoveListCacheTable {
 
   /// Get a particular entry with the hash specified
   #[inline]
-  pub fn get(&self, hash: BoardHash) -> Option<Vec<Move>> {
+  pub fn get(&self, hash: BoardHash) -> Option<&[Move]> {
     let entry = unsafe { self.table.get_unchecked((hash as usize) & self.max_index_mask) };
     if entry.hash != hash {
       return None;
@@ -78,7 +79,7 @@ impl MoveListCacheTable {
       return None;
     }
 
-    Some(entry.move_list.as_ref().unwrap().clone())
+    Some(entry.move_list.as_ref().unwrap().get_moves())
   }
 
   /// Adds (or update) an evaluation cache entry.
@@ -87,7 +88,7 @@ impl MoveListCacheTable {
     let e = unsafe { self.table.get_unchecked_mut((hash as usize) & self.max_index_mask) };
     *e = MoveListCacheEntry {
       hash: hash,
-      move_list: Some(list.to_vec().clone()),
+      move_list: Some(MoveList::new_from_slice(list)),
     };
   }
 
