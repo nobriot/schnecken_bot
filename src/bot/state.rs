@@ -233,7 +233,9 @@ impl BotState {
     // Write a hello message -
     let game_id = game.game_id.clone();
     let api_clone = self.api.clone();
-    tokio::spawn(async move { api_clone.write_in_chat(game_id.as_str(), "Hey! Have fun!").await });
+    tokio::spawn(async move {
+      api_clone.write_in_spectator_room(game_id.as_str(), "Hey everyone! Enjoy the show").await
+    });
 
     // Game started, we add it to our games and stream the game events
     //let fen = game.fen.unwrap_or(String::from(START_POSITION_FEN));
@@ -420,7 +422,7 @@ impl BotState {
     );
 
     // Test the bots and see if they answer here:
-    if message.text.contains("type !help") {
+    if message.text.contains("!help") {
       let api_clone = self.api.clone();
       let game_id_clone = String::from(game_id);
       tokio::spawn(async move {
@@ -473,7 +475,7 @@ impl BotState {
       game.engine.position.to_fen()
     );
 
-    game.engine.set_search_time_limit(suggested_time_ms);
+    game.engine.options.max_search_time = suggested_time_ms;
     game.engine.go();
     game.engine.print_evaluations();
 

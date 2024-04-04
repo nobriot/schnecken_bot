@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 use std::fmt::Display;
 use std::ops::Index;
 
@@ -36,7 +35,6 @@ impl MoveList {
     };
 
     unsafe {
-      // Try hard to copy fast.
       let dest = list.moves.as_mut_ptr();
       let src = moves.as_ptr();
       std::ptr::copy_nonoverlapping(src, dest, list.length as usize);

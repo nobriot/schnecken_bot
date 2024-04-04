@@ -92,9 +92,9 @@ fn main() -> ExitCode {
 
       "debug" => {
         if line.contains("on") {
-          engine.set_debug(true);
+          engine.options.debug = true;
         } else {
-          engine.set_debug(false);
+          engine.options.debug = false;
         }
       },
 
@@ -116,20 +116,20 @@ fn main() -> ExitCode {
         match name {
           "use_nnue" => {
             let value = value.parse::<bool>().unwrap_or(false);
-            engine.set_use_nnue(value);
+            engine.options.use_nnue = value;
           },
           "ponder" => {
             let value = value.parse::<bool>().unwrap_or(false);
-            engine.set_ponder(value);
+            engine.options.ponder = value;
           },
           "play_style" => {
             let value = value.parse::<PlayStyle>().unwrap_or_default();
-            engine.set_play_style(value);
+            engine.options.play_style = value;
           },
           "multi_pv" => {
             let mut value = value.parse::<usize>().unwrap_or(3);
             value = std::cmp::min(value, 5);
-            engine.set_multi_pv(value);
+            engine.options.multi_pv = value;
           },
           _ => {},
         }
@@ -190,10 +190,10 @@ fn main() -> ExitCode {
       "go" => {
         // Check some of the options passed:
         if line.contains("infinite") {
-          engine.set_maximum_depth(0);
+          engine.options.max_depth = 0;
         }
         if line.contains("ponder") {
-          engine.set_ponder(true);
+          engine.options.ponder = true;
         }
         // Get started searching:
         let engine_clone = engine.clone();

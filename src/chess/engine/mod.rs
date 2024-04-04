@@ -4,6 +4,7 @@ pub mod config;
 pub mod eval;
 pub mod game_history;
 pub mod nnue;
+pub mod search;
 pub mod search_result;
 pub mod tables;
 
@@ -243,7 +244,7 @@ pub struct Engine {
   /// Position cache, used to speed up processing
   cache: EngineCache,
   /// Engine options
-  options: Arc<Mutex<Options>>,
+  pub options: EngineOptions,
   /// Whether the engine is active of not, and if we want to stop it.
   state: EngineState,
   /// NNUE
@@ -266,17 +267,7 @@ impl Engine {
       position: GameState::default(),
       analysis: Analysis::default(),
       cache: EngineCache::new(),
-      options: Arc::new(Mutex::new(Options {
-        uci: true,
-        ponder: false,
-        max_depth: 20,
-        max_time: 0,
-        max_threads: 16,
-        use_nnue: false,
-        debug: false,
-        style: PlayStyle::Normal,
-        multi_pv: 3,
-      })),
+      options: EngineOptions::default(),
       state: EngineState {
         active: Arc::new(Mutex::new(false)),
         stop_requested: Arc::new(Mutex::new(false)),
@@ -344,7 +335,7 @@ impl Engine {
   /// and max_time is set to a non-zero value.
   ///
   fn has_been_searching_too_long(&self) -> bool {
-    let max_time = self.options.lock().unwrap().max_time;
+    let max_time = self.options.max_search_time;
     if max_time == 0 {
       return false;
     }
@@ -449,7 +440,7 @@ impl Engine {
     Engine::find_move_list(&self.cache, &self.position.board);
 
     // First check if we are in a known book position. If yes, just return the known list
-    let play_style = self.options.lock().unwrap().style;
+    let play_style = self.options.play_style;
     let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
     if book_entry.is_some() {
       info!(
@@ -460,10 +451,8 @@ impl Engine {
       let mut rng = rand::thread_rng();
       move_list.shuffle(&mut rng);
 
-      let mut result: SearchResult = SearchResult::new(
-        self.options.lock().unwrap().multi_pv,
-        self.position.board.side_to_play,
-      );
+      let mut result: SearchResult =
+        SearchResult::new(self.options.multi_pv, self.position.board.side_to_play);
 
       for m in &move_list {
         result.update(VariationWithEval::new_from_move(0.0, *m));
@@ -499,10 +488,8 @@ impl Engine {
         };
         self.cache.set_eval(&game_state.board, evaluation_cache);
       }
-      let mut result: SearchResult = SearchResult::new(
-        self.options.lock().unwrap().multi_pv,
-        game_state.board.side_to_play,
-      );
+      let mut result: SearchResult =
+        SearchResult::new(self.options.multi_pv, game_state.board.side_to_play);
       result.update(VariationWithEval::new_from_move(
         evaluation_cache.eval,
         moves[0],
@@ -547,13 +534,13 @@ impl Engine {
 
       // If the best move is just winning for us, stop searching unless requested to.
       if Engine::best_move_is_mating_sequence(self.position.board.side_to_play, best_eval)
-        && self.options.lock().unwrap().ponder == false
+        && self.options.ponder == false
       {
         debug!("Winning sequence found! Stopping search");
         break;
       }
 
-      let max_depth = self.options.lock().unwrap().max_depth;
+      let max_depth = self.options.max_depth;
       if max_depth > 0 && self.analysis.get_depth() >= max_depth {
         break;
       }
@@ -589,7 +576,7 @@ impl Engine {
   ///
   #[inline]
   pub fn print_uci_info(&self) {
-    if !self.get_uci() {
+    if !self.options.uci {
       return;
     }
 
@@ -598,7 +585,7 @@ impl Engine {
     let selective_depth = self.analysis.get_selective_depth();
     let nodes_visited = self.analysis.get_nodes_visited();
     let start_time = self.get_start_time();
-    let multi_pv_setting = self.options.lock().unwrap().multi_pv;
+    let multi_pv_setting = self.options.multi_pv;
 
     for i in 0..min(multi_pv_setting, result.variations.len()) {
       let eval = result.variations[i].eval;
@@ -629,13 +616,13 @@ impl Engine {
   ///
   #[inline]
   pub fn print_uci_best_move(&self) {
-    if self.get_uci() {
+    if self.options.uci {
       println!("bestmove {}", self.get_best_move().unwrap_or(Move::null()));
     }
   }
 
   pub fn print_debug(&self, debug_info: &str) {
-    if self.options.lock().unwrap().debug {
+    if self.options.debug {
       println!("info string {}", debug_info);
     }
   }
@@ -727,108 +714,6 @@ impl Engine {
   ///
   pub fn get_start_time(&self) -> Instant {
     *self.state.start_time.lock().unwrap()
-  }
-
-  //----------------------------------------------------------------------------
-  // Engine Options
-
-  /// Configures if the engine should ponder when it finds a winning sequence
-  /// (i.e. continue calculating alternative lines)
-  ///
-  pub fn set_ponder(&self, ponder: bool) {
-    self.options.lock().unwrap().ponder = ponder;
-  }
-
-  /// Configure the depth at which to search with the engine.
-  ///
-  /// ### Arguments
-  ///
-  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving a position
-  ///
-  pub fn set_maximum_depth(&self, max_depth: usize) {
-    self.options.lock().unwrap().max_depth = max_depth;
-  }
-
-  /// Sets a timelimit in ms on how long we search
-  ///
-  /// ### Arguments
-  ///
-  /// * `max_time`: Maximum amount of time, in milliseconds, to spend resolving a position
-  ///
-  pub fn set_search_time_limit(&self, max_time: usize) {
-    self.options.lock().unwrap().max_time = max_time;
-  }
-
-  /// Sets the number of threads to use during a search
-  ///
-  /// ### Arguments
-  ///
-  /// * `max_threads`: Maximum number of threads that will be used during the search.
-  ///
-  pub fn set_number_of_threads(&self, max_threads: usize) {
-    self.options.lock().unwrap().max_threads = max_threads;
-  }
-
-  /// Helper function that sets the "uci" bool value in the engine options
-  ///
-  /// ### Arguments
-  ///
-  /// * `uci`: The new value to apply to uci
-  ///
-  pub fn set_uci(&self, uci: bool) {
-    self.options.lock().unwrap().uci = uci;
-  }
-
-  /// Helper function that sets the "uci" bool value in the engine options
-  ///
-  /// ### Arguments
-  ///
-  /// * `uci`: The new value to apply to uci
-  ///
-  pub fn get_uci(&self) -> bool {
-    return self.options.lock().unwrap().uci;
-  }
-
-  /// Helper function that sets the "use_nnue" bool value in the engine options
-  ///
-  /// ### Arguments
-  ///
-  /// * `use_nnue`: The new value to apply to use_nnue
-  ///
-  pub fn set_use_nnue(&self, nnue: bool) {
-    self.options.lock().unwrap().use_nnue = nnue;
-  }
-
-  /// Helper function that sets the "debug" bool value in the engine options
-  /// If debug is set to true, it will print "info string <debug_strings>"
-  /// once in a while.
-  ///
-  /// ### Arguments
-  ///
-  /// * `enabled`: Set this value to enable or disable debug information
-  ///
-  pub fn set_debug(&self, enabled: bool) {
-    self.options.lock().unwrap().debug = enabled;
-  }
-
-  /// Helper function that sets the "play style" value in the engine options
-  ///
-  /// ### Arguments
-  ///
-  /// * `play_style`: Value to set for the play style.
-  ///
-  pub fn set_play_style(&self, play_style: PlayStyle) {
-    self.options.lock().unwrap().style = play_style;
-  }
-
-  /// Helper function that sets the "multi_pv" value in the engine options
-  ///
-  /// ### Arguments
-  ///
-  /// * `multi_pv`: Value to set for the multi_pv.
-  ///
-  pub fn set_multi_pv(&self, value: usize) {
-    self.options.lock().unwrap().multi_pv = value;
   }
 
   //----------------------------------------------------------------------------
@@ -1023,7 +908,7 @@ impl Engine {
           self.analysis.increment_nodes_visited();
 
           // FIXME:  NNUE eval is still too slow, we should implement incremental updates
-          if depth > 10 && self.options.lock().unwrap().use_nnue == true {
+          if depth > 10 && self.options.use_nnue == true {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
             eval = eval * 0.5 + nnue_eval * 0.5;
