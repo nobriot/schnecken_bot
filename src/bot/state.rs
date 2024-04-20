@@ -245,7 +245,7 @@ impl BotState {
     engine.set_position(START_POSITION_FEN);
     engine.resize_cache_tables(1024); // Use 1024 MB for cache tables.
 
-    let bot_game: BotGame = BotGame {
+    let mut bot_game: BotGame = BotGame {
       color: game.color,
       start_fen: String::from(START_POSITION_FEN),
       id: game.game_id,
@@ -271,7 +271,7 @@ impl BotState {
         "Weaker opponent detected (ratings {} vs {}). Setting play style to provocative",
         game.opponent.rating, self.ratings[&game.speed]
       );
-      bot_game.engine.set_play_style(PlayStyle::Provocative);
+      bot_game.engine.options.play_style = PlayStyle::Provocative;
       let game_id = bot_game.id.clone();
       let api_clone = self.api.clone();
       tokio::spawn(async move {

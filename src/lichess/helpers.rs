@@ -3,7 +3,7 @@ use serde_json::Value as JsonValue;
 
 /// Parses a string to a Vector of JSON values.
 ///
-/// ### Aguments
+/// ### Arguments
 ///
 /// * `string_value` The ND-JSON string
 ///
@@ -33,10 +33,12 @@ pub fn parse_string_to_nd_json(string_value: &str) -> Vec<JsonValue> {
   result
 }
 
+#[cfg(test)]
 mod tests {
+  use crate::helpers::parse_string_to_nd_json;
+
   #[test]
   fn parse_nd_json_empty_lines() {
-    use crate::lichess::helpers::*;
     let test_string = "\n\r\n\r\n\r\n\r\n\r\n\r\n\r
         
         \n\r
@@ -49,8 +51,6 @@ mod tests {
 
   #[test]
   fn parse_nd_json_3_valid_lines() {
-    use crate::lichess::helpers::*;
-
     let test_string = r#"{"value": 1}
                 {"value": 2}
                 {"value": 3}
@@ -61,8 +61,6 @@ mod tests {
 
   #[test]
   fn parse_nd_json_1_valid_line() {
-    use crate::lichess::helpers::*;
-
     let test_string = r#"{"value: 1}
         {"value": 2
         {"value": 3}
