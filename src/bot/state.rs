@@ -3,6 +3,7 @@ use rand::Rng;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fs;
+use std::io;
 use std::sync::{Arc, Mutex};
 use tokio::task::JoinHandle;
 
@@ -16,6 +17,8 @@ use chess::engine::search_result::VariationWithEval;
 use chess::engine::Engine;
 use chess::model::game_state::START_POSITION_FEN;
 use chess::model::moves::Move;
+
+use super::bot_control::BotControlState;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -34,6 +37,7 @@ pub struct BotState {
   pub ratings: HashMap<String, usize>,
   // TODO: Find if we can improve this.
   pub games: Arc<Mutex<Vec<Arc<Mutex<BotGame>>>>>,
+  exit: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +68,7 @@ pub struct BotGame {
   pub engine: Engine,
   // Set to true if we bragged/complained about the evaluation in the spectator room
   pub mating_sequence_announced: bool,
+  pub bot_control: BotControlState,
 }
 
 impl BotState {
@@ -97,6 +102,26 @@ impl BotState {
       username,
       ratings,
       games: Arc::new(Mutex::new(Vec::new())),
+      exit: Arc::new(Mutex::new(false)),
+    }
+  }
+
+  /// Checks if the bot was configured to exit.
+  pub fn should_exit(&self) -> bool {
+    *self.exit.lock().unwrap()
+  }
+
+  /// Indicates the bot that it should stop and exit everything.
+  pub fn request_exit(&self) {
+    *self.exit.lock().unwrap() = true;
+  }
+
+  pub fn listen_to_stdin_commands(&self) {
+    use crate::bot::commands::BotCommands;
+    loop {
+      let mut input = String::new();
+      io::stdin().read_line(&mut input).expect("Could not read_line from stdin");
+      self.execute_command(input.trim());
     }
   }
 
@@ -261,6 +286,7 @@ impl BotState {
       },
       engine,
       mating_sequence_announced: false,
+      bot_control: BotControlState::NotStarted,
     };
 
     // If the opponent is 100 less points than us, play provocative oppenings.
@@ -422,13 +448,13 @@ impl BotState {
     );
 
     // Test the bots and see if they answer here:
-    if message.text.contains("!help") {
-      let api_clone = self.api.clone();
-      let game_id_clone = String::from(game_id);
-      tokio::spawn(async move {
-        api_clone.write_in_chat_room(game_id_clone.as_str(), message.room, "!help").await
-      });
-    }
+    //if message.text.contains("!help") {
+    // let api_clone = self.api.clone();
+    // let game_id_clone = String::from(game_id);
+    // tokio::spawn(async move {
+    //   api_clone.write_in_chat_room(game_id_clone.as_str(), message.room, "!help").await
+    // });
+    // }
   }
 
   /// Attempts to make a move on a game
@@ -705,7 +731,14 @@ impl EventStreamHandler for BotState {
   /// * `json_value` - JSON payload received in the HTTP stream.
   fn event_stream_handler(&self, json_value: JsonValue) {
     if json_value["type"].as_str().is_none() {
-      error!("No type for incoming stream event.");
+      error!("No type for incoming stream event. JSON: {json_value}");
+
+      if let Some(error) = json_value["error"].as_str() {
+        if error.contains("token") {
+          error!("Token error. Exiting the bot.");
+          self.request_exit();
+        }
+      }
       return;
     }
 
@@ -770,7 +803,7 @@ impl EventStreamHandler for BotState {
 impl GameStreamHandler for BotState {
   /// Handles incoming game events for the bot.
   ///
-  /// https://lichess.org/api#tag/Bot/operation/botGameStream
+  /// <https://lichess.org/api#tag/Bot/operation/botGameStream>
   /// for the JSON payload
   ///
   /// ### Arguments
@@ -781,7 +814,14 @@ impl GameStreamHandler for BotState {
   fn game_stream_handler(&self, json_value: JsonValue, game_id: String) {
     debug!("Incoming stream event for Game ID {game_id}");
     if json_value["type"].as_str().is_none() {
-      error!("No type for incoming stream event.");
+      error!("No type for incoming stream event. JSON: {json_value}");
+
+      if let Some(error) = json_value["error"].as_str() {
+        if error.contains("token") {
+          error!("Token error. Exiting the bot.");
+          self.request_exit();
+        }
+      }
       return;
     }
 

@@ -18,8 +18,7 @@ pub trait BotCommands {
   ///
   /// * `self` -            Object reference for which we implement the method
   /// * `input` -           Text input / Command to interpret
-  /// * `exit_requested` -  Whether the command requests the bot/program to stop
-  fn execute_command(&self, input: &str, exit_requested: &mut bool);
+  fn execute_command(&self, input: &str);
 }
 
 // -----------------------------------------------------------------------------
@@ -38,7 +37,7 @@ fn print_help() {
 // -----------------------------------------------------------------------------
 // Implementation
 impl BotCommands for BotState {
-  fn execute_command(&self, input: &str, exit_requested: &mut bool) {
+  fn execute_command(&self, input: &str) {
     // Remember to trim, it will also remove the newline
     match input.trim() as &str {
       PLAY_COMMAND | P_COMMAND => {
@@ -46,7 +45,7 @@ impl BotCommands for BotState {
         tokio::spawn(async move { clone.challenge_somebody().await });
       },
       EXIT_COMMAND | QUIT_COMMAND | Q_COMMAND => {
-        *exit_requested = true;
+        self.request_exit();
       },
       HELP_COMMAND => print_help(),
       EMPTY_COMMAND => {},

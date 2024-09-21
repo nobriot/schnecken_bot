@@ -10,6 +10,7 @@ pub mod tables;
 
 #[cfg(test)]
 pub mod tests;
+mod comments;
 
 use log::*;
 use rand::seq::SliceRandom;

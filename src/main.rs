@@ -3,6 +3,8 @@ use anyhow::{anyhow, Result};
 use log::*;
 use std::fs;
 use std::io;
+use tokio::runtime::Runtime;
+use tokio::time::{sleep, Duration};
 
 // Local modules
 mod bot;
@@ -13,7 +15,7 @@ const API_TOKEN_FILE_NAME: &str = "/assets/lichess_api_token.txt";
 // Main function
 fn main() {
   env_logger::builder().format_timestamp_millis().init();
-  let rt = tokio::runtime::Runtime::new().unwrap();
+  let rt = Runtime::new().unwrap();
 
   match rt.block_on(main_loop()) {
     Ok(_) => info!("Exiting successfully."),
@@ -39,12 +41,12 @@ async fn main_loop() -> Result<()> {
     use crate::bot::commands::BotCommands;
     // Read command line inputs for ever, until we have to exit
     let mut input = String::new();
-    let mut exit_requested: bool = false;
     io::stdin().read_line(&mut input)?;
 
-    schnecken_bot.execute_command(input.trim(), &mut exit_requested);
+    schnecken_bot.execute_command(input.trim());
 
-    if exit_requested {
+    sleep(Duration::from_millis(100)).await;
+    if schnecken_bot.should_exit() {
       info!("Exiting the Lichess bot... ");
       break;
     }
