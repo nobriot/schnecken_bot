@@ -19,14 +19,14 @@ fn main() {
 
   match rt.block_on(main_loop()) {
     Ok(_) => info!("Exiting successfully."),
-    Err(_) => error!("An error ocurred"),
+    Err(_) => error!("An error occurred"),
   };
 }
 
 async fn main_loop() -> Result<()> {
   // Check that the Lichess Token is okay:
-  let api_token =
-    fs::read_to_string(String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME)?;
+  let api_token_file = String::from(env!("CARGO_MANIFEST_DIR")) + API_TOKEN_FILE_NAME;
+  let api_token = fs::read_to_string(api_token_file)?;
   if api_token.is_empty() {
     error!("Error reading the API token. Make sure that you have added a token file.");
     return Err(anyhow!("Missing API Token"));
@@ -38,7 +38,7 @@ async fn main_loop() -> Result<()> {
   schnecken_bot.start();
 
   loop {
-    use crate::bot::commands::BotCommands;
+    use bot::commands::BotCommands;
     // Read command line inputs for ever, until we have to exit
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;

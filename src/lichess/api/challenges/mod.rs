@@ -69,11 +69,7 @@ impl LichessApi {
       "rated=true&clock.limit={}&clock.increment={}&color=random&variant=standard",
       clock.initial, clock.increment
     );
-    if self
-      .lichess_post(&api_endpoint, body_parameters.as_str())
-      .await
-      .is_ok()
-    {
+    if self.lichess_post(&api_endpoint, body_parameters.as_str()).await.is_ok() {
       Ok(())
     } else {
       Err(())

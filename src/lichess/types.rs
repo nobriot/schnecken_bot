@@ -110,9 +110,9 @@ pub struct Challenger {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TimeControl {
-  pub increment: usize,
-  pub limit: usize,
-  pub show: String,
+  pub increment: Option<usize>,
+  pub limit: Option<usize>,
+  pub show: Option<String>,
   #[serde(rename = "type")]
   pub control_type: TimeControlType,
 }
@@ -122,6 +122,7 @@ pub struct TimeControl {
 pub enum TimeControlType {
   Clock,
   Correspondence,
+  Unlimited,
 }
 
 /// Player title, can be any FIDE title for titled players and BOT for bots.

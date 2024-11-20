@@ -5,5 +5,10 @@
   },
   "rust-analyzer.linkedProjects": [
     "./Cargo.toml"
+  ],
+  "cSpell.words": [
+    "boardmask",
+    "crosstable",
+    "Lichess"
   ]
 }

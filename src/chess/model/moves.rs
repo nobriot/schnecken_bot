@@ -267,7 +267,7 @@ pub struct Move {
   /// promotion mask      : 0b 0000 0000 0000 0000 1111 0000 0000 0000
   /// is_capture mask     : 0b 0000 0000 0000 0111 0000 0000 0000 0000
   /// checks mask         : 0b 0000 0000 0001 1000 0000 0000 0000 0000
-  /// is_casle mask       : 0b 0000 0000 0010 0000 0000 0000 0000 0000
+  /// is_castle mask      : 0b 0000 0000 0010 0000 0000 0000 0000 0000
   /// en_passant mask     : 0b 0000 0000 0100 0000 0000 0000 0000 0000
   ///
   /// Note that capture/gives_check depends on the board configuration and

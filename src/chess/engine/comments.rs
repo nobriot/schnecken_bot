@@ -1,7 +1,6 @@
 // Type definitions
 
 /// High level position evaluation
-///
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
 pub enum HighLevelEvaluation {
   WhiteIsMating,
@@ -16,13 +15,12 @@ pub enum HighLevelEvaluation {
 
 /// Events/changes that can happen during a game
 /// that do deserve commenting on
-///
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
 pub enum GameEvents {
   /// The opponent delivered an epic mate
-  /// Epic mates are : 
-  /// Very complicated positions where many pieces (both same side and opponent participating in the mating net)
-  /// Forks the king/queen for a win
+  /// Epic mates are :
+  /// Very complicated positions where many pieces (both same side and opponent
+  /// participating in the mating net) Forks the king/queen for a win
   /// Smothered mate
   OpponentEpicMate,
   /// We delivered an epic mate
@@ -64,7 +62,6 @@ impl ToString for GameEvents {
 }
 
 /// List of things we could tell to trash talk during a game.
-///
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
 pub enum TrashTalk {
   /// To another human that has a positive score against our
@@ -97,7 +94,7 @@ impl ToString for TrashTalk {
         TrashTalk::YouAreJustAChessEngine => String::from("Hey there ... You're just a simple engine it seems. I am a chess bot :-D."),
         TrashTalk::YouAreJustHuman => String::from("Hey there ... It seems that you're just a simple human. Good luck!"),
         TrashTalk::TooSlowMyFriend => String::from("Consider working on your speed... Slow and steady wins the race"),
-        TrashTalk::YouCanAlreadyResign => String::from("consider working on your speed... Slow and steady wins the race"),
+        TrashTalk::YouCanAlreadyResign => String::from("What are you waiting to resign ??"),
         TrashTalk::WhatAreYouWaitingToCheckmateMe => String::from("What are you waiting to checkmate me?? Don't you know the rules ?"),
         TrashTalk::OhNoMyQueen => String::from("Oh no my queen!"),
         TrashTalk::HowDoesTheKnightMove => String::from("How does the knight move?"),

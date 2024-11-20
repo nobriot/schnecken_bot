@@ -21,9 +21,9 @@ const API_BASE_URL: &'static str = "https://lichess.org/api/";
 #[derive(Debug, Clone)]
 pub struct LichessApi {
   /// Reqwest client use to send HTTP/HTTPS requests
-  pub client: reqwest::Client,
+  client: reqwest::Client,
   /// Lichess API token, giving us access to an account and some permissions
-  pub token: String,
+  token: String,
 }
 
 /// Trait for an object that can be invoked using the Event Streams
@@ -58,6 +58,15 @@ pub trait GameStreamHandler {
 }
 
 impl LichessApi {
+  /// Creates a new instance of a LichessApi, using the API token
+  ///
+  pub fn new(token: &str) -> Self {
+    LichessApi {
+      client: reqwest::Client::new(),
+      token: String::from(token),
+    }
+  }
+
   //----------------------------------------------------------------------------
   // Private functions
 
@@ -280,7 +289,6 @@ impl LichessApi {
           debug!("Received keep-alive message for Game State stream");
         }
 
-        //futures::future::ready(())
         ()
       })
       .await;
