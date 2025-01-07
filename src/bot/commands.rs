@@ -27,8 +27,10 @@ fn print_help() {
   println!("Welcome ! You can use the following commands:\n\n");
   println!("{} or {} - Attempts to play with one of our favorite players",
            PLAY_COMMAND, P_COMMAND);
-  println!("{} - Exits the program", EXIT_COMMAND);
-  println!("{} or {} - Exits the program", QUIT_COMMAND, Q_COMMAND);
+  println!("{} - Exits the program - keep ongoing games alive",
+           EXIT_COMMAND);
+  println!("{} or {} - Exits the program - Aborts/resigns ongoing games",
+           QUIT_COMMAND, Q_COMMAND);
   println!("{} - Displays the help", HELP_COMMAND);
 }
 
@@ -41,8 +43,11 @@ impl BotCommands for BotStateRef {
       PLAY_COMMAND | P_COMMAND => {
         tokio::spawn(async { self.challenge_somebody().await });
       },
-      EXIT_COMMAND | QUIT_COMMAND | Q_COMMAND => {
+      EXIT_COMMAND => {
         self.request_exit(false);
+      },
+      QUIT_COMMAND | Q_COMMAND => {
+        self.request_exit(true);
       },
       HELP_COMMAND => print_help(),
       EMPTY_COMMAND => {},
