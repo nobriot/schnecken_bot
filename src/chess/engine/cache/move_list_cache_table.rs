@@ -1,33 +1,30 @@
 // Dependencies
-use log::*;
-use std::mem;
-
 // From our project
 use crate::model::containers::move_list::*;
 use crate::model::moves::Move;
 use crate::model::tables::zobrist::BoardHash;
+use log::*;
+use std::mem;
 
-// FIXME: Many similarities between evaluation_table and move_list_cache_table, we should template it.
+// FIXME: Many similarities between evaluation_table and move_list_cache_table,
+// we should template it.
 
 #[derive(Clone)]
 struct MoveListCacheEntry {
-  hash: BoardHash,
+  hash:      BoardHash,
   move_list: Option<MoveList>,
 }
 
 /// Default values for EvaluationCacheEntry
-///
 impl Default for MoveListCacheEntry {
   fn default() -> Self {
-    MoveListCacheEntry {
-      hash: 0,
-      move_list: None,
-    }
+    MoveListCacheEntry { hash:      0,
+                         move_list: None, }
   }
 }
 
 pub struct MoveListCacheTable {
-  table: Box<[MoveListCacheEntry]>,
+  table:          Box<[MoveListCacheEntry]>,
   max_index_mask: usize,
 }
 
@@ -41,13 +38,10 @@ impl MoveListCacheTable {
   /// ### Return value
   ///
   /// An Evaluation Cache table
-  ///
   #[inline]
   pub fn new(capacity_mb: usize) -> MoveListCacheTable {
-    debug!(
-      "Creating new MoveList cache table with capacity {} MB",
-      capacity_mb
-    );
+    debug!("Creating new MoveList cache table with capacity {} MB",
+           capacity_mb);
     let entry_size = mem::size_of::<MoveListCacheEntry>();
     let number_of_entries = capacity_mb * 1024 * 1024 / entry_size;
 
@@ -62,10 +56,8 @@ impl MoveListCacheTable {
 
     // Create a vector with default entries
     let entries = vec![MoveListCacheEntry::default(); size];
-    MoveListCacheTable {
-      table: entries.into_boxed_slice(),
-      max_index_mask: size - 1,
-    }
+    MoveListCacheTable { table:          entries.into_boxed_slice(),
+                         max_index_mask: size - 1, }
   }
 
   /// Get a particular entry with the hash specified
@@ -86,10 +78,8 @@ impl MoveListCacheTable {
   #[inline]
   pub fn add(&mut self, hash: BoardHash, list: &[Move]) {
     let e = unsafe { self.table.get_unchecked_mut((hash as usize) & self.max_index_mask) };
-    *e = MoveListCacheEntry {
-      hash: hash,
-      move_list: Some(MoveList::new_from_slice(list)),
-    };
+    *e = MoveListCacheEntry { hash,
+                              move_list: Some(MoveList::new_from_slice(list)) };
   }
 
   /// Zeroes out all the board hashes in the table and fill with default values.
@@ -109,13 +99,10 @@ impl MoveListCacheTable {
   /// * `self`:     Table to update.
   /// * `Capacity`: New size for the table, in MB.
   ///
-  ///
   #[inline]
   pub fn resize(&mut self, capacity_mb: usize) {
-    debug!(
-      "Resizing MoveListCacheTable with capacity {} MB",
-      capacity_mb
-    );
+    debug!("Resizing MoveListCacheTable with capacity {} MB",
+           capacity_mb);
     let new_table = MoveListCacheTable::new(capacity_mb);
     *self = new_table;
   }

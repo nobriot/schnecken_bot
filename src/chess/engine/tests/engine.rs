@@ -24,7 +24,7 @@ fn engine_search_real_game_2Dxi9wZH() {
   ---- SNIP ----
   */
 
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w KQkq - 1 5");
   engine.options.max_search_time = 639;
   engine.go();
@@ -70,7 +70,7 @@ fn engine_search_real_game_w1mLoTRZ() {
     Line 25: Eval -12.44     - d3a6 b7a6 f1g1
     Line 26: Eval -12.74     - d3b5 c6b5 f1g1
   */
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w - - 0 13");
   engine.options.max_search_time = 1758;
   engine.go();
@@ -86,7 +86,7 @@ fn engine_search_real_game_w1mLoTRZ() {
 #[test]
 #[allow(non_snake_case)]
 fn engine_earch_real_game_W89VkRfp() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("4r1k1/2p2ppp/8/p1b5/P3n3/2N4P/1P1B1PP1/R5K1 w - - 1 22");
   engine.options.max_search_time = 1624;
   engine.go();
@@ -101,7 +101,7 @@ fn engine_earch_real_game_W89VkRfp() {
 #[test]
 fn engine_select_best_move_checkmate_in_one() {
   // This is a forced checkmate in 1:
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36");
   engine.options.max_depth = 2;
   engine.go();
@@ -115,7 +115,7 @@ fn engine_select_best_move_checkmate_in_one() {
 #[test]
 fn engine_select_best_move_checkmate_in_one_for_black() {
   // This is a forced checkmate in 1 for black:
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("8/8/2p1pkp1/p3p3/P1P1P1P1/6q1/7q/3K4 b - - 2 55");
   engine.options.max_depth = 2;
   engine.go();
@@ -129,7 +129,7 @@ fn engine_select_best_move_checkmate_in_one_for_black() {
 #[test]
 fn engine_select_best_move_checkmate_in_two() {
   // This is a forced checkmate in 2: c1b2 d4e3 b6d5
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
   engine.options.max_search_time = 5000;
   engine.options.max_depth = 3;
@@ -145,7 +145,7 @@ fn engine_select_best_move_checkmate_in_two() {
 #[test]
 fn engine_select_find_best_defensive_move() {
   // Only good defense is : h8f8
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r1bqk2r/ppppbp1p/2n5/3Bp1pQ/4P3/3P4/PPPN1PPP/R3K1NR b KQq - 0 7");
   engine.options.max_search_time = 5000;
   engine.options.max_depth = 8;
@@ -159,7 +159,7 @@ fn engine_select_find_best_defensive_move() {
 #[test]
 fn engine_save_the_last_knight() {
   // Game: https://lichess.org/iavzLpKc
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");
   engine.options.max_depth = 20;
   engine.options.max_search_time = 7863;
@@ -179,7 +179,7 @@ fn engine_save_the_last_knight() {
 
 #[test]
 fn engine_promote_this_pawn() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("8/P7/4kN2/4P3/1K3P2/4P3/8/8 w - - 7 76");
   engine.options.max_depth = 20;
   engine.options.max_search_time = 855;
@@ -192,12 +192,12 @@ fn engine_promote_this_pawn() {
 
 #[test]
 fn engine_go_and_stop() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   // Note: Avoid book moves here, it will return immediately no matter what.
   engine.set_position("rn2kbnr/ppp1pppp/8/3p4/P7/2NPPP1N/1PP1b1PR/R1B1KB2 b Qkq - 0 7");
   engine.options.max_depth = 0;
   engine.options.max_search_time = 0;
-  engine.options.ponder =true;
+  engine.options.ponder = true;
 
   let engine_clone = engine.clone();
   let _handle = std::thread::spawn(move || engine_clone.go());
@@ -220,7 +220,7 @@ fn engine_go_and_stop() {
 
 #[test]
 fn engine_bench_positions_per_second() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");
   engine.options.max_search_time = 1000;
   engine.go();
@@ -243,7 +243,7 @@ fn test_dont_hang_pieces_1() {
    Line 3 Eval: 2.5499997 - b7b6 d5e4 d7d5 e4d3 e7e5 b1c3
    Line 4 Eval: 3.2999995 - c6b8 d5e4 d7d5 e4d3 b8c6 b1c3
   */
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r1bqkb1r/1ppppp1p/p1n5/3Q4/4n3/5N2/PPPP1PPP/RNB1KB1R b KQkq - 0 7");
   engine.options.max_search_time = 3000;
   engine.go();
@@ -274,7 +274,7 @@ fn test_dont_hang_pieces_2() {
     [2023-05-12T06:06:18Z INFO  schnecken_bot] Playing move e2f2 for game id zcQesp7F
   */
 
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("2k5/pp5p/2p3p1/8/1PpP4/P5KP/4r2P/8 b - - 1 35");
   engine.options.max_search_time = 1000;
   engine.go();
@@ -291,7 +291,7 @@ fn test_dont_hang_pieces_2() {
 // Spent 2450 ms to come up with this crap: e5f5
 #[test]
 fn save_the_queen() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("rnbqk2r/pp3ppp/2pbpn2/3pQ3/B3P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 6");
   engine.options.max_search_time = 2450;
   engine.go();
@@ -329,7 +329,7 @@ fn save_the_queen() {
 // Spent 2900 ms to come up with this crap: d7d5
 #[test]
 fn capture_the_damn_knight_1() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("rnb2r1k/pppp2pp/5N2/8/1bB5/8/PPPPQPPP/RNB1K2R b KQ - 0 9");
   engine.options.max_search_time = 2900;
   engine.go();
@@ -346,7 +346,7 @@ fn capture_the_damn_knight_1() {
 
 #[test]
 fn evaluate_checkmate_with_castle() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("8/8/8/8/2nN4/1q6/ppP1NPPP/1k2K2R w K - 0 1");
   engine.options.max_search_time = 10;
   engine.go();
@@ -358,7 +358,7 @@ fn evaluate_checkmate_with_castle() {
 // Game https://lichess.org/Xjgkf4pp seemed really off. Testing some of the positions here
 #[test]
 fn test_select_pawn_capture() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r2q1rk1/1pp1ppbp/p2p1np1/P7/6bP/R1N1Pn2/1PPP1PP1/2BQKB1R w K - 0 11");
   engine.options.max_search_time = 2000;
   engine.go();
@@ -370,7 +370,7 @@ fn test_select_pawn_capture() {
 #[test]
 fn test_select_best_move_checkmate_in_two() {
   // This is a forced checkmate in 2: c1b2 d4e3 b6d5
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P1k4/5P2/1p1NP1PP/R1B1KB1R w KQ - 0 35");
   engine.options.max_search_time = 5000;
   engine.go();
@@ -383,7 +383,7 @@ fn test_select_best_move_checkmate_in_two() {
 #[test]
 fn test_select_best_move_checkmate_in_one() {
   // This is a forced checkmate in 1:
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("1n4nr/5ppp/1N6/1P2p3/1P6/4kP2/1B1NP1PP/R3KB1R w KQ - 1 36");
   engine.options.max_search_time = 5000;
   engine.go();
@@ -404,7 +404,7 @@ fn test_avoid_threefold_repetitions() {
      Line 4 Eval: 6.391044 - g3g1 / Permutation
   */
 
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r7/1p4p1/5p1p/b3n1k1/p3P1P1/PbN3R1/1P1K3P/R1BB4 w - - 10 45");
   engine.options.max_search_time = 1200;
   engine
@@ -447,7 +447,7 @@ fn test_avoid_threefold_repetitions() {
 
 #[test]
 fn test_only_one_legal_move() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("5k2/R6P/8/2PKB3/1P6/1P1P1N2/5PP1/R7 b - - 0 67");
   engine.options.max_search_time = 942;
 
@@ -460,7 +460,7 @@ fn test_only_one_legal_move() {
 
 #[test]
 fn capture_the_bishop() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("rnbqk1nr/pp3ppp/2p5/1Q1p4/1b1Pp3/2N2N2/PPP1PPPP/R1B1KB1R w KQkq - 0 6");
   engine.options.max_search_time = 1875;
   engine.go();
@@ -472,7 +472,7 @@ fn capture_the_bishop() {
 
 #[test]
 fn endgame_evaluation_search() {
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1");
   engine.options.max_search_time = 800;
   engine.go();
@@ -489,7 +489,7 @@ fn endgame_evaluation_search() {
 fn evaluate_real_game_0BYxLu3V_example_1() {
   // https://lichess.org/0BYxLu3V has plently of blunders.
   //
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r1b1kbnr/pppp1p1p/4pqp1/8/3nP3/2NQ1N2/PPPP1PPP/R1B1KB1R b KQkq - 7 6");
   engine.options.max_search_time = 1897;
   //engine.options.max_depth = 3);
@@ -506,7 +506,7 @@ fn evaluate_real_game_0BYxLu3V_example_1() {
 fn evaluate_real_game_0BYxLu3V_example_2() {
   // https://lichess.org/0BYxLu3V has plently of blunders.
   //
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r1b1k1nr/pppp1p1p/3bpqp1/8/3QP3/2N2N2/PPPP1PPP/R1B1KB1R b KQkq - 0 7");
   engine.options.max_search_time = 1870;
   engine.go();
@@ -520,7 +520,7 @@ fn evaluate_real_game_0BYxLu3V_example_2() {
 fn evaluate_real_game_no8g7oup_example() {
   // https://lichess.org/no8g7oup
   //
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("r4rk1/2p5/p2pq2p/1p4p1/3Qb1n1/2N5/PPn1K1PP/R1B2B1R b - - 1 22");
   engine.options.max_search_time = 423;
   engine.go();
@@ -543,7 +543,7 @@ fn evaluate_real_game_ov5SZJLX_example() {
   // Line 3 : Eval -8.295     - f1d3 d1c2
   // Line 4 : Eval -8.605     - d2d4 d1c
 
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position("rn2kbnr/ppp1pppp/3q4/3p4/P7/2N1P2N/1PPP1PPP/R1BbKB1R w KQkq - 0 5");
   engine.options.max_search_time = 6426;
   engine.go();
@@ -559,7 +559,7 @@ fn test_sorting_moves_without_eval() {
   let fen = "r1bqk2r/pp3ppp/n1pbpn2/3pQ3/B3P3/5N2/PPPP1PPP/RNB1K2R w KQkq - 6 7";
   let game_state = GameState::from_fen(fen);
 
-  let engine = Engine::new();
+  let engine = Engine::new(false);
   Engine::find_move_list(&engine.cache, &game_state.board);
   let move_list = engine.cache.get_move_list(&game_state.board).unwrap();
   for m in move_list.get_moves() {
@@ -586,7 +586,7 @@ fn test_drawn_pawn_and_king_endgame() {
   let eval_2 = evaluate_board(&game_state_2);
   println!("Eval is: {}", eval_2);
 
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 500;
   engine.go();
@@ -629,10 +629,10 @@ fn test_under_promotion_got_evaluated_better() {
   assert!(queen_eval < rook_eval);
 
   let fen = "8/8/4K3/7k/8/8/6Rp/8 b - - 2 58";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 1067;
-  engine.options.multi_pv =2;
+  engine.options.multi_pv = 2;
   engine.go();
   engine.print_evaluations();
   let best_move = engine.get_best_move().unwrap();
@@ -648,7 +648,7 @@ fn test_under_promotion_got_evaluated_better() {
 
   // Same but from the next move perspective:
   let fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 1067;
   engine.options.multi_pv = 3;
@@ -685,7 +685,7 @@ fn test_knight_bonanza_on_real_game() {
   [2023-11-18T16:08:45.875Z DEBUG lichess::api] Lichess post answer: {"ok":true}
    */
   let fen = "r1bq1rk1/ppp2pbp/3ppnp1/3Pn3/2P1PP2/2N1B2P/PP4P1/RQ2KBNR b KQ - 0 9";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 7509;
   engine.go();
@@ -712,7 +712,7 @@ fn real_game_was_winning() {
     Score for position 6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31: 2.485385
   */
   let fen = "6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 3000;
   engine.options.max_depth = 0;
@@ -728,7 +728,7 @@ fn real_game_was_winning() {
 #[test]
 fn chess_model_bunked_while_searching() {
   let fen = "6k1/5rp1/p6r/1p6/1BP5/P4n2/5PQP/2Rq3K w - - 0 30";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 0;
   engine.options.max_depth = 6;
@@ -744,7 +744,7 @@ fn chess_model_bunked_while_searching() {
 #[test]
 fn king_disappeared() {
   let fen = "r1b3k1/2Bp1ppp/p1p5/2P5/3b1K2/P7/1P3rPP/4q3 w - - 2 24";
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(false);
   engine.set_position(fen);
   engine.options.max_search_time = 3000;
   engine.go();

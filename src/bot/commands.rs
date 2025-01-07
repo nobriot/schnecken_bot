@@ -1,4 +1,4 @@
-use crate::bot::state::BotState;
+use crate::bot::state::{BotState, BotStateRef};
 
 // Constants
 const EXIT_COMMAND: &str = "exit";
@@ -18,17 +18,15 @@ pub trait BotCommands {
   ///
   /// * `self` -            Object reference for which we implement the method
   /// * `input` -           Text input / Command to interpret
-  fn execute_command(&self, input: &str);
+  fn execute_command(self, input: &str);
 }
 
 // -----------------------------------------------------------------------------
 // Helper functions
 fn print_help() {
   println!("Welcome ! You can use the following commands:\n\n");
-  println!(
-    "{} or {} - Attempts to play with one of our favorite players",
-    PLAY_COMMAND, P_COMMAND
-  );
+  println!("{} or {} - Attempts to play with one of our favorite players",
+           PLAY_COMMAND, P_COMMAND);
   println!("{} - Exits the program", EXIT_COMMAND);
   println!("{} or {} - Exits the program", QUIT_COMMAND, Q_COMMAND);
   println!("{} - Displays the help", HELP_COMMAND);
@@ -36,16 +34,15 @@ fn print_help() {
 
 // -----------------------------------------------------------------------------
 // Implementation
-impl BotCommands for BotState {
-  fn execute_command(&self, input: &str) {
+impl BotCommands for BotStateRef {
+  fn execute_command(self, input: &str) {
     // Remember to trim, it will also remove the newline
     match input.trim() as &str {
       PLAY_COMMAND | P_COMMAND => {
-        let clone = self.clone();
-        tokio::spawn(async move { clone.challenge_somebody().await });
+        tokio::spawn(async { self.challenge_somebody().await });
       },
       EXIT_COMMAND | QUIT_COMMAND | Q_COMMAND => {
-        self.request_exit();
+        self.request_exit(false);
       },
       HELP_COMMAND => print_help(),
       EMPTY_COMMAND => {},

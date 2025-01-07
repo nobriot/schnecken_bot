@@ -1,7 +1,6 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::types::*;
-
 // External crates
 use log::*;
 use serde_json::Value as JsonValue;
@@ -17,7 +16,6 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error requesting a game abort
-  ///
   pub async fn abort_game(&self, game_id: &str) -> Result<(), ()> {
     let api_endpoint: String = format!("bot/game/{game_id}/abort");
     let _json_response: JsonValue;
@@ -32,8 +30,8 @@ impl LichessApi {
 
   /// Resigns a game
   ///
-  /// Note: we should never resign, always try to svindle something out of the situation :-D
-  /// Perhaps just resign 1 move before being smothered mated
+  /// Note: we should never resign, always try to svindle something out of the
+  /// situation :-D Perhaps just resign 1 move before being smothered mated
   ///
   /// ### Arguments
   ///
@@ -42,7 +40,6 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error requesting a game abort
-  ///
   pub async fn resign_game(&self, game_id: &str) -> Result<(), ()> {
     let api_endpoint: String = format!("bot/game/{game_id}/resign");
     let _json_response: JsonValue;
@@ -61,7 +58,6 @@ impl LichessApi {
   ///
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
-  ///
   pub async fn write_in_spectator_room(&self, game_id: &str, message: &str) -> () {
     info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
@@ -70,10 +66,8 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!(
-        "Error sending message to game id {} - Error: {:#?}",
-        game_id, error
-      );
+      warn!("Error sending message to game id {} - Error: {:#?}",
+            game_id, error);
     }
   }
 
@@ -83,7 +77,6 @@ impl LichessApi {
   ///
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
-  ///
   pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
     info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
@@ -92,10 +85,8 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!(
-        "Error sending message to game id {} - Error: {:#?}",
-        game_id, error
-      );
+      warn!("Error sending message to game id {} - Error: {:#?}",
+            game_id, error);
     }
   }
 
@@ -106,7 +97,6 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   /// * `room`    Room on which to send the message
   /// * `message` Message to send
-  ///
   pub async fn write_in_chat_room(&self, game_id: &str, room: ChatRoom, message: &str) -> () {
     let room_str = match room {
       ChatRoom::Player => String::from("player"),
@@ -119,10 +109,8 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!(
-        "Error sending message to game id {} - Error: {:#?}",
-        game_id, error
-      );
+      warn!("Error sending message to game id {} - Error: {:#?}",
+            game_id, error);
     }
   }
 
@@ -140,12 +128,9 @@ impl LichessApi {
   ///
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
-  ///
   pub async fn make_move(&self, game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
-    info!(
-      "Trying chess move {} on game id {} - Draw offer: {}",
-      chess_move, game_id, offer_draw
-    );
+    info!("Trying chess move {} on game id {} - Draw offer: {}",
+          chess_move, game_id, offer_draw);
     let api_endpoint: String =
       format!("bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}");
 
@@ -169,20 +154,11 @@ impl LichessApi {
     }
 
     if json_response["ok"].as_bool().is_none() {
-      error!(
-        "Lichess refused our move! :'( - We're so bad - Error {:?}",
-        json_response
-      );
-      self
-        .write_in_spectator_room(
-          game_id,
-          format!(
-            "Debug: Just tried to play move {} but it was refused: {}",
-            chess_move, json_response
-          )
-          .as_str(),
-        )
-        .await;
+      error!("Lichess refused our move! :'( - We're so bad - Error {:?}",
+             json_response);
+      // self .write_in_spectator_room( game_id, format!( "Debug: Just tried to play
+      // move {} but it was refused: {}", chess_move, json_response) .as_str(),)
+      // .await;
       return false;
     }
 
@@ -199,7 +175,6 @@ impl LichessApi {
   ///
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
-  ///
   pub async fn claim_victory(&self, game_id: &str) -> Result<(), ()> {
     info!("Attempting to claim victory for game id {}", game_id);
     let api_endpoint: String = format!("board/game/{game_id}/claim-victory");
@@ -220,7 +195,6 @@ impl LichessApi {
   ///
   /// * `timeout` Number of seconds to wait before claiming victory
   /// * `game_id` Game ID on which we are claiming victory
-  ///
   ///
   pub async fn claim_victory_after_timeout(&self, timeout: u64, game_id: &str) {
     tokio::time::sleep(tokio::time::Duration::from_secs(timeout + 1)).await;

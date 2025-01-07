@@ -52,7 +52,7 @@ fn main() -> ExitCode {
   let mut reader = BufReader::new(stdin);
 
   // Get an engine instance running:
-  let mut engine = Engine::new();
+  let mut engine = Engine::new(true);
   engine.resize_cache_tables(1024);
 
   // Regex for parsing those commands

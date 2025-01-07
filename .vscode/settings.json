@@ -10,5 +10,8 @@
     "boardmask",
     "crosstable",
     "Lichess"
+  ],
+  "editor.rulers": [
+    100
   ]
 }

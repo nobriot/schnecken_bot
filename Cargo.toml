@@ -1,6 +1,6 @@
 [package]
 name = "schnecken_bot"
-version = "0.3.2"
+version = "0.4.0"
 authors = ["Nicolas Woltmann"]
 description = "Lichess bot with integrated engine"
 repository = "https://github.com/nobriot/schnecken_bot"
@@ -8,23 +8,24 @@ edition = "2021"
 license = "MIT"
 keywords = ["bot", "chess", "lichess", "lichess-api", "lichess-bot"]
 default-run = "schnecken_bot"
-members = ["lichess/"]
+members = ["src/lichess", "src/chess"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 tokio = { version = "1.41.1", features = ["rt-multi-thread"] }
-reqwest = { version = "0.12.9", features = ["blocking", "stream"] }
-serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.12.12", features = ["blocking", "stream"] }
+serde = { version = "1.0.217", features = ["derive"] }
 log = { version = "0.4.22", features = ["std", "serde"] }
-env_logger = "0.11.3"
-serde_json = "1.0.133"
+env_logger = "0.11.6"
+serde_json = "1.0.135"
 urlencoding = "2"
 rand = "0.8"
 futures-util = "0.3.31"
 lazy_static = "1.5"
-anyhow = "1.0"
+anyhow = "1.0.95"
+
 # Our own libraries
-lichess-api = { path = "src/lichess" }
+lichess = { path = "src/lichess" }
 chess = { path = "src/chess" }
 
 [profile.dev]
@@ -35,3 +36,7 @@ opt-level = 3
 [[bin]]
 name = "schnecken_bot"
 path = "src/main.rs"
+
+# [[bin]]
+#name = "bot-simple"
+#path = "src/bot/games/main.rs"

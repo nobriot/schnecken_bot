@@ -8,15 +8,9 @@ pub mod search;
 pub mod search_result;
 pub mod tables;
 
+mod comments;
 #[cfg(test)]
 pub mod tests;
-mod comments;
-
-use log::*;
-use rand::seq::SliceRandom;
-use std::cmp::min;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 
 // Same module (engine)
 use self::cache::engine_cache::EngineCache;
@@ -24,19 +18,22 @@ use self::cache::evaluation_table::EvaluationCache;
 use self::eval::position::*;
 use self::game_history::GameHistory;
 use self::search_result::SearchResult;
-use books::*;
-use config::options::*;
-use config::play_style::*;
-use nnue::NNUE;
-
 // Chess model
 use super::model::game_state::GameState;
-use super::model::game_state::GameStatus;
-use super::model::game_state::START_POSITION_FEN;
+use super::model::game_state::{GameStatus, START_POSITION_FEN};
 use super::model::moves::Move;
 use super::model::piece::Color;
 use crate::engine::search_result::VariationWithEval;
 use crate::model::board::Board;
+use books::*;
+use config::options::*;
+use config::play_style::*;
+use log::*;
+use nnue::NNUE;
+use rand::seq::SliceRandom;
+use std::cmp::min;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -46,10 +43,9 @@ pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
 // -----------------------------------------------------------------------------
 // Type definitions
 
-//TODO: I need to break this file down into simpler/more independent modules
+// TODO: I need to break this file down into simpler/more independent modules
 
 /// Evaluation for a position
-///
 #[derive(Clone, Debug)]
 pub enum Eval {
   /// Mating sequence.
@@ -98,8 +94,6 @@ impl Analysis {
   ///
   /// * `self`:    Analysis struct reference
   /// * `result`:  Sorted vector with best variations.
-  ///
-  ///
   pub fn update_result(&self, result: SearchResult) {
     let mut pvs = self.result.lock().unwrap();
     *pvs = result;
@@ -111,8 +105,6 @@ impl Analysis {
   ///
   /// * `self`:   Instance of the Chess Engine
   /// * `depth`:  New depth to set.
-  ///
-  ///
   pub fn set_depth(&self, depth: usize) {
     let mut analysis_depth = self.depth.lock().unwrap();
     *analysis_depth = depth;
@@ -123,7 +115,6 @@ impl Analysis {
   /// ### Arguments
   ///
   /// * `self`:   Instance of the Chess Engine
-  ///
   pub fn increment_depth(&self) {
     let mut analysis_depth = self.depth.lock().unwrap();
     *analysis_depth += 1;
@@ -134,7 +125,6 @@ impl Analysis {
   /// ### Arguments
   ///
   /// * `self`:   Instance of the Chess Engine
-  ///
   pub fn decrement_depth(&self) {
     let mut analysis_depth = self.depth.lock().unwrap();
     if *analysis_depth > 0 {
@@ -151,7 +141,6 @@ impl Analysis {
   /// ### Return value
   ///
   /// The value contained in the analysis depth.
-  ///
   pub fn get_depth(&self) -> usize {
     self.depth.lock().unwrap().clone()
   }
@@ -162,21 +151,18 @@ impl Analysis {
   ///
   /// * `self`:   Instance of the Chess Engine
   /// * `selective_depth`:  New depth to set.
-  ///
-  ///
   pub fn set_selective_depth(&self, depth: usize) {
     let mut selective_depth = self.selective_depth.lock().unwrap();
     *selective_depth = depth;
   }
 
-  /// Updates the selective depth if the new value is higher than the current value.
+  /// Updates the selective depth if the new value is higher than the current
+  /// value.
   ///
   /// ### Arguments
   ///
   /// * `self`:   Instance of the Chess Engine
   /// * `selective_depth`:  New depth to set.
-  ///
-  ///
   pub fn update_selective_depth(&self, depth: usize) {
     let mut selective_depth = self.selective_depth.lock().unwrap();
     if *selective_depth < depth {
@@ -189,7 +175,6 @@ impl Analysis {
   /// ### Arguments
   ///
   /// * `self`:   Instance of the Chess Engine
-  ///
   pub fn increment_selective_depth(&self) {
     let mut selective_depth = self.selective_depth.lock().unwrap();
     *selective_depth += 1;
@@ -204,13 +189,11 @@ impl Analysis {
   /// ### Return value
   ///
   /// The value contained in the analysis depth.
-  ///
   pub fn get_selective_depth(&self) -> usize {
     self.selective_depth.lock().unwrap().clone()
   }
 
   /// Increments the nodes we visited
-  ///
   pub fn increment_nodes_visited(&self) {
     let mut analysis_nodes_visited = self.nodes_visited.lock().unwrap();
     *analysis_nodes_visited += 1;
@@ -254,13 +237,14 @@ pub struct Engine {
   history: GameHistory,
 }
 
+type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
 impl Engine {
   //----------------------------------------------------------------------------
   // Public functions
 
   /// Gets a new engine
-  ///
-  pub fn new() -> Self {
+  pub fn new(uci: bool) -> Self {
     initialize_chess_books();
     let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
 
@@ -280,6 +264,7 @@ impl Engine {
       history: GameHistory::new(),
     };
 
+    engine.options.uci = uci;
     engine.set_position(START_POSITION_FEN);
     engine
   }
@@ -289,7 +274,6 @@ impl Engine {
   /// ### Return value
   ///
   /// * True if searching a position, False otherwise
-  ///
   pub fn is_active(&self) -> bool {
     return *self.state.active.lock().unwrap();
   }
@@ -299,7 +283,6 @@ impl Engine {
   /// ### Arguments
   ///
   /// * `active`: The new value to apply to active
-  ///
   fn set_engine_active(&self, active: bool) {
     let mut s = self.state.active.lock().unwrap();
     *s = active;
@@ -310,7 +293,6 @@ impl Engine {
   /// ### Return value
   ///
   /// * True if the engine should stop searching positions, False otherwise
-  ///
   pub fn stop_requested(&self) -> bool {
     return *self.state.stop_requested.lock().unwrap();
   }
@@ -320,7 +302,6 @@ impl Engine {
   /// ### Arguments
   ///
   /// * `stop_requested`: The new value to apply to stop_requested
-  ///
   fn set_stop_requested(&self, stop_requested: bool) {
     let mut s = self.state.stop_requested.lock().unwrap();
     *s = stop_requested;
@@ -334,7 +315,6 @@ impl Engine {
   ///
   /// True if the (current_time - start_time) is larger than options.max_time
   /// and max_time is set to a non-zero value.
-  ///
   fn has_been_searching_too_long(&self) -> bool {
     let max_time = self.options.max_search_time;
     if max_time == 0 {
@@ -346,27 +326,28 @@ impl Engine {
 
   /// Clears the cache of the engine.
   ///
-  /// Note: You should not invoke this function when the engine is active/searching.
-  ///
+  /// Note: You should not invoke this function when the engine is
+  /// active/searching.
   pub fn clear_cache(&self) {
     self.cache.clear();
   }
 
   /// Clears and resize the cache table size.
   ///
-  /// Note: You should not invoke this function when the engine is active/searching.
+  /// Note: You should not invoke this function when the engine is
+  /// active/searching.
   ///
   /// ### Arguments
   ///
   /// * self : Engine reference
-  /// * capacity_mb : Size in MB to use for the engine cache tables (there are 2 of them).
-  ///
+  /// * capacity_mb : Size in MB to use for the engine cache tables (there are 2
+  ///   of them).
   pub fn resize_cache_tables(&self, capacity_mb: usize) {
     self.cache.resize_tables(capacity_mb);
   }
 
   /// Resets the engine to a default state.
-  /// Same as Engine::Default() or Engine::new()
+  /// Same as Engine::Default() or Engine::new(..)
   pub fn reset(&mut self) {
     self.stop();
     self.position = GameState::from_fen(START_POSITION_FEN);
@@ -381,7 +362,6 @@ impl Engine {
   /// ### Arguments
   ///
   /// * `fen`: FEN notation of the position to set
-  ///
   pub fn set_position(&mut self, fen: &str) {
     self.reset();
     self.history.clear();
@@ -403,8 +383,8 @@ impl Engine {
   ///
   /// ### Arguments
   ///
-  /// * `chess_move`: Notation of the chess move to apply on the current position
-  ///
+  /// * `chess_move`: Notation of the chess move to apply on the current
+  ///   position
   pub fn apply_move(&mut self, chess_move: &str) {
     if self.is_active() {
       self.stop();
@@ -412,13 +392,18 @@ impl Engine {
 
     // FIXME: THis does not capture evals when opponent applies a move
     // let eval = self.get_best_eval();
-    //let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
+    // let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
     // self.history.add(self.position.to_fen(), mv, eval as isize);
 
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
     self.analysis.reset();
     self.analysis.decrement_depth();
+  }
+
+  /// Async version of `go()`
+  pub async fn go_async(&self) -> AsyncResult {
+    futures::future::ok(self.go()).await
   }
 
   /// Starts analyzing the current position
@@ -440,7 +425,8 @@ impl Engine {
     // Make sure we know the move list:
     Engine::find_move_list(&self.cache, &self.position.board);
 
-    // First check if we are in a known book position. If yes, just return the known list
+    // First check if we are in a known book position. If yes, just return the known
+    // list
     let play_style = self.options.play_style;
     let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
     if book_entry.is_some() {
@@ -468,7 +454,8 @@ impl Engine {
       return;
     }
 
-    // If we have only one legal move, we should just give it a score and play it instantaneously.
+    // If we have only one legal move, we should just give it a score and play it
+    // instantaneously.
     let moves = self.cache.get_move_list(&self.position.board).unwrap();
     if moves.len() == 1 {
       debug!("Single or no move available. Just evaluating quickly");
@@ -574,7 +561,6 @@ impl Engine {
 
   /// Prints information to stdout for the GUI using UCI protocol
   /// Nothing will be sent if the UCI option is not set in the engine
-  ///
   #[inline]
   pub fn print_uci_info(&self) {
     if !self.options.uci {
@@ -614,7 +600,6 @@ impl Engine {
   }
 
   /// Prints the best move
-  ///
   #[inline]
   pub fn print_uci_best_move(&self) {
     if self.options.uci {
@@ -629,7 +614,6 @@ impl Engine {
   }
 
   /// Prints out the full game history.
-  ///
   pub fn print_game_summary(&self) {
     println!("Game Summary:\n{}", self.history);
   }
@@ -650,7 +634,6 @@ impl Engine {
   /// ### Return value
   ///
   /// String containing the list of best moves found by the engine
-  ///
   pub fn get_line_string(&self, game_state: &GameState, side_to_play: Color, ttl: usize) -> String {
     let line_string = String::new();
 
@@ -685,7 +668,6 @@ impl Engine {
   }
 
   /// Prints the evaluation result in the console
-  ///
   pub fn print_evaluations(&self) {
     let lines = self.analysis.result.lock().unwrap();
     let position_eval = if lines.is_empty() { f32::NAN } else { lines.variations[0].eval };
@@ -702,7 +684,6 @@ impl Engine {
   // Engine State
 
   /// Captures the timestamp of now in an analysis in the engine state
-  ///
   fn set_start_time(&self) {
     *self.state.start_time.lock().unwrap() = Instant::now();
   }
@@ -711,8 +692,8 @@ impl Engine {
   ///
   /// ### Arguments
   ///
-  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving a position
-  ///
+  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving
+  ///   a position
   pub fn get_start_time(&self) -> Instant {
     *self.state.start_time.lock().unwrap()
   }
@@ -727,7 +708,6 @@ impl Engine {
   ///
   /// * cache:      EngineCache where the move list is stored at the end.
   /// * board:      Board configuration to determine a move list
-  ///
   fn find_move_list(cache: &EngineCache, board: &Board) {
     // Check that we know the moves:
     if !cache.has_move_list(board) {
@@ -743,7 +723,6 @@ impl Engine {
   /// * eval:       Evaluation after color has moved
   /// * alpha:      Previous alpha value
   /// * beta:       Previous beta value
-  ///
   #[inline]
   fn update_alpha_beta(color: Color, eval: f32, alpha: &mut f32, beta: &mut f32) {
     match color {
@@ -774,7 +753,6 @@ impl Engine {
   /// * `alpha`:      Alpha value for the Alpha/Beta pruning
   /// * `Beta`:       Beta value for the Alpha/Beta pruning
   /// * `start_time`: Time at which we started resolving the chess position
-  ///
   fn search(
     &self,
     game_state: &GameState,
@@ -788,7 +766,7 @@ impl Engine {
     }
 
     if depth > max_depth {
-      //println!("Reached maximum depth {max_depth}. Stopping search");
+      // println!("Reached maximum depth {max_depth}. Stopping search");
       return None;
     }
 
@@ -805,8 +783,9 @@ impl Engine {
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
       if (alpha - 0.5) > beta {
-        // TODO: Test this a bit better, I think we are pruning stuff that should not get pruned.
-        //println!("Skipping {} as it is pruned {}/{}",game_state.to_fen(), alpha, beta);
+        // TODO: Test this a bit better, I think we are pruning stuff that should not
+        // get pruned. println!("Skipping {} as it is pruned
+        // {}/{}",game_state.to_fen(), alpha, beta);
         break;
       }
 
@@ -817,7 +796,7 @@ impl Engine {
         if depth < self.analysis.get_depth() + 3 {
           max_line_depth = max_depth + 1;
           self.analysis.update_selective_depth(max_line_depth);
-          //println!("Continuing to depth {max_line_depth}");
+          // println!("Continuing to depth {max_line_depth}");
         }
       }
 
@@ -844,8 +823,9 @@ impl Engine {
       let mut eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
       if eval_cache.depth > 0 && depth >= max_line_depth {
         // Nothing to do, we already looked at this position.
-        // FIXME: If the position appears in another variation but leads to a draw, e.g. 3 fold repetitions, we won't detect it and skip it.
-        // Get the alpha/beta result propagated upwards.
+        // FIXME: If the position appears in another variation but leads to a draw, e.g.
+        // 3 fold repetitions, we won't detect it and skip it. Get the alpha/
+        // beta result propagated upwards.
         Engine::update_alpha_beta(
           game_state.board.side_to_play,
           eval_cache.eval,
@@ -860,7 +840,8 @@ impl Engine {
         eval_cache.game_status = is_game_over(&self.cache, &new_game_state.board);
       };
 
-      // No need to look at other moves in this variation if we found a checkmate for the side to play:
+      // No need to look at other moves in this variation if we found a checkmate for
+      // the side to play:
       let mut eval = get_eval_from_game_status(eval_cache.game_status);
       if eval_cache.game_status == GameStatus::WhiteWon
         || eval_cache.game_status == GameStatus::BlackWon
@@ -874,8 +855,8 @@ impl Engine {
           }
         }
 
-        // FIXME: We should make this a bit smarter, go one level up to save the good move
-        // Also if there is an eval swing, not just checkmate.
+        // FIXME: We should make this a bit smarter, go one level up to save the good
+        // move Also if there is an eval swing, not just checkmate.
         self.cache.add_killer_move(&m);
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_from_move(eval, m));
@@ -911,7 +892,8 @@ impl Engine {
           // FIXME:  NNUE eval is still too slow, we should implement incremental updates
           if depth > 10 && self.options.use_nnue == true {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
-            //println!("board: {} - Eval: {} - NNUE Eval: {} - final eval {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
+            // println!("board: {} - Eval: {} - NNUE Eval: {} - final eval
+            // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
 
@@ -970,7 +952,6 @@ impl Engine {
 
   /// Checks the best move in the result and check if it is a winning sequence
   /// for the color indicated in argument
-  ///
   #[inline]
   fn best_move_is_mating_sequence(color: Color, eval: f32) -> bool {
     if eval.is_nan() {
@@ -991,6 +972,6 @@ impl std::fmt::Display for Engine {
 
 impl Default for Engine {
   fn default() -> Self {
-    Self::new()
+    Self::new(false)
   }
 }
