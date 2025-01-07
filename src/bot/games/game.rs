@@ -64,21 +64,29 @@ impl Game {
                  id: game.game_id.clone() }
   }
 
+  /// Writes a couple of message
+  async fn start_of_game_announcement(&self) {
+    let message = format!("Hey there! I am {} v{}", BOT_NAME, BOT_VERSION);
+    self.api.write_in_chat(&self.id, message.as_str()).await;
+    self.api.write_in_spectator_room(&self.id, message.as_str()).await;
+  }
+
+  async fn end_of_game_announcement(&self) {
+    let message = format!("Thanks for playing ! :)");
+    self.api.write_in_chat(&self.id, message.as_str()).await;
+    self.api.write_in_spectator_room(&self.id, message.as_str()).await;
+  }
+
   /// Main loop for ongoing games. We dispatch events to the thread taking care
   /// of the game
   pub async fn game_loop(&mut self) {
+    // Annonce greetings on the game
+    self.start_of_game_announcement().await;
+
     loop {
       match self.rx.recv() {
         Ok(GameMessage::Start(game)) => {
           println!("Received a Game Start : {:?}", game);
-          self.api
-              .write_in_chat(&self.id,
-                             format!("Hey there! I am {} v{}", BOT_NAME, BOT_VERSION).as_str())
-              .await;
-          self.api
-              .write_in_spectator_room(&self.id,
-                             format!("Hey there! I am {} v{}", BOT_NAME, BOT_VERSION).as_str())
-              .await;
         },
         Ok(GameMessage::Update(game)) => {
           println!("Received a Game Update: {:?}", game);
@@ -86,6 +94,7 @@ impl Game {
         },
         Ok(GameMessage::End(_game)) => {
           println!("Game {} is over", self.id);
+          self.end_of_game_announcement().await;
           break;
         },
         Ok(GameMessage::Resign) => {
