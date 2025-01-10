@@ -1,4 +1,4 @@
-use crate::bot::state::{BotState, BotStateRef};
+use crate::bot::state::BotStateRef;
 
 // Constants
 const EXIT_COMMAND: &str = "exit";

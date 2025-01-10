@@ -1,7 +1,7 @@
 // Internal
 use super::handle::GameHandle;
 use super::message::GameMessage;
-use lichess::api::{game, LichessApi};
+use lichess::api::LichessApi;
 use lichess::traits::GameStreamHandler;
 // External
 use log::*;
@@ -65,8 +65,9 @@ impl BotGames {
     let api = self.api.clone();
     let handle = game_handle.clone();
     let _ = tokio::spawn(async move {
-      api.stream_game_state_with_callback(&handle.id, &handle, GameHandle::game_stream_handler)
-         .await;
+      let _ =
+        api.stream_game_state_with_callback(&handle.id, &handle, GameHandle::game_stream_handler)
+           .await;
     });
 
     games.push(Arc::new(game_handle));
@@ -90,7 +91,7 @@ impl BotGames {
   }
 
   pub fn terminate_all(&self) {
-    let mut games = self.games.lock().unwrap();
+    let games = self.games.lock().unwrap();
     for handle in games.iter() {
       let _ = handle.tx.send(GameMessage::Terminate);
     }
@@ -104,7 +105,7 @@ impl BotGames {
       return;
     }
     let handle = handle.unwrap();
-    handle.tx.send(GameMessage::Update(game_state));
+    let _ = handle.tx.send(GameMessage::Update(game_state));
   }
 
   /// Gets a game handle based on the game ID.

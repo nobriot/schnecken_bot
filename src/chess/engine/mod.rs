@@ -60,23 +60,23 @@ pub enum Eval {
 #[derive(Clone, Debug)]
 struct Analysis {
   /// After the search, the nth best lines will be saved in this vector.
-  pub result: Arc<Mutex<SearchResult>>,
+  pub result:          Arc<Mutex<SearchResult>>,
   /// Represent how deep the analysis is/was
-  pub depth: Arc<Mutex<usize>>,
+  pub depth:           Arc<Mutex<usize>>,
   /// Represent how deep the analysis is/was
   pub selective_depth: Arc<Mutex<usize>>,
   /// Represents how many nodes we visited in the search
-  pub nodes_visited: Arc<Mutex<usize>>,
+  pub nodes_visited:   Arc<Mutex<usize>>,
 }
 
 #[derive(Clone, Debug)]
 struct EngineState {
   /// Indicates if the engine is active at resolving positions
-  pub active: Arc<Mutex<bool>>,
+  pub active:         Arc<Mutex<bool>>,
   /// Indicates that we want the engine to stop resolving positions
   pub stop_requested: Arc<Mutex<bool>>,
   /// Indicates when the engine was requested to start searching
-  pub start_time: Arc<Mutex<Instant>>,
+  pub start_time:     Arc<Mutex<Instant>>,
 }
 
 impl Analysis {
@@ -211,12 +211,10 @@ impl Analysis {
 
 impl Default for Analysis {
   fn default() -> Self {
-    Analysis {
-      result: Arc::new(Mutex::new(SearchResult::new(1, Color::White))),
-      depth: Arc::new(Mutex::new(0)),
-      selective_depth: Arc::new(Mutex::new(0)),
-      nodes_visited: Arc::new(Mutex::new(0)),
-    }
+    Analysis { result:          Arc::new(Mutex::new(SearchResult::new(1, Color::White))),
+               depth:           Arc::new(Mutex::new(0)),
+               selective_depth: Arc::new(Mutex::new(0)),
+               nodes_visited:   Arc::new(Mutex::new(0)), }
   }
 }
 
@@ -224,17 +222,17 @@ impl Default for Analysis {
 pub struct Engine {
   pub position: GameState,
   /// State of the analysis for the game state.
-  analysis: Analysis,
+  analysis:     Analysis,
   /// Position cache, used to speed up processing
-  cache: EngineCache,
+  cache:        EngineCache,
   /// Engine options
-  pub options: EngineOptions,
+  pub options:  EngineOptions,
   /// Whether the engine is active of not, and if we want to stop it.
-  state: EngineState,
+  state:        EngineState,
   /// NNUE
-  nnue: Arc<Mutex<NNUE>>,
+  nnue:         Arc<Mutex<NNUE>>,
   /// Game History
-  history: GameHistory,
+  history:      GameHistory,
 }
 
 type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -248,21 +246,16 @@ impl Engine {
     initialize_chess_books();
     let nnue_path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), NNUE_FILE);
 
-    let mut engine = Engine {
-      position: GameState::default(),
-      analysis: Analysis::default(),
-      cache: EngineCache::new(),
-      options: EngineOptions::default(),
-      state: EngineState {
-        active: Arc::new(Mutex::new(false)),
-        stop_requested: Arc::new(Mutex::new(false)),
-        start_time: Arc::new(Mutex::new(Instant::now())),
-      },
-      nnue: Arc::new(Mutex::new(
-        NNUE::load(nnue_path.as_str()).unwrap_or_default(),
-      )),
-      history: GameHistory::new(),
-    };
+    let mut engine =
+      Engine { position: GameState::default(),
+               analysis: Analysis::default(),
+               cache:    EngineCache::new(),
+               options:  EngineOptions::default(),
+               state:    EngineState { active:         Arc::new(Mutex::new(false)),
+                                       stop_requested: Arc::new(Mutex::new(false)),
+                                       start_time:     Arc::new(Mutex::new(Instant::now())), },
+               nnue:     Arc::new(Mutex::new(NNUE::load(nnue_path.as_str()).unwrap_or_default())),
+               history:  GameHistory::new(), };
 
     engine.options.uci = uci;
     engine.set_position(START_POSITION_FEN);
@@ -430,10 +423,8 @@ impl Engine {
     let play_style = self.options.play_style;
     let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
     if book_entry.is_some() {
-      info!(
-        "Known position, returning book moves for {:?} play",
-        play_style
-      );
+      info!("Known position, returning book moves for {:?} play",
+            play_style);
       let mut move_list = book_entry.unwrap();
       let mut rng = rand::thread_rng();
       move_list.shuffle(&mut rng);
@@ -469,19 +460,14 @@ impl Engine {
         if eval.is_nan() {
           eval = evaluate_board(&game_state);
         }
-        evaluation_cache = EvaluationCache {
-          game_status,
-          eval,
-          depth: 1,
-        };
+        evaluation_cache = EvaluationCache { game_status,
+                                             eval,
+                                             depth: 1 };
         self.cache.set_eval(&game_state.board, evaluation_cache);
       }
       let mut result: SearchResult =
         SearchResult::new(self.options.multi_pv, game_state.board.side_to_play);
-      result.update(VariationWithEval::new_from_move(
-        evaluation_cache.eval,
-        moves[0],
-      ));
+      result.update(VariationWithEval::new_from_move(evaluation_cache.eval, moves[0]));
 
       self.analysis.update_result(result);
       self.analysis.set_depth(evaluation_cache.depth);
@@ -500,13 +486,11 @@ impl Engine {
       self.analysis.increment_selective_depth();
 
       // Try to search for the current depth
-      let result = self.search(
-        &self.position.clone(),
-        1,
-        self.analysis.get_depth(),
-        f32::MIN,
-        f32::MAX,
-      );
+      let result = self.search(&self.position.clone(),
+                               1,
+                               self.analysis.get_depth(),
+                               f32::MIN,
+                               f32::MAX);
 
       if self.has_been_searching_too_long() || self.stop_requested() || result.is_none() {
         // Toss away unfinished depths
@@ -522,7 +506,7 @@ impl Engine {
 
       // If the best move is just winning for us, stop searching unless requested to.
       if Engine::best_move_is_mating_sequence(self.position.board.side_to_play, best_eval)
-        && self.options.ponder == false
+         && self.options.ponder == false
       {
         debug!("Winning sequence found! Stopping search");
         break;
@@ -586,16 +570,14 @@ impl Engine {
       } else {
         String::from(format!(""))
       };
-      println!(
-        "info {} depth {} seldepth {} nodes {} time {}{}pv {}",
-        score_string,
-        depth,
-        selective_depth,
-        nodes_visited,
-        (Instant::now() - start_time).as_millis(),
-        multi_pv_string,
-        result.variations[i].variation,
-      );
+      println!("info {} depth {} seldepth {} nodes {} time {}{}pv {}",
+               score_string,
+               depth,
+               selective_depth,
+               nodes_visited,
+               (Instant::now() - start_time).as_millis(),
+               multi_pv_string,
+               result.variations[i].variation,);
     }
   }
 
@@ -653,7 +635,7 @@ impl Engine {
     let move_list = self.cache.get_move_list(&game_state.board).unwrap();
     if move_list.is_empty() {
       return line_string
-        + " - Empty move list ?? (check what happened it should not be GameStatus::OnGoing";
+             + " - Empty move list ?? (check what happened it should not be GameStatus::OnGoing";
     }
     let best_move = move_list[0];
     let mut best_new_state = game_state.clone();
@@ -663,8 +645,9 @@ impl Engine {
     }
 
     return best_move.to_string()
-      + " "
-      + self.get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1).as_str();
+           + " "
+           + self.get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1)
+                 .as_str();
   }
 
   /// Prints the evaluation result in the console
@@ -672,12 +655,10 @@ impl Engine {
     let lines = self.analysis.result.lock().unwrap();
     let position_eval = if lines.is_empty() { f32::NAN } else { lines.variations[0].eval };
 
-    println!(
-      "Score for position {}: {}\n{}",
-      self.position.to_fen(),
-      position_eval,
-      lines,
-    );
+    println!("Score for position {}: {}\n{}",
+             self.position.to_fen(),
+             position_eval,
+             lines,);
   }
 
   //----------------------------------------------------------------------------
@@ -753,14 +734,13 @@ impl Engine {
   /// * `alpha`:      Alpha value for the Alpha/Beta pruning
   /// * `Beta`:       Beta value for the Alpha/Beta pruning
   /// * `start_time`: Time at which we started resolving the chess position
-  fn search(
-    &self,
-    game_state: &GameState,
-    depth: usize,
-    max_depth: usize,
-    mut alpha: f32,
-    mut beta: f32,
-  ) -> Option<SearchResult> {
+  fn search(&self,
+            game_state: &GameState,
+            depth: usize,
+            max_depth: usize,
+            mut alpha: f32,
+            mut beta: f32)
+            -> Option<SearchResult> {
     if self.stop_requested() || self.has_been_searching_too_long() {
       return None;
     }
@@ -773,10 +753,8 @@ impl Engine {
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
     let moves = self.cache.get_move_list(&game_state.board).unwrap();
-    let mut result = SearchResult::new(
-      NUMBER_OF_MOVES_IN_SEARCH_RESULTS,
-      game_state.board.side_to_play,
-    );
+    let mut result = SearchResult::new(NUMBER_OF_MOVES_IN_SEARCH_RESULTS,
+                                       game_state.board.side_to_play);
 
     for m in moves {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
@@ -806,14 +784,9 @@ impl Engine {
       // Check if we just repeated the position too much or did not make progress.
       let draw = can_declare_draw(&new_game_state);
       if draw != GameStatus::Ongoing {
-        self.cache.set_eval(
-          &new_game_state.board,
-          EvaluationCache {
-            game_status: draw,
-            eval: 0.0,
-            depth: 1,
-          },
-        );
+        self.cache.set_eval(&new_game_state.board, EvaluationCache { game_status: draw,
+                                                                     eval:        0.0,
+                                                                     depth:       1, });
         Engine::update_alpha_beta(game_state.board.side_to_play, 0.0, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_from_move(0.0, m));
         continue;
@@ -826,12 +799,10 @@ impl Engine {
         // FIXME: If the position appears in another variation but leads to a draw, e.g.
         // 3 fold repetitions, we won't detect it and skip it. Get the alpha/
         // beta result propagated upwards.
-        Engine::update_alpha_beta(
-          game_state.board.side_to_play,
-          eval_cache.eval,
-          &mut alpha,
-          &mut beta,
-        );
+        Engine::update_alpha_beta(game_state.board.side_to_play,
+                                  eval_cache.eval,
+                                  &mut alpha,
+                                  &mut beta);
         result.update(VariationWithEval::new_from_move(eval_cache.eval, m));
         continue;
       }
@@ -844,7 +815,7 @@ impl Engine {
       // the side to play:
       let mut eval = get_eval_from_game_status(eval_cache.game_status);
       if eval_cache.game_status == GameStatus::WhiteWon
-        || eval_cache.game_status == GameStatus::BlackWon
+         || eval_cache.game_status == GameStatus::BlackWon
       {
         if is_smothered_mate(&game_state.board, eval_cache.game_status) {
           // Just assign a higher score to smothered mates
@@ -877,12 +848,10 @@ impl Engine {
           sub_result.push_move_to_variations(m);
           if !sub_result.is_empty() {
             result.update(sub_result.get(0));
-            Engine::update_alpha_beta(
-              game_state.board.side_to_play,
-              result.get_eval().expect("valid eval"),
-              &mut alpha,
-              &mut beta,
-            );
+            Engine::update_alpha_beta(game_state.board.side_to_play,
+                                      result.get_eval().expect("valid eval"),
+                                      &mut alpha,
+                                      &mut beta);
           }
         } else if eval_cache.game_status == GameStatus::Ongoing && depth >= max_line_depth {
           // Evaluate our position
@@ -937,12 +906,10 @@ impl Engine {
       top_moves.extend(moves);
       top_moves.dedup();
 
-      debug_assert!(
-        initial_length == top_moves.len(),
-        "Reordered moves should be the same length {} -> {}",
-        initial_length,
-        top_moves.len()
-      );
+      debug_assert!(initial_length == top_moves.len(),
+                    "Reordered moves should be the same length {} -> {}",
+                    initial_length,
+                    top_moves.len());
       self.cache.set_move_list(&game_state.board, &top_moves);
     }
 

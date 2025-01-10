@@ -1,3 +1,4 @@
+use super::engine::configure_engine;
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
@@ -11,8 +12,8 @@ use std::sync::{mpsc, Arc};
 use tokio::runtime::Handle;
 
 static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
-static BOT_VERSION: &'static str = env!("CARGO_PKG_VERSION");
-static BOT_NAME: &'static str = env!("CARGO_PKG_NAME");
+static BOT_VERSION: &str = env!("CARGO_PKG_VERSION");
+static BOT_NAME: &str = env!("CARGO_PKG_NAME");
 
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
@@ -39,13 +40,12 @@ impl Game {
     let (tx, rx) = mpsc::channel();
 
     // Create a new engine for playing
-    let mut engine = Engine::new(false);
-    engine.set_position(START_POSITION_FEN);
-    engine.resize_cache_tables(1024); // Use 1024 MB for cache tables.
+    let engine = configure_engine(&game);
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),
-                                    start_fen: String::from(START_POSITION_FEN),
+                                    start_fen: game.fen
+                                                   .unwrap_or(String::from(START_POSITION_FEN)),
                                     id: game.game_id.clone(),
                                     color: game.color,
                                     engine };
@@ -72,7 +72,7 @@ impl Game {
   }
 
   async fn end_of_game_announcement(&self) {
-    let message = format!("Thanks for playing ! :)");
+    let message = "Thanks for playing ! :)".to_string();
     self.api.write_in_chat(&self.id, message.as_str()).await;
     self.api.write_in_spectator_room(&self.id, message.as_str()).await;
   }
@@ -180,11 +180,7 @@ impl Game {
           self.engine.position.to_fen());
 
     self.engine.options.max_search_time = suggested_time_ms;
-    // let _ = self.engine.go_async().await;
-    let engine_clone = self.engine.clone();
-    let engine_search_handle = tokio::task::spawn_blocking(move || engine_clone.go());
-    let _ = engine_search_handle.await.unwrap();
-    // while !engine_handle.is_finished() {}
+    self.engine.go();
 
     // Select randomly one of the good moves.
     let analysis = self.engine.get_analysis();

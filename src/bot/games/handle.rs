@@ -18,7 +18,7 @@ pub struct GameHandle {
 impl GameHandle {
   /// Resigns an ongoing game
   pub fn resign(&self) {
-    self.tx.send(GameMessage::Resign);
+    let _ = self.tx.send(GameMessage::Resign);
   }
 
   /// Check if the game is over
@@ -60,7 +60,7 @@ impl GameStreamHandler for GameHandle {
           let game_full = game_full.unwrap();
           debug!("Parsed data: {:?}", game_full);
 
-          self.tx.send(GameMessage::Update(game_full.state));
+          let _ = self.tx.send(GameMessage::Update(game_full.state));
           // self.games.update_game_and_play(game_full.state, game_id.as_str());
         }
       },
@@ -72,7 +72,7 @@ impl GameStreamHandler for GameHandle {
         if let Err(error) = result {
           warn!("Error deserializing GameState data !! {:?}", error);
         } else {
-          self.tx.send(GameMessage::Update(result.unwrap()));
+          let _ = self.tx.send(GameMessage::Update(result.unwrap()));
         }
       },
 
@@ -100,10 +100,10 @@ impl GameStreamHandler for GameHandle {
         if gone {
           info!("Opponent gone! We'll just claim victory as soon as possible!");
           if let Some(timeout) = json_value["claimWinInSeconds"].as_u64() {
-            self.tx.send(GameMessage::OpponentGone(Some(timeout)));
+            let _ = self.tx.send(GameMessage::OpponentGone(Some(timeout)));
           }
         } else {
-          self.tx.send(GameMessage::OpponentGone(None));
+          let _ = self.tx.send(GameMessage::OpponentGone(None));
           info!("Opponent is back!");
         }
       },
