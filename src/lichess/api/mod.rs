@@ -15,7 +15,7 @@ use reqwest;
 use serde_json::Value as JsonValue;
 
 // Constants
-const API_BASE_URL: &'static str = "https://lichess.org/api/";
+static API_BASE_URL: &str = "https://lichess.org/api/";
 
 // It is okay to pass the LichessApi references between threads
 unsafe impl Sync for LichessApi {}
@@ -26,14 +26,16 @@ pub struct LichessApi {
   /// Reqwest client use to send HTTP/HTTPS requests
   client: reqwest::Client,
   /// Lichess API token, giving us access to an account and some permissions
-  token:  String,
+  token: String,
 }
 
 impl LichessApi {
   /// Creates a new instance of a LichessApi, using the API token
   pub fn new(token: &str) -> Self {
-    LichessApi { client: reqwest::Client::new(), 
-                 token:  String::from(token), }
+    LichessApi {
+      client: reqwest::Client::new(),
+      token: String::from(token),
+    }
   }
 
   //----------------------------------------------------------------------------
@@ -42,28 +44,31 @@ impl LichessApi {
   /// Sends a GET request to a given Endpoint
   async fn get(&self, api_endpoint: &str) -> Result<reqwest::Response, reqwest::Error> {
     debug!("Lichess GET request at {}{}", API_BASE_URL, api_endpoint);
-    self.client
-        .get(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header("Authorization", format!("Bearer {}", self.token))
-        .header("Accept", "application/x-ndjson")
-        .send()
-        .await
+    self
+      .client
+      .get(format!("{}{}", API_BASE_URL, api_endpoint))
+      .header("Authorization", format!("Bearer {}", self.token))
+      .header("Accept", "application/x-ndjson")
+      .send()
+      .await
   }
 
   /// Sends a POST request to a given Endpoint
-  async fn post(&self,
-                api_endpoint: &str,
-                body: &str)
-                -> Result<reqwest::Response, reqwest::Error> {
+  async fn post(
+    &self,
+    api_endpoint: &str,
+    body: &str,
+  ) -> Result<reqwest::Response, reqwest::Error> {
     debug!("Lichess POST request at {}{}", API_BASE_URL, api_endpoint);
-    self.client
-        .post(format!("{}{}", API_BASE_URL, api_endpoint))
-        .header("Authorization", format!("Bearer {}", self.token))
-        .header("Accept", "application/x-ndjson")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body.to_string())
-        .send()
-        .await
+    self
+      .client
+      .post(format!("{}{}", API_BASE_URL, api_endpoint))
+      .header("Authorization", format!("Bearer {}", self.token))
+      .header("Accept", "application/x-ndjson")
+      .header("Content-Type", "application/x-www-form-urlencoded")
+      .body(body.to_string())
+      .send()
+      .await
   }
 
   //----------------------------------------------------------------------------
@@ -90,8 +95,10 @@ impl LichessApi {
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(error) = response_text_result {
-      warn!("Error reading the payload from Get request to Lichess {}",
-            error);
+      warn!(
+        "Error reading the payload from Get request to Lichess {}",
+        error
+      );
       return Err(());
     }
 
@@ -168,7 +175,8 @@ impl LichessApi {
   ///
   /// Result indicating if we had error receiving/parsing the event stream.
   pub async fn stream_incoming_events<T>(&self, handler: &T) -> Result<(), ()>
-    where T: EventStreamHandler
+  where
+    T: EventStreamHandler,
   {
     let response_result = self.get("stream/event").await;
 
@@ -178,37 +186,38 @@ impl LichessApi {
     }
 
     let stream = response_result.unwrap().bytes_stream();
-    stream.for_each(|chunk_response| async {
-            if let Err(e) = chunk_response {
-              warn!("Error receiving stream? {}", e);
-              // return futures::future::ready(());
-              return ();
-            }
+    stream
+      .for_each(|chunk_response| async {
+        if let Err(e) = chunk_response {
+          warn!("Error receiving stream? {}", e);
+          return;
+        }
 
-            let chunk = chunk_response.unwrap();
-            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+        let chunk = chunk_response.unwrap();
+        let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+        let json_entries = helpers::parse_string_to_nd_json(&string_value);
 
-            for json_entry in json_entries {
-              handler.event_stream_handler(json_entry);
-            }
-            // Sending 1 byte is usually just the keep-alive message
-            if chunk.len() == 1 {
-              debug!("Received keep-alive message for event stream");
-            }
+        for json_entry in json_entries {
+          handler.event_stream_handler(json_entry);
+        }
+        // Sending 1 byte is usually just the keep-alive message
+        if chunk.len() == 1 {
+          debug!("Received keep-alive message for event stream");
+        }
 
-            ()
-          })
-          .await;
+        ()
+      })
+      .await;
 
     info!("Finished to stream events");
     Ok(())
   }
 
-  pub async fn stream_incoming_events_with_callback<T>(&self,
-                                                       handler: &'static T,
-                                                       callback: fn(&'static T, JsonValue))
-                                                       -> Result<(), ()> {
+  pub async fn stream_incoming_events_with_callback<T>(
+    &self,
+    handler: &'static T,
+    callback: fn(&'static T, JsonValue),
+  ) -> Result<(), ()> {
     let response_result = self.get("stream/event").await;
 
     if let Err(e) = response_result {
@@ -217,28 +226,28 @@ impl LichessApi {
     }
 
     let stream = response_result.unwrap().bytes_stream();
-    stream.for_each(|chunk_response| async {
-            if let Err(e) = chunk_response {
-              warn!("Error receiving stream? {}", e);
-              // return futures::future::ready(());
-              return ();
-            }
+    stream
+      .for_each(|chunk_response| async {
+        if let Err(e) = chunk_response {
+          warn!("Error receiving stream? {}", e);
+          return;
+        }
 
-            let chunk = chunk_response.unwrap();
-            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+        let chunk = chunk_response.unwrap();
+        let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+        let json_entries = helpers::parse_string_to_nd_json(&string_value);
 
-            for json_entry in json_entries {
-              callback(handler, json_entry);
-            }
-            // Sending 1 byte is usually just the keep-alive message
-            if chunk.len() == 1 {
-              debug!("Received keep-alive message for event stream");
-            }
+        for json_entry in json_entries {
+          callback(handler, json_entry);
+        }
+        // Sending 1 byte is usually just the keep-alive message
+        if chunk.len() == 1 {
+          debug!("Received keep-alive message for event stream");
+        }
 
-            ()
-          })
-          .await;
+        ()
+      })
+      .await;
 
     info!("Finished to stream events");
     Ok(())
@@ -260,7 +269,8 @@ impl LichessApi {
   ///
   /// Result indicating if we had error receiving/parsing the event stream.
   pub async fn stream_game_state<T>(self, handler: &T, game_id: &str) -> Result<(), ()>
-    where T: GameStreamHandler
+  where
+    T: GameStreamHandler,
   {
     info!("Requesting Lichess to stream Game ID {game_id}");
     let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
@@ -271,28 +281,28 @@ impl LichessApi {
     }
 
     let stream = response_result.unwrap().bytes_stream();
-    stream.for_each(|chunk_response| async {
-            if let Err(e) = chunk_response {
-              info!("Error receiving stream? {}", e);
-              // return futures::future::ready(());
-              return ();
-            }
+    stream
+      .for_each(|chunk_response| async {
+        if let Err(e) = chunk_response {
+          info!("Error receiving stream? {}", e);
+          return;
+        }
 
-            let chunk = chunk_response.unwrap();
-            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+        let chunk = chunk_response.unwrap();
+        let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+        let json_entries = helpers::parse_string_to_nd_json(&string_value);
 
-            for json_entry in json_entries {
-              handler.game_stream_handler(json_entry, String::from(game_id));
-            }
-            // Sending 1 byte is usually just the keep-alive message
-            if chunk.len() == 1 {
-              debug!("Received keep-alive message for Game State stream");
-            }
+        for json_entry in json_entries {
+          handler.game_stream_handler(json_entry, String::from(game_id));
+        }
+        // Sending 1 byte is usually just the keep-alive message
+        if chunk.len() == 1 {
+          debug!("Received keep-alive message for Game State stream");
+        }
 
-            ()
-          })
-          .await;
+        ()
+      })
+      .await;
 
     info!("Finished to stream game events for game id {game_id}");
     Ok(())
@@ -312,11 +322,12 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error receiving/parsing the event stream.
-  pub async fn stream_game_state_with_callback<T>(&self,
-                                                  game_id: &str,
-                                                  handler: &T,
-                                                  callback: fn(&T, JsonValue, String))
-                                                  -> Result<(), ()> {
+  pub async fn stream_game_state_with_callback<T>(
+    &self,
+    game_id: &str,
+    handler: &T,
+    callback: fn(&T, JsonValue, String),
+  ) -> Result<(), ()> {
     info!("Requesting Lichess to stream Game ID {game_id}");
     let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
 
@@ -326,27 +337,28 @@ impl LichessApi {
     }
 
     let stream = response_result.unwrap().bytes_stream();
-    stream.for_each(|chunk_response| async {
-            if let Err(e) = chunk_response {
-              info!("Error receiving stream? {}", e);
-              return ();
-            }
+    stream
+      .for_each(|chunk_response| async {
+        if let Err(e) = chunk_response {
+          info!("Error receiving stream? {}", e);
+          return;
+        }
 
-            let chunk = chunk_response.unwrap();
-            let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-            let json_entries = helpers::parse_string_to_nd_json(&string_value);
+        let chunk = chunk_response.unwrap();
+        let string_value: String = String::from_utf8_lossy(&chunk).to_string();
+        let json_entries = helpers::parse_string_to_nd_json(&string_value);
 
-            for json_entry in json_entries {
-              callback(handler, json_entry, String::from(game_id));
-            }
-            // Sending 1 byte is usually just the keep-alive message
-            if chunk.len() == 1 {
-              debug!("Received keep-alive message for Game State stream");
-            }
+        for json_entry in json_entries {
+          callback(handler, json_entry, String::from(game_id));
+        }
+        // Sending 1 byte is usually just the keep-alive message
+        if chunk.len() == 1 {
+          debug!("Received keep-alive message for Game State stream");
+        }
 
-            ()
-          })
-          .await;
+        ()
+      })
+      .await;
 
     info!("Finished to stream game events for game id {game_id}");
     Ok(())

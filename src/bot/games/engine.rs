@@ -21,28 +21,24 @@ pub fn configure_engine(game: &GameStart) -> Engine {
 
   // Adjust the level of difficulty based on the rating of the opponent, if they
   // are human
-  match game.opponent.title {
-    None => {
-      if game.opponent.rating < 1300 {
-        // Be very gentle with beginners
-        engine.options.max_depth = 1;
-        engine.options.play_style = PlayStyle::Provocative;
-      } else if game.opponent.rating < 1500 {
-        engine.options.max_depth = 2;
-        engine.options.play_style = PlayStyle::Provocative;
-      } else if game.opponent.rating < 1700 {
-        engine.options.max_depth = 3;
-        engine.options.play_style = PlayStyle::Provocative;
-      } else if game.opponent.rating < 1800 {
-        engine.options.max_depth = 4;
-        engine.options.play_style = PlayStyle::Provocative;
-      } else if game.opponent.rating < 1900 {
-        engine.options.max_depth = 5;
-      } else if game.opponent.rating < 2000 {
-        engine.options.max_depth = 6;
-      }
-    },
-    _ => {},
+  if !game.opponent_is_bot() && game.opponent.title.is_none() {
+    if game.opponent.rating < 1300 {
+      engine.options.max_depth = 1;
+      engine.options.play_style = PlayStyle::Provocative;
+    } else if game.opponent.rating < 1500 {
+      engine.options.max_depth = 2;
+      engine.options.play_style = PlayStyle::Provocative;
+    } else if game.opponent.rating < 1700 {
+      engine.options.max_depth = 3;
+      engine.options.play_style = PlayStyle::Provocative;
+    } else if game.opponent.rating < 1800 {
+      engine.options.max_depth = 4;
+      engine.options.play_style = PlayStyle::Provocative;
+    } else if game.opponent.rating < 1900 {
+      engine.options.max_depth = 5;
+    } else if game.opponent.rating < 2000 {
+      engine.options.max_depth = 6;
+    }
   }
 
   info!("Engine configuration for game {}: {:?}",

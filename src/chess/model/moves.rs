@@ -1,6 +1,5 @@
 use crate::model::board::INVALID_SQUARE;
 use crate::model::piece::*;
-
 use log::*;
 use std::ops::Shl;
 
@@ -40,57 +39,51 @@ pub const EN_PASSANT_SHIFT: move_t = 22;
 
 /// Helper macro that creates a Move
 ///
-/// Use like this for all parameters: `mv!(source, destination, promotion, capture, checks)`
+/// Use like this for all parameters: `mv!(source, destination, promotion,
+/// capture, checks)`
 ///
-/// Only 2 madatory parameters are source and destinations: `mv!(source, destination)`
+/// Only 2 madatory parameters are source and destinations: `mv!(source,
+/// destination)`
 ///
 /// ### Arguments
 ///
 /// * `source`          Source square for the move : 0..63;
 /// * `destination`     Destination square for the move : 0..63;
 /// * `promotion`       Whether the move yields a promotion
-/// * `capture`         PieceType value to indicate if this is a capture on the board. Set to 0 (king) for no capture.
+/// * `capture`         PieceType value to indicate if this is a capture on the
+///   board. Set to 0 (king) for no capture.
 /// * `checks`          2 bits values indicating the number of checks.
 ///
 /// ### Returns
 ///
 /// Move struct with the indicated data packed inside.
-///
 #[macro_export]
 macro_rules! mv {
   // All parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr, $check:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
-        | (($check as move_t & CHECK_MASK) << CHECK_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
+                 | (($check as move_t & CHECK_MASK) << CHECK_SHIFT), }
   };
   // 4 parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
   };
 
   // 3 parameters
   ($src:expr, $dest:expr, $prom:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT), }
   };
   // 2 parameters, just source and destination.
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT),
-    }
+    Move { data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT), }
   };
 }
 
@@ -106,14 +99,13 @@ macro_rules! mv {
 /// ### Returns
 ///
 /// Move struct with the indicated data packed inside.
-///
 #[macro_export]
 macro_rules! castle_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CASTLE_SHIFT),
-    }
+    Move { data: $src
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (1 << CASTLE_SHIFT), }
   };
 }
 
@@ -129,17 +121,14 @@ macro_rules! castle_mv {
 /// ### Returns
 ///
 /// Move struct with the indicated data packed inside.
-///
 #[macro_export]
 macro_rules! en_passant_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
-        | (1 << EN_PASSANT_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
+                 | (1 << EN_PASSANT_SHIFT), }
   };
 }
 
@@ -155,23 +144,17 @@ macro_rules! en_passant_mv {
 /// ### Returns
 ///
 /// Move struct with the indicated data packed inside.
-///
 #[macro_export]
 macro_rules! capture_mv {
   // All parameters
   ($src:expr, $dest:expr, $piece:expr) => {
-    Move {
-      data: $src
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
-    }
+    Move { data: $src
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
   };
 }
 
-pub use capture_mv;
-pub use castle_mv;
-pub use en_passant_mv;
-pub use mv;
+pub use {capture_mv, castle_mv, en_passant_mv, mv};
 
 /// List of possible promotions in a chess game
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
@@ -192,7 +175,6 @@ pub enum Promotion {
 impl Promotion {
   /// Converts a promotion value to an optional character that can be
   /// used in move notations
-  ///
   pub fn to_char(&self) -> Option<char> {
     match self {
       Promotion::NoPromotion => None,
@@ -209,7 +191,6 @@ impl Promotion {
 
   /// Converts a character used in  value to an optional character that can be
   /// used in move notations
-  ///
   pub fn from_char(promotion: char) -> Self {
     match promotion {
       'Q' => Promotion::WhiteQueen,
@@ -256,8 +237,6 @@ impl Shl<move_t> for Promotion {
 /// ### Fields
 ///
 /// * `data`: Contains the source, destination and promotion
-///
-///
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub struct Move {
   /// Move data, representing source -> destination and an optional promotion.
@@ -302,9 +281,8 @@ impl Move {
     ((self.data >> DESTINATION_SHIFT) & SQUARE_MASK) as u8
   }
 
-  /// Returns the promotion value for a move, it's to say the piece that will spawn
-  /// on the destination square
-  ///
+  /// Returns the promotion value for a move, it's to say the piece that will
+  /// spawn on the destination square
   #[inline]
   pub fn promotion(&self) -> Promotion {
     unsafe { std::mem::transmute(((self.data >> PROMOTION_SHIFT) & PROMOTION_MASK) as u8) }
@@ -313,7 +291,6 @@ impl Move {
   /// Returns true if the move has been marked to be a capture.
   /// This depends on the board, and moves generated e.g. from a notation
   /// may not have accurate information here.
-  ///
   #[inline]
   pub fn is_capture(&self) -> bool {
     (self.data >> CAPTURE_SHIFT) & CAPTURE_MASK != 0
@@ -335,16 +312,12 @@ impl Move {
   /// Returns the piece that was captured by the move
   #[inline]
   pub fn is_piece_capture(&self) -> bool {
-    match (self.data >> CAPTURE_SHIFT) & CAPTURE_MASK {
-      1..=4 => true,
-      _ => false,
-    }
+    matches!((self.data >> CAPTURE_SHIFT) & CAPTURE_MASK, 1..5)
   }
 
   /// Returns the number of checks if the move has been marked to give checks
   /// This depends on the board, and moves generated e.g. from a notation
   /// may not have accurate information here.
-  ///
   #[inline]
   pub fn gives_check(&self) -> move_t {
     (self.data >> CHECK_SHIFT) & CHECK_MASK
@@ -353,7 +326,6 @@ impl Move {
   /// Returns whether the move is a castling move or not
   /// This depends on the board, and moves generated e.g. from a notation
   /// may not have accurate information here.
-  ///
   #[inline]
   pub fn is_castle(&self) -> bool {
     (self.data >> CASTLE_SHIFT) & 1 != 0
@@ -362,14 +334,12 @@ impl Move {
   /// Returns whether the move is a en-passant move or not
   /// This depends on the board, and moves generated e.g. from a notation
   /// may not have accurate information here.
-  ///
   #[inline]
   pub fn is_en_passant(&self) -> bool {
     (self.data >> EN_PASSANT_SHIFT) & 1 != 0
   }
 
   /// Null / illegal move
-  ///
   pub const fn null() -> Self {
     Move { data: 0 }
   }
@@ -380,7 +350,6 @@ impl Move {
   ///
   /// Returns `true` if the current move is a NULL / illegal move.<br>
   /// False if the move non-null. (Does not mean it is legal)
-  ///
   #[inline]
   pub fn is_null(&self) -> bool {
     self.data == 0
@@ -388,8 +357,23 @@ impl Move {
 }
 
 impl std::fmt::Display for Move {
+  /// Converts a move to the algebraic notation, e.g. a3f3
+  /// This provides the signature `to_string(&self) -> String`
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_str(self.to_string().as_str())
+    let promotion = self.promotion();
+
+    let move_string = match promotion {
+      Promotion::NoPromotion => {
+        square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8)
+      },
+      _ => {
+        let mut move_string =
+          square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8);
+        move_string.push(Promotion::to_char(&promotion).expect("Should be a valid piece!"));
+        move_string
+      },
+    };
+    f.write_str(move_string.as_str())
   }
 }
 
@@ -444,7 +428,8 @@ pub fn square_to_string(square: u8) -> String {
 /// Converts the square algebraic notation to a number from 0 to 63.
 pub fn string_to_square(string: &str) -> u8 {
   let mut square_value: u8 = 0;
-  match string.chars().nth(0) {
+  let mut chars = string.chars();
+  match chars.next() {
     Some('a') => square_value += 0,
     Some('b') => square_value += 1,
     Some('c') => square_value += 2,
@@ -455,7 +440,7 @@ pub fn string_to_square(string: &str) -> u8 {
     Some('h') => square_value += 7,
     Some(_) | None => return INVALID_SQUARE,
   }
-  match string.chars().nth(1) {
+  match chars.next() {
     // a does not add value to the square index
     Some('1') => {},
     Some('2') => square_value += 8,
@@ -472,23 +457,6 @@ pub fn string_to_square(string: &str) -> u8 {
 }
 
 impl Move {
-  /// Converts a move to the algebraic notation, e.g. a3f3
-  pub fn to_string(&self) -> String {
-    let promotion = self.promotion();
-
-    match promotion {
-      Promotion::NoPromotion => {
-        square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8)
-      },
-      _ => {
-        let mut move_string =
-          square_to_string(self.src() as u8) + &square_to_string(self.dest() as u8);
-        move_string.push(Promotion::to_char(&promotion).expect("Should be a valid piece!"));
-        move_string
-      },
-    }
-  }
-
   /// Converts a move to the algebraic notation, e.g.
   pub fn from_string(move_notation: &str) -> Self {
     let dest: move_t = string_to_square(&move_notation[2..4]) as move_t;
@@ -500,7 +468,8 @@ impl Move {
     };
 
     // By default the notation has small letter, so it will produce black pieces.
-    // Change here the black piece into white piece if the destination rank is the 8th
+    // Change here the black piece into white piece if the destination rank is the
+    // 8th
     if (dest / 8) == 7 && promotion != Promotion::NoPromotion {
       match promotion {
         Promotion::BlackQueen => promotion = Promotion::WhiteQueen,

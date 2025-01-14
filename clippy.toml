@@ -1,0 +1,2 @@
+allowed-wildcard-imports = [ "log" ]
+disallowed-types = ["std::collections::HashMap", "std::collections::HashSet"]

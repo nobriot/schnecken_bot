@@ -11,47 +11,41 @@ use std::cmp::max;
 // -----------------------------------------------------------------------------
 //  Constants
 
-pub const BOARD_EDGES: BoardMask = 0xFF818181818181FF;
-pub const BOARD_WITHOUT_EDGES: BoardMask = 0x007E7E7E7E7E7E00;
-pub const BOARD_RIGHT_EDGE: BoardMask = 0x8080808080808080;
-pub const BOARD_LEFT_EDGE: BoardMask = 0x0101010101010101;
-pub const BOARD_DOWN_EDGE: BoardMask = 0x00000000000000FF;
-pub const BOARD_BOTTOM_2_RANKS: BoardMask = 0x000000000000FFFF;
-pub const BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
-pub const BOARD_UPPER_2_RANKS: BoardMask = 0xFFFF000000000000;
+pub static BOARD_EDGES: BoardMask = 0xFF818181818181FF;
+pub static BOARD_WITHOUT_EDGES: BoardMask = 0x007E7E7E7E7E7E00;
+pub static BOARD_RIGHT_EDGE: BoardMask = 0x8080808080808080;
+pub static BOARD_LEFT_EDGE: BoardMask = 0x0101010101010101;
+pub static BOARD_DOWN_EDGE: BoardMask = 0x00000000000000FF;
+pub static BOARD_BOTTOM_2_RANKS: BoardMask = 0x000000000000FFFF;
+pub static BOARD_UP_EDGE: BoardMask = 0xFF00000000000000;
+pub static BOARD_UPPER_2_RANKS: BoardMask = 0xFFFF000000000000;
 /// Queen Side mask
-///
-pub const QUEEN_SIDE_MASK: BoardMask = 0x0F0F0F0F0F0F0F0F;
+pub static QUEEN_SIDE_MASK: BoardMask = 0x0F0F0F0F0F0F0F0F;
 
 /// King Side mask
-///
-pub const KING_SIDE_MASK: BoardMask = 0xF0F0F0F0F0F0F0F0;
+pub static KING_SIDE_MASK: BoardMask = 0xF0F0F0F0F0F0F0F0;
 
 /// Ranks boardmasks
-pub const RANKS: [u64; 8] = [
-  0x00000000000000FF,
-  0x000000000000FF00,
-  0x0000000000FF0000,
-  0x00000000FF000000,
-  0x000000FF00000000,
-  0x0000FF0000000000,
-  0x00FF000000000000,
-  0xFF00000000000000,
-];
+pub static RANKS: [u64; 8] = [0x00000000000000FF,
+                              0x000000000000FF00,
+                              0x0000000000FF0000,
+                              0x00000000FF000000,
+                              0x000000FF00000000,
+                              0x0000FF0000000000,
+                              0x00FF000000000000,
+                              0xFF00000000000000];
 /// Files boardmasks
-pub const FILES: [u64; 8] = [
-  0x0101010101010101,
-  0x0202020202020202,
-  0x0404040404040404,
-  0x0808080808080808,
-  0x1010101010101010,
-  0x2020202020202020,
-  0x4040404040404040,
-  0x8080808080808080,
-];
+pub static FILES: [u64; 8] = [0x0101010101010101,
+                              0x0202020202020202,
+                              0x0404040404040404,
+                              0x0808080808080808,
+                              0x1010101010101010,
+                              0x2020202020202020,
+                              0x4040404040404040,
+                              0x8080808080808080];
 
-/// Finds how many moves/squares away is a king from a particular square, regardless
-/// of "obstacle pieces" along the way
+/// Finds how many moves/squares away is a king from a particular square,
+/// regardless of "obstacle pieces" along the way
 ///
 /// # Arguments
 ///
@@ -60,9 +54,8 @@ pub const FILES: [u64; 8] = [
 ///
 /// # Return value
 ///
-/// The number of moves the king needs to do to reach the destination. With valid
-/// square indexes, it will be in [0..7]
-///
+/// The number of moves the king needs to do to reach the destination. With
+/// valid square indexes, it will be in [0..7]
 pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
   let (sf, sr) = Board::index_to_fr(king_position);
   let (df, dr) = Board::index_to_fr(destination);
@@ -76,9 +69,9 @@ pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
 
 #[cfg(test)]
 mod tests {
-  use crate::{model::board_mask::print_board_mask, set_square_in_mask, square_in_mask};
-
   use super::*;
+  use crate::model::board_mask::print_board_mask;
+  use crate::{set_square_in_mask, square_in_mask};
   #[test]
   fn check_king_distance() {
     let start = Board::fr_to_index(4, 3);
@@ -161,16 +154,12 @@ mod tests {
 
     println!("Generating line constants...",);
     let mut output_file = File::create("./model/board_geometry/lines.rs").unwrap();
-    let _ = write!(
-      output_file,
-      "/// Represents boardmasks of lines between i and j squares\n"
-    );
+    let _ = write!(output_file,
+                   "/// Represents boardmasks of lines between i and j squares\n");
     let _ = write!(output_file, "/// i not included, j included.\n");
-    let _ = write!(
-      output_file,
-      "pub const LINES: [[u64; 64]; 64]  = {:#018X?};",
-      lines
-    );
+    let _ = write!(output_file,
+                   "pub static LINES: [[u64; 64]; 64]  = {:#018X?};",
+                   lines);
 
     println!("a1 -> b2");
     print_board_mask(lines[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -189,8 +178,8 @@ mod tests {
 
     println!("Generating diagonal constants...",);
     let mut output_file = File::create("./model/board_geometry/diagonals.rs").unwrap();
-    // Here we generate look-up boardmasks that indicate a diagonal between two squares.
-    // Start from i, continue in a diagonal like bishops.
+    // Here we generate look-up boardmasks that indicate a diagonal between two
+    // squares. Start from i, continue in a diagonal like bishops.
     let mut diagonals: [[u64; 64]; 64] = [[0; 64]; 64];
     for i in 0..64 {
       for j in 0..64 {
@@ -228,17 +217,13 @@ mod tests {
       }
     }
 
-    let _ = write!(
-      output_file,
-      "/// Represents boardmasks of diagonals between i and j squares\n"
-    );
+    let _ = write!(output_file,
+                   "/// Represents boardmasks of diagonals between i and j squares\n");
     let _ = write!(output_file, "/// i not included, j included.\n");
 
-    let _ = write!(
-      output_file,
-      "pub const DIAGONALS: [[u64; 64]; 64]  = {:#018X?};",
-      diagonals
-    );
+    let _ = write!(output_file,
+                   "pub static DIAGONALS: [[u64; 64]; 64]  = {:#018X?};",
+                   diagonals);
 
     println!("a1 -> b2");
     print_board_mask(diagonals[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -261,8 +246,8 @@ mod tests {
 
     println!("Generating lines and diagonal constants...",);
     let mut output_file = File::create("./model/board_geometry/rays.rs").unwrap();
-    // Here we generate look-up boardmasks that indicate a diagonal between two squares.
-    // Start from i, continue in a diagonal like bishops.
+    // Here we generate look-up boardmasks that indicate a diagonal between two
+    // squares. Start from i, continue in a diagonal like bishops.
     let mut rays: [[u64; 64]; 64] = [[0; 64]; 64];
     for i in 0..64 {
       for j in 0..64 {
@@ -330,18 +315,14 @@ mod tests {
       }
     }
 
-    let _ = write!(
-      output_file,
-      "/// Represents boardmasks of lines and diagonals between i and j squares\n"
-    );
+    let _ = write!(output_file,
+                   "/// Represents boardmasks of lines and diagonals between i and j squares\n");
     let _ = write!(output_file, "/// i not included, j included.\n");
     let _ = write!(output_file, "/// use like this: `RAYS[i][j]`.\n");
 
-    let _ = write!(
-      output_file,
-      "pub const RAYS: [[u64; 64]; 64]  = {:#018X?};",
-      rays
-    );
+    let _ = write!(output_file,
+                   "pub static RAYS: [[u64; 64]; 64]  = {:#018X?};",
+                   rays);
 
     println!("a1 -> b2");
     print_board_mask(rays[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -374,16 +355,12 @@ mod tests {
       set_square_in_mask!(i, holes_area);
     }
 
-    let _ = write!(
-      output_file,
-      "/// Represents boardmask of area where there can be holes\n"
-    );
+    let _ = write!(output_file,
+                   "/// Represents boardmask of area where there can be holes\n");
 
-    let _ = write!(
-      output_file,
-      "pub const HOLES_BOARD_AREA: BoardMask = {:#018X?};",
-      holes_area
-    );
+    let _ = write!(output_file,
+                   "pub static HOLES_BOARD_AREA: BoardMask = {:#018X?};",
+                   holes_area);
 
     let mut hole_white_pawns: [u64; 64] = [0; 64];
     for i in 0..64 {
@@ -411,11 +388,9 @@ mod tests {
     print_board_mask(hole_white_pawns[string_to_square("e4") as usize]);
     print_board_mask(hole_white_pawns[string_to_square("h5") as usize]);
 
-    let _ = write!(
-      output_file,
-      "\n\npub const HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
-      hole_white_pawns
-    );
+    let _ = write!(output_file,
+                   "\n\npub static HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+                   hole_white_pawns);
 
     let mut hole_black_pawns: [u64; 64] = [0; 64];
     for i in 0..64 {
@@ -443,10 +418,8 @@ mod tests {
     print_board_mask(hole_black_pawns[string_to_square("e4") as usize]);
     print_board_mask(hole_black_pawns[string_to_square("h5") as usize]);
 
-    let _ = write!(
-      output_file,
-      "\n\npub const HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
-      hole_black_pawns
-    );
+    let _ = write!(output_file,
+                   "\n\npub static HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+                   hole_black_pawns);
   }
 }

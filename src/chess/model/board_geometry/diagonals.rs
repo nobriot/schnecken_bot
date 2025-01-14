@@ -1,6 +1,6 @@
 /// Represents boardmasks of diagonals between i and j squares
 /// i not included, j included.
-pub const DIAGONALS: [[u64; 64]; 64]  = [
+pub static DIAGONALS: [[u64; 64]; 64]  = [
     [
         0x0000000000000000,
         0x0000000000000000,

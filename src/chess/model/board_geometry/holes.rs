@@ -4,10 +4,10 @@ use crate::model::board_mask::BoardMask;
 //  Constants
 
 /// Represents boardmask of area where there can be holes
-pub const HOLES_BOARD_AREA: BoardMask = 0x0000FFFFFFFF0000;
+pub static HOLES_BOARD_AREA: BoardMask = 0x0000FFFFFFFF0000;
 
 /// Represent where we need white pawns to prevent a hole in a square
-pub const HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = [
+pub static HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = [
   0x0000000000000000,
   0x0000000000000000,
   0x0000000000000000,
@@ -75,7 +75,7 @@ pub const HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = [
 ];
 
 /// Represent where we need black pawns to prevent a hole in a square
-pub const HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = [
+pub static HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = [
   0x0000000000000000,
   0x0000000000000000,
   0x0000000000000000,

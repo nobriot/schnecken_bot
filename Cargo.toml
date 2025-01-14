@@ -1,6 +1,6 @@
 [package]
 name = "schnecken_bot"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Nicolas Woltmann"]
 description = "Lichess bot with integrated engine"
 repository = "https://github.com/nobriot/schnecken_bot"
@@ -8,6 +8,9 @@ edition = "2021"
 license = "MIT"
 keywords = ["bot", "chess", "lichess", "lichess-api", "lichess-bot"]
 default-run = "schnecken_bot"
+resolver = "2"
+
+[workspace]
 members = ["src/lichess", "src/chess"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -30,13 +33,14 @@ chess = { path = "src/chess" }
 
 [profile.dev]
 opt-level = 3
+
+# Used https://nnethercote.github.io/perf-book/title-page.html
 [profile.release]
 opt-level = 3
+codegen-units = 1
+lto = "fat"
+panic = "abort"
 
 [[bin]]
 name = "schnecken_bot"
 path = "src/main.rs"
-
-# [[bin]]
-#name = "bot-simple"
-#path = "src/bot/games/main.rs"

@@ -1,26 +1,22 @@
-use std::fmt::Display;
-
+// Chess Engine
+use crate::engine::decrement_eval_if_mating_sequence;
 // Chess model
 use crate::model::moves::Move;
 use crate::model::piece::Color;
-
-// Chess Engine
-use crate::engine::decrement_eval_if_mating_sequence;
+use std::fmt::Display;
 
 const VARIATION_LENGTH: usize = 10;
 
 #[derive(Debug, Clone)]
 pub struct Variation {
-  moves: [Move; VARIATION_LENGTH],
+  moves:  [Move; VARIATION_LENGTH],
   length: u8,
 }
 
 impl Variation {
   pub fn new() -> Self {
-    Variation {
-      moves: [Move::null(); 10],
-      length: 0,
-    }
+    Variation { moves:  [Move::null(); 10],
+                length: 0, }
   }
 
   pub fn add(&mut self, mv: Move) {
@@ -93,12 +89,11 @@ impl Display for Variation {
 #[derive(Debug, Clone)]
 pub struct VariationWithEval {
   pub variation: Variation,
-  pub eval: f32,
+  pub eval:      f32,
 }
 
 impl VariationWithEval {
   /// Creates a new variation with eval from a single move
-  ///
   pub fn new_from_move(eval: f32, mv: Move) -> Self {
     let mut variation = Variation::new();
     variation.add(mv);
@@ -108,27 +103,23 @@ impl VariationWithEval {
 
 /// Search result. Contains lines (vector of moves) associated with an
 /// evaluation
-///
 #[derive(Debug, Clone)]
 pub struct SearchResult {
   // How many lines/variations do we keep track of
-  lines: usize,
+  lines:          usize,
   // How do we sort evals (from white or black point of view)
-  sort: Color,
+  sort:           Color,
   // Top `lines` variations.
-  //FIXME: Put that private at some point
+  // FIXME: Put that private at some point
   pub variations: Vec<VariationWithEval>,
 }
 
 impl SearchResult {
   /// Creates a new search result
-  ///
   pub fn new(lines: usize, color: Color) -> Self {
-    SearchResult {
-      lines,
-      sort: color,
-      variations: Vec::with_capacity(lines),
-    }
+    SearchResult { lines,
+                   sort: color,
+                   variations: Vec::with_capacity(lines) }
   }
 
   /// Gets the number of lines actually present in the analysis
@@ -164,7 +155,8 @@ impl SearchResult {
       }
     }
 
-    // Else check if there is space left between lines (i.e. capacity) and self.len()
+    // Else check if there is space left between lines (i.e. capacity) and
+    // self.len()
     if self.len() < self.lines {
       self.variations.insert(self.len(), variation);
     }
@@ -218,17 +210,15 @@ impl SearchResult {
 
 impl Display for SearchResult {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Search Result:\n")?;
+    writeln!(f, "Search Result:")?;
     let mut i = 0;
     for v in &self.variations {
-      write!(
-        f,
-        "Line {:<2}: Eval {:<7.2} @ depth {} - {}\n",
-        i,
-        v.eval,
-        v.variation.len(),
-        v.variation
-      )?;
+      write!(f,
+             "Line {:<2}: Eval {:<7.2} @ depth {} - {}\n",
+             i,
+             v.eval,
+             v.variation.len(),
+             v.variation)?;
       i += 1;
     }
 

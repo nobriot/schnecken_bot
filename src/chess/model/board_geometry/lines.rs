@@ -1,6 +1,6 @@
 /// Represents boardmasks of lines between i and j squares
 /// i not included, j included.
-pub const LINES: [[u64; 64]; 64]  = [
+pub static LINES: [[u64; 64]; 64]  = [
     [
         0x0000000000000000,
         0x0000000000000002,

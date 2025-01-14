@@ -1,7 +1,7 @@
 /// Represents boardmask of area where there should be no pawns if
 /// we want to consider the white pawn passed.
 /// For a pawn on square i, check if WHITE_PASSED_PAWN_AREA[i] contains any opponent pawns
-pub const WHITE_PASSED_PAWN_AREA: [u64; 64] = [
+pub static WHITE_PASSED_PAWN_AREA: [u64; 64] = [
   0x0003030303030300,
   0x0007070707070700,
   0x000E0E0E0E0E0E00,

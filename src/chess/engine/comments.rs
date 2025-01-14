@@ -43,20 +43,19 @@ pub enum GameEvents {
   SavedByADraw,
 }
 
-impl ToString for GameEvents {
-  /// Converts a GameEvent into a string
-  fn to_string(&self) -> String {
+impl std::fmt::Display for GameEvents {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      GameEvents::OpponentEpicMate => String::from("Oh my goddess! This is epic in a bad way!!"),
-      GameEvents::EpicMate => String::from("Call an ambulance!"),
-      GameEvents::OpponentBlunder => String::from("Did you just blunder ??"),
-      GameEvents::Blunder => String::from("What did I just do ?!"),
-      GameEvents::OpponentLowOnTime => String::from("You in a hurry ??"),
-      GameEvents::LowOnTime => String::from("Hmm I'd better speed up..."),
-      GameEvents::OpponentSwindled => String::from("Oh damn!"),
-      GameEvents::Swindled => String::from("Swindle time!"),
-      GameEvents::OpponentSavedByADraw => String::from("I missed that amazing draw!"),
-      GameEvents::SavedByADraw => String::from("Sneaky draw my friend! Better luck next time"),
+      GameEvents::OpponentEpicMate => write!(f, "Oh my goddess! This is epic in a bad way!!"),
+      GameEvents::EpicMate => write!(f, "Call an ambulance!"),
+      GameEvents::OpponentBlunder => write!(f, "Did you just blunder ??"),
+      GameEvents::Blunder => write!(f, "What did I just do ?!"),
+      GameEvents::OpponentLowOnTime => write!(f, "You in a hurry ??"),
+      GameEvents::LowOnTime => write!(f, "Hmm I'd better speed up..."),
+      GameEvents::OpponentSwindled => write!(f, "Oh damn!"),
+      GameEvents::Swindled => write!(f, "Swindle time!"),
+      GameEvents::OpponentSavedByADraw => write!(f, "I missed that amazing draw!"),
+      GameEvents::SavedByADraw => write!(f, "Sneaky draw my friend! Better luck next time"),
     }
   }
 }
@@ -86,18 +85,17 @@ pub enum TrashTalk {
   HowDoesTheKnightMove,
 }
 
-impl ToString for TrashTalk {
-  /// Converts a GameEvent into a string
-  fn to_string(&self) -> String {
+impl std::fmt::Display for TrashTalk {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-        TrashTalk::AvengeMyCreator => String::from("I see that you have a positive match-up against my developer... I'll do all I can to crush you! Good luck ;-)"),
-        TrashTalk::YouAreJustAChessEngine => String::from("Hey there ... You're just a simple engine it seems. I am a chess bot :-D."),
-        TrashTalk::YouAreJustHuman => String::from("Hey there ... It seems that you're just a simple human. Good luck!"),
-        TrashTalk::TooSlowMyFriend => String::from("Consider working on your speed... Slow and steady wins the race"),
-        TrashTalk::YouCanAlreadyResign => String::from("What are you waiting to resign ??"),
-        TrashTalk::WhatAreYouWaitingToCheckmateMe => String::from("What are you waiting to checkmate me?? Don't you know the rules ?"),
-        TrashTalk::OhNoMyQueen => String::from("Oh no my queen!"),
-        TrashTalk::HowDoesTheKnightMove => String::from("How does the knight move?"),
+        TrashTalk::AvengeMyCreator => write!(f,"I see that you have a positive match-up against my developer... I'll do all I can to crush you! Good luck ;-)"),
+        TrashTalk::YouAreJustAChessEngine =>  write!(f,"Hey there ... You're just a simple engine it seems. I am a chess bot :-D."),
+        TrashTalk::YouAreJustHuman =>  write!(f,"Hey there ... It seems that you're just a simple human. Good luck!"),
+        TrashTalk::TooSlowMyFriend =>  write!(f,"Consider working on your speed... Slow and steady wins the race"),
+        TrashTalk::YouCanAlreadyResign =>  write!(f,"What are you waiting to resign ??"),
+        TrashTalk::WhatAreYouWaitingToCheckmateMe =>  write!(f,"What are you waiting to checkmate me?? Don't you know the rules ?"),
+        TrashTalk::OhNoMyQueen =>  write!(f,"Oh no my queen!"),
+        TrashTalk::HowDoesTheKnightMove =>  write!(f,"How does the knight move?"),
     }
   }
 }

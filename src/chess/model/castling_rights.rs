@@ -39,17 +39,17 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// true if the white kingside castle is allowed, false otherwise
-  ///
   #[allow(non_snake_case)]
   pub fn K(&self) -> bool {
     (self.rights & K_MASK) != 0
   }
+
   /// Sets the bit for the if the White Kingside castle right.
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
-  ///
+  /// * `right_value`: Set to true if the white kingside castle right is
+  ///   allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_K(&mut self, right_value: bool) {
     if right_value {
@@ -64,17 +64,17 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// true if the white kingside castle is allowed, false otherwise
-  ///
   #[allow(non_snake_case)]
   pub fn Q(&self) -> bool {
     (self.rights & Q_MASK) != 0
   }
+
   /// Sets the bit for the if the White Kingside castle right.
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
-  ///
+  /// * `right_value`: Set to true if the white kingside castle right is
+  ///   allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_Q(&mut self, right_value: bool) {
     if right_value {
@@ -85,7 +85,6 @@ impl CastlingRights {
   }
 
   /// Remove white's castling rights
-  ///
   pub fn clear_white_rights(&mut self) {
     self.rights &= !(K_MASK | Q_MASK);
   }
@@ -95,17 +94,17 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// true if the black kingside castle is allowed, false otherwise
-  ///
   #[allow(non_snake_case)]
   pub fn k(&self) -> bool {
     (self.rights & k_MASK) != 0
   }
+
   /// Sets the bit for the if the White Kingside castle right.
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
-  ///
+  /// * `right_value`: Set to true if the white kingside castle right is
+  ///   allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_k(&mut self, right_value: bool) {
     if right_value {
@@ -120,7 +119,6 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// true if the black queenside castle is allowed, false otherwise
-  ///
   #[allow(non_snake_case)]
   pub fn q(&self) -> bool {
     (self.rights & q_MASK) != 0
@@ -130,8 +128,8 @@ impl CastlingRights {
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the black queenside castle right is allowed, false otherwise
-  ///
+  /// * `right_value`: Set to true if the black queenside castle right is
+  ///   allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_q(&mut self, right_value: bool) {
     if right_value {
@@ -142,7 +140,6 @@ impl CastlingRights {
   }
 
   /// Remove white's castling rights
-  ///
   pub fn clear_black_rights(&mut self) {
     self.rights &= !(k_MASK | q_MASK);
   }
@@ -152,7 +149,6 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// * String representation that can be used in a FEN.
-  ///
   pub fn to_fen(&self) -> String {
     let mut fen = String::new();
 
@@ -169,7 +165,7 @@ impl CastlingRights {
       fen.push('q');
     }
 
-    if fen.len() == 0 {
+    if fen.is_empty() {
       fen.push('-');
     }
     fen
@@ -180,7 +176,6 @@ impl CastlingRights {
   /// ### Return Value
   ///
   /// * CastlingRights with no rights
-  ///
   pub fn none() -> Self {
     CastlingRights { rights: 0 }
   }
@@ -188,9 +183,7 @@ impl CastlingRights {
 
 impl Default for CastlingRights {
   fn default() -> Self {
-    CastlingRights {
-      rights: K_MASK | Q_MASK | k_MASK | q_MASK,
-    }
+    CastlingRights { rights: K_MASK | Q_MASK | k_MASK | q_MASK, }
   }
 }
 

@@ -1,8 +1,11 @@
 # Chess NNUE
 
+Disclaimer: This is not really an NNUE, but rather a small neural net that I trained on
+chess positions.
+
 ## Training data
 
-For the training data, I used rated games from Lichess with eval annotation. Basically for now we train the NNUE to play like Stockfish
+For the training data, I used rated games from Lichess with eval annotation. Basically for now we train the neural net to play like Stockfish
 Eventually, implementing self-play could be pretty good.
 
 Anyway, one month worth of games is just plenty already as a dataset.

@@ -43,7 +43,7 @@ impl LichessApi {
     stream.for_each(|chunk_response| async {
             if let Err(e) = chunk_response {
               info!("Error receiving stream? {}", e);
-              return ();
+              return;
             }
 
             let chunk = chunk_response.unwrap();
@@ -85,7 +85,7 @@ impl LichessApi {
     stream.for_each(|chunk_response| async {
             if let Err(e) = chunk_response {
               info!("Error receiving stream? {}", e);
-              return ();
+              return;
             }
 
             let chunk = chunk_response.unwrap();

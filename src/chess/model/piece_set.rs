@@ -1,8 +1,7 @@
-use log::*;
-
 // From our libraries
 use crate::model::board_mask::*;
 use crate::model::piece::*;
+use log::*;
 
 /// Set of masks associated to each possible piece on a chess board.
 /// These masks can be used to show what squares are occupied or controlled by
@@ -10,20 +9,20 @@ use crate::model::piece::*;
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub struct PieceMasks {
   // Those 2 private fields are used to iterate over pieces.
-  iter_type: Option<PieceType>,
-  iter_mask: BoardMask,
+  iter_type:  Option<PieceType>,
+  iter_mask:  BoardMask,
   // List of king squares on the board
-  pub king: BoardMask,
+  pub king:   BoardMask,
   // List of queen squares on the board
-  pub queen: BoardMask,
+  pub queen:  BoardMask,
   // List of rook squares on the board
-  pub rook: BoardMask,
+  pub rook:   BoardMask,
   // List of bishop squares on the board
   pub bishop: BoardMask,
   // List of knight squares on the board
   pub knight: BoardMask,
   // List of knight squares on the board
-  pub pawn: BoardMask,
+  pub pawn:   BoardMask,
 }
 
 // -----------------------------------------------------------------------------
@@ -31,43 +30,53 @@ pub struct PieceMasks {
 pub const WHITE_KING_START_SQUARE: usize = 4;
 pub const BLACK_KING_START_SQUARE: usize = 60;
 
-pub const WHITE_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
-  iter_type: None,
-  iter_mask: 0,
-  king: 1 << WHITE_KING_START_SQUARE,
-  queen: 1 << 3,
-  rook: 1 | 1 << 7,
-  bishop: 1 << 2 | 1 << 5,
-  knight: 1 << 1 | 1 << 6,
-  pawn: 1 << 8 | 1 << 9 | 1 << 10 | 1 << 11 | 1 << 12 | 1 << 13 | 1 << 14 | 1 << 15,
-};
+pub const WHITE_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks { iter_type: None,
+                                                                    iter_mask: 0,
+                                                                    king:
+                                                                      1 << WHITE_KING_START_SQUARE,
+                                                                    queen:     1 << 3,
+                                                                    rook:      1 | 1 << 7,
+                                                                    bishop:    1 << 2 | 1 << 5,
+                                                                    knight:    1 << 1 | 1 << 6,
+                                                                    pawn:      1 << 8
+                                                                               | 1 << 9
+                                                                               | 1 << 10
+                                                                               | 1 << 11
+                                                                               | 1 << 12
+                                                                               | 1 << 13
+                                                                               | 1 << 14
+                                                                               | 1 << 15, };
 
-pub const BLACK_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks {
-  iter_type: None,
-  iter_mask: 0,
-  king: 1 << BLACK_KING_START_SQUARE,
-  queen: 1 << 59,
-  rook: 1 << 56 | 1 << 63,
-  bishop: 1 << 58 | 1 << 61,
-  knight: 1 << 57 | 1 << 62,
-  pawn: 1 << 48 | 1 << 49 | 1 << 50 | 1 << 51 | 1 << 52 | 1 << 53 | 1 << 54 | 1 << 55,
-};
+pub const BLACK_PIECES_DEFAULT_POSITIONS: PieceMasks = PieceMasks { iter_type: None,
+                                                                    iter_mask: 0,
+                                                                    king:
+                                                                      1 << BLACK_KING_START_SQUARE,
+                                                                    queen:     1 << 59,
+                                                                    rook:      1 << 56 | 1 << 63,
+                                                                    bishop:    1 << 58 | 1 << 61,
+                                                                    knight:    1 << 57 | 1 << 62,
+                                                                    pawn:      1 << 48
+                                                                               | 1 << 49
+                                                                               | 1 << 50
+                                                                               | 1 << 51
+                                                                               | 1 << 52
+                                                                               | 1 << 53
+                                                                               | 1 << 54
+                                                                               | 1 << 55, };
 
 // -----------------------------------------------------------------------------
 //  Implementations
 impl PieceMasks {
   /// Initialize a PieceMasks with all zeroes
   fn new() -> Self {
-    PieceMasks {
-      iter_type: None,
-      iter_mask: 0,
-      king: 0,
-      queen: 0,
-      rook: 0,
-      bishop: 0,
-      knight: 0,
-      pawn: 0,
-    }
+    PieceMasks { iter_type: None,
+                 iter_mask: 0,
+                 king:      0,
+                 queen:     0,
+                 rook:      0,
+                 bishop:    0,
+                 knight:    0,
+                 pawn:      0, }
   }
 
   /// Initialize a PieceMasks with squares corresponding to the default start
@@ -76,7 +85,6 @@ impl PieceMasks {
   /// ### Return value
   ///
   /// A piece set with pieces set on the start position for White.
-  ///
   #[inline]
   pub fn default_white_piece_set() -> Self {
     WHITE_PIECES_DEFAULT_POSITIONS
@@ -88,7 +96,6 @@ impl PieceMasks {
   /// ### Return value
   ///
   /// A piece set with pieces set on the start position for Black.
-  ///
   #[inline]
   pub fn default_black_piece_set() -> Self {
     BLACK_PIECES_DEFAULT_POSITIONS
@@ -102,13 +109,13 @@ impl PieceMasks {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceMasks object where we're looking for a king
+  /// * `self`    Reference to the PieceMasks object where we're looking for a
+  ///   king
   ///
   /// ### Return value
   ///
   /// * `Some(square)`  Square on which the king is located.
   /// * `None`          No king is present on the board.
-  ///
   #[inline]
   pub fn get_king(&self) -> Option<u8> {
     if self.king == 0 {
@@ -123,7 +130,6 @@ impl PieceMasks {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a minor occupies a square.
-  ///
   #[inline]
   pub fn minors(&self) -> BoardMask {
     self.bishop | self.knight
@@ -134,7 +140,6 @@ impl PieceMasks {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a major occupies a square.
-  ///
   #[inline]
   pub fn majors(&self) -> BoardMask {
     self.rook | self.queen
@@ -145,7 +150,6 @@ impl PieceMasks {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a piece occupies a square.
-  ///
   #[inline]
   pub fn all(&self) -> BoardMask {
     self.king | self.queen | self.rook | self.bishop | self.knight | self.pawn
@@ -162,10 +166,10 @@ pub struct PieceSet {
   pub squares: [u8; 64],
   /// White pieces on the board.
   /// Use masks to iterate through the pieces
-  pub white: PieceMasks,
+  pub white:   PieceMasks,
   /// Black pieces on the board.
   /// Use masks to iterate through the pieces
-  pub black: PieceMasks,
+  pub black:   PieceMasks,
 }
 
 impl PieceSet {
@@ -174,13 +178,10 @@ impl PieceSet {
   /// ### Return value
   ///
   /// PieceSet with no pieces
-  ///
   pub fn new() -> Self {
-    PieceSet {
-      squares: [0; 64],
-      white: PieceMasks::new(),
-      black: PieceMasks::new(),
-    }
+    PieceSet { squares: [0; 64],
+               white:   PieceMasks::new(),
+               black:   PieceMasks::new(), }
   }
 
   /// Initializes an array of squares with the pieces default positions.
@@ -188,7 +189,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// Square slice indicating where which pieces are present by default.
-  ///
   #[inline]
   pub fn square_default_pieces() -> [u8; 64] {
     let mut squares: [u8; 64] = [NO_PIECE; 64];
@@ -236,16 +236,11 @@ impl PieceSet {
   /// * `self`: Object to modify
   /// * `piece`: u8 value for the piece to add on the square
   /// * `square`: u8 square value to update.
-  ///
   #[inline]
   pub fn add(&mut self, piece: u8, square: u8) {
     debug_assert!(square < 64, "Received invalid square: {}", square);
     let color = Piece::color(piece);
-    debug_assert!(
-      !color.is_none(),
-      "Cannot derive color from piece: {}",
-      piece
-    );
+    debug_assert!(color.is_some(), "Cannot derive color from piece: {}", piece);
     let color = color.unwrap();
     let piece_type = PieceType::from_u8(piece);
 
@@ -273,7 +268,6 @@ impl PieceSet {
   /// * `self`: Object to modify
   /// * `piece`: u8 value for the piece to add on the square
   /// * `square`: u8 square value to update.
-  ///
   #[inline]
   pub fn remove(&mut self, square: u8) {
     debug_assert!(square < 64);
@@ -308,7 +302,6 @@ impl PieceSet {
   /// * `self`: Object to modify
   /// * `piece`: u8 value for the piece to add on the square
   /// * `square`: u8 square value to update.
-  ///
   pub fn update(&mut self, piece: u8, square: u8) {
     // TODO: Is there something more optimal than remove and add ? ... Probably
 
@@ -321,7 +314,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// PieceSet containing the pieces indicated in the FEN string
-  ///
   pub fn from_fen(fen: &str) -> Self {
     let mut piece_set = PieceSet::new();
 
@@ -409,31 +401,33 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object for which we are reading a square
+  /// * `self`    Reference to the PieceSet object for which we are reading a
+  ///   square
   /// * `square`  Square on which we would like to know what piece is on
   ///
   /// ### Return value
   ///
-  /// u8 representation of the piece, e.g. `WHITE_KING`, `BLACK_PAWN`, `NO_PIECE`, etc.
-  ///
+  /// u8 representation of the piece, e.g. `WHITE_KING`, `BLACK_PAWN`,
+  /// `NO_PIECE`, etc.
   #[inline]
   pub fn get(&self, square: u8) -> u8 {
     self.squares[square as usize]
     // This is actually slower...
-    //unsafe { *self.squares.get_unchecked(square as usize) }
+    // unsafe { *self.squares.get_unchecked(square as usize) }
   }
 
   /// Returns the piece on a square.
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object for which we are reading a square
+  /// * `self`    Reference to the PieceSet object for which we are reading a
+  ///   square
   /// * `square`  Square on which we would like to know what piece is on
   ///
   /// ### Return value
   ///
-  /// u8 representation of the piece, e.g. `WHITE_KING`, `BLACK_PAWN`, `NO_PIECE`, etc.
-  ///
+  /// u8 representation of the piece, e.g. `WHITE_KING`, `BLACK_PAWN`,
+  /// `NO_PIECE`, etc.
   #[inline]
   pub fn get_usize(&self, square: usize) -> u8 {
     self.squares[square]
@@ -444,7 +438,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a piece occupies a square.
-  ///
   #[inline]
   pub fn all(&self) -> BoardMask {
     self.white.all() | self.black.all()
@@ -455,7 +448,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a queen occupies a square.
-  ///
   #[inline]
   pub fn queens(&self) -> BoardMask {
     self.white.queen | self.black.queen
@@ -466,7 +458,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a rook occupies a square.
-  ///
   #[inline]
   pub fn rooks(&self) -> BoardMask {
     self.white.rook | self.black.rook
@@ -477,7 +468,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a bishop occupies a square.
-  ///
   #[inline]
   pub fn bishops(&self) -> BoardMask {
     self.white.bishop | self.black.bishop
@@ -488,7 +478,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a knight occupies a square.
-  ///
   #[inline]
   pub fn knights(&self) -> BoardMask {
     self.white.knight | self.black.knight
@@ -499,7 +488,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a minor occupies a square.
-  ///
   #[inline]
   pub fn minors(&self) -> BoardMask {
     self.bishops() | self.knights()
@@ -510,7 +498,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a major occupies a square.
-  ///
   #[inline]
   pub fn majors(&self) -> BoardMask {
     self.rooks() | self.queens()
@@ -521,7 +508,6 @@ impl PieceSet {
   /// ### Return value
   ///
   /// BoardMask with bits set to 1 if a pawns occupies a square.
-  ///
   #[inline]
   pub fn pawns(&self) -> BoardMask {
     self.white.pawn | self.black.pawn
@@ -531,13 +517,13 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we are looking for pieces
+  /// * `self`    Reference to the PieceSet object where we are looking for
+  ///   pieces
   /// * `color`   Color of the piece set we are looking for
   ///
   /// ### Return value
   ///
   /// BoardMask with all the pieces of a given color
-  ///
   #[inline]
   pub fn all_with_color(&self, color: Color) -> BoardMask {
     match color {
@@ -550,13 +536,13 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we're looking for a king
+  /// * `self`    Reference to the PieceSet object where we're looking for a
+  ///   king
   /// * `square`  Square on which we want to check if there is a piece
   ///
   /// ### Return value
   ///
   /// bool value indicating if we have a piece on the square.
-  ///
   #[inline]
   pub fn has_piece(&self, square: u8) -> bool {
     self.squares[square as usize] != NO_PIECE
@@ -566,42 +552,38 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we're looking for a king
+  /// * `self`    Reference to the PieceSet object where we're looking for a
+  ///   king
   /// * `square`  Square on which we want to check if there is a piece
   /// * `color`   Color of the piece set we are looking for
   ///
   /// ### Return value
   ///
   /// bool value indicating if we have a piece of a given color on the square.
-  ///
   #[inline]
   pub fn has_piece_with_color(&self, square: u8, color: Color) -> bool {
     let piece = self.squares[square as usize];
-    match (color, piece) {
-      (Color::White, WHITE_KING) => true,
-      (Color::White, WHITE_QUEEN) => true,
-      (Color::White, WHITE_BISHOP) => true,
-      (Color::White, WHITE_KNIGHT) => true,
-      (Color::White, WHITE_ROOK) => true,
-      (Color::White, WHITE_PAWN) => true,
-      (Color::Black, BLACK_KING) => true,
-      (Color::Black, BLACK_QUEEN) => true,
-      (Color::Black, BLACK_BISHOP) => true,
-      (Color::Black, BLACK_KNIGHT) => true,
-      (Color::Black, BLACK_ROOK) => true,
-      (Color::Black, BLACK_PAWN) => true,
-      _ => false,
-    }
+    matches!((color, piece),
+             (Color::White, WHITE_KING)
+             | (Color::White, WHITE_QUEEN)
+             | (Color::White, WHITE_BISHOP)
+             | (Color::White, WHITE_KNIGHT)
+             | (Color::White, WHITE_ROOK)
+             | (Color::White, WHITE_PAWN)
+             | (Color::Black, BLACK_KING)
+             | (Color::Black, BLACK_QUEEN)
+             | (Color::Black, BLACK_BISHOP)
+             | (Color::Black, BLACK_KNIGHT)
+             | (Color::Black, BLACK_ROOK)
+             | (Color::Black, BLACK_PAWN))
   }
 }
 
 impl Default for PieceSet {
   fn default() -> Self {
-    PieceSet {
-      squares: PieceSet::square_default_pieces(),
-      white: PieceMasks::default_white_piece_set(),
-      black: PieceMasks::default_black_piece_set(),
-    }
+    PieceSet { squares: PieceSet::square_default_pieces(),
+               white:   PieceMasks::default_white_piece_set(),
+               black:   PieceMasks::default_black_piece_set(), }
   }
 }
 

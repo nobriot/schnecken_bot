@@ -58,7 +58,7 @@ impl LichessApi {
   ///
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
-  pub async fn write_in_spectator_room(&self, game_id: &str, message: &str) -> () {
+  pub async fn write_in_spectator_room(&self, game_id: &str, message: &str) {
     info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
     let body: String = format!("room=spectator&text={}", encode(message));
@@ -77,7 +77,7 @@ impl LichessApi {
   ///
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
-  pub async fn write_in_chat(&self, game_id: &str, message: &str) -> () {
+  pub async fn write_in_chat(&self, game_id: &str, message: &str) {
     info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
     let body: String = format!("room=player&text={}", encode(message));
@@ -97,7 +97,7 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   /// * `room`    Room on which to send the message
   /// * `message` Message to send
-  pub async fn write_in_chat_room(&self, game_id: &str, room: ChatRoom, message: &str) -> () {
+  pub async fn write_in_chat_room(&self, game_id: &str, room: ChatRoom, message: &str) {
     let room_str = match room {
       ChatRoom::Player => String::from("player"),
       ChatRoom::Spectator => String::from("spectator"),
@@ -195,7 +195,6 @@ impl LichessApi {
   ///
   /// * `timeout` Number of seconds to wait before claiming victory
   /// * `game_id` Game ID on which we are claiming victory
-  ///
   pub async fn claim_victory_after_timeout(&self, timeout: u64, game_id: &str) {
     tokio::time::sleep(tokio::time::Duration::from_secs(timeout + 1)).await;
     let _ = self.claim_victory(game_id).await;

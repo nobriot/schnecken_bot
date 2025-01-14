@@ -7,7 +7,6 @@ use crate::model::piece::*;
 use crate::model::piece_moves::*;
 use crate::model::piece_set::PieceMasks;
 use crate::model::tables::pawn_destinations::*;
-
 use log::*;
 
 pub enum FileState {
@@ -21,7 +20,8 @@ pub enum FileState {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `color` -      The color for which we want to determine the material score
 ///
 /// # Return value
@@ -56,7 +56,8 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `color` -      The color for which we want to determine the material score
 ///
 /// # Return value
@@ -80,34 +81,34 @@ pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 ///
 /// # Return value
 ///
 /// Combined score for material
-///
 pub fn get_combined_material_score(game_state: &GameState) -> f32 {
   // Basic material count
   let mut score: f32 = 0.0;
 
   score += (game_state.board.pieces.white.queen.count_few_ones() as f32
-    - game_state.board.pieces.black.queen.count_few_ones() as f32)
-    * QUEEN_VALUE
-    + (game_state.board.pieces.white.rook.count_few_ones() as f32
-      - game_state.board.pieces.black.rook.count_few_ones() as f32)
-      * ROOK_VALUE
-    + (game_state.board.pieces.white.bishop.count_few_ones() as f32
-      - game_state.board.pieces.black.bishop.count_few_ones() as f32)
-      * BISHOP_VALUE
-    + (game_state.board.pieces.white.knight.count_few_ones() as f32
-      - game_state.board.pieces.black.knight.count_few_ones() as f32)
-      * KNIGHT_VALUE
-    + (game_state.board.pieces.white.pawn.count_ones() as f32
-      - game_state.board.pieces.black.pawn.count_ones() as f32)
-      * PAWN_VALUE;
+            - game_state.board.pieces.black.queen.count_few_ones() as f32)
+           * QUEEN_VALUE
+           + (game_state.board.pieces.white.rook.count_few_ones() as f32
+              - game_state.board.pieces.black.rook.count_few_ones() as f32)
+             * ROOK_VALUE
+           + (game_state.board.pieces.white.bishop.count_few_ones() as f32
+              - game_state.board.pieces.black.bishop.count_few_ones() as f32)
+             * BISHOP_VALUE
+           + (game_state.board.pieces.white.knight.count_few_ones() as f32
+              - game_state.board.pieces.black.knight.count_few_ones() as f32)
+             * KNIGHT_VALUE
+           + (game_state.board.pieces.white.pawn.count_ones() as f32
+              - game_state.board.pieces.black.pawn.count_ones() as f32)
+             * PAWN_VALUE;
 
   // Scale the value by the amount of material left:
-  //score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
+  // score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
 
   score
 }
@@ -117,7 +118,8 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
@@ -134,7 +136,8 @@ pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
@@ -158,13 +161,13 @@ pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
 ///
 /// FileState
-///
 pub fn get_file_state(game_state: &GameState, file: u8) -> FileState {
   let black_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.black.pawn) != 0;
   let white_pawn = (FILES[(file - 1) as usize] & game_state.board.pieces.white.pawn) != 0;
@@ -181,7 +184,8 @@ pub fn get_file_state(game_state: &GameState, file: u8) -> FileState {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `color` -      Color for which we determine outposts
 ///
 /// ### Return value
@@ -217,21 +221,21 @@ pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
 ///
-///  True if the piece on the square is a knight or bishop and has a reachable outpost.
-///
+///  True if the piece on the square is a knight or bishop and has a reachable
+/// outpost.
 pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
   let piece = game_state.board.pieces.get_usize(index);
-  let color;
-  match piece {
-    WHITE_KNIGHT | WHITE_BISHOP => color = Color::White,
-    BLACK_KNIGHT | BLACK_BISHOP => color = Color::Black,
+  let color = match piece {
+    WHITE_KNIGHT | WHITE_BISHOP => Color::White,
+    BLACK_KNIGHT | BLACK_BISHOP => Color::Black,
     _ => return false,
-  }
+  };
 
   let outposts = get_outposts(game_state, color);
 
@@ -259,14 +263,14 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
 ///
-/// True if the piece on the square is a knight or bishop is located on an outpost
-/// False otherwise
-///
+/// True if the piece on the square is a knight or bishop is located on an
+/// outpost False otherwise
 pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool {
   let piece = game_state.board.pieces.get_usize(index);
   let color = match piece {
@@ -277,21 +281,21 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
 
   let outposts = get_outposts(game_state, color);
 
-  return square_in_mask!(index, outposts);
+  square_in_mask!(index, outposts)
 }
 
 /// Checks if a piece or pawn is hanging
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
 ///
-/// True if the square contains a piece or pawn (knight, bishop, rook, queen or pawn) that is hanging
-/// False otherwise
-///
+/// True if the square contains a piece or pawn (knight, bishop, rook, queen or
+/// pawn) that is hanging False otherwise
 pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
   let piece = game_state.board.pieces.get(index);
 
@@ -314,15 +318,15 @@ pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
 ///
-/// True if the square contains a piece or pawn (knight, bishop, rook, queen or pawn)
-/// that is attacked by enemy pieces
+/// True if the square contains a piece or pawn (knight, bishop, rook, queen or
+/// pawn) that is attacked by enemy pieces
 /// False otherwise
-///
 pub fn is_attacked(game_state: &GameState, index: u8) -> bool {
   let color = match game_state.board.pieces.get(index) {
     NO_PIECE | BLACK_KING | WHITE_KING => return false,
@@ -407,11 +411,9 @@ mod tests {
 
     let fen = "rnbqkbnr/3pp1pp/3N4/p4p2/1pPP4/1P2PN1P/P4PP1/R1BQKB1R b KQkq - 0 4";
     let game_state = GameState::from_fen(fen);
-    /*
-    let outposts = get_outposts(&game_state, Color::White);
-    let outposts = get_outposts(&game_state, Color::Black);
-    print_board_mask(outposts);
-    */
+    // let outposts = get_outposts(&game_state, Color::White);
+    // let outposts = get_outposts(&game_state, Color::Black);
+    // print_board_mask(outposts);
     assert_eq!(327680, get_outposts(&game_state, Color::Black));
     assert_eq!(8606711808, get_outposts(&game_state, Color::White));
   }

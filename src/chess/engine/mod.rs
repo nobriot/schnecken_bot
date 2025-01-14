@@ -142,7 +142,7 @@ impl Analysis {
   ///
   /// The value contained in the analysis depth.
   pub fn get_depth(&self) -> usize {
-    self.depth.lock().unwrap().clone()
+    *self.depth.lock().unwrap()
   }
 
   /// Sets the selective depth we have reached during the analysis
@@ -190,7 +190,7 @@ impl Analysis {
   ///
   /// The value contained in the analysis depth.
   pub fn get_selective_depth(&self) -> usize {
-    self.selective_depth.lock().unwrap().clone()
+    *self.selective_depth.lock().unwrap()
   }
 
   /// Increments the nodes we visited
@@ -200,7 +200,7 @@ impl Analysis {
   }
 
   pub fn get_nodes_visited(&self) -> usize {
-    self.nodes_visited.lock().unwrap().clone()
+    *self.nodes_visited.lock().unwrap()
   }
 
   pub fn set_nodes_visited(&self, value: usize) {
@@ -394,11 +394,6 @@ impl Engine {
     self.analysis.decrement_depth();
   }
 
-  /// Async version of `go()`
-  pub async fn go_async(&self) -> AsyncResult {
-    futures::future::ok(self.go()).await
-  }
-
   /// Starts analyzing the current position
   ///
   /// Analysis will continue until stopped with the `stop()` method
@@ -568,7 +563,7 @@ impl Engine {
       let multi_pv_string = if multi_pv_setting > 1 {
         String::from(format!(" multipv {} ", i + 1))
       } else {
-        String::from(format!(""))
+        String::new()
       };
       println!("info {} depth {} seldepth {} nodes {} time {}{}pv {}",
                score_string,
@@ -644,10 +639,9 @@ impl Engine {
       return best_move.to_string() + " - Not evaluated";
     }
 
-    return best_move.to_string()
-           + " "
-           + self.get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1)
-                 .as_str();
+    best_move.to_string()
+    + " "
+    + self.get_line_string(&best_new_state, Color::opposite(side_to_play), ttl - 1).as_str()
   }
 
   /// Prints the evaluation result in the console
@@ -928,12 +922,6 @@ impl Engine {
       Color::White => eval > 150.0,
       Color::Black => eval < -150.0,
     }
-  }
-}
-
-impl std::fmt::Display for Engine {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_str(self.to_string().as_str())
   }
 }
 

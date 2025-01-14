@@ -4,14 +4,12 @@ pub mod preprocessing;
 use crate::engine::nnue::functions::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
-
 use ndarray::{Array, Array2, Zip};
 use ndarray_rand;
 use ndarray_rand::RandomExt;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::Write;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 
 // This is a very good read on using Neural Networks for chess:
 // https://github.com/asdfjkl/neural_network_chess/releases
@@ -20,7 +18,8 @@ use std::io::{BufReader, BufWriter};
 // piece/square boolean values
 // https://www.chessprogramming.org/NNUE
 // So x1 = white pawns on a1, x2 = white pawns on a2...
-// First half of the input layer is the side to play, second half is the opposite color
+// First half of the input layer is the side to play, second half is the
+// opposite color
 
 // ---------------------------------------------------------------------------
 // Constant
@@ -29,74 +28,68 @@ const MAGIC_BYTES: &str = "nnue";
 
 /// #### Hyperparameters for Neural Network training
 /// They can be tuned for each layer.
-///
 #[derive(Debug, Clone)]
 pub struct HyperParameters {
   /// Learning rate used for gradient descent
   pub learning_rate: f32,
   /// Momentum for the gradient descent (recommended to set $beta_1 = 0.9$)
-  pub beta_1: f32,
+  pub beta_1:        f32,
   /// RMSProp for the gradient descent (recommended to set $beta_2 = 0.999$)
-  pub beta_2: f32,
+  pub beta_2:        f32,
   /// Used for L2/Frobenius norm for the gradient descent.
-  pub lambda: f32,
+  pub lambda:        f32,
   /// Dropout rate, should be between 0 and 1 used for training.
   /// Should only be used on large layers, usually set to 0.1
-  pub dropout: f32,
+  pub dropout:       f32,
 }
 
 impl HyperParameters {
   fn zeros() -> Self {
-    Self {
-      learning_rate: 0.0,
-      beta_1: 0.0,
-      beta_2: 0.0,
-      lambda: 1.0,
-      dropout: 0.0,
-    }
+    Self { learning_rate: 0.0,
+           beta_1:        0.0,
+           beta_2:        0.0,
+           lambda:        1.0,
+           dropout:       0.0, }
   }
 }
 
 impl Default for HyperParameters {
   fn default() -> Self {
-    Self {
-      learning_rate: 0.0001,
-      beta_1: 0.9,
-      beta_2: 0.999,
-      lambda: 1.0,
-      dropout: 0.0,
-    }
+    Self { learning_rate: 0.0001,
+           beta_1:        0.9,
+           beta_2:        0.999,
+           lambda:        1.0,
+           dropout:       0.0, }
   }
 }
 
 /// #### Activation cache
 ///
-/// Contains all the intermediate calculation values for both forward and backward
-/// propagation
-///
+/// Contains all the intermediate calculation values for both forward and
+/// backward propagation
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub struct LayerCache {
   /// Linear value cache
-  pub Z: Array2<f32>,
+  pub Z:   Array2<f32>,
   /// Activation value cache
-  pub A: Array2<f32>,
+  pub A:   Array2<f32>,
   /// Weight gradients, dW
-  pub dW: Array2<f32>,
+  pub dW:  Array2<f32>,
   /// Weight gradients Momentum, vdW
   pub vdW: Array2<f32>,
   /// Weight gradients Momentum squared, sdW
   pub sdW: Array2<f32>,
   /// biases gradients, db
-  pub db: f32,
+  pub db:  f32,
   /// Bias gradients Momentum, vdb
   pub vdb: f32,
   /// Bias gradients Momentum squared, sdb
   pub sdb: f32,
   /// Linear value gradient cache. dZ
-  pub dZ: Array2<f32>,
+  pub dZ:  Array2<f32>,
   /// Activation gradient cache. dA
-  pub dA: Array2<f32>,
+  pub dA:  Array2<f32>,
 }
 
 impl LayerCache {
@@ -105,35 +98,34 @@ impl LayerCache {
   /// ### Arguments
   ///
   /// * `layer_size`: Number of nodes in the layer for the current cache
-  /// * `previous_layer_size`: Number of nodes in the previous layer for the current cache
+  /// * `previous_layer_size`: Number of nodes in the previous layer for the
+  ///   current cache
   fn new(layer_size: usize, previous_layer_size: usize) -> Self {
-    Self {
-      Z: Array2::zeros((layer_size, previous_layer_size)),
-      A: Array2::zeros((layer_size, previous_layer_size)),
-      dW: Array2::zeros((layer_size, previous_layer_size)),
-      vdW: Array2::zeros((layer_size, previous_layer_size)),
-      sdW: Array2::zeros((layer_size, previous_layer_size)),
-      db: 0.0,
-      vdb: 0.0,
-      sdb: 0.0,
-      dZ: Array2::zeros((layer_size, previous_layer_size)),
-      dA: Array2::zeros((layer_size, previous_layer_size)),
-    }
+    Self { Z:   Array2::zeros((layer_size, previous_layer_size)),
+           A:   Array2::zeros((layer_size, previous_layer_size)),
+           dW:  Array2::zeros((layer_size, previous_layer_size)),
+           vdW: Array2::zeros((layer_size, previous_layer_size)),
+           sdW: Array2::zeros((layer_size, previous_layer_size)),
+           db:  0.0,
+           vdb: 0.0,
+           sdb: 0.0,
+           dZ:  Array2::zeros((layer_size, previous_layer_size)),
+           dA:  Array2::zeros((layer_size, previous_layer_size)), }
   }
 }
 
 /// #### Layer state
 /// Contains all the internal variables/parameters of a layer
 ///
-/// Weights have to be of dimension (L,L-1), L being the number of nodes in a layer
-///
+/// Weights have to be of dimension (L,L-1), L being the number of nodes in a
+/// layer
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub struct LayerState {
   /// Weights.(W)
-  pub W: Array2<f32>,
+  pub W:     Array2<f32>,
   /// Biases, denoted b
-  pub b: f32,
+  pub b:     f32,
   /// activation cache
   pub cache: LayerCache,
 }
@@ -145,24 +137,17 @@ impl LayerState {
   /// random small numbers (to break symmetry) before training the model
   ///
   /// Biases are initialized with zeros
-  ///
-  ///
   pub fn new(layer_size: usize, previous_layer_size: usize) -> Self {
     // Create all the internal variables for the layer
-    LayerState {
-      W: Array::random(
-        (layer_size, previous_layer_size),
-        ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap(),
-      ),
-      b: 0.0,
-      cache: LayerCache::new(layer_size, previous_layer_size),
-    }
+    LayerState { W:     Array::random((layer_size, previous_layer_size),
+                                      ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap()),
+                 b:     0.0,
+                 cache: LayerCache::new(layer_size, previous_layer_size), }
   }
 }
 
 /// #### Layer in a neural network
 /// They can be tuned for each layer.
-///
 #[derive(Debug, Clone)]
 pub struct Layer {
   /// Number of nodes for that layer.
@@ -170,7 +155,7 @@ pub struct Layer {
   /// Tuning parameters
   pub param: HyperParameters,
   /// Activation function
-  pub a: Activation,
+  pub a:     Activation,
   /// Weight, biases and gradients
   pub state: LayerState,
 }
@@ -190,11 +175,10 @@ pub enum Activation {
 /// ### NNUE
 ///
 /// Just contains a bunch of Neural Net layers
-///
 #[derive(Debug, Clone)]
 pub struct NNUE {
   /// Vector of Neural Net layers
-  pub layers: Vec<Layer>,
+  pub layers:     Vec<Layer>,
   /// Keeping tracks of how many times we iterated, i.e. updated the parameters
   pub iterations: usize,
 }
@@ -203,21 +187,15 @@ pub struct NNUE {
 impl Default for NNUE {
   fn default() -> Self {
     let mut nnue = NNUE::new();
-    nnue.add_layer(
-      NNUE::LAYER_1_SIZE,
-      HyperParameters::default(),
-      Activation::ClippedReLU,
-    );
-    nnue.add_layer(
-      NNUE::LAYER_2_SIZE,
-      HyperParameters::default(),
-      Activation::ClippedReLU,
-    );
-    nnue.add_layer(
-      NNUE::LAYER_3_SIZE,
-      HyperParameters::default(),
-      Activation::Tanh,
-    );
+    nnue.add_layer(NNUE::LAYER_1_SIZE,
+                   HyperParameters::default(),
+                   Activation::ClippedReLU);
+    nnue.add_layer(NNUE::LAYER_2_SIZE,
+                   HyperParameters::default(),
+                   Activation::ClippedReLU);
+    nnue.add_layer(NNUE::LAYER_3_SIZE,
+                   HyperParameters::default(),
+                   Activation::Tanh);
     nnue
   }
 }
@@ -238,20 +216,15 @@ impl NNUE {
   /// ### Return value
   ///
   /// NNUE with an input layer.
-  ///
   pub fn new() -> Self {
     // Input Layer (L0):
-    let l0 = Layer {
-      nodes: Self::LAYER_0_SIZE,
-      param: HyperParameters::zeros(),
-      a: Activation::None,
-      state: LayerState::new(Self::LAYER_0_SIZE, 1),
-    };
+    let l0 = Layer { nodes: Self::LAYER_0_SIZE,
+                     param: HyperParameters::zeros(),
+                     a:     Activation::None,
+                     state: LayerState::new(Self::LAYER_0_SIZE, 1), };
 
-    let mut nnue = NNUE {
-      layers: Vec::new(),
-      iterations: 0,
-    };
+    let mut nnue = NNUE { layers:     Vec::new(),
+                          iterations: 0, };
     nnue.layers.push(l0);
 
     nnue
@@ -262,23 +235,18 @@ impl NNUE {
   /// ### Return value
   ///
   /// NNUE without any layer
-  ///
   pub fn new_no_layer() -> Self {
-    NNUE {
-      layers: Vec::new(),
-      iterations: 0,
-    }
+    NNUE { layers:     Vec::new(),
+           iterations: 0, }
   }
 
   /// Adds a layer to the NNUE:
   pub fn add_layer(&mut self, nodes: usize, param: HyperParameters, a: Activation) {
     let last_layer_size = if self.layers.len() > 0 { self.layers.last().unwrap().nodes } else { 1 };
-    let layer = Layer {
-      nodes,
-      param,
-      a,
-      state: LayerState::new(nodes, last_layer_size),
-    };
+    let layer = Layer { nodes,
+                        param,
+                        a,
+                        state: LayerState::new(nodes, last_layer_size) };
 
     self.layers.push(layer);
   }
@@ -304,8 +272,6 @@ impl NNUE {
   /// ### Arguments
   ///
   /// * `decay`: Factor by which the learning rate gets multiplied.
-  ///
-  ///
   pub fn decay_learning_rate(&mut self, decay: f32) {
     for i in 1..self.layers.len() {
       self.layers[i].param.learning_rate *= decay;
@@ -315,26 +281,23 @@ impl NNUE {
   /// Calculates the prediction/output given the current state of the NNUE.
   ///
   /// input can be of the size of a mini batch
-  ///
-  ///
-  ///
   pub fn forward_propagation(&mut self) -> Vec<f32> {
     // This is A0, input data:
     let mut A_prev = self.layers[0].state.cache.A.clone();
 
     for i in 1..self.layers.len() {
-      //println!("Forward prop: Layer {i} - {} nodes", self.layers[i].nodes);
+      // println!("Forward prop: Layer {i} - {} nodes", self.layers[i].nodes);
 
       // Zl = Wl.A(l-1) + bl
       let mut Zl = self.layers[i].state.W.dot(&A_prev);
       Zl += self.layers[i].state.b;
-      //println!("Zl: {:?}", Zl);
+      // println!("Zl: {:?}", Zl);
 
       // Normalize Z to have zero mean and unit standard deviation
-      //let mean = Zl.mean().unwrap();
-      //let sigma = Zl.std(0.0);
-      //Zip::from(&mut Zl).par_for_each(|a| *a = (*a - mean) / (sigma + f32::EPSILON));
-      //println!("Zl normalized: {:?}", Zl);
+      // let mean = Zl.mean().unwrap();
+      // let sigma = Zl.std(0.0);
+      // Zip::from(&mut Zl).par_for_each(|a| *a = (*a - mean) / (sigma +
+      // f32::EPSILON)); println!("Zl normalized: {:?}", Zl);
 
       // Save Zl onto the layer:
       self.layers[i].state.cache.Z = Zl.clone();
@@ -357,7 +320,7 @@ impl NNUE {
     }
 
     // Calculate prediction
-    //println!("A for last layer: {:?}", A_prev);
+    // println!("A for last layer: {:?}", A_prev);
     let mut Y_hat = vec![0.0; A_prev.len()];
     for c in 0..A_prev.len() {
       Y_hat[c] = A_prev[[0, c]];
@@ -372,8 +335,6 @@ impl NNUE {
   /// Note: Do not apply backwards propagation after calling this function
   ///
   /// input can be of the size of a mini batch
-  ///
-  ///
   pub fn predict(&mut self) -> Vec<f32> {
     // This is A0, input data:
     let mut A_prev = self.layers[0].state.cache.A.clone();
@@ -413,7 +374,6 @@ impl NNUE {
   /// between -200 and 200.
   ///
   /// TODO: Finish description
-  ///
   pub fn eval(&mut self, game_state: &GameState) -> f32 {
     self.game_state_to_input_layer(&[game_state]);
     let eval = self.predict();
@@ -435,26 +395,25 @@ impl NNUE {
   /// db^{[l]} = \frac{\partial \mathcal{J} }{\partial b^{[l]}} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l](i)}
   /// dA^{[l-1]} = \frac{\partial \mathcal{L} }{\partial A^{[l-1]}} = W^{[l] T} dZ^{[l]}
   /// ````
-  ///
   pub fn backwards_propagation(&mut self, AL: &[f32], Y: &[f32]) {
     assert_eq!(AL.len(), Y.len());
 
     // Calculate dc/dAL
     let dC = cost_derivative_vector(AL, Y);
-    //println!("dC : {:?}", dC);
+    // println!("dC : {:?}", dC);
     let mut dA_prev = dC;
 
     let m = AL.len() as f32;
-    //println!("Number of samples: {m}");
+    // println!("Number of samples: {m}");
 
     // Start from the last layer, back-propagating all the way to layer 1
     for i in (1..self.layers.len()).rev() {
-      //println!("backprop : Layer {i} - {} nodes", self.layers[i].nodes);
+      // println!("backprop : Layer {i} - {} nodes", self.layers[i].nodes);
 
       self.layers[i].state.cache.dA = dA_prev;
 
-      //println!("dAl-1 dimensions: {}x{}", dA_prev.len(), dA_prev[0].len());
-      //println!("dZl");
+      // println!("dAl-1 dimensions: {}x{}", dA_prev.len(), dA_prev[0].len());
+      // println!("dZl");
       let mut dZl = self.layers[i].state.cache.Z.clone();
       match self.layers[i].a {
         Activation::ReLU => Zip::from(&mut dZl).par_for_each(|a| *a = relu_backwards(*a)),
@@ -466,29 +425,30 @@ impl NNUE {
         },
         Activation::Tanh => Zip::from(&mut dZl).par_for_each(|a| *a = tanh_backwards(*a)),
         Activation::Sigmoid => Zip::from(&mut dZl).par_for_each(|a| *a = sigmoid_backwards(*a)),
-        // No activation means that we have to skip the derivative of the activation layer. Replace everything with 1.0
+        // No activation means that we have to skip the derivative of the activation layer. Replace
+        // everything with 1.0
         Activation::None => dZl.par_mapv_inplace(|_| 1.0),
       };
 
       dZl *= &self.layers[i].state.cache.dA;
-      //println!("dZl = {:?}", dZl);
-      //println!("dZl dimensions: {}x{}", dZl.len(), dZl[0].len());
+      // println!("dZl = {:?}", dZl);
+      // println!("dZl dimensions: {}x{}", dZl.len(), dZl[0].len());
 
       // Cache the result
       self.layers[i].state.cache.dZ = dZl.clone();
 
-      //println!("dWl");
+      // println!("dWl");
       let dWl = dZl.dot(&self.layers[i - 1].state.cache.A.t()) / m;
       self.layers[i].state.cache.dW = dWl.clone();
-      //println!("dWl = {:?}", dWl);
-      //println!("dWl dimensions: {}x{}", dWl.len(), dWl[0].len());
+      // println!("dWl = {:?}", dWl);
+      // println!("dWl dimensions: {}x{}", dWl.len(), dWl[0].len());
 
-      //println!("dbl");
+      // println!("dbl");
       self.layers[i].state.cache.db = (1.0 / m) * dZl.sum();
-      //println!("dbl = {:?}", dbl);
-      //println!("dbl dimensions: {}x{}", dbl.len(), dbl[0].len());
+      // println!("dbl = {:?}", dbl);
+      // println!("dbl dimensions: {}x{}", dbl.len(), dbl[0].len());
 
-      //println!("dA_prev");
+      // println!("dA_prev");
       dA_prev = self.layers[i].state.W.t().dot(&dZl);
     }
   }
@@ -499,8 +459,6 @@ impl NNUE {
   /// weights.
   ///
   /// Then compare it to the previously calculated gradient value
-  ///
-  ///
   pub fn check_weight_gradient(&mut self, y: &[f32], layer: usize) {
     // Do that for all rows/columns of the layer Weight matrix:
     const EPSILON: f32 = 1e-5;
@@ -566,16 +524,14 @@ impl NNUE {
     // Restore b
     self.layers[layer].state.b = b;
 
-    //println!("y_hat +: {:?} / cost {:?}", y_hat_plus, cost_plus);
-    //println!("y_hat -: {:?}  / cost {:?}", y_hat_minus, cost_minus);
-    //println!("cost diff: {:?} ", cost_plus - cost_minus);
+    // println!("y_hat +: {:?} / cost {:?}", y_hat_plus, cost_plus);
+    // println!("y_hat -: {:?}  / cost {:?}", y_hat_minus, cost_minus);
+    // println!("cost diff: {:?} ", cost_plus - cost_minus);
     println!("b: {} - db : {} - test_db: {} \n", b, db, test_db);
     assert!((test_db - db).abs() < 0.05);
   }
 
   /// Update the parameters using back-propagation gradient calculation
-  ///
-  ///
   #[allow(non_snake_case)]
   pub fn update_parameters(&mut self) {
     // Increment the number of times we updated the parameters
@@ -650,9 +606,6 @@ impl NNUE {
   /// TODO: Write description
   ///
   /// FIXME: We just need the board here, not the full game state
-  ///
-  ///
-  ///
   pub fn game_state_to_input_layer(&mut self, input: &[&GameState]) {
     let mut a0: Array2<f32> = Array2::zeros((Self::LAYER_0_SIZE, input.len()));
 
@@ -664,7 +617,9 @@ impl NNUE {
         Color::Black => (input[m].board.pieces.black, input[m].board.pieces.white),
       };
 
-      // Let's do: rook (offset = 0), queens (offset = 1 x 64), bishops (offset = 2 x 64), knights (offset = 3 x 64), king (offset = 4 x 64), pawn (offset = 5 x 64)
+      // Let's do: rook (offset = 0), queens (offset = 1 x 64), bishops (offset = 2 x
+      // 64), knights (offset = 3 x 64), king (offset = 4 x 64), pawn (offset = 5 x
+      // 64)
       for (mut i, piece) in ptp {
         if flip_board {
           i = 63 - i;
@@ -698,19 +653,16 @@ impl NNUE {
   }
 
   /// Converts any sized type to a slice of bytes.
-  ///
   unsafe fn as_bytes<T: Sized>(p: &T) -> &[u8] {
     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
   }
 
   /// Converts any sized type to a slice of bytes.
-  ///
   unsafe fn as_mut_bytes<T: Sized>(p: &T) -> &mut [u8] {
     ::core::slice::from_raw_parts_mut((p as *const T) as *mut u8, ::core::mem::size_of::<T>())
   }
 
   /// Saves the NNUE bytes to a file, so it can be loaded again later
-  ///
   pub fn save(&self, output_file: &str) -> std::io::Result<()> {
     let mut writer = BufWriter::new(File::create(output_file)?);
 
@@ -739,7 +691,6 @@ impl NNUE {
   }
 
   /// Saves the NNUE bytes to a file, so it can be loaded again later
-  ///
   pub fn load(input_file: &str) -> std::io::Result<Self> {
     let file = File::open(input_file)?;
     let mut reader = BufReader::new(file);
@@ -760,21 +711,20 @@ impl NNUE {
       let last_layer_size = nnue.layers.last().unwrap().nodes;
       let activation = Activation::None;
 
-      if let Err(_) = reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&layer_size) }) {
+      if reader.read_exact(unsafe { NNUE::as_mut_bytes(&layer_size) }).is_err() {
         break;
       }
-      reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&activation) })?;
+      reader.read_exact(unsafe { NNUE::as_mut_bytes(&activation) })?;
 
-      //println!("Layer size: {layer_size} - Activation: {:?}", activation);
+      // println!("Layer size: {layer_size} - Activation: {:?}", activation);
       nnue.add_layer(layer_size, HyperParameters::default(), activation);
 
       for c in 0..layer_size {
         for r in 0..last_layer_size {
-          reader
-            .read_exact(&mut unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.W[[c, r]]) })?;
+          reader.read_exact(unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.W[[c, r]]) })?;
         }
       }
-      reader.read_exact(&mut unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.b) })?;
+      reader.read_exact(unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.b) })?;
     }
 
     Ok(nnue)
@@ -795,7 +745,7 @@ mod tests {
     let mut nnue = NNUE::default();
     nnue.game_state_to_input_layer(&vec![&game_state]);
     let a0 = nnue.layers[0].state.cache.A.clone();
-    //println!("{:?}", a0);
+    // println!("{:?}", a0);
 
     // We expect 32 pieces on the board:
     assert_eq!(32.0, a0.sum());
@@ -850,7 +800,7 @@ mod tests {
 
       let new_cost = total_cost(&Y_hat, &evals);
       println!("new cost: {} - old cost:  {}", new_cost, previous_cost);
-      //assert!(new_cost < previous_cost);
+      // assert!(new_cost < previous_cost);
       previous_cost = new_cost;
     }
 

@@ -7,7 +7,6 @@ use crate::model::tables::rook_destinations::get_rook_destinations;
 use crate::square_in_mask;
 
 /// Determine if rooks are connected for a color
-///
 pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
   let mut rooks = match color {
     Color::White => game_state.board.pieces.white.rook,
@@ -23,14 +22,13 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
 
   let destinations = game_state.board.get_piece_control_mask(rook_1);
 
-  return square_in_mask!(rook_2, destinations);
+  square_in_mask!(rook_2, destinations)
 }
 
 /// Assigns a score to a rooks based on if it is located on:
 /// * a closed file: 0.0
 /// * a half-open file: 0.5
 /// * an open file: 1.0
-///
 pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
   let mut score: f32 = 0.0;
 
@@ -58,28 +56,26 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
 /// Checks skewers / forks with the rook
 ///
 /// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play, etc.
+/// * `game_state`: A GameState object representing a position, side to play,
+///   etc.
 /// * `i`         : Index of the square on the board
 ///
 /// ### Returns
 ///
 /// Number of majors/king pieces attacked by a rook.
 /// The rook will x-ray though kings and queens.
-///
 pub fn get_rook_victims(game_state: &GameState, color: Color) -> u32 {
   let mut victims: u32 = 0;
 
   let (mut rooks, op) = match color {
-    Color::White => (
-      game_state.board.pieces.white.rook,
-      (game_state.board.pieces.black.all()
-        & !(game_state.board.pieces.black.queen | game_state.board.pieces.black.king)),
-    ),
-    Color::Black => (
-      game_state.board.pieces.black.rook,
-      (game_state.board.pieces.white.all()
-        & !(game_state.board.pieces.white.queen | game_state.board.pieces.white.king)),
-    ),
+    Color::White => (game_state.board.pieces.white.rook,
+                     (game_state.board.pieces.black.all()
+                      & !(game_state.board.pieces.black.queen
+                          | game_state.board.pieces.black.king))),
+    Color::Black => (game_state.board.pieces.black.rook,
+                     (game_state.board.pieces.white.all()
+                      & !(game_state.board.pieces.white.queen
+                          | game_state.board.pieces.white.king))),
   };
   while rooks != 0 {
     let rook = rooks.trailing_zeros() as u8;
@@ -140,7 +136,8 @@ mod tests {
 
   #[test]
   fn evaluate_well_placed_rooks() {
-    // Compare 3 position, one with rook on closed file, half open and then open file
+    // Compare 3 position, one with rook on closed file, half open and then open
+    // file
     let fen = "6k1/5ppp/6p1/8/8/8/5PPP/5RK1 w - - 0 12";
     let game_state = GameState::from_fen(fen);
     let eval_closed = get_rooks_file_score(&game_state, Color::White);

@@ -1,7 +1,7 @@
 /// Represents boardmasks of lines and diagonals between i and j squares
 /// i not included, j included.
 /// use like this: `RAYS[i][j]`.
-pub const RAYS: [[u64; 64]; 64]  = [
+pub static RAYS: [[u64; 64]; 64]  = [
     [
         0x0000000000000000,
         0x0000000000000002,

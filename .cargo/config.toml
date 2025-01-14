@@ -1,7 +1,5 @@
 [build]
-# Tokio-console subscriber requires the unstable flag when building:
-#rustflags = ["--cfg", "tokio_unstable"]
-
+rustflags = ["-C", "target-cpu=native"]
 
 [env]
 RUST_LOG = "debug"
@@ -9,3 +7,8 @@ RUSTFLAGS = "-Clinker-plugin-lto"
 
 [doc]
 browser = "firefox" # browser to use with `cargo doc --open`,
+
+[alias]
+t = "test --workspace"
+ba = "bench --workspace"
+rr = "run --release"

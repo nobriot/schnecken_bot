@@ -18,21 +18,21 @@ enum PawnTrackingState {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
 ///
 /// true if the pawn is protected, false if there is no pawn on the square index
 /// or it is not protected.
-///
 pub fn can_become_protected(game_state: &GameState, index: u8) -> bool {
   // Check if there is no other pawn behind:
   let pawn = game_state.board.pieces.get(index);
   let (file, mut rank) = Board::index_to_fr(index);
 
   // Check if it can be defended by another pawn behind or on the side:
-  while (rank >= 1) && (rank <= 8) {
+  while (1..=8).contains(&rank) {
     // Check on the left side:
     if file > 1 {
       let s = Board::fr_to_index(file - 1, rank);
@@ -63,13 +63,13 @@ pub fn can_become_protected(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `color` -      The color for which we want to determine backwards pawns
 ///
 /// ### Return value
 ///
 /// BoardMask indicating which squares have a backwards pawn on it.
-///
 pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
   let mut mask: BoardMask = 0;
 
@@ -83,7 +83,7 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
   };
 
   for i in 0..64 {
-    if game_state.board.pieces.get(i as u8) != pawn {
+    if game_state.board.pieces.get(i) != pawn {
       continue;
     }
 
@@ -98,7 +98,7 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
       Color::Black => rank - 2,
     };
 
-    if (new_rank > 8) || (new_rank < 1) {
+    if (1..=8).contains(&new_rank) {
       continue;
     }
 
@@ -127,8 +127,10 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the number of pawn
+///   islands
 pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize {
   let pawns = match color {
     Color::White => game_state.board.pieces.white.pawn,
@@ -155,14 +157,14 @@ pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
 ///
 /// true if the pawn is protected, false if there is no pawn on the square index
 /// or it is not protected.
-///
 pub fn is_protected(game_state: &GameState, index: u8) -> bool {
   // Same side pawn
   let ss_pawn = match game_state.board.pieces.get(index) {
@@ -174,28 +176,26 @@ pub fn is_protected(game_state: &GameState, index: u8) -> bool {
   // Determine the rank / File:
   let (file, mut rank) = Board::index_to_fr(index);
 
-  // Check if we are protected, back one rank and one file on the right and/or left.
+  // Check if we are protected, back one rank and one file on the right and/or
+  // left.
   if ss_pawn == WHITE_PAWN {
     rank -= 1;
   } else {
     rank += 1;
   }
-  // Would be strange here, (there should be no pawn on the edge of the board, unless the position is kinda random)
+  // Would be strange here, (there should be no pawn on the edge of the board,
+  // unless the position is kinda random)
   if !(1..=8).contains(&rank) {
     return false;
   }
 
   // Check on the left side:
-  if file > 1 {
-    if game_state.board.get_piece(file - 1, rank) == ss_pawn {
-      return true;
-    }
+  if file > 1 && game_state.board.get_piece(file - 1, rank) == ss_pawn {
+    return true;
   }
   // Check on the right side:
-  if file < 8 {
-    if game_state.board.get_piece(file + 1, rank) == ss_pawn {
-      return true;
-    }
+  if file < 8 && game_state.board.get_piece(file + 1, rank) == ss_pawn {
+    return true;
   }
 
   false
@@ -205,14 +205,15 @@ pub fn is_protected(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board
 /// * `color` -      Color to check for pawns
 ///
 /// ### Return value
 ///
-/// true if the pawn is protected by a pawn of the indicated color, false otherwise
-///
+/// true if the pawn is protected by a pawn of the indicated color, false
+/// otherwise
 pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Color) -> bool {
   // Find the pawn value
   let pawn = match color {
@@ -223,7 +224,8 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Col
   // Determine the rank / File:
   let (file, mut rank) = Board::index_to_fr(index);
 
-  // Check if we are protected, back one rank and one file on the right and/or left.
+  // Check if we are protected, back one rank and one file on the right and/or
+  // left.
   if pawn == WHITE_PAWN {
     rank -= 1;
   } else {
@@ -235,16 +237,12 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Col
   }
 
   // Check on the left side:
-  if file > 1 {
-    if game_state.board.get_piece(file - 1, rank) == pawn {
-      return true;
-    }
+  if file > 1 && game_state.board.get_piece(file - 1, rank) == pawn {
+    return true;
   }
   // Check on the right side:
-  if file < 8 {
-    if game_state.board.get_piece(file + 1, rank) == pawn {
-      return true;
-    }
+  if file < 8 && game_state.board.get_piece(file + 1, rank) == pawn {
+    return true;
   }
 
   false
@@ -254,14 +252,14 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Col
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
 ///
 /// true if the pawn is passed, false if there is no pawn on the square index
 /// or it is not passed.
-///
 pub fn is_passed(game_state: &GameState, index: u8) -> bool {
   if square_in_mask!(index, game_state.board.pieces.white.pawn) {
     return WHITE_PASSED_PAWN_AREA[index as usize] & game_state.board.pieces.black.pawn == 0;
@@ -276,8 +274,10 @@ pub fn is_passed(game_state: &GameState, index: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the number of pawn
+///   islands
 pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -301,8 +301,10 @@ pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the number of pawn
+///   islands
 pub fn get_passed_pawns(game_state: &GameState, color: Color) -> BoardMask {
   // Same side pawn
   let mut pawns = match color {
@@ -322,12 +324,15 @@ pub fn get_passed_pawns(game_state: &GameState, color: Color) -> BoardMask {
   passers
 }
 
-/// Determine the number of protected passed pawns in a position for a given color.
+/// Determine the number of protected passed pawns in a position for a given
+/// color.
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the number of pawn
+///   islands
 pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -348,12 +353,15 @@ pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> 
   connected_passers
 }
 
-/// Determine the number of protected pawns (by other pawns) in a position for a given color.
+/// Determine the number of protected pawns (by other pawns) in a position for a
+/// given color.
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the number of pawn islands
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the number of pawn
+///   islands
 pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -378,14 +386,15 @@ pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> us
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine the closest pawn to promotion
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine the closest pawn
+///   to promotion
 ///
 /// ### Return value
 ///
 /// 8 if no pawn is present, else the number of squares that the closest pawn
 /// has to travel to get promoted
-///
 pub fn get_distance_left_for_closest_pawn_to_promotion(game_state: &GameState, color: Color) -> u8 {
   let mut best_distance: u8 = 8;
 
@@ -414,14 +423,14 @@ pub fn get_distance_left_for_closest_pawn_to_promotion(game_state: &GameState, c
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 /// * `color` -      The color for which we want to determine holes
 ///
 /// ### Return value
 ///
-/// Board mask with the holes for that 8 if no pawn is present, else the number of squares that the closest pawn
-/// has to travel to get promoted
-///
+/// Board mask with the holes for that 8 if no pawn is present, else the number
+/// of squares that the closest pawn has to travel to get promoted
 pub fn get_holes(game_state: &GameState, color: Color) -> BoardMask {
   let mut holes: BoardMask = 0;
 
@@ -450,7 +459,6 @@ pub fn get_holes(game_state: &GameState, color: Color) -> BoardMask {
 }
 
 /// Computes the number of pieces attacked by defended pawns
-///
 #[inline]
 pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
   let mut victims: u32 = 0;
@@ -464,19 +472,20 @@ pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
     let defenders = game_state.board.get_attackers(pawn, color);
     let attackers = game_state.board.get_attackers(pawn, Color::opposite(color));
 
-    // Check that the pawn cannot be taken out too easily before assigning a bonus for the pawn attack.
+    // Check that the pawn cannot be taken out too easily before assigning a bonus
+    // for the pawn attack.
     if attackers.count_ones() <= defenders.count_ones() {
       let attacked_pieces = match color {
         Color::White => (WHITE_PAWN_CONTROL[pawn as usize]
-          & (game_state.board.pieces.black.majors()
-            | game_state.board.pieces.black.minors()
-            | game_state.board.pieces.black.king))
-          .count_few_ones(),
+                         & (game_state.board.pieces.black.majors()
+                            | game_state.board.pieces.black.minors()
+                            | game_state.board.pieces.black.king))
+                                                                  .count_few_ones(),
         Color::Black => (BLACK_PAWN_CONTROL[pawn as usize]
-          & (game_state.board.pieces.white.majors()
-            | game_state.board.pieces.white.minors()
-            | game_state.board.pieces.white.king))
-          .count_few_ones(),
+                         & (game_state.board.pieces.white.majors()
+                            | game_state.board.pieces.white.minors()
+                            | game_state.board.pieces.white.king))
+                                                                  .count_few_ones(),
       };
 
       victims += attacked_pieces;
@@ -533,14 +542,10 @@ mod tests {
     assert_eq!(1, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(0, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(
-      0,
-      get_number_of_protected_passers(&game_state, Color::Black)
-    );
-    assert_eq!(
-      0,
-      get_number_of_protected_passers(&game_state, Color::White)
-    );
+    assert_eq!(0,
+               get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(0,
+               get_number_of_protected_passers(&game_state, Color::White));
   }
 
   #[test]
@@ -554,22 +559,14 @@ mod tests {
     assert_eq!(1, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(0, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(
-      0,
-      get_number_of_protected_passers(&game_state, Color::Black)
-    );
-    assert_eq!(
-      0,
-      get_number_of_protected_passers(&game_state, Color::White)
-    );
-    assert_eq!(
-      6,
-      get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White)
-    );
-    assert_eq!(
-      1,
-      get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black)
-    );
+    assert_eq!(0,
+               get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(0,
+               get_number_of_protected_passers(&game_state, Color::White));
+    assert_eq!(6,
+               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
+    assert_eq!(1,
+               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
   }
 
   #[test]
@@ -583,22 +580,14 @@ mod tests {
     assert_eq!(3, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(1, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(
-      2,
-      get_number_of_protected_passers(&game_state, Color::Black)
-    );
-    assert_eq!(
-      1,
-      get_number_of_protected_passers(&game_state, Color::White)
-    );
-    assert_eq!(
-      2,
-      get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White)
-    );
-    assert_eq!(
-      4,
-      get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black)
-    );
+    assert_eq!(2,
+               get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(1,
+               get_number_of_protected_passers(&game_state, Color::White));
+    assert_eq!(2,
+               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
+    assert_eq!(4,
+               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
   }
 
   #[test]

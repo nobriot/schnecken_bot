@@ -36,6 +36,8 @@ impl Game {
   /// returns a thread handle and a channel transmitter to send messages to the
   /// game.
   pub fn new(game: lichess::types::GameStart, api: &LichessApi) -> GameHandle {
+    println!("Game::new with game data: {:?}", game);
+
     // Communication with the game instance
     let (tx, rx) = mpsc::channel();
 
@@ -106,7 +108,6 @@ impl Game {
           self.api.write_in_chat(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           self.api.write_in_spectator_room(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           let _ = self.api.resign_game(&self.id).await;
-          break;
         },
         Ok(GameMessage::OpponentGone(opt_t)) => {
           if opt_t.is_some() {
