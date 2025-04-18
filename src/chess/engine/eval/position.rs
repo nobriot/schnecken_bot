@@ -28,38 +28,36 @@ const PIN_PENALTY: f32 = 0.25;
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 ///
 /// ### Returns
 ///
 /// Score assigned to the position, applicable in all game phases
-///
 pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
   // Pawn structure comparisons
   score += PAWN_ISLAND_FACTOR
-    * (get_number_of_pawn_islands(game_state, Color::Black) as f32
-      - get_number_of_pawn_islands(game_state, Color::White) as f32);
+           * (get_number_of_pawn_islands(game_state, Color::Black) as f32
+              - get_number_of_pawn_islands(game_state, Color::White) as f32);
 
-  /*
-  FIXME: These computations are slow
-  score += PASSED_PAWN_FACTOR
-  * (get_number_of_passers(game_state, Color::White) as f32
-  - get_number_of_passers(game_state, Color::Black) as f32);
-
-  score += PROTECTED_PASSED_PAWN_FACTOR
-  * (get_number_of_protected_passers(game_state, Color::White) as f32
-  - get_number_of_protected_passers(game_state, Color::Black) as f32);
-
-  score += PROTECTED_PAWN_FACTOR
-  * (get_number_of_protected_pawns(game_state, Color::White) as f32
-  - get_number_of_protected_pawns(game_state, Color::Black) as f32);
-
-  score += BACKWARDS_PAWN_FACTOR
-  * (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
-  - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
-  */
+  // FIXME: These computations are slow
+  // score += PASSED_PAWN_FACTOR
+  // (get_number_of_passers(game_state, Color::White) as f32
+  // - get_number_of_passers(game_state, Color::Black) as f32);
+  //
+  // score += PROTECTED_PASSED_PAWN_FACTOR
+  // (get_number_of_protected_passers(game_state, Color::White) as f32
+  // - get_number_of_protected_passers(game_state, Color::Black) as f32);
+  //
+  // score += PROTECTED_PAWN_FACTOR
+  // (get_number_of_protected_pawns(game_state, Color::White) as f32
+  // - get_number_of_protected_pawns(game_state, Color::Black) as f32);
+  //
+  // score += BACKWARDS_PAWN_FACTOR
+  // (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
+  // - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
 
   // Evaluate the quality of our rooks:
   if are_rooks_connected(game_state, Color::White) {
@@ -70,8 +68,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   }
 
   score += ROOK_FILE_FACTOR
-    * (get_rooks_file_score(game_state, Color::Black)
-      - get_rooks_file_score(game_state, Color::White));
+           * (get_rooks_file_score(game_state, Color::Black)
+              - get_rooks_file_score(game_state, Color::White));
 
   let mut white_pieces =
     game_state.board.pieces.white.minors() & game_state.board.pieces.white.majors();
@@ -84,22 +82,20 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       score -= HANGING_PENALTY;
     }
     if attackers.count_ones() > defenders.count_ones()
-      && game_state.board.side_to_play == Color::Black
+       && game_state.board.side_to_play == Color::Black
     {
       // Lowest value of any piece is 3.0.
       score -= HANGING_FACTOR * 3.0;
     }
     white_pieces &= white_pieces - 1;
   }
-  /*
   // Check if we have some good positional stuff
-  if has_reachable_outpost(game_state, i as usize) {
-    score += REACHABLE_OUTPOST_BONUS;
-  }
-  if occupies_reachable_outpost(game_state, i as usize) {
-    score += OUTPOST_BONUS;
-  }
-  */
+  // if has_reachable_outpost(game_state, i as usize) {
+  // score += REACHABLE_OUTPOST_BONUS;
+  // }
+  // if occupies_reachable_outpost(game_state, i as usize) {
+  // score += OUTPOST_BONUS;
+  // }
 
   let mut black_pieces =
     game_state.board.pieces.black.minors() & game_state.board.pieces.black.majors();
@@ -112,7 +108,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
       score -= HANGING_PENALTY;
     }
     if attackers.count_ones() > defenders.count_ones()
-      && game_state.board.side_to_play == Color::White
+       && game_state.board.side_to_play == Color::White
     {
       // Lowest value of any piece is 3.0.
       score += HANGING_FACTOR * 3.0;
@@ -136,15 +132,13 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   score += 0.3 * get_rook_victims(game_state, Color::White) as f32;
   score -= 0.3 * get_rook_victims(game_state, Color::Black) as f32;
 
-  /*
   // Check if we have some good positional stuff
-  if has_reachable_outpost(game_state, i as usize) {
-    score -= REACHABLE_OUTPOST_BONUS;
-  }
-  if occupies_reachable_outpost(game_state, i as usize) {
-    score -= OUTPOST_BONUS;
-  }
-  */
+  // if has_reachable_outpost(game_state, i as usize) {
+  // score -= REACHABLE_OUTPOST_BONUS;
+  // }
+  // if occupies_reachable_outpost(game_state, i as usize) {
+  // score -= OUTPOST_BONUS;
+  // }
 
   // Pinned pieces is never confortable
   if game_state.board.get_pins_rays(Color::White) != 0 {
@@ -177,21 +171,21 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
   material_count += game_state.board.pieces.minors().count_few_ones() * 3;
 
   development_index += ((game_state.board.pieces.white.minors()
-    | game_state.board.pieces.white.queen)
-    & BOARD_DOWN_EDGE)
-    .count_ones();
+                         | game_state.board.pieces.white.queen)
+                        & BOARD_DOWN_EDGE)
+                                          .count_ones();
 
   development_index += ((game_state.board.pieces.black.minors()
-    | game_state.board.pieces.black.queen)
-    & BOARD_UP_EDGE)
-    .count_ones();
+                         | game_state.board.pieces.black.queen)
+                        & BOARD_UP_EDGE)
+                                        .count_ones();
 
   if material_count < 20 {
-    return GamePhase::Endgame;
+    GamePhase::Endgame
   } else if development_index > 6 {
-    return GamePhase::Opening;
+    GamePhase::Opening
   } else {
-    return GamePhase::Middlegame;
+    GamePhase::Middlegame
   }
 }
 
@@ -206,7 +200,6 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
 /// ### Returns
 ///
 /// * GameStatus indicating if the game is ongoing or not.
-///
 pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
   Engine::find_move_list(cache, board);
   if cache.get_move_list(board).unwrap().is_empty() {
@@ -225,11 +218,11 @@ pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
 
   // 2 kings, or 1 king + knight or/bishop vs king is game over:
   if board.is_game_over_by_insufficient_material() {
-    //debug!("game over by insufficient material detected");
+    // debug!("game over by insufficient material detected");
     return GameStatus::Draw;
   }
 
-  return GameStatus::Ongoing;
+  GameStatus::Ongoing
 }
 
 /// Returns evaluation scores based on the game status.
@@ -242,7 +235,6 @@ pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
 /// ### Returns
 ///
 /// * GameStatus indicating if the game is ongoing or not.
-///
 #[inline]
 pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
   match game_status {
@@ -262,7 +254,6 @@ pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
 /// ### Returns
 ///
 /// * New eval value
-///
 #[inline]
 pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
   if eval.abs() > 100.0 {
@@ -278,14 +269,14 @@ pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to save the results
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 ///
 /// ### Returns
 ///
 /// * `GameStatus::OnGoing` if draw cannot be declared.
 /// * `GameStatus::Draw` if we have exceeded the 100-ply
 /// * `GameStatus::ThreeFoldRepetition` if we have repeated the position
-///
 pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
   if game_state.ply >= 100 {
     return GameStatus::Draw;
@@ -296,7 +287,7 @@ pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
     return GameStatus::ThreeFoldRepetition;
   }
 
-  return GameStatus::Ongoing;
+  GameStatus::Ongoing
 }
 
 /// Looks a board and detects if it is a smothered mate... The best of all !
@@ -304,12 +295,12 @@ pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
 /// ### Arguments
 ///
 /// * `board` -          Reference to a board position
-/// * `game_status` -    Return value from `is_game_over()` (to avoid to compute this again)
+/// * `game_status` -    Return value from `is_game_over()` (to avoid to compute
+///   this again)
 ///
 /// ### Returns
 ///
 /// True if this is a smothered mate, false otherwise
-///
 pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
   let mating_color: Color = match game_status {
     GameStatus::WhiteWon => Color::White,
@@ -335,8 +326,8 @@ pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
   let surrounding_squares = KING_MOVES[king];
 
   match mating_color {
-    Color::White => return (surrounding_squares & board.pieces.black.all()) == surrounding_squares,
-    Color::Black => return (surrounding_squares & board.pieces.white.all()) == surrounding_squares,
+    Color::White => (surrounding_squares & board.pieces.black.all()) == surrounding_squares,
+    Color::Black => (surrounding_squares & board.pieces.white.all()) == surrounding_squares,
   }
 }
 
@@ -345,20 +336,18 @@ pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to store calculations
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 ///
 /// ### Returns
 ///
 /// Score assigned to the position.
-///
 pub fn evaluate_board(game_state: &GameState) -> f32 {
-  let score = match determine_game_phase(game_state) {
+  match determine_game_phase(game_state) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
-  };
-
-  score
+  }
 }
 
 /// Very minimalistic version of evaluate board
@@ -366,12 +355,12 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to store calculations
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 ///
 /// ### Returns
 ///
 /// Score assigned to the position.
-///
 pub fn evaluate_board_simple(game_state: &GameState) -> f32 {
   use crate::engine::eval::endgame::get_square_table_endgame_score;
   use crate::engine::eval::middlegame::get_square_table_middlegame_score;
@@ -426,7 +415,8 @@ mod tests {
 
   #[test]
   fn test_evaluate_board_queen_standoff() {
-    // This should obviously be okay because queen is defended and attacked by a queen.
+    // This should obviously be okay because queen is defended and attacked by a
+    // queen.
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
@@ -448,14 +438,14 @@ mod tests {
 
   #[test]
   fn test_evaluate_board_losing() {
-    // We had this evaluated in favor of black in a game: (after a certain continuation)
-    /* INFO  schnecken_bot::chess::engine::core] Using 5866 ms to find a move
-    Line 0 Eval: -2.0450013 - h8f8 a8d5 f6d5
-    Line 1 Eval: -1.9150015 - d6c5 a8d5 f6d5
-    Line 2 Eval: -1.8200021 - e8g8 a8d5 f6d5
-    Line 3 Eval: 7.735001 - d6e5 a8f3 g7f8 d2c1
-    Line 4 Eval: 7.7650003 - e8c6 a8c6 b8c6 f1e1
-     */
+    // We had this evaluated in favor of black in a game: (after a certain
+    // continuation)
+    // INFO  schnecken_bot::chess::engine::core] Using 5866 ms to find a move
+    // Line 0 Eval: -2.0450013 - h8f8 a8d5 f6d5
+    // Line 1 Eval: -1.9150015 - d6c5 a8d5 f6d5
+    // Line 2 Eval: -1.8200021 - e8g8 a8d5 f6d5
+    // Line 3 Eval: 7.735001 - d6e5 a8f3 g7f8 d2c1
+    // Line 4 Eval: 7.7650003 - e8c6 a8c6 b8c6 f1e1
     let fen = "Qn2q2r/2p2pb1/p2k1n1p/5Bp1/8/2NP4/PPPB1PPP/R4RK1 b - - 0 15";
     let game_state = GameState::from_fen(fen);
     game_state.get_moves();
@@ -544,19 +534,18 @@ mod tests {
   fn test_moves_and_game_over() {
     // Saw something weird in the log here : https://lichess.org/rrAELqBT
     // both Line 0 and 1 are not checkmates, but evaluated to 200.0
-    /*
-    [2023-10-13T07:08:59.308Z INFO  schnecken_bot::bot::state] Using 1889 ms to find a move for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq - 1 7
-    Starting depth 2
-    Starting depth 3
-    Starting depth 4
-    Score for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq - 1 7: 200
-    Line 0 : Eval 200.00     - a3c4 d7d5 c1f4 d5c4
-    Line 1 : Eval 200.00     - a3b5 d7d5 e2e4 f6e4
-    Line 2 : Eval -4.54      - a1b1 c6b4 e2c4
-    Line 3 : Eval -4.76      - e1d2 d8b6 d2d1
-    Line 4 : Eval -4.79      - e2e3 d7d5 a3c4 d5c4
-    Line 5 : Eval -4.84      - h2h3 e7e5 a3c4 d7d
-         */
+    // [2023-10-13T07:08:59.308Z INFO  schnecken_bot::bot::state] Using 1889 ms to
+    // find a move for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w
+    // KQkq - 1 7 Starting depth 2
+    // Starting depth 3
+    // Starting depth 4
+    // Score for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq -
+    // 1 7: 200 Line 0 : Eval 200.00     - a3c4 d7d5 c1f4 d5c4
+    // Line 1 : Eval 200.00     - a3b5 d7d5 e2e4 f6e4
+    // Line 2 : Eval -4.54      - a1b1 c6b4 e2c4
+    // Line 3 : Eval -4.76      - e1d2 d8b6 d2d1
+    // Line 4 : Eval -4.79      - e2e3 d7d5 a3c4 d5c4
+    // Line 5 : Eval -4.84      - h2h3 e7e5 a3c4 d7d
     let fen = "r1bqkb1r/pp2pppp/2n5/1N1p4/4n3/8/PPP2NPP/R1B1KB1R w KQkq - 0 9";
     let game_state = GameState::from_fen(fen);
 
@@ -571,10 +560,8 @@ mod tests {
     let fen = "4r1k1/5ppp/p1p5/1QP5/3p2b1/P7/2P1rqPP/2R2NKR w - - 5 26";
     let game_state = GameState::from_fen(fen);
     let cache = EngineCache::new();
-    assert_eq!(
-      GameStatus::BlackWon,
-      is_game_over(&cache, &game_state.board)
-    );
+    assert_eq!(GameStatus::BlackWon,
+               is_game_over(&cache, &game_state.board));
   }
 
   #[test]
@@ -601,27 +588,17 @@ mod tests {
     assert!(is_smothered_mate(&game_state.board, game_status));
 
     // Test if the game status is not WhiteWon / BlackWon
-    assert_eq!(
-      false,
-      is_smothered_mate(&game_state.board, GameStatus::Draw)
-    );
-    assert_eq!(
-      false,
-      is_smothered_mate(&game_state.board, GameStatus::Ongoing)
-    );
-    assert_eq!(
-      false,
-      is_smothered_mate(&game_state.board, GameStatus::Stalemate)
-    );
-    assert_eq!(
-      false,
-      is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition)
-    );
+    assert_eq!(false,
+               is_smothered_mate(&game_state.board, GameStatus::Draw));
+    assert_eq!(false,
+               is_smothered_mate(&game_state.board, GameStatus::Ongoing));
+    assert_eq!(false,
+               is_smothered_mate(&game_state.board, GameStatus::Stalemate));
+    assert_eq!(false,
+               is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition));
     // Here it is Black who won, the black king is not smothered
-    assert_eq!(
-      false,
-      is_smothered_mate(&game_state.board, GameStatus::WhiteWon)
-    );
+    assert_eq!(false,
+               is_smothered_mate(&game_state.board, GameStatus::WhiteWon));
 
     // Position 3:
     let fen = "rnbq3r/pppppppp/8/8/QPPk4/2N5/P2PPnPP/2B2BRK w - - 0 1";

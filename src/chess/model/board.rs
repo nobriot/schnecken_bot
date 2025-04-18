@@ -620,7 +620,7 @@ impl Board {
   /// the values passed are not valid.
   ///
   /// * `index`: [0..=63]
-  /// ̈́
+  ///
   #[inline]
   pub fn index_to_fr(index: u8) -> (u8, u8) {
     debug_assert!(index < 64);

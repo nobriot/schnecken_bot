@@ -203,7 +203,7 @@ impl std::fmt::Display for CastlingRights {
       representation.push('q');
     }
 
-    if representation.len() == 0 {
+    if representation.is_empty() {
       representation.push('-');
     }
 

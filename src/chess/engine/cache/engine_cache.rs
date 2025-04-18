@@ -1,7 +1,3 @@
-use std::cmp::Ordering;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
-
 use super::evaluation_table::{EvaluationCache, EvaluationCacheTable};
 use super::move_list_cache_table::MoveListCacheTable;
 use crate::model::board::*;
@@ -9,27 +5,26 @@ use crate::model::containers::move_list::MoveList;
 use crate::model::game_state::GameState;
 use crate::model::moves::*;
 use crate::model::piece::Color;
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct EngineCache {
   // List of moves available from a board position
-  move_lists: Arc<Mutex<MoveListCacheTable>>,
+  move_lists:   Arc<Mutex<MoveListCacheTable>>,
   // Evaluation for a given board configuration (GameStatus, Eval and depth)
-  evals: Arc<Mutex<EvaluationCacheTable>>,
+  evals:        Arc<Mutex<EvaluationCacheTable>>,
   // List of killer moves that we've met recently during the analysis
   killer_moves: Arc<Mutex<HashSet<Move>>>,
 }
 
 impl EngineCache {
   /// Instantiate a new EngineCache object
-  ///
-  ///
   pub fn new() -> Self {
-    EngineCache {
-      move_lists: Arc::new(Mutex::new(MoveListCacheTable::new(10))),
-      evals: Arc::new(Mutex::new(EvaluationCacheTable::new(10))),
-      killer_moves: Arc::new(Mutex::new(HashSet::new())),
-    }
+    EngineCache { move_lists:   Arc::new(Mutex::new(MoveListCacheTable::new(10))),
+                  evals:        Arc::new(Mutex::new(EvaluationCacheTable::new(10))),
+                  killer_moves: Arc::new(Mutex::new(HashSet::new())), }
   }
 
   // ---------------------------------------------------------------------------
@@ -44,13 +39,15 @@ impl EngineCache {
   /// ### Return value
   ///
   /// Number of GameState objects saved in the EngineCache
-  ///
   pub fn len(&self) -> usize {
     return self.evals.lock().unwrap().len();
   }
 
+  pub fn is_empty(&self) -> bool {
+    return self.evals.lock().unwrap().is_empty();
+  }
+
   /// Erases everything in the cache
-  ///
   pub fn clear(&self) {
     self.move_lists.lock().unwrap().clear();
     self.killer_moves.lock().unwrap().clear();
@@ -69,8 +66,8 @@ impl EngineCache {
   ///
   /// ### Return value
   ///
-  /// True if the GameState a known move list in the EngineCache. False otherwise
-  ///
+  /// True if the GameState a known move list in the EngineCache. False
+  /// otherwise
   pub fn has_move_list(&self, board: &Board) -> bool {
     self.move_lists.lock().unwrap().get(board.hash).is_some()
   }
@@ -82,8 +79,6 @@ impl EngineCache {
   /// * `self` :            EngineCache
   /// * `board` :           Board configuration to look up in the cache
   /// * `move_list` :       Move list to save for the GameState
-  ///
-  ///
   pub fn set_move_list(&self, board: &Board, move_list: &[Move]) {
     self.move_lists.lock().unwrap().add(board.hash, move_list);
   }
@@ -98,16 +93,12 @@ impl EngineCache {
   /// ### Return value
   ///
   /// A clone of the Move List cached for the GameState / board
-  ///
   #[inline]
   pub fn get_move_list(&self, board: &Board) -> Option<MoveList> {
     let table = self.move_lists.lock().unwrap();
     let entry = table.get(board.hash);
-    if entry.is_none() {
-      return None;
-    }
 
-    Some(MoveList::new_from_slice(entry.unwrap()))
+    Some(MoveList::new_from_slice(entry?))
   }
 
   // ---------------------------------------------------------------------------
@@ -123,7 +114,6 @@ impl EngineCache {
   /// ### Return value
   ///
   /// True if the board hash a known eval in the EngineCache. False otherwise
-  ///
   pub fn has_eval(&self, board: &Board) -> bool {
     return self.evals.lock().unwrap().get(board.hash).is_some();
   }
@@ -136,7 +126,6 @@ impl EngineCache {
   /// * `board` :           Board configuration to look up in the cache
   /// * `eval` :            Evaluation value to save
   /// * `depth` :            Depth at which we evaluated the board
-  ///
   pub fn set_eval(&self, board: &Board, eval_data: EvaluationCache) {
     self.evals.lock().unwrap().add(board.hash, eval_data);
   }
@@ -151,7 +140,6 @@ impl EngineCache {
   /// ### Return value
   ///
   /// The evaluation of the board. Returns 0 if the evaluation is unknown.
-  ///
   pub fn get_eval(&self, board: &Board) -> Option<EvaluationCache> {
     self.evals.lock().unwrap().get(board.hash)
   }
@@ -163,7 +151,6 @@ impl EngineCache {
   /// ### Arguments
   ///
   /// * `self` :            EngineCache
-  ///
   pub fn clear_evals(&self) {
     self.evals.lock().unwrap().clear();
   }
@@ -174,8 +161,6 @@ impl EngineCache {
   ///
   /// * `self` :            EngineCache
   /// * `capacity_mb`:      New size for the tables, in MB.
-  ///
-  ///
   pub fn resize_tables(&self, capacity_mb: usize) {
     self.evals.lock().unwrap().resize(capacity_mb);
     self.move_lists.lock().unwrap().resize(capacity_mb);
@@ -185,13 +170,13 @@ impl EngineCache {
   // Position independant cached data
 
   /// Adds a killer move in the EngineCache
-  /// This is not dependant on positions, and should be cleared when the engine moves to another position
+  /// This is not dependant on positions, and should be cleared when the engine
+  /// moves to another position
   ///
   /// ### Arguments
   ///
   /// * `self` :            EngineCache
   /// * `killer_move` :     Killer Move to add in the EngineCache
-  ///
   pub fn add_killer_move(&self, killer_move: &Move) {
     self.killer_moves.lock().unwrap().insert(*killer_move);
   }
@@ -201,7 +186,6 @@ impl EngineCache {
   /// ### Arguments
   ///
   /// * `self` :            EngineCache
-  ///
   pub fn clear_killer_moves(&self) {
     self.killer_moves.lock().unwrap().clear();
   }
@@ -216,7 +200,6 @@ impl EngineCache {
   /// ### Return value
   ///
   /// True if the `candidate_move` is present in the list of Killer moves
-  ///
   pub fn is_killer_move(&self, candidate_move: &Move) -> bool {
     return self.killer_moves.lock().unwrap().contains(candidate_move);
   }
@@ -226,22 +209,22 @@ impl EngineCache {
   /// ### Arguments
   ///
   /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
-  /// * `game_state` Reference to a GameState in the cache for which to compare the moves
-  /// * `color`      Side to play. It will order ascending for black, descending for white
+  /// * `game_state` Reference to a GameState in the cache for which to compare
+  ///   the moves
+  /// * `color`      Side to play. It will order ascending for black, descending
+  ///   for white
   /// * `a`          Move A
   /// * `b`          Move B
   ///
   /// ### Return value
   ///
   /// Ordering telling if B is Greater, Equal or Less than A
-  ///
-  fn compare_moves_by_cache_eval(
-    &self,
-    game_state: &GameState,
-    color: Color,
-    a: &Move,
-    b: &Move,
-  ) -> Ordering {
+  fn compare_moves_by_cache_eval(&self,
+                                 game_state: &GameState,
+                                 color: Color,
+                                 a: &Move,
+                                 b: &Move)
+                                 -> Ordering {
     let mut game_state_a = game_state.clone();
     game_state_a.apply_move(a);
     let mut game_state_b = game_state.clone();
@@ -268,5 +251,11 @@ impl EngineCache {
       return less;
     }
     Ordering::Equal
+  }
+}
+
+impl Default for EngineCache {
+  fn default() -> Self {
+    EngineCache::new()
   }
 }

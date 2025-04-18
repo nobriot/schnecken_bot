@@ -67,11 +67,8 @@ impl MoveListCacheTable {
     if entry.hash != hash {
       return None;
     }
-    if entry.move_list.is_none() {
-      return None;
-    }
 
-    Some(entry.move_list.as_ref().unwrap().get_moves())
+    Some(entry.move_list.as_ref()?.get_moves())
   }
 
   /// Adds (or update) an evaluation cache entry.
@@ -98,7 +95,6 @@ impl MoveListCacheTable {
   ///
   /// * `self`:     Table to update.
   /// * `Capacity`: New size for the table, in MB.
-  ///
   #[inline]
   pub fn resize(&mut self, capacity_mb: usize) {
     debug!("Resizing MoveListCacheTable with capacity {} MB",

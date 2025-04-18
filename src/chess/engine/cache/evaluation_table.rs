@@ -95,7 +95,6 @@ impl EvaluationCacheTable {
   ///
   /// * `self`:     Table to update.
   /// * `Capacity`: New size for the table, in MB.
-  ///
   #[inline]
   pub fn resize(&mut self, capacity_mb: usize) {
     debug!("Resizing EvaluationCacheTable with capacity {} MB",
@@ -117,6 +116,11 @@ impl EvaluationCacheTable {
   #[inline]
   pub fn len(&self) -> usize {
     self.counter
+  }
+
+  #[inline]
+  pub fn is_empty(&self) -> bool {
+    self.counter == 0
   }
 
   /// Zeroes out all the board hashes in the table and fill with default values.

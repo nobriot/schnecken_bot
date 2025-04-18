@@ -501,7 +501,7 @@ impl Engine {
 
       // If the best move is just winning for us, stop searching unless requested to.
       if Engine::best_move_is_mating_sequence(self.position.board.side_to_play, best_eval)
-         && self.options.ponder == false
+         && !self.options.ponder
       {
         debug!("Winning sequence found! Stopping search");
         break;
@@ -853,7 +853,7 @@ impl Engine {
           self.analysis.increment_nodes_visited();
 
           // FIXME:  NNUE eval is still too slow, we should implement incremental updates
-          if depth > 10 && self.options.use_nnue == true {
+          if depth > 10 && self.options.use_nnue {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             // println!("board: {} - Eval: {} - NNUE Eval: {} - final eval
             // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
@@ -883,7 +883,7 @@ impl Engine {
       let best_move = &result.get_best_move().expect("Valid move in non-empty result");
       debug_assert!(!best_move.is_null(), "Best move is NULL.");
       let mut pv = game_state.clone();
-      pv.apply_move(&best_move);
+      pv.apply_move(best_move);
       let mut best_move_eval = self.cache.get_eval(&pv.board).unwrap_or_default();
 
       best_move_eval.depth += 1;

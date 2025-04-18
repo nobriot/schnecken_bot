@@ -106,7 +106,7 @@ pub fn tanh_backwards(x: f32) -> f32 {
 ///  1.0 if  1.0 < x
 #[inline]
 pub fn clipped_relu(x: f32) -> f32 {
-  x.max(0.0).min(1.0)
+  x.clamp(0.0, 1.0)
 }
 
 /// Clipped ReLU activation function backwards
@@ -126,7 +126,7 @@ pub fn clipped_relu(x: f32) -> f32 {
 /// Derivative of the clippped ReLU function.
 #[inline]
 pub fn clipped_relu_backwards(x: f32) -> f32 {
-  if x > 1.0 || x < 0.0 {
+  if (0.0..=1.0).contains(&x) {
     0.0
   } else {
     1.0
@@ -138,7 +138,7 @@ pub fn clipped_relu_backwards(x: f32) -> f32 {
 /// ### Arguments
 ///
 /// * `x`: input
-/// * `thresdhold`: Value at which we want to clip the ReLU.
+/// * `threshold`: Value at which we want to clip the ReLU.
 ///
 /// ### Return value
 ///

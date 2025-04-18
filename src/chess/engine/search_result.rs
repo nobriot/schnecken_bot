@@ -62,7 +62,7 @@ impl Variation {
     if self.length == 0 {
       return None;
     }
-    Some(self.moves.clone())
+    Some(self.moves)
   }
 
   pub fn get_first_move(&self) -> Option<Move> {
@@ -83,6 +83,12 @@ impl Display for Variation {
     }
 
     Ok(())
+  }
+}
+
+impl Default for Variation {
+  fn default() -> Self {
+    Variation::new()
   }
 }
 
@@ -211,15 +217,13 @@ impl SearchResult {
 impl Display for SearchResult {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     writeln!(f, "Search Result:")?;
-    let mut i = 0;
-    for v in &self.variations {
-      write!(f,
-             "Line {:<2}: Eval {:<7.2} @ depth {} - {}\n",
-             i,
-             v.eval,
-             v.variation.len(),
-             v.variation)?;
-      i += 1;
+    for (i, v) in self.variations.iter().enumerate() {
+      writeln!(f,
+               "Line {:<2}: Eval {:<7.2} @ depth {} - {}",
+               i,
+               v.eval,
+               v.variation.len(),
+               v.variation)?;
     }
 
     Ok(())

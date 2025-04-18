@@ -1,38 +1,31 @@
-use std::fmt::Display;
-use std::ops::Index;
-
 // Our project
 use crate::model::moves::*;
+use std::fmt::Display;
+use std::ops::Index;
 
 /// How many moves do we keep in a move list.
 const MOVE_LIST_LENGTH: usize = 100;
 
 /// Move list. Fixed-size array
-///
 #[derive(Debug, Clone)]
+
 pub struct MoveList {
-  moves: [Move; MOVE_LIST_LENGTH],
+  moves:  [Move; MOVE_LIST_LENGTH],
   length: u8,
 }
 
 impl MoveList {
   /// Creates a new empty move list
-  ///
   pub fn new() -> Self {
-    MoveList {
-      moves: [Move::null(); MOVE_LIST_LENGTH],
-      length: 0,
-    }
+    MoveList { moves:  [Move::null(); MOVE_LIST_LENGTH],
+               length: 0, }
   }
 
   /// Creates a new move list based on a slice
-  ///
   pub fn new_from_slice(moves: &[Move]) -> Self {
     debug_assert!(moves.len() < u8::MAX as usize);
-    let mut list = MoveList {
-      moves: [Move::null(); MOVE_LIST_LENGTH],
-      length: std::cmp::min(MOVE_LIST_LENGTH, moves.len()) as u8,
-    };
+    let mut list = MoveList { moves:  [Move::null(); MOVE_LIST_LENGTH],
+                              length: std::cmp::min(MOVE_LIST_LENGTH, moves.len()) as u8, };
 
     unsafe {
       let dest = list.moves.as_mut_ptr();
@@ -48,7 +41,6 @@ impl MoveList {
   /// ### Arguments
   ///
   /// * `mv` - Move to add to the list
-  ///
   pub fn add(&mut self, mv: Move) {
     if self.length as usize >= MOVE_LIST_LENGTH {
       return;
@@ -62,7 +54,6 @@ impl MoveList {
   }
 
   /// Clears all the moves from a move list
-  ///
   pub fn clear(&mut self) {
     self.moves = [Move::null(); MOVE_LIST_LENGTH];
     self.length = 0;
@@ -70,7 +61,6 @@ impl MoveList {
 
   /// Remove the last move from the list
   /// and returns it.
-  ///
   pub fn pop(&mut self) -> Option<Move> {
     if self.length == 0 {
       return None;
@@ -82,7 +72,6 @@ impl MoveList {
   }
 
   /// Gets the length of a move list.
-  ///
   pub fn len(&self) -> usize {
     self.length as usize
   }
@@ -93,7 +82,6 @@ impl MoveList {
   }
 
   /// Returns the capacity of a move list
-  ///
   pub const fn capacity(&self) -> usize {
     MOVE_LIST_LENGTH
   }
@@ -109,7 +97,6 @@ impl MoveList {
   }
 
   /// Returns a copy of the first move of the move list
-  ///
   pub fn get_first_move(&self) -> Option<Move> {
     if self.length == 0 {
       return None;
@@ -140,24 +127,23 @@ impl MoveList {
 // Common traits
 
 impl IntoIterator for MoveList {
-  type Item = Move;
   type IntoIter = MoveListIterator;
+  type Item = Move;
 
   fn into_iter(self) -> Self::IntoIter {
-    MoveListIterator {
-      move_list: self,
-      index: 0,
-    }
+    MoveListIterator { move_list: self,
+                       index:     0, }
   }
 }
 
 pub struct MoveListIterator {
   move_list: MoveList,
-  index: usize,
+  index:     usize,
 }
 
 impl Iterator for MoveListIterator {
   type Item = Move;
+
   fn next(&mut self) -> Option<Self::Item> {
     if self.index >= self.move_list.len() {
       return None;
@@ -187,6 +173,12 @@ impl Display for MoveList {
     }
 
     Ok(())
+  }
+}
+
+impl Default for MoveList {
+  fn default() -> Self {
+    MoveList::new()
   }
 }
 
@@ -222,13 +214,11 @@ mod tests {
     assert_eq!(None, list.get_first_move());
     assert_eq!(0, list.get_moves().len());
 
-    let slice = [
-      Move::from_string("a4b7"),
-      Move::from_string("f8g6"),
-      Move::from_string("b2c7"),
-      Move::from_string("a1g8"),
-      Move::from_string("f1f3"),
-    ];
+    let slice = [Move::from_string("a4b7"),
+                 Move::from_string("f8g6"),
+                 Move::from_string("b2c7"),
+                 Move::from_string("a1g8"),
+                 Move::from_string("f1f3")];
     let mut list = MoveList::new_from_slice(&slice);
 
     assert_eq!(list.len(), slice.len());

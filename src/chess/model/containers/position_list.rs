@@ -1,26 +1,21 @@
-use std::fmt::Display;
-
 use crate::model::tables::zobrist::BoardHash;
+use std::fmt::Display;
 
 /// How many positions hash do we keep in a list.
 const POSITION_LIST_LENGTH: usize = 30;
 
 /// Position Hash list. Fixed-size array
-///
 #[derive(Debug, Clone)]
 pub struct PositionList {
-  list: [BoardHash; POSITION_LIST_LENGTH],
+  list:  [BoardHash; POSITION_LIST_LENGTH],
   index: u8,
 }
 
 impl PositionList {
   /// Creates a new empty position list
-  ///
   pub fn new() -> Self {
-    PositionList {
-      list: [0; POSITION_LIST_LENGTH],
-      index: 0,
-    }
+    PositionList { list:  [0; POSITION_LIST_LENGTH],
+                   index: 0, }
   }
 
   /// Adds a position hash in the list list
@@ -28,7 +23,6 @@ impl PositionList {
   /// ### Arguments
   ///
   /// * `board_hash` - board hash to add to the list
-  ///
   pub fn add(&mut self, board_hash: BoardHash) {
     if self.index as usize >= POSITION_LIST_LENGTH {
       self.index = 0;
@@ -42,26 +36,26 @@ impl PositionList {
   }
 
   /// Clears all the moves from a move list
-  ///
   pub fn clear(&mut self) {
     self.list.fill(0);
     self.index = 0;
   }
 
   /// Gets the length of a move list.
-  ///
   pub fn len(&self) -> usize {
     self.list.into_iter().filter(|e| *e != 0).count()
   }
 
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
+  }
+
   /// Checks how many time the hash is present in the list.
-  ///
   pub fn count(&self, hash: BoardHash) -> usize {
     self.list.into_iter().filter(|e| *e == hash).count()
   }
 
   /// Returns the capacity of a move list
-  ///
   pub const fn capacity(&self) -> usize {
     POSITION_LIST_LENGTH
   }
@@ -77,6 +71,12 @@ impl Display for PositionList {
       write!(f, "{} ", hash)?;
     }
     write!(f, "]")
+  }
+}
+
+impl Default for PositionList {
+  fn default() -> Self {
+    PositionList::new()
   }
 }
 

@@ -139,8 +139,8 @@ pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize
   let mut pawn_islands: usize = 0;
   let mut pawn_state = PawnTrackingState::NoPawn;
 
-  for file in 0..8 {
-    if FILES[file] & pawns != 0 {
+  for file in &FILES {
+    if file & pawns != 0 {
       if pawn_state == PawnTrackingState::NoPawn {
         pawn_islands += 1;
         pawn_state = PawnTrackingState::Pawn;

@@ -1,21 +1,20 @@
-use std::fmt;
-use std::fmt::Display;
-
 use crate::engine::search_result::Variation;
 use crate::model::moves::*;
+use std::fmt;
+use std::fmt::Display;
 
 // Keeping here a table of how the game went
 #[derive(Debug, Clone)]
 pub struct GameHistoryEntry {
   /// FEN string of a given position
-  pub position: String,
+  pub position:  String,
   /// Last move.
   /// Will be a NULL move for the first position of the game.
   pub last_move: Move,
   /// Evaluation in centipawns.
-  pub eval: isize,
+  pub eval:      isize,
   /// Evaluation in centipawns.
-  pub pv: Variation,
+  pub pv:        Variation,
 }
 
 /// Keeps track of the historical evaluations during a game.
@@ -26,19 +25,15 @@ pub struct GameHistory {
 
 pub struct GameHistoryIterator {
   game_history: GameHistory,
-  index: usize,
+  index:        usize,
 }
 
 impl GameHistory {
   /// Creates a new instance of a game history.
   ///
   /// ### Return value
-  ///
-  ///
   pub fn new() -> Self {
-    GameHistory {
-      entries: Vec::<GameHistoryEntry>::new(),
-    }
+    GameHistory { entries: Vec::<GameHistoryEntry>::new(), }
   }
 
   /// Adds a position and its evaluation from the engine in the Game History
@@ -47,42 +42,35 @@ impl GameHistory {
   ///
   /// * `fen`:
   pub fn add(&mut self, fen: String, last_move: Move, eval: isize, pv: Variation) {
-    self.entries.push(GameHistoryEntry {
-      position: fen,
-      last_move,
-      eval,
-      pv: pv.clone(),
-    })
+    self.entries.push(GameHistoryEntry { position: fen,
+                                         last_move,
+                                         eval,
+                                         pv: pv.clone() })
   }
 
   /// Pops the last entry in the game history
-  ///
   pub fn pop(&mut self) -> Option<GameHistoryEntry> {
     self.entries.pop()
   }
 
   /// Gets the length of the current game history
-  ///
   pub fn len(&self) -> usize {
     self.entries.len()
   }
 
   /// Clears the game history. Can be used to start a new game
-  ///
   pub fn clear(&mut self) {
     self.entries.clear()
   }
 }
 
 impl IntoIterator for GameHistory {
-  type Item = GameHistoryEntry;
   type IntoIter = GameHistoryIterator;
+  type Item = GameHistoryEntry;
 
   fn into_iter(self) -> Self::IntoIter {
-    GameHistoryIterator {
-      game_history: self,
-      index: 0,
-    }
+    GameHistoryIterator { game_history: self,
+                          index:        0, }
   }
 }
 
@@ -90,28 +78,31 @@ impl Display for GameHistory {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     for entry in &self.entries {
       if entry.last_move.is_null() {
-        write!(
-          f,
-          "{:6} - start position / {} - [{}]\n",
-          entry.eval, entry.position, entry.pv
-        )?;
+        writeln!(f,
+                 "{:6} - start position / {} - [{}]",
+                 entry.eval, entry.position, entry.pv)?;
       } else {
-        write!(
-          f,
-          "{:6} - {:14} / {} - [{}]\n",
-          entry.eval,
-          entry.last_move.to_string(),
-          entry.position,
-          entry.pv
-        )?;
+        writeln!(f,
+                 "{:6} - {:14} / {} - [{}]",
+                 entry.eval,
+                 entry.last_move.to_string(),
+                 entry.position,
+                 entry.pv)?;
       }
     }
     Ok(())
   }
 }
 
+impl Default for GameHistory {
+  fn default() -> Self {
+    GameHistory::new()
+  }
+}
+
 impl Iterator for GameHistoryIterator {
   type Item = GameHistoryEntry;
+
   fn next(&mut self) -> Option<GameHistoryEntry> {
     if self.index < self.game_history.len() {
       self.index += 1;
@@ -138,23 +129,19 @@ mod tests {
 
     let mv = "f2f3";
     game_state.apply_move_from_notation(mv);
-    history.add(
-      game_state.to_fen(),
-      Move::from_string(mv),
-      30,
-      Variation::new(),
-    );
+    history.add(game_state.to_fen(),
+                Move::from_string(mv),
+                30,
+                Variation::new());
 
     assert_eq!(history.len(), 2);
 
     let mv = "e7e5";
     game_state.apply_move_from_notation(mv);
-    history.add(
-      game_state.to_fen(),
-      Move::from_string(mv),
-      -50,
-      Variation::new(),
-    );
+    history.add(game_state.to_fen(),
+                Move::from_string(mv),
+                -50,
+                Variation::new());
 
     assert_eq!(history.len(), 3);
 

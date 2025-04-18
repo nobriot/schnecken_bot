@@ -242,7 +242,8 @@ impl NNUE {
 
   /// Adds a layer to the NNUE:
   pub fn add_layer(&mut self, nodes: usize, param: HyperParameters, a: Activation) {
-    let last_layer_size = if self.layers.len() > 0 { self.layers.last().unwrap().nodes } else { 1 };
+    let last_layer_size =
+      if !self.layers.is_empty() { self.layers.last().unwrap().nodes } else { 1 };
     let layer = Layer { nodes,
                         param,
                         a,
@@ -626,7 +627,7 @@ impl NNUE {
         }
         match piece {
           PieceType::King => a0[[i as usize + 4 * 64, m]] = 1.0,
-          PieceType::Queen => a0[[i as usize + 1 * 64, m]] = 1.0,
+          PieceType::Queen => a0[[i as usize + 64, m]] = 1.0,
           PieceType::Rook => a0[[i as usize, m]] = 1.0,
           PieceType::Bishop => a0[[i as usize + 2 * 64, m]] = 1.0,
           PieceType::Knight => a0[[i as usize + 3 * 64, m]] = 1.0,
@@ -640,7 +641,7 @@ impl NNUE {
         }
         match piece {
           PieceType::King => a0[[i as usize + 384 + 4 * 64, m]] = 1.0,
-          PieceType::Queen => a0[[i as usize + 384 + 1 * 64, m]] = 1.0,
+          PieceType::Queen => a0[[i as usize + 384 + 64, m]] = 1.0,
           PieceType::Rook => a0[[i as usize + 384, m]] = 1.0,
           PieceType::Bishop => a0[[i as usize + 384 + 2 * 64, m]] = 1.0,
           PieceType::Knight => a0[[i as usize + 384 + 3 * 64, m]] = 1.0,

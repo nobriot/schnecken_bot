@@ -177,7 +177,7 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
               .get_attacked_squares(surrounding_squares, Color::opposite(color))
               .count_ones() as f32;
 
-  attacked_squares as f32 / total_squares as f32
+  attacked_squares / total_squares
 }
 
 /// Checks if the king is way too adventurous
@@ -224,8 +224,8 @@ pub fn get_king_pawns(game_state: &GameState, color: Color) -> BoardMask {
   let king = game_state.board.get_king(color) as usize;
 
   match color {
-    Color::White => return WHITE_KING_SHELTER_PAWNS[king] & game_state.board.pieces.white.pawn,
-    Color::Black => return BLACK_KING_SHELTER_PAWNS[king] & game_state.board.pieces.black.pawn,
+    Color::White => WHITE_KING_SHELTER_PAWNS[king] & game_state.board.pieces.white.pawn,
+    Color::Black => BLACK_KING_SHELTER_PAWNS[king] & game_state.board.pieces.black.pawn,
   }
 }
 
@@ -274,14 +274,7 @@ pub fn king_shelter_value(game_state: &GameState, color: Color) -> isize {
                         - (board_side & (op.majors() | op.minors())).count_ones() as isize;
 
   let score = piece_imbalance * (open_files + half_open_files / 2);
-
-  if score > 10 {
-    return 10;
-  } else if score < -10 {
-    return -10;
-  } else {
-    return score;
-  }
+  score.clamp(-10, 10)
 }
 
 /// Returns true if the king does not seem castled and has lost his castling

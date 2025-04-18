@@ -1,14 +1,14 @@
-use log::*;
-
 use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::containers::position_list::*;
 use crate::model::moves::*;
 use crate::model::piece::*;
+use log::*;
 
 /// Start game state for a standard chess game.
 pub const START_POSITION_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-/// How many positions do we memorize in the GameState to check for 3-fold repetitions
+/// How many positions do we memorize in the GameState to check for 3-fold
+/// repetitions
 pub const LAST_POSITIONS_SIZE: usize = 30;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -31,13 +31,12 @@ pub enum GameStatus {
 
 /// Captures all the data required in a Chess Game
 /// to identify Stalemates, repetitions, etc.
-///
 #[derive(Clone)]
 pub struct GameState {
-  pub board: Board,
-  pub ply: u8,
+  pub board:          Board,
+  pub ply:            u8,
   // Number of half-moves in the game
-  pub move_count: u16,
+  pub move_count:     u16,
   // Vector of position representing the last x positions, from the start
   pub last_positions: PositionList,
 }
@@ -46,7 +45,8 @@ pub struct GameState {
 // Game state implementation
 
 impl GameState {
-  /// Takes a board and makes it into a GameState, assuming default values for the rest.
+  /// Takes a board and makes it into a GameState, assuming default values for
+  /// the rest.
   ///
   /// ### Arguments
   ///
@@ -55,14 +55,11 @@ impl GameState {
   /// ### Return Value
   ///
   /// GameState object with the board passed in argument
-  ///
   pub fn from_board(board: &Board) -> Self {
-    GameState {
-      board: board.clone(),
-      ply: 0,
-      move_count: 0,
-      last_positions: PositionList::new(),
-    }
+    GameState { board:          board.clone(),
+                ply:            0,
+                move_count:     0,
+                last_positions: PositionList::new(), }
   }
 
   /// Takes a full FEN notation and converts it into a Game State
@@ -74,7 +71,6 @@ impl GameState {
   /// ### Return Value
   ///
   /// GameState object
-  ///
   pub fn from_fen(fen: &str) -> Self {
     let fen_parts: Vec<&str> = fen.split(' ').collect();
     if fen_parts.len() < 6 {
@@ -85,20 +81,16 @@ impl GameState {
     let board = Board::from_fen(fen);
     let ply: u8 = fen_parts[4].parse::<u8>().unwrap_or(0);
     let mut move_count: u16 = fen_parts[5].parse::<u16>().unwrap_or(1);
-    if move_count > 0 {
-      move_count -= 1;
-    }
+    move_count = move_count.saturating_sub(1);
     move_count *= 2;
     if board.side_to_play == Color::Black {
       move_count += 1;
     }
 
-    GameState {
-      board,
-      ply,
-      move_count,
-      last_positions: PositionList::new(),
-    }
+    GameState { board,
+                ply,
+                move_count,
+                last_positions: PositionList::new() }
   }
 
   /// Exports the game state to a FEN notation
@@ -110,7 +102,6 @@ impl GameState {
   /// ### Return Value
   ///
   /// String representing the game state.
-  ///
   pub fn to_fen(&self) -> String {
     let mut fen = String::new();
 
@@ -138,7 +129,8 @@ impl GameState {
     fen
   }
 
-  /// Checks the previous board configuration and checks if we repeated the position
+  /// Checks the previous board configuration and checks if we repeated the
+  /// position
   ///
   /// ### Arguments
   ///
@@ -148,11 +140,12 @@ impl GameState {
   ///
   /// Number of repetitions that occurred for the current position.
   /// Current position is not counted.
-  /// i.e. 0 the position just occurred for the first time. 2 means a threefold repetition
-  ///
+  /// i.e. 0 the position just occurred for the first time. 2 means a threefold
+  /// repetition
   pub fn get_board_repetitions(&self) -> usize {
     self.last_positions.count(self.board.hash)
-    // self.last_positions.iter().fold(0,|count, x| if *x == self.board.hash { count + 1 } else { count },)
+    // self.last_positions.iter().fold(0,|count, x| if *x == self.board.hash {
+    // count + 1 } else { count },)
   }
 
   /// Get all the possible moves in a position, for the side to play.
@@ -178,7 +171,6 @@ impl GameState {
   /// ### Return value
   ///
   /// Move data. Will return a Null Move if the move is not found.
-  ///
   pub fn get_move_from_notation(&self, move_notation: &str) -> Move {
     let candidates = self.board.get_moves();
 
@@ -188,11 +180,9 @@ impl GameState {
       }
     }
 
-    warn!(
-      "Could not identify move {} for board: {}",
-      move_notation,
-      self.to_fen()
-    );
+    warn!("Could not identify move {} for board: {}",
+          move_notation,
+          self.to_fen());
 
     Move::null()
   }
@@ -202,7 +192,6 @@ impl GameState {
   /// ### Arguments
   ///
   /// * `chess_move`: Reference to a move.
-  ///
   pub fn apply_move_from_notation(&mut self, move_notation: &str) {
     let m = self.get_move_from_notation(move_notation.trim());
     self.apply_move(&m);
@@ -213,20 +202,15 @@ impl GameState {
   /// ### Arguments
   ///
   /// * `chess_move`: Reference to a move.
-  ///
   pub fn apply_move(&mut self, chess_move: &Move) -> () {
-    /*
-    println!("Applying move {} on game {}", chess_move, self.to_fen());
-    let mut moves = String::new();
-     */
+    // println!("Applying move {} on game {}", chess_move, self.to_fen());
+    // let mut moves = String::new();
     debug_assert!(!chess_move.is_null(), "Null move passed for applying.");
-    debug_assert!(
-      self.board.pieces.get(chess_move.src() as u8) != NO_PIECE,
-      "Input moves with empty source square? {} - board:{}\n{:#?}",
-      chess_move,
-      self.board,
-      self
-    );
+    debug_assert!(self.board.pieces.get(chess_move.src() as u8) != NO_PIECE,
+                  "Input moves with empty source square? {} - board:{}\n{:#?}",
+                  chess_move,
+                  self.board,
+                  self);
 
     // Save the last position:
     let source_is_pawn: bool = square_in_mask!(chess_move.src(), self.board.pieces.pawns());
@@ -242,11 +226,11 @@ impl GameState {
     let destination_piece = self.board.pieces.get(chess_move.dest() as u8);
     if destination_piece != NO_PIECE || source_is_pawn {
       self.ply = 0;
-    } else if self.ply < u8::MAX {
-      self.ply += 1;
+    } else {
+      self.ply = self.ply.saturating_add(1);
     }
 
-    //Half Move count
+    // Half Move count
     self.move_count += 1;
 
     // Move the pieces on the board
@@ -258,7 +242,6 @@ impl GameState {
   /// ### Arguments
   ///
   /// * `move_list`: Vector of moves to apply on the position
-  ///
   pub fn apply_moves(&mut self, move_list: &[Move]) -> () {
     for chess_move in move_list {
       self.apply_move(chess_move);
@@ -270,7 +253,6 @@ impl GameState {
   /// ### Arguments
   ///
   /// * `move_list`: String with move notations, e.g. "e2e4 e7e5"
-  ///
   pub fn apply_move_list(&mut self, move_list: &str) -> () {
     if move_list.is_empty() {
       return;
@@ -292,7 +274,6 @@ impl GameState {
   /// ### Return value
   ///
   /// Result, indicating if the move was identified and applied or not.
-  ///
   pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
     let board_result = self.board.find_move_from_pgn_notation(move_notation);
     if let Ok(mv) = board_result {
@@ -309,20 +290,14 @@ impl GameState {
 impl std::fmt::Debug for GameState {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let mut message = String::from("\n");
-    message += format!(
-      "Move: {}, Ply: {} Side to play {} - Checks {}\n",
-      self.move_count,
-      self.ply,
-      self.board.side_to_play,
-      self.board.checks()
-    )
-    .as_str();
-    message += format!(
-      "En passant: {} - Castling rights: {}\n",
-      square_to_string(self.board.en_passant_square),
-      self.board.castling_rights.to_fen(),
-    )
-    .as_str();
+    message += format!("Move: {}, Ply: {} Side to play {} - Checks {}\n",
+                       self.move_count,
+                       self.ply,
+                       self.board.side_to_play,
+                       self.board.checks()).as_str();
+    message += format!("En passant: {} - Castling rights: {}\n",
+                       square_to_string(self.board.en_passant_square),
+                       self.board.castling_rights.to_fen(),).as_str();
 
     message += format!("Board: {}\n", self.board.to_fen()).as_str();
 
@@ -335,11 +310,9 @@ impl std::fmt::Debug for GameState {
 
 impl Default for GameState {
   fn default() -> Self {
-    GameState {
-      board: Board::from_fen(START_POSITION_FEN),
-      ply: 0,
-      move_count: 0,
-      last_positions: PositionList::new(),
-    }
+    GameState { board:          Board::from_fen(START_POSITION_FEN),
+                ply:            0,
+                move_count:     0,
+                last_positions: PositionList::new(), }
   }
 }
