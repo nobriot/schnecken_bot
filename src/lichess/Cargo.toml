@@ -9,11 +9,11 @@ keywords = ["lichess", "lichess-api"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-reqwest = { version = "0.12.9", features = ["blocking", "stream"] }
-serde = { version = "1.0.215", features = ["derive"] }
-log = { version = "0.4.22", features = ["std", "serde"] }
-tokio = "1.42.0"
-serde_json = "1.0.133"
+reqwest = { version = "0.12.23", features = ["blocking", "stream"] }
+serde = { version = "1.0.228", features = ["derive"] }
+log = { version = "0.4.28", features = ["std", "serde"] }
+tokio = "1.47.1"
+serde_json = "1.0.145"
 urlencoding = "2"
 futures-util = "0.3.31"
 
