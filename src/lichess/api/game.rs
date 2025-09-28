@@ -66,8 +66,10 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!("Error sending message to game id {} - Error: {:#?}",
-            game_id, error);
+      warn!(
+        "Error sending message to game id {} - Error: {:#?}",
+        game_id, error
+      );
     }
   }
 
@@ -85,8 +87,10 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!("Error sending message to game id {} - Error: {:#?}",
-            game_id, error);
+      warn!(
+        "Error sending message to game id {} - Error: {:#?}",
+        game_id, error
+      );
     }
   }
 
@@ -109,8 +113,10 @@ impl LichessApi {
     let result = self.lichess_post(&endpoint, &body).await;
 
     if let Err(error) = result {
-      warn!("Error sending message to game id {} - Error: {:#?}",
-            game_id, error);
+      warn!(
+        "Error sending message to game id {} - Error: {:#?}",
+        game_id, error
+      );
     }
   }
 
@@ -129,8 +135,10 @@ impl LichessApi {
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
   pub async fn make_move(&self, game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
-    info!("Trying chess move {} on game id {} - Draw offer: {}",
-          chess_move, game_id, offer_draw);
+    info!(
+      "Trying chess move {} on game id {} - Draw offer: {}",
+      chess_move, game_id, offer_draw
+    );
     let api_endpoint: String =
       format!("bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}");
 
@@ -154,8 +162,10 @@ impl LichessApi {
     }
 
     if json_response["ok"].as_bool().is_none() {
-      error!("Lichess refused our move! :'( - We're so bad - Error {:?}",
-             json_response);
+      error!(
+        "Lichess refused our move! :'( - We're so bad - Error {:?}",
+        json_response
+      );
       // self .write_in_spectator_room( game_id, format!( "Debug: Just tried to play
       // move {} but it was refused: {}", chess_move, json_response) .as_str(),)
       // .await;
@@ -179,9 +189,11 @@ impl LichessApi {
     info!("Attempting to claim victory for game id {}", game_id);
     let api_endpoint: String = format!("board/game/{game_id}/claim-victory");
     let body: String = format!("gameId={}", encode(game_id));
-    let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, body.as_str()).await {
-      _json_response = json;
+      if json.get("error").is_some() {
+        error!("POST refused from lichess:{}", json);
+        return Err(());
+      }
     } else {
       return Err(());
     }

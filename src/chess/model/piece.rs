@@ -343,7 +343,7 @@ impl Piece {
     Ok(piece)
   }
 
-  /// Convenience function that takes a char and returns a u8, without converting
+  /// Convenience function that takes a u8 and returns a char, without converting
   /// to the intermediate Piece Struct
   ///
   /// This function also tolerates the absence of pieces,
@@ -370,11 +370,10 @@ impl Piece {
     }
   }
 
-  /// Convenience function that takes a char and returns a u8, without converting
+  /// Convenience function that takes a u8 and returns color, without converting
   /// to the intermediate Piece Struct
   ///
-  /// This function also tolerates the absence of pieces,
-  /// i.e. unknown u8 value convers to .
+  /// This function also tolerates the absence of pieces
   pub fn color(u: u8) -> Option<Color> {
     match u {
       WHITE_KING | WHITE_QUEEN | WHITE_ROOK | WHITE_BISHOP | WHITE_KNIGHT | WHITE_PAWN => {

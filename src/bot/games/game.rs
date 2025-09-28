@@ -18,17 +18,17 @@ static BOT_NAME: &str = env!("CARGO_PKG_NAME");
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
   /// game
-  rx:        mpsc::Receiver<GameMessage>,
+  rx: mpsc::Receiver<GameMessage>,
   /// Lichess API instance to interact with the server
-  api:       LichessApi,
+  api: LichessApi,
   /// Start FEN
   start_fen: String,
   /// Short Lichess Game ID, used in URLs
-  id:        String,
+  id: String,
   /// Color played by the bot in the ongoing game
-  color:     lichess::types::Color,
+  color: lichess::types::Color,
   // Chess engine instance used to analyze the game
-  engine:    Engine,
+  engine: Engine,
 }
 
 impl Game {
@@ -44,13 +44,14 @@ impl Game {
     // Create a new engine for playing
     let engine = configure_engine(&game);
 
-    let mut bot_game: Game = Game { rx,
-                                    api: api.clone(),
-                                    start_fen: game.fen
-                                                   .unwrap_or(String::from(START_POSITION_FEN)),
-                                    id: game.game_id.clone(),
-                                    color: game.color,
-                                    engine };
+    let mut bot_game: Game = Game {
+      rx,
+      api: api.clone(),
+      start_fen: game.fen.unwrap_or(String::from(START_POSITION_FEN)),
+      id: game.game_id.clone(),
+      color: game.color,
+      engine,
+    };
 
     // Start the game loop
     // Spawn blocking as calculating chess moves is CPU intense and would block the
@@ -61,9 +62,11 @@ impl Game {
     });
 
     // Return a handle to the game
-    GameHandle { tx,
-                 handle: Arc::new(handle),
-                 id: game.game_id.clone() }
+    GameHandle {
+      tx,
+      handle: Arc::new(handle),
+      id: game.game_id.clone(),
+    }
   }
 
   /// Writes a couple of message
@@ -120,8 +123,10 @@ impl Game {
           println!("Received a Game Message : {:?}", o);
         },
         Err(_) => {
-          info!("Game channel closed. Exiting game loop for game {}.",
-                self.id);
+          info!(
+            "Game channel closed. Exiting game loop for game {}.",
+            self.id
+          );
           break;
         },
       }
@@ -139,7 +144,7 @@ impl Game {
     }
 
     // debug!("Update engine and play if needed for GameState: {:?}", game);
-    debug!("Play: game {} {:?} {}", self.id, self.color, self.start_fen);
+    // debug!("Play: game {} {:?} {}", self.id, self.color, self.start_fen);
 
     // Update whether it is our turn
     let move_list = Move::string_to_vec(game.moves.as_str());
@@ -176,9 +181,11 @@ impl Game {
     let suggested_time_ms =
       if time_left < 10_000 { 100 } else { (time_left / 90) + increment_ms * 10 / 9 };
 
-    info!("Using {} ms to find a move for position {}",
-          suggested_time_ms,
-          self.engine.position.to_fen());
+    info!(
+      "Using {} ms to find a move for position {}",
+      suggested_time_ms,
+      self.engine.position.to_fen()
+    );
 
     self.engine.options.max_search_time = suggested_time_ms;
     self.engine.go();
@@ -210,8 +217,10 @@ impl Game {
     let move_index = rand::thread_rng().gen_range(0..cutoff);
     let mv = analysis.get(move_index).variation.get_first_move().unwrap();
     let eval = analysis.get(move_index).eval;
-    info!("Playing Line {} ({})  as {:?} for GameID {} - eval: {}",
-          move_index, mv, self.color, self.id, eval);
+    info!(
+      "Playing Line {} ({})  as {:?} for GameID {} - eval: {}",
+      move_index, mv, self.color, self.id, eval
+    );
 
     // Make the move
     self.api.make_move(&self.id, &mv.to_string(), false).await;

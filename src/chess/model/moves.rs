@@ -61,29 +61,37 @@ pub const EN_PASSANT_SHIFT: move_t = 22;
 macro_rules! mv {
   // All parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr, $check:expr) => {
-    Move { data: $src as move_t
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
-                 | (($check as move_t & CHECK_MASK) << CHECK_SHIFT), }
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
+        | (($check as move_t & CHECK_MASK) << CHECK_SHIFT),
+    }
   };
   // 4 parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr) => {
-    Move { data: $src as move_t
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
+    }
   };
 
   // 3 parameters
   ($src:expr, $dest:expr, $prom:expr) => {
-    Move { data: $src as move_t
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT), }
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT),
+    }
   };
   // 2 parameters, just source and destination.
   ($src:expr, $dest:expr) => {
-    Move { data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT), }
+    Move {
+      data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT),
+    }
   };
 }
 
@@ -103,9 +111,9 @@ macro_rules! mv {
 macro_rules! castle_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move { data: $src
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | (1 << CASTLE_SHIFT), }
+    Move {
+      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CASTLE_SHIFT),
+    }
   };
 }
 
@@ -125,10 +133,12 @@ macro_rules! castle_mv {
 macro_rules! en_passant_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move { data: $src as move_t
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
-                 | (1 << EN_PASSANT_SHIFT), }
+    Move {
+      data: $src as move_t
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
+        | (1 << EN_PASSANT_SHIFT),
+    }
   };
 }
 
@@ -148,9 +158,11 @@ macro_rules! en_passant_mv {
 macro_rules! capture_mv {
   // All parameters
   ($src:expr, $dest:expr, $piece:expr) => {
-    Move { data: $src
-                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-                 | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
+    Move {
+      data: $src
+        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+        | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
+    }
   };
 }
 
@@ -331,6 +343,11 @@ impl Move {
     (self.data >> CASTLE_SHIFT) & 1 != 0
   }
 
+  #[inline]
+  pub fn set_castle(&mut self) {
+    self.data |= 1 << CASTLE_SHIFT;
+  }
+
   /// Returns whether the move is a en-passant move or not
   /// This depends on the board, and moves generated e.g. from a notation
   /// may not have accurate information here.
@@ -457,7 +474,7 @@ pub fn string_to_square(string: &str) -> u8 {
 }
 
 impl Move {
-  /// Converts a move to the algebraic notation, e.g.
+  /// Converts a move from the algebraic notation, e.g. e8h8
   pub fn from_string(move_notation: &str) -> Self {
     let dest: move_t = string_to_square(&move_notation[2..4]) as move_t;
 
