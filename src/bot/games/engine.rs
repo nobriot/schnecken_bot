@@ -41,8 +41,10 @@ pub fn configure_engine(game: &GameStart) -> Engine {
     }
   }
 
-  info!("Engine configuration for game {}: {:?}",
-        game.game_id, engine.options);
+  info!(
+    "Engine configuration for game {}: {:?}",
+    game.game_id, engine.options
+  );
 
   engine
 }

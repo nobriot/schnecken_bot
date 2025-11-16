@@ -179,7 +179,7 @@ impl Game {
 
     // Play as quick as possible if we have less than 10 seconds left
     let suggested_time_ms =
-      if time_left < 10_000 { 100 } else { (time_left / 90) + increment_ms * 10 / 9 };
+      if time_left < 10_000 { 200 } else { (time_left / 90) + increment_ms * 10 / 9 };
 
     info!(
       "Using {} ms to find a move for position {}",

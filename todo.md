@@ -13,3 +13,8 @@ but not for me This needs improvement
 
 Get the engine to emits comments on the position and send them to the spectator room
 
+## Lichess restarts
+
+I have seen games with a lichess restart in the middle, where the bot
+fails to play again when it's its turn
+
