@@ -441,8 +441,8 @@ mod tests {
 
     let mut black_pawn_captures: [u64; 64] = [0; 64];
     let move_offsets: [(isize, isize); 2] = [(1, -1), (-1, -1)];
-    for i in 0..64 {
-      black_pawn_captures[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+    for captures in black_pawn_captures.iter_mut() {
+      *captures = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
     }
     println!(
       "pub const BLACK_PAWN_CONTROL:[u64; 64] = {:#018X?};",
@@ -455,8 +455,8 @@ mod tests {
   fn generate_white_pawn_single_jumps() {
     let mut white_pawn_single_jumps: [u64; 64] = [0; 64];
     let move_offsets: [(isize, isize); 1] = [(0, 1)];
-    for i in 0..64 {
-      white_pawn_single_jumps[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+    for (jump, i) in white_pawn_single_jumps.iter_mut().enumerate() {
+      *jump = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
     }
     println!(
       "pub const WHITE_PAWN_SINGLE_JUMP:[u64; 64] = {:#018X?};",
@@ -465,8 +465,8 @@ mod tests {
 
     let mut black_pawn_single_jumps: [u64; 64] = [0; 64];
     let move_offsets: [(isize, isize); 1] = [(0, -1)];
-    for i in 0..64 {
-      black_pawn_single_jumps[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+    for (jump, i) in black_pawn_single_jumps.iter_mut().enumerate() {
+      *jump = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
     }
     println!(
       "pub const BLACK_PAWN_SINGLE_JUMP:[u64; 64] = {:#018X?};",

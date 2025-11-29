@@ -28,7 +28,7 @@ fn main() -> ExitCode {
   let mut labels = Vec::new();
 
   for _ in 0..BATCH_SIZE {
-    let value = (rng.gen::<f32>() - 0.5) * 200.0; // Uniform between -100 and 100.
+    let value = (rng.r#gen::<f32>() - 0.5) * 200.0; // Uniform between -100 and 100.
     training.push(value);
     labels.push(value.powf(2.0) - 5.0 * value + 45.0);
   }
@@ -59,7 +59,7 @@ fn main() -> ExitCode {
   let mut testing = Vec::new();
   let mut labels = Vec::new();
   for _ in 0..BATCH_SIZE {
-    let value = (rng.gen::<f32>() - 0.5) * 200.0; // Uniform between -100 and 100.
+    let value = (rng.r#gen::<f32>() - 0.5) * 200.0; // Uniform between -100 and 100.
     testing.push(value);
     labels.push(value.powf(2.0) - 5.0 * value + 45.0);
   }

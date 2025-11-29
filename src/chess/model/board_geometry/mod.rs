@@ -26,23 +26,27 @@ pub static QUEEN_SIDE_MASK: BoardMask = 0x0F0F0F0F0F0F0F0F;
 pub static KING_SIDE_MASK: BoardMask = 0xF0F0F0F0F0F0F0F0;
 
 /// Ranks boardmasks
-pub static RANKS: [u64; 8] = [0x00000000000000FF,
-                              0x000000000000FF00,
-                              0x0000000000FF0000,
-                              0x00000000FF000000,
-                              0x000000FF00000000,
-                              0x0000FF0000000000,
-                              0x00FF000000000000,
-                              0xFF00000000000000];
+pub static RANKS: [u64; 8] = [
+  0x00000000000000FF,
+  0x000000000000FF00,
+  0x0000000000FF0000,
+  0x00000000FF000000,
+  0x000000FF00000000,
+  0x0000FF0000000000,
+  0x00FF000000000000,
+  0xFF00000000000000,
+];
 /// Files boardmasks
-pub static FILES: [u64; 8] = [0x0101010101010101,
-                              0x0202020202020202,
-                              0x0404040404040404,
-                              0x0808080808080808,
-                              0x1010101010101010,
-                              0x2020202020202020,
-                              0x4040404040404040,
-                              0x8080808080808080];
+pub static FILES: [u64; 8] = [
+  0x0101010101010101,
+  0x0202020202020202,
+  0x0404040404040404,
+  0x0808080808080808,
+  0x1010101010101010,
+  0x2020202020202020,
+  0x4040404040404040,
+  0x8080808080808080,
+];
 
 /// Finds how many moves/squares away is a king from a particular square,
 /// regardless of "obstacle pieces" along the way
@@ -154,12 +158,16 @@ mod tests {
 
     println!("Generating line constants...",);
     let mut output_file = File::create("./model/board_geometry/lines.rs").unwrap();
-    let _ = write!(output_file,
-                   "/// Represents boardmasks of lines between i and j squares\n");
-    let _ = write!(output_file, "/// i not included, j included.\n");
-    let _ = write!(output_file,
-                   "pub static LINES: [[u64; 64]; 64]  = {:#018X?};",
-                   lines);
+    let _ = writeln!(
+      output_file,
+      "/// Represents boardmasks of lines between i and j squares"
+    );
+    let _ = writeln!(output_file, "/// i not included, j included.");
+    let _ = write!(
+      output_file,
+      "pub static LINES: [[u64; 64]; 64]  = {:#018X?};",
+      lines
+    );
 
     println!("a1 -> b2");
     print_board_mask(lines[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -217,13 +225,17 @@ mod tests {
       }
     }
 
-    let _ = write!(output_file,
-                   "/// Represents boardmasks of diagonals between i and j squares\n");
-    let _ = write!(output_file, "/// i not included, j included.\n");
+    let _ = writeln!(
+      output_file,
+      "/// Represents boardmasks of diagonals between i and j squares"
+    );
+    let _ = writeln!(output_file, "/// i not included, j included.");
 
-    let _ = write!(output_file,
-                   "pub static DIAGONALS: [[u64; 64]; 64]  = {:#018X?};",
-                   diagonals);
+    let _ = write!(
+      output_file,
+      "pub static DIAGONALS: [[u64; 64]; 64]  = {:#018X?};",
+      diagonals
+    );
 
     println!("a1 -> b2");
     print_board_mask(diagonals[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -315,14 +327,18 @@ mod tests {
       }
     }
 
-    let _ = write!(output_file,
-                   "/// Represents boardmasks of lines and diagonals between i and j squares\n");
-    let _ = write!(output_file, "/// i not included, j included.\n");
-    let _ = write!(output_file, "/// use like this: `RAYS[i][j]`.\n");
+    let _ = writeln!(
+      output_file,
+      "/// Represents boardmasks of lines and diagonals between i and j squares"
+    );
+    let _ = writeln!(output_file, "/// i not included, j included.");
+    let _ = writeln!(output_file, "/// use like this: `RAYS[i][j]`.");
 
-    let _ = write!(output_file,
-                   "pub static RAYS: [[u64; 64]; 64]  = {:#018X?};",
-                   rays);
+    let _ = write!(
+      output_file,
+      "pub static RAYS: [[u64; 64]; 64]  = {:#018X?};",
+      rays
+    );
 
     println!("a1 -> b2");
     print_board_mask(rays[string_to_square("a1") as usize][string_to_square("b2") as usize]);
@@ -355,12 +371,16 @@ mod tests {
       set_square_in_mask!(i, holes_area);
     }
 
-    let _ = write!(output_file,
-                   "/// Represents boardmask of area where there can be holes\n");
+    let _ = writeln!(
+      output_file,
+      "/// Represents boardmask of area where there can be holes"
+    );
 
-    let _ = write!(output_file,
-                   "pub static HOLES_BOARD_AREA: BoardMask = {:#018X?};",
-                   holes_area);
+    let _ = write!(
+      output_file,
+      "pub static HOLES_BOARD_AREA: BoardMask = {:#018X?};",
+      holes_area
+    );
 
     let mut hole_white_pawns: [u64; 64] = [0; 64];
     for i in 0..64 {
@@ -388,9 +408,11 @@ mod tests {
     print_board_mask(hole_white_pawns[string_to_square("e4") as usize]);
     print_board_mask(hole_white_pawns[string_to_square("h5") as usize]);
 
-    let _ = write!(output_file,
-                   "\n\npub static HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
-                   hole_white_pawns);
+    let _ = write!(
+      output_file,
+      "\n\npub static HOLES_WHITE_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+      hole_white_pawns
+    );
 
     let mut hole_black_pawns: [u64; 64] = [0; 64];
     for i in 0..64 {
@@ -418,8 +440,10 @@ mod tests {
     print_board_mask(hole_black_pawns[string_to_square("e4") as usize]);
     print_board_mask(hole_black_pawns[string_to_square("h5") as usize]);
 
-    let _ = write!(output_file,
-                   "\n\npub static HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
-                   hole_black_pawns);
+    let _ = write!(
+      output_file,
+      "\n\npub static HOLES_BLACK_PAWN_PLACEMENT: [u64; 64] = {:#018X?};",
+      hole_black_pawns
+    );
   }
 }

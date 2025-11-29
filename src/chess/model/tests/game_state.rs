@@ -107,7 +107,7 @@ fn test_legal_moves_3() {
   let fen = "8/8/2K5/8/R2Q4/8/8/2k5 b - - 28 97";
   let game_state = GameState::from_fen(fen);
   let move_list = game_state.get_moves();
-  let legal_moves = vec!["c1c2", "c1b1"];
+  let legal_moves = ["c1c2", "c1b1"];
   for m in &move_list {
     println!("{m}");
     assert!(legal_moves.contains(&m.to_string().as_str()));
@@ -120,7 +120,7 @@ fn test_legal_moves_en_passant() {
   let fen = "4k3/8/8/8/2PpP3/8/8/4K3 b - c3 0 3";
   let game_state = GameState::from_fen(fen);
   let move_list = game_state.get_moves();
-  let legal_moves = vec!["e8e7", "e8f7", "e8f8", "e8d7", "e8d8", "d4d3", "d4c3"];
+  let legal_moves = ["e8e7", "e8f7", "e8f8", "e8d7", "e8d8", "d4d3", "d4c3"];
   for m in &move_list {
     println!("{m}");
     assert!(legal_moves.contains(&m.to_string().as_str()));
@@ -174,14 +174,7 @@ fn test_get_moves_while_in_check() {
   let game_state = GameState::from_fen(fen);
 
   // List of legal moves are: 6:
-  let mut legal_moves: Vec<&str> = Vec::new();
-  legal_moves.push("b4c6");
-  legal_moves.push("g4d7");
-  legal_moves.push("f6d7");
-  legal_moves.push("c7c6");
-  legal_moves.push("e8e7");
-  legal_moves.push("e8d8");
-
+  let legal_moves: Vec<&str> = vec!["b4c6", "g4d7", "f6d7", "c7c6", "e8e7", "e8d8"];
   let computed_moves = game_state.get_moves();
 
   for m in &computed_moves {
@@ -197,11 +190,7 @@ fn test_get_moves_while_in_check() {
   let game_state = GameState::from_fen(fen);
 
   // List of legal moves are: 3:
-  let mut legal_moves: Vec<&str> = Vec::new();
-  legal_moves.push("f8e7");
-  legal_moves.push("f7g6");
-  legal_moves.push("f7g8");
-
+  let legal_moves: Vec<&str> = vec!["f8e7", "f7g6", "f7g8"];
   let computed_moves = game_state.get_moves();
 
   for m in &computed_moves {
@@ -217,11 +206,7 @@ fn test_get_moves_while_in_check() {
   let game_state = GameState::from_fen(fen);
 
   // List of legal moves are: 3:
-  let mut legal_moves: Vec<&str> = Vec::new();
-  legal_moves.push("f7e7");
-  legal_moves.push("f7e6");
-  legal_moves.push("f7f6");
-
+  let legal_moves: Vec<&str> = vec!["f7e7", "f7e6", "f7f6"];
   let computed_moves = game_state.get_moves();
 
   for m in &computed_moves {
@@ -238,13 +223,7 @@ fn test_get_moves_while_in_check() {
   game_state.apply_move(&Move::from_string("g7e6"));
 
   // List of legal moves are:
-  let mut legal_moves: Vec<&str> = Vec::new();
-  legal_moves.push("f8e8");
-  legal_moves.push("f8e7");
-  legal_moves.push("f8f7");
-  legal_moves.push("f8g8");
-  legal_moves.push("d7e6");
-
+  let legal_moves: Vec<&str> = vec!["f8e8", "f8e7", "f8f7", "f8g8", "d7e6"];
   let computed_moves = game_state.get_moves();
 
   for m in &computed_moves {

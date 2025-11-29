@@ -57,16 +57,17 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
 /// # Return value
 ///
 /// Number of square that a color's piece can occupy.
-pub fn get_piece_mobility(game_state: &GameState, color: Color) -> usize {
-  let mut mobility: usize = 0;
+pub fn get_piece_mobility(_game_state: &GameState, _color: Color) -> usize {
+  todo!("Not really implemented");
+  // let mut mobility: usize = 0;
 
-  let mobility_area = get_mobility_area(game_state, color);
-  let pieces = match color {
-    Color::White => game_state.board.pieces.white,
-    Color::Black => game_state.board.pieces.black,
-  };
+  // let mobility_area = get_mobility_area(game_state, color);
+  // let pieces = match color {
+  //   Color::White => game_state.board.pieces.white,
+  //   Color::Black => game_state.board.pieces.black,
+  // };
 
-  mobility
+  // mobility
 }
 
 // -----------------------------------------------------------------------------

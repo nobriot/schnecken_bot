@@ -1,7 +1,13 @@
+style_edition = 2024
+
 indent_style = "Visual"
+struct_lit_single_line = true
+struct_lit_width = 30
+struct_variant_width = 40
+struct_field_align_threshold = 30
+
 wrap_comments = true
 tab_spaces = 2
-struct_field_align_threshold = 50
 group_imports = "One"
 reorder_impl_items = true
 normalize_doc_attributes = true
@@ -10,7 +16,12 @@ imports_granularity = "Module"
 match_block_trailing_comma = true
 single_line_let_else_max_width = 80
 single_line_if_else_max_width = 80
+fn_call_width = 80
+array_width = 90
 chain_width = 90
 max_width = 100
 remove_nested_parens = true
 overflow_delimited_expr = true
+format_code_in_doc_comments = true
+
+unstable_features = true

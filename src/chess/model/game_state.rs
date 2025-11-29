@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::containers::position_list::*;
@@ -334,8 +332,7 @@ impl GameState {
   ///
   /// Result, indicating if the move was identified and applied or not.
   pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
-    let board_result = self.board.find_move_from_pgn_notation(move_notation);
-    if let Ok(mv) = board_result {
+    if let Some(mv) =  self.board.find_move_from_pgn_notation(move_notation) {
       self.apply_move(&mv);
       Ok(())
     } else {

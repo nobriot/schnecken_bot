@@ -11,8 +11,6 @@ use chess::engine::nnue::*;
 use chess::model::board::Board;
 use chess::model::game_state::GameState;
 use chess::model::game_state::GameStatus;
-use chess::model::moves::Move;
-use chess::model::piece::Color;
 
 use divan::Bencher;
 
@@ -198,8 +196,8 @@ fn cache_for_evals(bencher: Bencher) {
 #[divan::bench(sample_count = 10000)]
 fn opening_piece_square_table_lookup(bencher: Bencher) {
   let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
-  let move_list = game_state.get_moves();
+  let game_state: GameState = GameState::from_board(&Board::new_random());
+  // let move_list = game_state.get_moves();
 
   bencher.bench_local(|| {
     let _ = get_square_table_opening_score(&game_state);
@@ -209,9 +207,9 @@ fn opening_piece_square_table_lookup(bencher: Bencher) {
 /// Checks how fast the piece square table lookup is - Middlegame
 #[divan::bench(sample_count = 10000)]
 fn middlegame_piece_square_table_lookup(bencher: Bencher) {
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
-  let move_list = game_state.get_moves();
+  // let cache: EngineCache = EngineCache::new();
+  let game_state: GameState = GameState::from_board(&Board::new_random());
+  // let move_list = game_state.get_moves();
 
   bencher.bench_local(|| {
     let _ = get_square_table_middlegame_score(&game_state);
@@ -234,11 +232,11 @@ fn endgame_piece_square_table_lookup(bencher: Bencher) {
 #[divan::bench(sample_count = 10000)]
 fn nnue_input_layer_conversion(bencher: Bencher) {
   let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  // let cache: EngineCache = EngineCache::new();
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
-    nnue.game_state_to_input_layer(&vec![&game_state]);
+    nnue.game_state_to_input_layer(&[&game_state]);
   });
 }
 
@@ -246,8 +244,7 @@ fn nnue_input_layer_conversion(bencher: Bencher) {
 #[divan::bench(sample_count = 10000)]
 fn nnue_board_evaluation(bencher: Bencher) {
   let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
     let _ = nnue.eval(&game_state);
@@ -257,9 +254,7 @@ fn nnue_board_evaluation(bencher: Bencher) {
 /// Checks how fast some of the evaluation functions are
 #[divan::bench(sample_count = 10000)]
 fn file_open_detection(bencher: Bencher) {
-  let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
     let _ = is_file_open(&game_state, 3);
@@ -269,9 +264,7 @@ fn file_open_detection(bencher: Bencher) {
 /// Checks how fast some of the evaluation functions are
 #[divan::bench(sample_count = 10000)]
 fn file_half_open_detection(bencher: Bencher) {
-  let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
     let _ = is_file_half_open(&game_state, 3);
@@ -281,9 +274,7 @@ fn file_half_open_detection(bencher: Bencher) {
 /// Checks how fast some of the evaluation functions are
 #[divan::bench(sample_count = 10000)]
 fn file_state_detection(bencher: Bencher) {
-  let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
     let _ = get_file_state(&game_state, 3);
@@ -293,9 +284,7 @@ fn file_state_detection(bencher: Bencher) {
 /// Checks how fast we detect the list of passed pawns in a board
 #[divan::bench(sample_count = 10000)]
 fn passed_pawn_detection(bencher: Bencher) {
-  let mut nnue = NNUE::default();
-  let cache: EngineCache = EngineCache::new();
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
 
   bencher.bench_local(|| {
     let mut pawns = game_state.board.pieces.black.pawn;

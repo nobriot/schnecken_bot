@@ -276,19 +276,19 @@ fn test_hash_values() {
 fn test_game_over_insufficient_material() {
   let fen = "8/4nk2/8/8/8/2K5/8/8 w - - 0 1";
   let board = Board::from_fen(fen);
-  assert_eq!(true, board.is_game_over_by_insufficient_material());
+  assert!(board.is_game_over_by_insufficient_material());
 
   let fen = "8/5k2/8/8/8/2KB4/8/8 w - - 0 1";
   let board = Board::from_fen(fen);
-  assert_eq!(true, board.is_game_over_by_insufficient_material());
+  assert!(board.is_game_over_by_insufficient_material());
 
   let fen = "8/4nk2/8/8/8/2KB4/8/8 w - - 0 1";
   let board = Board::from_fen(fen);
-  assert_eq!(false, board.is_game_over_by_insufficient_material());
+  assert!(!board.is_game_over_by_insufficient_material());
 
   let fen = "8/4nk2/8/8/8/2KP4/8/8 w - - 0 1";
   let board = Board::from_fen(fen);
-  assert_eq!(false, board.is_game_over_by_insufficient_material());
+  assert!(!board.is_game_over_by_insufficient_material());
 }
 
 #[ignore]
@@ -431,7 +431,7 @@ fn get_move_remove_checker_by_capturing_en_passant() {
 
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m.to_string());
+    println!("Move : {}", m);
   }
   assert_eq!(1, moves.len());
 }
@@ -443,7 +443,7 @@ fn check_legal_moves_king_capture_undefended_pieces() {
 
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m.to_string());
+    println!("Move : {}", m);
   }
   assert_eq!(3, moves.len());
 }
@@ -457,7 +457,7 @@ fn check_legal_moves_en_passant_discovery() {
   // Here b4c3 is forbidden, it creates a bad-ass discovered check by removing 2 pawns from the pin ray.
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m.to_string());
+    println!("Move : {}", m);
     assert_ne!(
       *m,
       en_passant_mv!(string_to_square("b4"), string_to_square("c3"))
@@ -472,10 +472,7 @@ fn check_legal_moves_en_passant_discovery() {
   // Same story here with d4c3
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m.to_string());
-    assert_ne!(
-      *m,
-      en_passant_mv!(string_to_square("d4"), string_to_square("c3"))
+    println!("Move : {}", m, string_to_square("c3"))
     );
   }
   assert_eq!(16, moves.len());
@@ -490,7 +487,7 @@ fn check_with_discovery_no_en_passant() {
   // Here c5d6 is forbidden
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m.to_string());
+    println!("Move : {}", m);
     assert_ne!(
       *m,
       en_passant_mv!(string_to_square("c5"), string_to_square("d6"))

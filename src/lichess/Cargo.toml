@@ -3,7 +3,7 @@ name = "lichess"
 version = "0.0.1"
 authors = ["Nicolas Woltmann"]
 description = "Lichess API wrapper"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 keywords = ["lichess", "lichess-api"]
 

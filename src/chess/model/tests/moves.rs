@@ -71,10 +71,7 @@ fn move_to_string() {
 
 #[test]
 fn vec_to_string() {
-  let mut vec = Vec::new();
-  vec.push(mv!(0, 1, Promotion::WhiteBishop));
-  vec.push(mv!(63, 0));
-
+  let vec = vec![mv!(0, 1, Promotion::WhiteBishop), mv!(63, 0)];
   assert_eq!("a1b1B h8a1", Move::vec_to_string(&vec));
 }
 

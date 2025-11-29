@@ -98,7 +98,7 @@ pub fn add_pgn_to_book(chess_book: &ChessBook, pgn: &str) {
     // println!("Move: {mv}");
     let m_result = game_state.board.find_move_from_pgn_notation(mv);
 
-    if m_result.is_err() {
+    if m_result.is_none() {
       println!("Could not parse move: {}", mv);
       return;
     }
@@ -143,7 +143,7 @@ pub fn add_pgn_from_position(chess_book: &ChessBook, fen: &str, pgn: &str) {
     // println!("Move: {mv}");
     let m_result = game_state.board.find_move_from_pgn_notation(mv);
 
-    if m_result.is_err() {
+    if m_result.is_none() {
       println!("Could not parse move: {}", mv);
       return;
     }

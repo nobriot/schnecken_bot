@@ -127,8 +127,8 @@ fn generate_king_moves() {
     (-1, 1),
     (-1, -1),
   ];
-  for i in 0..64 {
-    king_moves[i] = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
+  for (i, king_move) in king_moves.iter_mut().enumerate() {
+    *king_move = get_moves_from_offsets(&move_offsets, false, 0, 0, i);
   }
   println!("pub const KING_MOVES:[u64; 64] = {:#018X?};", king_moves);
 }

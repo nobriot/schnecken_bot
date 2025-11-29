@@ -169,11 +169,7 @@ fn engine_save_the_last_knight() {
   let engine_move = engine.get_best_move().unwrap();
   engine.print_evaluations();
   if !good_moves.contains(&engine_move) {
-    assert!(
-      false,
-      "Expected either c3b5 or c3d5, but instead we have {}",
-      engine_move.to_string()
-    );
+    panic!("Expected either c3b5 or c3d5, but instead we have {}", engine_move );
   }
 }
 
@@ -252,10 +248,7 @@ fn test_dont_hang_pieces_1() {
   let best_move = engine.get_best_move().unwrap().to_string();
 
   if "e4f6" != best_move && "e4d6" != best_move {
-    assert!(
-      false,
-      "Should have been either e4f6 or e4d6, instead we have: {best_move}"
-    );
+    panic!( "Should have been either e4f6 or e4d6, instead we have: {best_move}" );
   }
 }
 
@@ -317,8 +310,7 @@ fn save_the_queen() {
 
   let best_move = engine.get_best_move().unwrap().to_string();
   if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {
-    assert!(
-      false,
+    panic!(
       "Should have been either e5g5, e5d4 or e5c3, instead we have: {best_move}"
     );
   }
@@ -337,8 +329,7 @@ fn capture_the_damn_knight_1() {
 
   let best_move = engine.get_best_move().unwrap().to_string();
   if "f8f6" != best_move && "g7f6" != best_move {
-    assert!(
-      false,
+    panic!(
       "Should have been either f8f6 or g7f6, instead we have: {best_move}"
     );
   }
@@ -563,7 +554,7 @@ fn test_sorting_moves_without_eval() {
   Engine::find_move_list(&engine.cache, &game_state.board);
   let move_list = engine.cache.get_move_list(&game_state.board).unwrap();
   for m in move_list.get_moves() {
-    println!("Move: {}", m.to_string());
+    println!("Move: {}", m);
   }
 
   assert_eq!(Move::from_string("e5d6"), move_list[0]);

@@ -901,8 +901,8 @@ mod tests {
     let mut rng = rand::thread_rng();
     let mut zobrist: [BoardHash; NUMBER_OF_FILES] = [0; NUMBER_OF_FILES];
 
-    for f in 0..NUMBER_OF_FILES {
-      zobrist[f] = rng.gen_range(0..=BoardHash::MAX);
+    for hash in zobrist.iter_mut() {
+      *hash = rng.gen_range(0..=BoardHash::MAX);
     }
 
     println!(

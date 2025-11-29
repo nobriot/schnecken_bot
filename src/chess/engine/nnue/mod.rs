@@ -33,33 +33,37 @@ pub struct HyperParameters {
   /// Learning rate used for gradient descent
   pub learning_rate: f32,
   /// Momentum for the gradient descent (recommended to set $beta_1 = 0.9$)
-  pub beta_1:        f32,
+  pub beta_1: f32,
   /// RMSProp for the gradient descent (recommended to set $beta_2 = 0.999$)
-  pub beta_2:        f32,
+  pub beta_2: f32,
   /// Used for L2/Frobenius norm for the gradient descent.
-  pub lambda:        f32,
+  pub lambda: f32,
   /// Dropout rate, should be between 0 and 1 used for training.
   /// Should only be used on large layers, usually set to 0.1
-  pub dropout:       f32,
+  pub dropout: f32,
 }
 
 impl HyperParameters {
   fn zeros() -> Self {
-    Self { learning_rate: 0.0,
-           beta_1:        0.0,
-           beta_2:        0.0,
-           lambda:        1.0,
-           dropout:       0.0, }
+    Self {
+      learning_rate: 0.0,
+      beta_1: 0.0,
+      beta_2: 0.0,
+      lambda: 1.0,
+      dropout: 0.0,
+    }
   }
 }
 
 impl Default for HyperParameters {
   fn default() -> Self {
-    Self { learning_rate: 0.0001,
-           beta_1:        0.9,
-           beta_2:        0.999,
-           lambda:        1.0,
-           dropout:       0.0, }
+    Self {
+      learning_rate: 0.0001,
+      beta_1: 0.9,
+      beta_2: 0.999,
+      lambda: 1.0,
+      dropout: 0.0,
+    }
   }
 }
 
@@ -71,25 +75,25 @@ impl Default for HyperParameters {
 #[derive(Debug, Clone)]
 pub struct LayerCache {
   /// Linear value cache
-  pub Z:   Array2<f32>,
+  pub Z: Array2<f32>,
   /// Activation value cache
-  pub A:   Array2<f32>,
+  pub A: Array2<f32>,
   /// Weight gradients, dW
-  pub dW:  Array2<f32>,
+  pub dW: Array2<f32>,
   /// Weight gradients Momentum, vdW
   pub vdW: Array2<f32>,
   /// Weight gradients Momentum squared, sdW
   pub sdW: Array2<f32>,
   /// biases gradients, db
-  pub db:  f32,
+  pub db: f32,
   /// Bias gradients Momentum, vdb
   pub vdb: f32,
   /// Bias gradients Momentum squared, sdb
   pub sdb: f32,
   /// Linear value gradient cache. dZ
-  pub dZ:  Array2<f32>,
+  pub dZ: Array2<f32>,
   /// Activation gradient cache. dA
-  pub dA:  Array2<f32>,
+  pub dA: Array2<f32>,
 }
 
 impl LayerCache {
@@ -101,16 +105,18 @@ impl LayerCache {
   /// * `previous_layer_size`: Number of nodes in the previous layer for the
   ///   current cache
   fn new(layer_size: usize, previous_layer_size: usize) -> Self {
-    Self { Z:   Array2::zeros((layer_size, previous_layer_size)),
-           A:   Array2::zeros((layer_size, previous_layer_size)),
-           dW:  Array2::zeros((layer_size, previous_layer_size)),
-           vdW: Array2::zeros((layer_size, previous_layer_size)),
-           sdW: Array2::zeros((layer_size, previous_layer_size)),
-           db:  0.0,
-           vdb: 0.0,
-           sdb: 0.0,
-           dZ:  Array2::zeros((layer_size, previous_layer_size)),
-           dA:  Array2::zeros((layer_size, previous_layer_size)), }
+    Self {
+      Z: Array2::zeros((layer_size, previous_layer_size)),
+      A: Array2::zeros((layer_size, previous_layer_size)),
+      dW: Array2::zeros((layer_size, previous_layer_size)),
+      vdW: Array2::zeros((layer_size, previous_layer_size)),
+      sdW: Array2::zeros((layer_size, previous_layer_size)),
+      db: 0.0,
+      vdb: 0.0,
+      sdb: 0.0,
+      dZ: Array2::zeros((layer_size, previous_layer_size)),
+      dA: Array2::zeros((layer_size, previous_layer_size)),
+    }
   }
 }
 
@@ -123,9 +129,9 @@ impl LayerCache {
 #[derive(Debug, Clone)]
 pub struct LayerState {
   /// Weights.(W)
-  pub W:     Array2<f32>,
+  pub W: Array2<f32>,
   /// Biases, denoted b
-  pub b:     f32,
+  pub b: f32,
   /// activation cache
   pub cache: LayerCache,
 }
@@ -139,10 +145,14 @@ impl LayerState {
   /// Biases are initialized with zeros
   pub fn new(layer_size: usize, previous_layer_size: usize) -> Self {
     // Create all the internal variables for the layer
-    LayerState { W:     Array::random((layer_size, previous_layer_size),
-                                      ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap()),
-                 b:     0.0,
-                 cache: LayerCache::new(layer_size, previous_layer_size), }
+    LayerState {
+      W: Array::random(
+        (layer_size, previous_layer_size),
+        ndarray_rand::rand_distr::Normal::new(0.0, 1.0).unwrap(),
+      ),
+      b: 0.0,
+      cache: LayerCache::new(layer_size, previous_layer_size),
+    }
   }
 }
 
@@ -155,7 +165,7 @@ pub struct Layer {
   /// Tuning parameters
   pub param: HyperParameters,
   /// Activation function
-  pub a:     Activation,
+  pub a: Activation,
   /// Weight, biases and gradients
   pub state: LayerState,
 }
@@ -178,7 +188,7 @@ pub enum Activation {
 #[derive(Debug, Clone)]
 pub struct NNUE {
   /// Vector of Neural Net layers
-  pub layers:     Vec<Layer>,
+  pub layers: Vec<Layer>,
   /// Keeping tracks of how many times we iterated, i.e. updated the parameters
   pub iterations: usize,
 }
@@ -187,15 +197,21 @@ pub struct NNUE {
 impl Default for NNUE {
   fn default() -> Self {
     let mut nnue = NNUE::new();
-    nnue.add_layer(NNUE::LAYER_1_SIZE,
-                   HyperParameters::default(),
-                   Activation::ClippedReLU);
-    nnue.add_layer(NNUE::LAYER_2_SIZE,
-                   HyperParameters::default(),
-                   Activation::ClippedReLU);
-    nnue.add_layer(NNUE::LAYER_3_SIZE,
-                   HyperParameters::default(),
-                   Activation::Tanh);
+    nnue.add_layer(
+      NNUE::LAYER_1_SIZE,
+      HyperParameters::default(),
+      Activation::ClippedReLU,
+    );
+    nnue.add_layer(
+      NNUE::LAYER_2_SIZE,
+      HyperParameters::default(),
+      Activation::ClippedReLU,
+    );
+    nnue.add_layer(
+      NNUE::LAYER_3_SIZE,
+      HyperParameters::default(),
+      Activation::Tanh,
+    );
     nnue
   }
 }
@@ -218,13 +234,17 @@ impl NNUE {
   /// NNUE with an input layer.
   pub fn new() -> Self {
     // Input Layer (L0):
-    let l0 = Layer { nodes: Self::LAYER_0_SIZE,
-                     param: HyperParameters::zeros(),
-                     a:     Activation::None,
-                     state: LayerState::new(Self::LAYER_0_SIZE, 1), };
+    let l0 = Layer {
+      nodes: Self::LAYER_0_SIZE,
+      param: HyperParameters::zeros(),
+      a: Activation::None,
+      state: LayerState::new(Self::LAYER_0_SIZE, 1),
+    };
 
-    let mut nnue = NNUE { layers:     Vec::new(),
-                          iterations: 0, };
+    let mut nnue = NNUE {
+      layers: Vec::new(),
+      iterations: 0,
+    };
     nnue.layers.push(l0);
 
     nnue
@@ -236,18 +256,22 @@ impl NNUE {
   ///
   /// NNUE without any layer
   pub fn new_no_layer() -> Self {
-    NNUE { layers:     Vec::new(),
-           iterations: 0, }
+    NNUE {
+      layers: Vec::new(),
+      iterations: 0,
+    }
   }
 
   /// Adds a layer to the NNUE:
   pub fn add_layer(&mut self, nodes: usize, param: HyperParameters, a: Activation) {
     let last_layer_size =
       if !self.layers.is_empty() { self.layers.last().unwrap().nodes } else { 1 };
-    let layer = Layer { nodes,
-                        param,
-                        a,
-                        state: LayerState::new(nodes, last_layer_size) };
+    let layer = Layer {
+      nodes,
+      param,
+      a,
+      state: LayerState::new(nodes, last_layer_size),
+    };
 
     self.layers.push(layer);
   }
@@ -744,7 +768,7 @@ mod tests {
     let game_state = GameState::default();
 
     let mut nnue = NNUE::default();
-    nnue.game_state_to_input_layer(&vec![&game_state]);
+    nnue.game_state_to_input_layer(&[&game_state]);
     let a0 = nnue.layers[0].state.cache.A.clone();
     // println!("{:?}", a0);
 
@@ -752,7 +776,7 @@ mod tests {
     assert_eq!(32.0, a0.sum());
 
     let game_state = GameState::from_fen("r1b1r1k1/ppp4p/3p3b/8/4P3/7P/PP2Q1P1/RN2K3 b - - 2 0");
-    nnue.game_state_to_input_layer(&vec![&game_state]);
+    nnue.game_state_to_input_layer(&[&game_state]);
     let a0 = nnue.layers[0].state.cache.A.clone();
     assert_eq!(19.0, a0.sum());
   }
@@ -763,7 +787,7 @@ mod tests {
     let game_state_2 =
       GameState::from_fen("rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2");
     let mut nnue = NNUE::default();
-    let mini_batch = vec![&game_state_1, &game_state_2];
+    let mini_batch = [&game_state_1, &game_state_2];
 
     nnue.game_state_to_input_layer(&mini_batch);
     let Y_hat = nnue.forward_propagation();
@@ -782,14 +806,14 @@ mod tests {
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
 
     // Evals for games 1, 2, 3 and 4.
-    let mut evals = vec![0.27, -0.29, 0.3, -199.0];
+    let mut evals = [0.27, -0.29, 0.3, -199.0];
     for i in 0..evals.len() {
       evals[i] = (evals[i] + 200.0) / 400.0;
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
     let mut nnue = NNUE::default();
-    let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
+    let mini_batch = [&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     let mut previous_cost = 100000.0;
 
     for _ in 0..100 {
@@ -828,7 +852,7 @@ mod tests {
     assert_eq!(0.0, total_cost(&evals, &evals));
 
     let mut nnue = NNUE::default();
-    let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];
+    let mini_batch = [&game_state_1, &game_state_2, &game_state_3, &game_state_4];
     nnue.game_state_to_input_layer(&mini_batch);
     let Y_hat = nnue.forward_propagation();
     println!("Prediction: {:?}", Y_hat);
