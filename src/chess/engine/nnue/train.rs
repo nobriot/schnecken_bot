@@ -1,11 +1,10 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
-use std::process::ExitCode;
-
 use chess::engine::nnue::preprocessing::*;
 use chess::engine::nnue::*;
 use chess::model::piece::Color;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::prelude::*;
+use std::process::ExitCode;
 
 pub const LICHESS_DATABASE_FILE: &str = "engine/nnue/data/training_set.pgn";
 pub const OUTPUT_TRAINING_FILE: &str = "engine/nnue/data/training_set.csv";
@@ -21,20 +20,14 @@ fn main() -> ExitCode {
   println!("\n\x1B[4mWelcome to \x1B[1mNNUE training\x1B[0m. 🙂\n");
 
   // Process the PGN files into a file containing training data
-  println!(
-    "Pre-processing database file {} into a training set.",
-    LICHESS_DATABASE_FILE
-  );
+  println!("Pre-processing database file {} into a training set.", LICHESS_DATABASE_FILE);
 
   let input_file = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), LICHESS_DATABASE_FILE);
   let output_file = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), OUTPUT_TRAINING_FILE);
 
   if let Err(error) = create_training_data_from_pgn_file(input_file.as_str(), output_file.as_str())
   {
-    println!(
-      "{ERROR}: Could not pre-process the data: {}. Exiting\n",
-      error
-    );
+    println!("{ERROR}: Could not pre-process the data: {}. Exiting\n", error);
     return ExitCode::FAILURE;
   }
 
@@ -43,10 +36,7 @@ fn main() -> ExitCode {
   println!("Load training file.");
   let training_set_result = load_training_set_in_cache(output_file.as_str());
   if let Err(error) = training_set_result {
-    println!(
-      "{ERROR}: Could not load the training data in to a cache {}. Exiting\n",
-      error
-    );
+    println!("{ERROR}: Could not load the training data in to a cache {}. Exiting\n", error);
     return ExitCode::FAILURE;
   }
   let training_cache = training_set_result.unwrap();
@@ -79,11 +69,9 @@ fn main() -> ExitCode {
       nnue.backwards_propagation(&Y_hat, &evals);
       nnue.update_parameters();
 
-      println!(
-        "Cost after iteration {}: {}",
-        i + 1,
-        functions::total_cost(&Y_hat, &evals) / MINI_BATCH_SIZE as f32
-      );
+      println!("Cost after iteration {}: {}",
+               i + 1,
+               functions::total_cost(&Y_hat, &evals) / MINI_BATCH_SIZE as f32);
     }
     println!("Epoch {e} completed");
   }
@@ -109,20 +97,11 @@ fn main() -> ExitCode {
   let output_file = File::create("predictions.csv").unwrap();
   let mut writer = BufWriter::new(output_file);
   for i in 0..predictions.len() {
-    writer
-      .write_fmt(format_args!(
-        "{};{};{}\n",
-        evals[i],
-        predictions[i],
-        testing[i].to_fen()
-      ))
-      .unwrap();
+    writer.write_fmt(format_args!("{};{};{}\n", evals[i], predictions[i], testing[i].to_fen()))
+          .unwrap();
   }
 
-  println!(
-    "Cost on test set: {}",
-    functions::total_cost(&predictions, &evals)
-  );
+  println!("Cost on test set: {}", functions::total_cost(&predictions, &evals));
 
   // ---------------------------------------------------------------------------
   // Save the NNUE so it can be restored later

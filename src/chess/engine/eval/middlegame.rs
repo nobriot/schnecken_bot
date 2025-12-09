@@ -3,8 +3,8 @@ use crate::engine::tables::squares::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
-//const KING_DANGER_FACTOR: f32 = 0.3;
-//const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
+// const KING_DANGER_FACTOR: f32 = 0.3;
+// const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 
 /// Computes a total score based on the square where pieces are located in the
@@ -17,7 +17,6 @@ const SQUARE_TABLE_FACTOR: f32 = 0.02;
 /// ### Return value
 ///
 /// f32 score that can be applied to the evaluation
-///
 pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
   let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
@@ -47,26 +46,25 @@ pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
-  /*
-  score += PIECE_MOBILITY_FACTOR
-    * (get_piece_mobility(game_state, Color::White) as f32
-      - get_piece_mobility(game_state, Color::Black) as f32);
-
-      score += KING_DANGER_FACTOR
-      * (get_king_danger_score(game_state, Color::Black)
-      - get_king_danger_score(game_state, Color::White));
-
-      if is_king_too_adventurous(game_state, Color::White) {
-        score -= KING_TOO_ADVENTUROUS_PENALTY;
-      }
-      if is_king_too_adventurous(game_state, Color::Black) {
-        score += KING_TOO_ADVENTUROUS_PENALTY;
-      }
-      */
+  // score += PIECE_MOBILITY_FACTOR
+  // (get_piece_mobility(game_state, Color::White) as f32
+  // - get_piece_mobility(game_state, Color::Black) as f32);
+  //
+  // score += KING_DANGER_FACTOR
+  // (get_king_danger_score(game_state, Color::Black)
+  // - get_king_danger_score(game_state, Color::White));
+  //
+  // if is_king_too_adventurous(game_state, Color::White) {
+  // score -= KING_TOO_ADVENTUROUS_PENALTY;
+  // }
+  // if is_king_too_adventurous(game_state, Color::Black) {
+  // score += KING_TOO_ADVENTUROUS_PENALTY;
+  // }
 
   score += get_square_table_middlegame_score(game_state);
 
@@ -93,7 +91,8 @@ mod tests {
 
   #[test]
   fn evaluate_outposts() {
-    // Compare 3 position, one with nothing, one with the reachable outpost and one with the outpost:
+    // Compare 3 position, one with nothing, one with the reachable outpost and one
+    // with the outpost:
     let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp3/2N1P2P/PP3PPN/R1BQKB1R w KQkq - 8 11";
     let game_state = GameState::from_fen(fen);
     let eval_nothing = get_middlegame_position_evaluation(&game_state);

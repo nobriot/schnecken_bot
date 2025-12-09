@@ -11,14 +11,14 @@ use super::board::Board;
 pub type BoardMask = u64;
 
 pub trait CountFewOnes {
-  /// Counts the number of binary ones in the representation when there are few ones.
+  /// Counts the number of binary ones in the representation when there are few
+  /// ones.
   ///
   /// e.g. 001010110 -> 4
   /// This function is quicker than `count_ones()` if there are less than 4 ones
   /// in the binary representation.
   ///
   /// use `count_ones()` in other cases.
-  ///
   fn count_few_ones(&self) -> u32;
 }
 
@@ -50,7 +50,6 @@ impl CountFewOnes for BoardMask {
 /// ### Returns
 ///
 /// Evaluates to True if the square is set in the mask. False if not
-///
 #[macro_export]
 macro_rules! square_in_mask {
   ($square:expr, $mask:expr) => {
@@ -66,7 +65,6 @@ macro_rules! square_in_mask {
 ///
 /// * `square` Square value to add to the BoardMask
 /// * `mask`   board mask to modify
-///
 #[macro_export]
 macro_rules! set_square_in_mask {
   ($square:expr, $mask:expr) => {
@@ -82,7 +80,6 @@ macro_rules! set_square_in_mask {
 ///
 /// * `square` Square value to revove from the BoardMask
 /// * `mask`   board mask to modify
-///
 #[macro_export]
 macro_rules! unset_square_in_mask {
   ($square:expr, $mask:expr) => {
@@ -91,9 +88,7 @@ macro_rules! unset_square_in_mask {
 }
 
 // Make the macros public
-pub use set_square_in_mask;
-pub use square_in_mask;
-pub use unset_square_in_mask;
+pub use {set_square_in_mask, square_in_mask, unset_square_in_mask};
 
 // -----------------------------------------------------------------------------
 //  Functions
@@ -105,7 +100,6 @@ pub use unset_square_in_mask;
 /// ### Arguments
 ///
 /// * `mask` board mask to print
-///
 pub fn print_board_mask(mask: BoardMask) {
   let mut representation = String::from("\n");
   for rank in (1..=8).rev() {
@@ -130,7 +124,6 @@ pub fn print_board_mask(mask: BoardMask) {
 /// ### Arguments
 ///
 /// * `mask` board mask to stringify
-///
 pub fn board_mask_to_string(mask: BoardMask) -> String {
   let mut string = String::new();
   for rank in (1..=8).rev() {
@@ -147,4 +140,3 @@ pub fn board_mask_to_string(mask: BoardMask) -> String {
   }
   string
 }
-

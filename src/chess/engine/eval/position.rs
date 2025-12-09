@@ -7,8 +7,8 @@ use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
-use crate::engine::cache::engine_cache::EngineCache;
 use crate::engine::Engine;
+use crate::engine::cache::engine_cache::EngineCache;
 use crate::model::board::Board;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::CountFewOnes;
@@ -256,11 +256,7 @@ pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
 /// * New eval value
 #[inline]
 pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
-  if eval.abs() > 100.0 {
-    eval - eval.signum()
-  } else {
-    eval
-  }
+  if eval.abs() > 100.0 { eval - eval.signum() } else { eval }
 }
 
 /// Looks at a game state and check if the game can be declared a draw
@@ -560,8 +556,7 @@ mod tests {
     let fen = "4r1k1/5ppp/p1p5/1QP5/3p2b1/P7/2P1rqPP/2R2NKR w - - 5 26";
     let game_state = GameState::from_fen(fen);
     let cache = EngineCache::new();
-    assert_eq!(GameStatus::BlackWon,
-               is_game_over(&cache, &game_state.board));
+    assert_eq!(GameStatus::BlackWon, is_game_over(&cache, &game_state.board));
   }
 
   #[test]
@@ -588,17 +583,12 @@ mod tests {
     assert!(is_smothered_mate(&game_state.board, game_status));
 
     // Test if the game status is not WhiteWon / BlackWon
-    assert_eq!(false,
-               is_smothered_mate(&game_state.board, GameStatus::Draw));
-    assert_eq!(false,
-               is_smothered_mate(&game_state.board, GameStatus::Ongoing));
-    assert_eq!(false,
-               is_smothered_mate(&game_state.board, GameStatus::Stalemate));
-    assert_eq!(false,
-               is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition));
+    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Draw));
+    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Ongoing));
+    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Stalemate));
+    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition));
     // Here it is Black who won, the black king is not smothered
-    assert_eq!(false,
-               is_smothered_mate(&game_state.board, GameStatus::WhiteWon));
+    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::WhiteWon));
 
     // Position 3:
     let fen = "rnbq3r/pppppppp/8/8/QPPk4/2N5/P2PPnPP/2B2BRK w - - 0 1";

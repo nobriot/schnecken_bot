@@ -90,8 +90,7 @@ impl LichessApi {
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(error) = response_text_result {
-      warn!("Error reading the payload from Get request to Lichess {}",
-            error);
+      warn!("Error reading the payload from Get request to Lichess {}", error);
       return Err(());
     }
 
@@ -99,9 +98,7 @@ impl LichessApi {
     let json_object = match json_value_result {
       Ok(object) => object,
       Err(error) => {
-        warn!(
-          "Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}"
-        );
+        warn!("Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}");
         return Err(());
       },
     };
@@ -140,9 +137,7 @@ impl LichessApi {
     let json_object = match json_value_result {
       Ok(object) => object,
       Err(error) => {
-        warn!(
-          "Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}"
-        );
+        warn!("Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}");
         return Ok(JsonValue::Null);
       },
     };

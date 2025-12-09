@@ -61,37 +61,29 @@ pub const EN_PASSANT_SHIFT: move_t = 22;
 macro_rules! mv {
   // All parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr, $check:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
-        | (($check as move_t & CHECK_MASK) << CHECK_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT)
+                 | (($check as move_t & CHECK_MASK) << CHECK_SHIFT), }
   };
   // 4 parameters
   ($src:expr, $dest:expr, $prom:expr, $capture:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
-        | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT)
+                 | (($capture as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
   };
 
   // 3 parameters
   ($src:expr, $dest:expr, $prom:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($prom as move_t & PROMOTION_MASK) << PROMOTION_SHIFT), }
   };
   // 2 parameters, just source and destination.
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT),
-    }
+    Move { data: $src as move_t | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT), }
   };
 }
 
@@ -111,9 +103,9 @@ macro_rules! mv {
 macro_rules! castle_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT) | (1 << CASTLE_SHIFT),
-    }
+    Move { data: $src
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (1 << CASTLE_SHIFT), }
   };
 }
 
@@ -133,12 +125,10 @@ macro_rules! castle_mv {
 macro_rules! en_passant_mv {
   // All parameters
   ($src:expr, $dest:expr) => {
-    Move {
-      data: $src as move_t
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
-        | (1 << EN_PASSANT_SHIFT),
-    }
+    Move { data: $src as move_t
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | ((PieceType::Pawn as u32) << CAPTURE_SHIFT)
+                 | (1 << EN_PASSANT_SHIFT), }
   };
 }
 
@@ -158,11 +148,9 @@ macro_rules! en_passant_mv {
 macro_rules! capture_mv {
   // All parameters
   ($src:expr, $dest:expr, $piece:expr) => {
-    Move {
-      data: $src
-        | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
-        | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT),
-    }
+    Move { data: $src
+                 | (($dest as move_t & SQUARE_MASK) << DESTINATION_SHIFT)
+                 | (($piece as move_t & CAPTURE_MASK) << CAPTURE_SHIFT), }
   };
 }
 

@@ -68,19 +68,14 @@ fn main() -> ExitCode {
   let predictions = nnue.forward_propagation();
 
   for i in 0..5 {
-    println!(
-      "testing: {} - true value : {} prediction : {} - error: {}",
-      testing[i],
-      labels[i],
-      predictions[i],
-      (labels[i] - predictions[i]).powf(2.0)
-    );
+    println!("testing: {} - true value : {} prediction : {} - error: {}",
+             testing[i],
+             labels[i],
+             predictions[i],
+             (labels[i] - predictions[i]).powf(2.0));
   }
 
-  println!(
-    "Cost on test set: {}",
-    functions::total_cost(&predictions, &labels)
-  );
+  println!("Cost on test set: {}", functions::total_cost(&predictions, &labels));
 
   println!("");
   println!("Done! 🙂");

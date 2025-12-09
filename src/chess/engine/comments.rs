@@ -88,14 +88,23 @@ pub enum TrashTalk {
 impl std::fmt::Display for TrashTalk {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-        TrashTalk::AvengeMyCreator => write!(f,"I see that you have a positive match-up against my developer... I'll do all I can to crush you! Good luck ;-)"),
-        TrashTalk::YouAreJustAChessEngine =>  write!(f,"Hey there ... You're just a simple engine it seems. I am a chess bot :-D."),
-        TrashTalk::YouAreJustHuman =>  write!(f,"Hey there ... It seems that you're just a simple human. Good luck!"),
-        TrashTalk::TooSlowMyFriend =>  write!(f,"Consider working on your speed... Slow and steady wins the race"),
-        TrashTalk::YouCanAlreadyResign =>  write!(f,"What are you waiting to resign ??"),
-        TrashTalk::WhatAreYouWaitingToCheckmateMe =>  write!(f,"What are you waiting to checkmate me?? Don't you know the rules ?"),
-        TrashTalk::OhNoMyQueen =>  write!(f,"Oh no my queen!"),
-        TrashTalk::HowDoesTheKnightMove =>  write!(f,"How does the knight move?"),
+      TrashTalk::AvengeMyCreator => write!(f,
+                                           "I see that you have a positive match-up against my developer... I'll do all I can to crush you! Good luck ;-)"),
+      TrashTalk::YouAreJustAChessEngine => {
+        write!(f, "Hey there ... You're just a simple engine it seems. I am a chess bot :-D.")
+      },
+      TrashTalk::YouAreJustHuman => {
+        write!(f, "Hey there ... It seems that you're just a simple human. Good luck!")
+      },
+      TrashTalk::TooSlowMyFriend => {
+        write!(f, "Consider working on your speed... Slow and steady wins the race")
+      },
+      TrashTalk::YouCanAlreadyResign => write!(f, "What are you waiting to resign ??"),
+      TrashTalk::WhatAreYouWaitingToCheckmateMe => {
+        write!(f, "What are you waiting to checkmate me?? Don't you know the rules ?")
+      },
+      TrashTalk::OhNoMyQueen => write!(f, "Oh no my queen!"),
+      TrashTalk::HowDoesTheKnightMove => write!(f, "How does the knight move?"),
     }
   }
 }

@@ -1,5 +1,5 @@
-use chess::engine::config::play_style::PlayStyle;
 use chess::engine::Engine;
+use chess::engine::config::play_style::PlayStyle;
 use chess::model::game_state::START_POSITION_FEN;
 use lichess;
 use lichess::types::{GameStart, Title};
@@ -41,10 +41,7 @@ pub fn configure_engine(game: &GameStart) -> Engine {
     }
   }
 
-  info!(
-    "Engine configuration for game {}: {:?}",
-    game.game_id, engine.options
-  );
+  info!("Engine configuration for game {}: {:?}", game.game_id, engine.options);
 
   engine
 }

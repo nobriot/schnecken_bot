@@ -1,7 +1,7 @@
 use super::message::GameMessage;
 use lichess::traits::GameStreamHandler;
 use log::*;
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 type Handle = tokio::task::JoinHandle<()>;
 
@@ -29,8 +29,7 @@ impl GameHandle {
 
 impl GameStreamHandler for GameHandle {
   fn game_stream_handler(&self, json_value: serde_json::Value, game_id: String) {
-    debug!("GameStreamHandler called with game_id: {}, value : {}",
-           game_id, json_value);
+    debug!("GameStreamHandler called with game_id: {}, value : {}", game_id, json_value);
 
     debug!("Incoming stream event for Game ID {game_id}");
 
@@ -88,9 +87,7 @@ impl GameStreamHandler for GameHandle {
           if message.username == "schnecken_bot" {
             return;
           }
-          info!("Received a message on game ID {} - {:?}",
-                game_id.as_str(),
-                message);
+          info!("Received a message on game ID {} - {:?}", game_id.as_str(), message);
           // self.on_incoming_message(game_id.as_str(), result.unwrap());
         }
       },

@@ -1,8 +1,7 @@
-use std::fs::File;
-use std::io::Write;
-
 use chess::model::board::*;
 use chess::model::board_mask::*;
+use std::fs::File;
+use std::io::Write;
 
 fn main() {
   let filename = "passed_pawns_areas.rs";
@@ -41,24 +40,15 @@ fn main() {
     }
   }
 
-  let _ = write!(
-    output_file,
-    "/// Represents boardmask of area where there should be no pawns if\n"
-  );
-  let _ = write!(
-    output_file,
-    "/// we want to consider the white pawn passed.\n"
-  );
-  let _ = write!(
-    output_file,
-    "/// For a pawn on square i, check if WHITE_PASSED_PAWN_AREA[i] contains any opponent pawns\n"
-  );
+  let _ = write!(output_file,
+                 "/// Represents boardmask of area where there should be no pawns if\n");
+  let _ = write!(output_file, "/// we want to consider the white pawn passed.\n");
+  let _ = write!(output_file,
+                 "/// For a pawn on square i, check if WHITE_PASSED_PAWN_AREA[i] contains any opponent pawns\n");
 
-  let _ = write!(
-    output_file,
-    "pub const WHITE_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
-    white_passed_pawn_area
-  );
+  let _ = write!(output_file,
+                 "pub const WHITE_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
+                 white_passed_pawn_area);
 
   // ---------------------------------------------------------------------------
   // Black pawns now
@@ -97,24 +87,15 @@ fn main() {
     }
   }
 
-  let _ = write!(
-    output_file,
-    "/// Represents boardmask of area where there should be no pawns if\n"
-  );
-  let _ = write!(
-    output_file,
-    "/// we want to consider the black pawn passed.\n"
-  );
-  let _ = write!(
-    output_file,
-    "/// For a pawn on square i, check if BLACK_PASSED_PAWN_AREA[i] contains any opponent pawns\n"
-  );
+  let _ = write!(output_file,
+                 "/// Represents boardmask of area where there should be no pawns if\n");
+  let _ = write!(output_file, "/// we want to consider the black pawn passed.\n");
+  let _ = write!(output_file,
+                 "/// For a pawn on square i, check if BLACK_PASSED_PAWN_AREA[i] contains any opponent pawns\n");
 
-  let _ = write!(
-    output_file,
-    "pub const BLACK_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
-    black_passed_pawn_area
-  );
+  let _ = write!(output_file,
+                 "pub const BLACK_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
+                 black_passed_pawn_area);
 
   println!("");
   println!("Done! 🙂");

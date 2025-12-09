@@ -1,5 +1,5 @@
 use crate::model::board_mask::BoardMask;
-use crate::model::piece_moves::{get_moves_from_offsets, ROOK_MOVE_OFFSETS};
+use crate::model::piece_moves::{ROOK_MOVE_OFFSETS, get_moves_from_offsets};
 
 static mut ROOK_TABLE_INITIALIZED: bool = false;
 static mut ROOK_DESTINATION_TABLE: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =

@@ -24,9 +24,9 @@ fn compute_legal_moves(bencher: Bencher) {
   let mut rng = rand::thread_rng();
 
   bencher.bench_local(|| {
-    let i = rng.gen_range(0..NUMBER_OF_BOARDS);
-    let _ = game_states[i].get_moves();
-  });
+           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           let _ = game_states[i].get_moves();
+         });
 }
 
 /// Checks how fast we are at applying moves on a board
@@ -43,14 +43,14 @@ fn apply_moves_on_a_game_state(bencher: Bencher) {
   let mut rng = rand::thread_rng();
 
   bencher.bench_local(|| {
-    let i = rng.gen_range(0..NUMBER_OF_BOARDS);
-    if !move_lists[i].is_empty() {
-      let j = rng.gen_range(0..move_lists[i].len());
-      let old_game = game_states[i].clone();
-      game_states[i].apply_move(&move_lists[i][j]);
-      game_states[i] = old_game;
-    }
-  });
+           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           if !move_lists[i].is_empty() {
+             let j = rng.gen_range(0..move_lists[i].len());
+             let old_game = game_states[i].clone();
+             game_states[i].apply_move(&move_lists[i][j]);
+             game_states[i] = old_game;
+           }
+         });
 }
 
 /// Checks how fast we are at applying moves on a board
@@ -67,14 +67,14 @@ fn apply_moves_on_the_board(bencher: Bencher) {
   let mut rng = rand::thread_rng();
 
   bencher.bench_local(|| {
-    let i = rng.gen_range(0..NUMBER_OF_BOARDS);
-    if !move_lists[i].is_empty() {
-      let j = rng.gen_range(0..move_lists[i].len());
-      let old_board = boards[i].clone();
-      boards[i].apply_move(&move_lists[i][j]);
-      boards[i] = old_board;
-    }
-  });
+           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           if !move_lists[i].is_empty() {
+             let j = rng.gen_range(0..move_lists[i].len());
+             let old_board = boards[i].clone();
+             boards[i].apply_move(&move_lists[i][j]);
+             boards[i] = old_board;
+           }
+         });
 }
 
 /// Checks how fast we are at computing attackers of a square on the board
@@ -86,8 +86,8 @@ fn find_attackers(bencher: Bencher) {
   let j = rng.gen_range(0..63);
 
   bencher.bench_local(|| {
-    let _ = game_state.board.get_attackers(j, Color::White);
-  });
+           let _ = game_state.board.get_attackers(j, Color::White);
+         });
 }
 
 /// Checks how fast we are at computing pins for the board
@@ -101,8 +101,8 @@ fn determine_board_pins(bencher: Bencher) {
       continue;
     }
     bencher.bench_local(|| {
-      let _ = game_state.board.get_pins_rays(Color::White);
-    });
+             let _ = game_state.board.get_pins_rays(Color::White);
+           });
     break;
   }
 }

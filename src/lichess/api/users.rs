@@ -1,7 +1,6 @@
 use crate::api::LichessApi;
-use serde_json::Value as JsonValue;
-
 use log::*;
+use serde_json::Value as JsonValue;
 
 impl LichessApi {
   /// Checks if a player is online
@@ -13,7 +12,6 @@ impl LichessApi {
   /// ### Returns
   ///
   /// True if the player is online, false otherwise
-  ///
   pub async fn is_online(&self, user_id: &str) -> bool {
     let endpoint: String = format!("users/status?ids={}", user_id);
     let result = self.lichess_get(&endpoint).await;
@@ -33,18 +31,17 @@ impl LichessApi {
   ///
   /// * `user_id_1` First user to check
   /// * `user_id_2` Second user to check
-  /// * `matchup`:  Use data from the current match rather than all historical data.
+  /// * `matchup`:  Use data from the current match rather than all historical
+  ///   data.
   ///
   /// ### Returns
   ///
   /// True if the player is online, false otherwise
-  ///
-  pub async fn get_crosstable(
-    &self,
-    user_id_1: &str,
-    user_id_2: &str,
-    matchup: bool,
-  ) -> Option<(f64, f64)> {
+  pub async fn get_crosstable(&self,
+                              user_id_1: &str,
+                              user_id_2: &str,
+                              matchup: bool)
+                              -> Option<(f64, f64)> {
     let endpoint: String = format!("crosstable/{}/{}?matchup={}", user_id_1, user_id_2, matchup);
     let result = self.lichess_get(&endpoint).await;
 

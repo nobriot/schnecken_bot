@@ -30,7 +30,6 @@ use config::options::*;
 use config::play_style::*;
 use log::*;
 use nnue::NNUE;
-use rand::seq::SliceRandom;
 use std::cmp::min;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -235,7 +234,7 @@ pub struct Engine {
   history:      GameHistory,
 }
 
-type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
+// type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 impl Engine {
   //----------------------------------------------------------------------------
@@ -417,12 +416,8 @@ impl Engine {
     // list
     let play_style = self.options.play_style;
     let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
-    if book_entry.is_some() {
-      info!("Known position, returning book moves for {:?} play",
-            play_style);
-      let mut move_list = book_entry.unwrap();
-      let mut rng = rand::thread_rng();
-      move_list.shuffle(&mut rng);
+    if let Some(move_list) = book_entry {
+      info!("Known position, returning book moves for {:?} play", play_style);
 
       let mut result: SearchResult =
         SearchResult::new(self.options.multi_pv, self.position.board.side_to_play);
@@ -455,9 +450,7 @@ impl Engine {
         if eval.is_nan() {
           eval = evaluate_board(&game_state);
         }
-        evaluation_cache = EvaluationCache { game_status,
-                                             eval,
-                                             depth: 1 };
+        evaluation_cache = EvaluationCache { game_status, eval, depth: 1 };
         self.cache.set_eval(&game_state.board, evaluation_cache);
       }
       let mut result: SearchResult =
@@ -481,11 +474,8 @@ impl Engine {
       self.analysis.increment_selective_depth();
 
       // Try to search for the current depth
-      let result = self.search(&self.position.clone(),
-                               1,
-                               self.analysis.get_depth(),
-                               f32::MIN,
-                               f32::MAX);
+      let result =
+        self.search(&self.position.clone(), 1, self.analysis.get_depth(), f32::MIN, f32::MAX);
 
       if self.has_been_searching_too_long() || self.stop_requested() || result.is_none() {
         // Toss away unfinished depths
@@ -561,7 +551,7 @@ impl Engine {
         format!("score cp {}", (eval * 100.0) as isize)
       };
       let multi_pv_string = if multi_pv_setting > 1 {
-        String::from(format!(" multipv {} ", i + 1))
+        format!(" multipv {} ", i + 1)
       } else {
         String::new()
       };
@@ -580,7 +570,7 @@ impl Engine {
   #[inline]
   pub fn print_uci_best_move(&self) {
     if self.options.uci {
-      println!("bestmove {}", self.get_best_move().unwrap_or(Move::null()));
+      println!("bestmove {}", self.get_best_move().unwrap_or_default());
     }
   }
 
@@ -649,10 +639,7 @@ impl Engine {
     let lines = self.analysis.result.lock().unwrap();
     let position_eval = if lines.is_empty() { f32::NAN } else { lines.variations[0].eval };
 
-    println!("Score for position {}: {}\n{}",
-             self.position.to_fen(),
-             position_eval,
-             lines,);
+    println!("Score for position {}: {}\n{}", self.position.to_fen(), position_eval, lines,);
   }
 
   //----------------------------------------------------------------------------
@@ -747,8 +734,8 @@ impl Engine {
     // Check that we know the moves
     Engine::find_move_list(&self.cache, &game_state.board);
     let moves = self.cache.get_move_list(&game_state.board).unwrap();
-    let mut result = SearchResult::new(NUMBER_OF_MOVES_IN_SEARCH_RESULTS,
-                                       game_state.board.side_to_play);
+    let mut result =
+      SearchResult::new(NUMBER_OF_MOVES_IN_SEARCH_RESULTS, game_state.board.side_to_play);
 
     for m in moves {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
@@ -764,12 +751,10 @@ impl Engine {
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
       let mut max_line_depth = max_depth;
-      if depth == max_depth && m.is_piece_capture() {
-        if depth < self.analysis.get_depth() + 3 {
-          max_line_depth = max_depth + 1;
-          self.analysis.update_selective_depth(max_line_depth);
-          // println!("Continuing to depth {max_line_depth}");
-        }
+      if depth == max_depth && m.is_piece_capture() && (depth < self.analysis.get_depth() + 3) {
+        max_line_depth = max_depth + 1;
+        self.analysis.update_selective_depth(max_line_depth);
+        // println!("Continuing to depth {max_line_depth}");
       }
 
       let mut new_game_state = game_state.clone();

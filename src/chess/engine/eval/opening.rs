@@ -6,8 +6,8 @@ use crate::model::piece::*;
 
 // Constants
 const DEVELOPMENT_FACTOR: f32 = 0.03;
-//const KING_DANGER_FACTOR: f32 = 0.3;
-//const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
+// const KING_DANGER_FACTOR: f32 = 0.3;
+// const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
 const _CASTLING_PENATLY: f32 = 1.0;
 
@@ -21,7 +21,6 @@ const _CASTLING_PENATLY: f32 = 1.0;
 /// ### Return value
 ///
 /// f32 score that can be applied to the evaluation
-///
 pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
   let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
@@ -51,33 +50,32 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
 pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 
   score += DEVELOPMENT_FACTOR
-    * (get_development_score(game_state, Color::White) as f32
-      - get_development_score(game_state, Color::Black) as f32);
+           * (get_development_score(game_state, Color::White) as f32
+              - get_development_score(game_state, Color::Black) as f32);
 
-  /*
-  score += KING_DANGER_FACTOR
-    * (get_king_danger_score(game_state, Color::Black)
-      - get_king_danger_score(game_state, Color::White));
-
-  if is_king_too_adventurous(game_state, Color::White) {
-    score -= KING_TOO_ADVENTUROUS_PENALTY;
-  }
-  if is_king_too_adventurous(game_state, Color::Black) {
-    score += KING_TOO_ADVENTUROUS_PENALTY;
-  }
-
-  if are_casling_rights_lost(game_state, Color::White) {
-    score -= CASTLING_PENATLY;
-  }
-  if are_casling_rights_lost(game_state, Color::Black) {
-    score += CASTLING_PENATLY;
-  }
-   */
+  // score += KING_DANGER_FACTOR
+  // (get_king_danger_score(game_state, Color::Black)
+  // - get_king_danger_score(game_state, Color::White));
+  //
+  // if is_king_too_adventurous(game_state, Color::White) {
+  // score -= KING_TOO_ADVENTUROUS_PENALTY;
+  // }
+  // if is_king_too_adventurous(game_state, Color::Black) {
+  // score += KING_TOO_ADVENTUROUS_PENALTY;
+  // }
+  //
+  // if are_casling_rights_lost(game_state, Color::White) {
+  // score -= CASTLING_PENATLY;
+  // }
+  // if are_casling_rights_lost(game_state, Color::Black) {
+  // score += CASTLING_PENATLY;
+  // }
 
   score += get_square_table_opening_score(game_state);
 
@@ -113,7 +111,8 @@ mod tests {
 
   #[test]
   fn evaluate_material_over_development() {
-    // Here black is under-developed, but they are a knight up. We want the material to prevail:
+    // Here black is under-developed, but they are a knight up. We want the material
+    // to prevail:
     let fen = "r1bqkbnr/pppppppp/2n5/8/2B1P3/1P3N2/PBPP1PPP/R2QK2R w KQkq - 3 8";
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
@@ -124,7 +123,8 @@ mod tests {
 
   #[test]
   fn evaluate_white_rook_on_second_rank() {
-    // Historically the bot liked to place the rook on the 2nd rank for white / 7th for black, seems like a bug to me
+    // Historically the bot liked to place the rook on the 2nd rank for white / 7th
+    // for black, seems like a bug to me
     let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPPR/RNBQKBN1 b Qkq - 2 2";
     let game_state = GameState::from_fen(fen);
     let eval_1 = get_opening_position_evaluation(&game_state);

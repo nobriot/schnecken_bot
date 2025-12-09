@@ -1,21 +1,18 @@
-use rand::Rng;
-use std::fs::File;
-use std::io::Write;
-
 use chess::model::board::INVALID_SQUARE;
 use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
 use chess::model::piece_moves::*;
-
 // This is where our definitions are exported at the end
 use chess::model::tables::rook_destinations::*;
+use rand::Rng;
+use std::fs::File;
+use std::io::Write;
 
 // How many bits are describing relevant blockers based on the position
-pub const ROOK_BLOCKER_NUMBERS: [u8; 64] = [
-  12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-  11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
-  11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12,
-];
+pub const ROOK_BLOCKER_NUMBERS: [u8; 64] =
+  [12, 11, 11, 11, 11, 11, 11, 12, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+   11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11, 11, 10, 10, 10, 10, 10, 10, 11,
+   11, 10, 10, 10, 10, 10, 10, 11, 12, 11, 11, 11, 11, 11, 11, 12];
 
 fn main() {
   let filename = "rook_table.rs";
@@ -29,14 +26,12 @@ fn main() {
     rook_span[i] = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, 0, i);
   }
 
-  let _ = write!(
-    output_file,
-    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};\n\n",
-    rook_span
-  );
+  let _ = write!(output_file,
+                 "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN:[u64; 64] = {:#018X?};\n\n",
+                 rook_span);
 
-  // Then we calculate indices of relevant bits as well as rook spans without edges.
-  // Then the indices of the bits on the Rook span
+  // Then we calculate indices of relevant bits as well as rook spans without
+  // edges. Then the indices of the bits on the Rook span
   let mut rook_span_indexes: [[usize; 12]; 64] = [[INVALID_SQUARE.into(); 12]; 64];
   let mut rook_span_without_edges: [u64; 64] = [0; 64];
   // How many bits are describing relevant blockers based on the position
@@ -77,13 +72,13 @@ fn main() {
       piece_edges &= !BOARD_DOWN_EDGE;
     }
 
-    //println!("i = {};", i);
-    //print_board_mask(piece_edges);
+    // println!("i = {};", i);
+    // print_board_mask(piece_edges);
     for j in 0..64 {
       if !square_in_mask!(j, rook_span[i] & piece_edges) {
         continue;
       }
-      //println!("ROOK_SPAN_INDEXES[i={}][index={}] = {};", i, index, j);
+      // println!("ROOK_SPAN_INDEXES[i={}][index={}] = {};", i, index, j);
       rook_span_indexes[i][index] = j;
       index += 1;
     }
@@ -98,26 +93,20 @@ fn main() {
     rook_span_without_edges[i] = span_mask;
   }
 
-  let _ = write!(
-    output_file,
-    "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};\n\n",
-    rook_span_without_edges
-  );
+  let _ = write!(output_file,
+                 "/// Array of BoardMasks indicating where the rook can reach\n/// if there were no other pieces on the board\n///\npub const ROOK_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};\n\n",
+                 rook_span_without_edges);
 
-  let _ = write!(
-    output_file,"/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the ROOK_SPAN.\n///\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = {:#?};\n\n",
-    rook_span_indexes
-  );
-  let _ = write!(
-    output_file,"/// For a given position, this table indicate the Number of relevant blockers bits for a rook\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const ROOK_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
-    rook_blocker_numbers
-  );
+  let _ = write!(output_file,
+                 "/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the ROOK_SPAN.\n///\n///\n");
+  let _ = write!(output_file,
+                 "pub const ROOK_SPAN_INDEXES: [[usize; 12]; 64] = {:#?};\n\n",
+                 rook_span_indexes);
+  let _ = write!(output_file,
+                 "/// For a given position, this table indicate the Number of relevant blockers bits for a rook\n///\n");
+  let _ = write!(output_file,
+                 "pub const ROOK_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
+                 rook_blocker_numbers);
 
   // Now we want to find these rook magic constants
   let mut rook_magic: [u64; 64] = [0; 64];
@@ -128,11 +117,7 @@ fn main() {
   }
 
   let _ = write!(output_file, "/// Rook Magic Numbers\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const ROOK_MAGIC:[u64; 64] = {:#?};\n\n",
-    rook_magic
-  );
+  let _ = write!(output_file, "pub const ROOK_MAGIC:[u64; 64] = {:#?};\n\n", rook_magic);
 
   // Now we pre-compute the list of destinations for all blocker masks
   let mut rook_destination_table: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] =
@@ -163,39 +148,27 @@ fn main() {
         rook_destination_table[i][j] =
           get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i);
       } else if rook_destination_table[i][j]
-        != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i)
+                != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i)
       {
         println!("Oh oh... square: {i} blocker {b}, derived index is {j} for blocker mask:");
         print_board_mask(blockers[b]);
         println!("Look up table says:");
         print_board_mask(rook_destination_table[i][j]);
         println!("while manual calculation says:");
-        print_board_mask(get_moves_from_offsets(
-          &ROOK_MOVE_OFFSETS,
-          true,
-          0,
-          blockers[b],
-          i,
-        ));
-        println!(
-          "Wrapping mul (shift is {}):",
-          (64 - ROOK_BLOCKER_NUMBERS[i])
-        );
+        print_board_mask(get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers[b], i));
+        println!("Wrapping mul (shift is {}):", (64 - ROOK_BLOCKER_NUMBERS[i]));
         print_board_mask(blockers[b].wrapping_mul(rook_magic[i]));
-        print_board_mask(
-          (blockers[b].wrapping_mul(rook_magic[i])) >> (64 - ROOK_BLOCKER_NUMBERS[i]),
-        );
+        print_board_mask((blockers[b].wrapping_mul(rook_magic[i]))
+                         >> (64 - ROOK_BLOCKER_NUMBERS[i]));
         panic!("Do not use this result!");
       }
     }
   }
 
   let _ = write!(output_file, "/// Rook Destination Table\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const ROOK_DESTINATION_TABLE: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] = {:#?};",
-    rook_destination_table
-  );
+  let _ = write!(output_file,
+                 "pub const ROOK_DESTINATION_TABLE: [[u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS]; 64] = {:#?};",
+                 rook_destination_table);
 
   // test sanity:
   let mut rng = rand::thread_rng();
@@ -204,9 +177,9 @@ fn main() {
     let square = rng.gen_range(0..64);
 
     let manual_calculation = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers, square);
-    let index: usize = ((blockers & ROOK_SPAN_WITHOUT_EDGES[square])
-      .wrapping_mul(rook_magic[square])
-      >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
+    let index: usize = ((blockers & ROOK_SPAN_WITHOUT_EDGES[square]).wrapping_mul(rook_magic
+                                                                                    [square])
+                        >> (64 - ROOK_BLOCKER_NUMBERS[square])) as usize;
     let look_up_table = rook_destination_table[square][index];
 
     println!("Result for blockers from square {square} - looked up index {index}:");
@@ -216,8 +189,7 @@ fn main() {
     assert_eq!(manual_calculation, look_up_table);
   }
 
-  /*
-   */
+  //
   println!("");
   println!("Done! 🙂");
 }

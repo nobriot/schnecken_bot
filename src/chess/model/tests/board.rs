@@ -7,15 +7,13 @@ use crate::model::piece_set::*;
 
 #[test]
 fn display_board() {
-  let mut board = Board {
-    pieces: PieceSet::new(),
-    side_to_play: Color::White,
-    castling_rights: CastlingRights::default(),
-    en_passant_square: INVALID_SQUARE,
-    checkers: 0,
-    pins: 0,
-    hash: 0,
-  };
+  let mut board = Board { pieces:            PieceSet::new(),
+                          side_to_play:      Color::White,
+                          castling_rights:   CastlingRights::default(),
+                          en_passant_square: INVALID_SQUARE,
+                          checkers:          0,
+                          pins:              0,
+                          hash:              0, };
   board.pieces.update(WHITE_ROOK, 0);
   board.pieces.update(WHITE_KNIGHT, 1);
   board.pieces.update(WHITE_BISHOP, 2);
@@ -414,11 +412,7 @@ fn apply_under_promotion() {
   let fen = "8/8/6k1/8/8/4K3/5pq1/8 b - - 3 72";
   let mut board = Board::from_fen(fen);
 
-  board.apply_move(&mv!(
-    string_to_square("f2"),
-    string_to_square("f1"),
-    Promotion::BlackKnight
-  ));
+  board.apply_move(&mv!(string_to_square("f2"), string_to_square("f1"), Promotion::BlackKnight));
 
   let expected_board = Board::from_fen("8/8/6k1/8/8/4K3/6q1/5n2 w - - 0 73");
   assert_eq!(board, expected_board);
@@ -454,14 +448,12 @@ fn check_legal_moves_en_passant_discovery() {
   let mut board = Board::from_fen(fen);
   board.apply_move(&Move::from_string("c2c4"));
 
-  // Here b4c3 is forbidden, it creates a bad-ass discovered check by removing 2 pawns from the pin ray.
+  // Here b4c3 is forbidden, it creates a bad-ass discovered check by removing 2
+  // pawns from the pin ray.
   let moves = board.get_moves();
   for m in &moves {
     println!("Move : {}", m);
-    assert_ne!(
-      *m,
-      en_passant_mv!(string_to_square("b4"), string_to_square("c3"))
-    );
+    assert_ne!(*m, en_passant_mv!(string_to_square("b4"), string_to_square("c3")));
   }
   assert_eq!(13, moves.len());
 
@@ -472,8 +464,7 @@ fn check_legal_moves_en_passant_discovery() {
   // Same story here with d4c3
   let moves = board.get_moves();
   for m in &moves {
-    println!("Move : {}", m, string_to_square("c3"))
-    );
+    println!("Move : {} / {}", m, string_to_square("c3"));
   }
   assert_eq!(16, moves.len());
 }
@@ -488,10 +479,7 @@ fn check_with_discovery_no_en_passant() {
   let moves = board.get_moves();
   for m in &moves {
     println!("Move : {}", m);
-    assert_ne!(
-      *m,
-      en_passant_mv!(string_to_square("c5"), string_to_square("d6"))
-    );
+    assert_ne!(*m, en_passant_mv!(string_to_square("c5"), string_to_square("d6")));
   }
-  //assert_eq!(13, moves.len());
+  // assert_eq!(13, moves.len());
 }

@@ -18,8 +18,7 @@ struct MoveListCacheEntry {
 /// Default values for EvaluationCacheEntry
 impl Default for MoveListCacheEntry {
   fn default() -> Self {
-    MoveListCacheEntry { hash:      0,
-                         move_list: None, }
+    MoveListCacheEntry { hash: 0, move_list: None }
   }
 }
 
@@ -40,8 +39,7 @@ impl MoveListCacheTable {
   /// An Evaluation Cache table
   #[inline]
   pub fn new(capacity_mb: usize) -> MoveListCacheTable {
-    debug!("Creating new MoveList cache table with capacity {} MB",
-           capacity_mb);
+    debug!("Creating new MoveList cache table with capacity {} MB", capacity_mb);
     let entry_size = mem::size_of::<MoveListCacheEntry>();
     let number_of_entries = capacity_mb * 1024 * 1024 / entry_size;
 
@@ -97,8 +95,7 @@ impl MoveListCacheTable {
   /// * `Capacity`: New size for the table, in MB.
   #[inline]
   pub fn resize(&mut self, capacity_mb: usize) {
-    debug!("Resizing MoveListCacheTable with capacity {} MB",
-           capacity_mb);
+    debug!("Resizing MoveListCacheTable with capacity {} MB", capacity_mb);
     let new_table = MoveListCacheTable::new(capacity_mb);
     *self = new_table;
   }

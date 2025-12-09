@@ -3,8 +3,8 @@ use chess::engine::config::play_style::*;
 use chess::engine::*;
 use chess::model::game_state::START_POSITION_FEN;
 use regex::Regex;
-use std::io::prelude::*;
 use std::io::BufReader;
+use std::io::prelude::*;
 use std::process::ExitCode;
 
 // -----------------------------------------------------------------------------
@@ -18,8 +18,6 @@ const SET_OPTION_NAME_VALUE_REGEX: &str =
 /// This module prodives a UCI interface to the engine
 ///
 /// Refer to the specifications here: https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
-///
-///
 
 const HELP_MESSAGE: &str = "
 DESCRIPTION
@@ -233,7 +231,6 @@ fn main() -> ExitCode {
 
 /// Synchronously request the engine to stop searching and blocks while the
 /// engine is active, returns as soon as the engine has stopped.
-///
 pub fn stop_engine_blocking(engine: &Engine) {
   while engine.is_active() {
     engine.stop();

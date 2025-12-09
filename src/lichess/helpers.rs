@@ -10,7 +10,6 @@ use serde_json::Value as JsonValue;
 /// ### Returns
 ///
 /// A vector of serde_json::Value. Can be empty.
-///
 pub fn parse_string_to_nd_json(string_value: &str) -> Vec<JsonValue> {
   let mut result: Vec<JsonValue> = Vec::new();
 

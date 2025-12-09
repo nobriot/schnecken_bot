@@ -1,7 +1,6 @@
 // Type definitions
 
 /// Trying to mess around with other bots in the chat
-///
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
 pub enum BotKnownCommands {
   /// This represents !help
@@ -12,7 +11,6 @@ pub enum BotKnownCommands {
 }
 
 /// Trying to mess around with other bots in the chat
-///
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
 pub enum BotControlState {
   /// The bot has not told us anything yet.

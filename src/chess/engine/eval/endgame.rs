@@ -8,8 +8,8 @@ use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
 
-//const PIECE_MOBILITY_FACTOR: f32 = 0.01;
-//const KING_DANGER_FACTOR: f32 = 2.0;
+// const PIECE_MOBILITY_FACTOR: f32 = 0.01;
+// const KING_DANGER_FACTOR: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.03;
 const PASSED_PAWN_FACTOR: f32 = 0.02;
 
@@ -26,7 +26,6 @@ const PASSED_PAWN_FACTOR: f32 = 0.02;
 /// ### Return value
 ///
 /// f32 score that can be applied to the evaluation
-///
 pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
   let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
@@ -56,8 +55,10 @@ pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine if development is completed.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine if development is
+///   completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   if just_the_opponent_king_left(game_state) {
     return get_king_vs_queen_or_rook_score(game_state);
@@ -117,13 +118,14 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine if development is completed.
-///
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine if development is
+///   completed.
 #[inline]
 fn just_the_opponent_king_left(game_state: &GameState) -> bool {
   (game_state.board.pieces.black.all() == game_state.board.pieces.black.king)
-    | (game_state.board.pieces.white.all() == game_state.board.pieces.white.king)
+  | (game_state.board.pieces.white.all() == game_state.board.pieces.white.king)
 }
 
 /// Checks if a color just has one minor piece left
@@ -136,32 +138,33 @@ fn just_the_opponent_king_left(game_state: &GameState) -> bool {
 /// ### Return value
 ///
 /// True if we have the king and one minor, false otherwhise.
-///
 #[inline]
 pub fn one_minor_left(game_state: &GameState, color: Color) -> bool {
   match color {
     Color::White => {
       (game_state.board.pieces.white.pawn | game_state.board.pieces.white.majors()) == 0
-        && game_state.board.pieces.white.minors().count_few_ones() == 1
+      && game_state.board.pieces.white.minors().count_few_ones() == 1
     },
     Color::Black => {
       (game_state.board.pieces.black.pawn | game_state.board.pieces.black.majors()) == 0
-        && game_state.board.pieces.black.minors().count_few_ones() == 1
+      && game_state.board.pieces.black.minors().count_few_ones() == 1
     },
   }
 }
 
-/// Gives a score based on the endgame consisting of a King-Queen or Rook vs King
+/// Gives a score based on the endgame consisting of a King-Queen or Rook vs
+/// King
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play, etc.
-/// * `color` -      The color for which we want to determine if development is completed.
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color for which we want to determine if development is
+///   completed.
 ///
 /// ### Return value
 ///
 /// f32 evaluation score for the position
-///
 pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   // Try to assign a better score as we are getting closer to corner the king
 
@@ -172,7 +175,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     Color::Black
   };
 
-  // Assign extra weight to the fact that just the opponent king left is very good.
+  // Assign extra weight to the fact that just the opponent king left is very
+  // good.
   let mut score = get_material_score(game_state, attacking_side) + 30.0;
 
   let king_position = match attacking_side {
@@ -185,17 +189,14 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
   }
 
   // BoardMask bitmap of where the king can go. We want as few squares as possible
-  score += game_state
-    .board
-    .get_attacked_squares(KING_MOVES[king_position], attacking_side)
-    .count_ones() as f32;
+  score += game_state.board
+                     .get_attacked_squares(KING_MOVES[king_position], attacking_side)
+                     .count_ones() as f32;
 
   // Now check how many square are available for each king
   score += 7.0
-    - get_king_distance(
-      game_state.board.get_white_king_square(),
-      game_state.board.get_black_king_square(),
-    ) as f32;
+           - get_king_distance(game_state.board.get_white_king_square(),
+                               game_state.board.get_black_king_square()) as f32;
 
   if attacking_side == Color::Black {
     score = -score;
@@ -213,10 +214,11 @@ mod tests {
 
   #[test]
   fn test_get_king_vs_queen_or_rook_score() {
-    // Simple position, the king is boxed with 12 squares and the kings are 4 steps apart.
+    // Simple position, the king is boxed with 12 squares and the kings are 4 steps
+    // apart.
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    //println!("{}", game_state.board);
+    // println!("{}", game_state.board);
     let expected_score = -(QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 4.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
@@ -257,8 +259,8 @@ mod tests {
     let better_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 5.0;
     assert_eq!(better_score, get_endgame_position_evaluation(&game_state));
 
-    //FIXME: Blunder scores higher for now.
-    //assert!(blunder_score < expected_score);
+    // FIXME: Blunder scores higher for now.
+    // assert!(blunder_score < expected_score);
     assert!(expected_score < better_score);
   }
 

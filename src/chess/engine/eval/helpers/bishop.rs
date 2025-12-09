@@ -14,24 +14,19 @@ use crate::model::tables::bishop_destinations::*;
 /// ### Return value
 ///
 /// Number of majors/kings attacked by bishops.
-///
 #[inline]
 pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
   let mut victims: u32 = 0;
   // Look for bishops attacking major pieces, either forking or skewering
   let (mut bishops, op) = match color {
-    Color::White => (
-      game_state.board.pieces.white.bishop,
-      (game_state.board.pieces.black.all()
-        & !game_state.board.pieces.black.majors()
-        & !game_state.board.pieces.black.king),
-    ),
-    Color::Black => (
-      game_state.board.pieces.black.bishop,
-      (game_state.board.pieces.white.all()
-        & !game_state.board.pieces.white.majors()
-        & !game_state.board.pieces.white.king),
-    ),
+    Color::White => (game_state.board.pieces.white.bishop,
+                     (game_state.board.pieces.black.all()
+                      & !game_state.board.pieces.black.majors()
+                      & !game_state.board.pieces.black.king)),
+    Color::Black => (game_state.board.pieces.black.bishop,
+                     (game_state.board.pieces.white.all()
+                      & !game_state.board.pieces.white.majors()
+                      & !game_state.board.pieces.white.king)),
   };
 
   while bishops != 0 {
@@ -39,7 +34,8 @@ pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
     let defenders = game_state.board.get_attackers(bishop, color);
     let attackers = game_state.board.get_attackers(bishop, Color::opposite(color));
 
-    // Check that the pawn cannot be taken out too easily before assigning a bonus for the bishop attack.
+    // Check that the pawn cannot be taken out too easily before assigning a bonus
+    // for the bishop attack.
     if attackers.count_ones() <= defenders.count_ones() {
       let attacked_pieces = match color {
         Color::White => {

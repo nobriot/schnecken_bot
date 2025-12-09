@@ -1,11 +1,10 @@
+use super::*;
+use crate::model::board::Board;
+use crate::model::moves::Move;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::vec::Vec;
-
-use super::*;
-use crate::model::board::Board;
-use crate::model::moves::Move;
 
 lazy_static! {
   static ref CHESS_BOOK: ChessBook = Mutex::new(HashMap::new());

@@ -131,8 +131,7 @@ impl IntoIterator for MoveList {
   type Item = Move;
 
   fn into_iter(self) -> Self::IntoIter {
-    MoveListIterator { move_list: self,
-                       index:     0, }
+    MoveListIterator { move_list: self, index: 0 }
   }
 }
 

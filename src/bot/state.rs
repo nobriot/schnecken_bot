@@ -136,7 +136,7 @@ impl BotState {
         // if so, restart the incoming event stream
         warn!("Bot seems offline, restarting event stream");
         handle.abort(); // This will trigger the is_finished() to be to true at
-                        // the next iteration.
+        // the next iteration.
       }
     }
   }
@@ -207,8 +207,7 @@ impl BotState {
     debug!("Incoming challenge : {:?}", challenge);
     info!("{} would like to play with us! Challenge {}",
           challenge.challenger.name, challenge.id);
-    info!("{} is rated {} ",
-          challenge.challenger.name, challenge.challenger.rating);
+    info!("{} is rated {} ", challenge.challenger.name, challenge.challenger.rating);
 
     // Just print our crosstable
     let crosstable =

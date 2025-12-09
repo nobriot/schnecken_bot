@@ -1,10 +1,9 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::types::Clock;
-
 // External crates
 use log::*;
-//use serde_json::Value as JsonValue;
+// use serde_json::Value as JsonValue;
 use urlencoding::encode;
 
 impl LichessApi {
@@ -17,7 +16,6 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result
-  ///
   pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), ()> {
     info!("Accepting challenge ID {challenge_id}");
     let api_endpoint: String = format!("challenge/{}/accept", challenge_id);
@@ -39,7 +37,6 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result
-  ///
   pub async fn decline_challenge(&self, challenge_id: &str, reason: &str) -> Result<(), ()> {
     info!("Declining challenge ID {challenge_id}");
     let api_endpoint: String = format!("challenge/{}/decline", challenge_id);
@@ -57,18 +54,16 @@ impl LichessApi {
   /// ### Parameters
   ///
   /// * `player`: Username of the player to challenge
-  /// * `clock`:  Clock settings (set clock.initial for time, and clock.increment for the increment)
+  /// * `clock`:  Clock settings (set clock.initial for time, and
+  ///   clock.increment for the increment)
   ///
   /// ### Returns
   ///
   /// Result
-  ///
   pub async fn send_challenge(&self, player: &str, clock: &Clock) -> Result<(), ()> {
     let api_endpoint: String = format!("challenge/{}", player);
-    let body_parameters = format!(
-      "rated=true&clock.limit={}&clock.increment={}&color=random&variant=standard",
-      clock.initial, clock.increment
-    );
+    let body_parameters = format!("rated=true&clock.limit={}&clock.increment={}&color=random&variant=standard",
+                                  clock.initial, clock.increment);
     if self.lichess_post(&api_endpoint, body_parameters.as_str()).await.is_ok() {
       Ok(())
     } else {

@@ -44,15 +44,15 @@ pub(crate) use fr_bounds_or_return;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Board {
-  pub pieces: PieceSet,
-  pub side_to_play: Color,
+  pub pieces:            PieceSet,
+  pub side_to_play:      Color,
   pub en_passant_square: u8,
-  pub castling_rights: CastlingRights,
+  pub castling_rights:   CastlingRights,
   /// Boardmask of pieces delivering check to the side to play.
-  pub checkers: BoardMask,
+  pub checkers:          BoardMask,
   /// Boardmask of pieces that are pinned
-  pub pins: BoardMask,
-  pub hash: BoardHash,
+  pub pins:              BoardMask,
+  pub hash:              BoardHash,
 }
 
 // -----------------------------------------------------------------------------
@@ -61,15 +61,13 @@ pub struct Board {
 impl Board {
   /// Initialize a board with no piece, all zeroes
   fn new() -> Self {
-    Board {
-      pieces: PieceSet::new(),
-      side_to_play: Color::White,
-      castling_rights: CastlingRights::default(),
-      en_passant_square: INVALID_SQUARE,
-      checkers: 0,
-      pins: 0,
-      hash: 0,
-    }
+    Board { pieces:            PieceSet::new(),
+            side_to_play:      Color::White,
+            castling_rights:   CastlingRights::default(),
+            en_passant_square: INVALID_SQUARE,
+            checkers:          0,
+            pins:              0,
+            hash:              0, }
   }
 
   /// Initialize a board with a random arrangement of pieces.
@@ -119,8 +117,8 @@ impl Board {
       set_square_in_mask!(square, board.pieces.white.pawn);
       board.update_checkers();
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.white.pawn);
         continue;
@@ -134,8 +132,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.black.pawn);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.black.pawn);
         continue;
@@ -156,8 +154,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.white.knight);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.white.knight);
         continue;
@@ -171,8 +169,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.black.knight);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.black.knight);
         continue;
@@ -187,8 +185,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.white.bishop);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.white.bishop);
         continue;
@@ -202,8 +200,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.black.bishop);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.black.bishop);
         continue;
@@ -218,8 +216,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.white.rook);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.white.rook);
         continue;
@@ -233,8 +231,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.black.rook);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.black.rook);
         continue;
@@ -249,8 +247,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.white.queen);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.white.queen);
         continue;
@@ -264,8 +262,8 @@ impl Board {
 
       set_square_in_mask!(square, board.pieces.black.queen);
       if board.get_attackers(board.get_king(Color::White), Color::Black)
-        | board.get_attackers(board.get_king(Color::Black), Color::White)
-        != 0
+         | board.get_attackers(board.get_king(Color::Black), Color::White)
+         != 0
       {
         unset_square_in_mask!(square, board.pieces.black.queen);
         continue;
@@ -399,7 +397,7 @@ impl Board {
 
       let ray = RAYS[king_position][pinning_piece]; // King is excluded from the ray
       if (ray & (self.pieces.all())).count_ones() == 2
-        && (ray & (enemy_pieces.all())).count_ones() == 1
+         && (ray & (enemy_pieces.all())).count_ones() == 1
       {
         // TBD: This will count enemy pieces as pinnned. See the unit test.
         // I don't think it is a problem as these pins restrict how our pieces move, not
@@ -425,12 +423,10 @@ impl Board {
   ///
   /// A bitmask indicating squares of the pieces attacking the square
   pub fn get_attackers(&self, target_square: u8, color: Color) -> BoardMask {
-    debug_assert!(
-      target_square < 64,
-      "get_attackers for square {} - board: {}",
-      target_square,
-      self.to_fen()
-    );
+    debug_assert!(target_square < 64,
+                  "get_attackers for square {} - board: {}",
+                  target_square,
+                  self.to_fen());
 
     let (attacking_pieces, king_mask) = match color {
       Color::White => (self.pieces.white, self.pieces.black.king),
@@ -451,9 +447,9 @@ impl Board {
     attackers |= KNIGHT_MOVES[target_square as usize] & attacking_pieces.knight;
 
     attackers |= get_rook_moves(0, self.pieces.all() & (!king_mask), target_square as usize)
-      & attacking_pieces.majors();
+                 & attacking_pieces.majors();
     attackers |= get_bishop_moves(0, self.pieces.all() & (!king_mask), target_square as usize)
-      & (attacking_pieces.bishop | attacking_pieces.queen);
+                 & (attacking_pieces.bishop | attacking_pieces.queen);
 
     attackers
   }
@@ -512,24 +508,21 @@ impl Board {
   ///
   /// A bitmask indicating possible destinations for the piece present on the
   /// square.
-  pub fn get_piece_destinations(
-    &self,
-    source_square: usize,
-    op: BoardMask,
-    ssp: BoardMask,
-  ) -> (BoardMask, bool) {
+  pub fn get_piece_destinations(&self,
+                                source_square: usize,
+                                op: BoardMask,
+                                ssp: BoardMask)
+                                -> (BoardMask, bool) {
     let mut promotion: bool = false;
     let destinations = match self.pieces.get_usize(source_square) {
-      WHITE_KING => get_king_moves(
-        ssp,
-        self.get_attacked_squares(KING_MOVES[source_square], Color::Black),
-        source_square,
-      ),
-      BLACK_KING => get_king_moves(
-        ssp,
-        self.get_attacked_squares(KING_MOVES[source_square], Color::White),
-        source_square,
-      ),
+      WHITE_KING => get_king_moves(ssp,
+                                   self.get_attacked_squares(KING_MOVES[source_square],
+                                                             Color::Black),
+                                   source_square),
+      BLACK_KING => get_king_moves(ssp,
+                                   self.get_attacked_squares(KING_MOVES[source_square],
+                                                             Color::White),
+                                   source_square),
       WHITE_QUEEN | BLACK_QUEEN => get_queen_moves(ssp, op, source_square),
       WHITE_ROOK | BLACK_ROOK => get_rook_moves(ssp, op, source_square),
       WHITE_BISHOP | BLACK_BISHOP => get_bishop_moves(ssp, op, source_square),
@@ -580,36 +573,24 @@ impl Board {
   pub fn get_piece_control_mask(&self, source_square: u8) -> BoardMask {
     match self.pieces.get(source_square) {
       WHITE_KING | BLACK_KING => KING_MOVES[source_square as usize],
-      WHITE_QUEEN => get_queen_moves(
-        0,
-        self.pieces.all() & (!self.pieces.black.king),
-        source_square as usize,
-      ),
-      BLACK_QUEEN => get_queen_moves(
-        0,
-        self.pieces.all() & (!self.pieces.white.king),
-        source_square as usize,
-      ),
-      WHITE_ROOK => get_rook_moves(
-        0,
-        self.pieces.all() & (!self.pieces.black.king),
-        source_square as usize,
-      ),
-      BLACK_ROOK => get_rook_moves(
-        0,
-        self.pieces.all() & (!self.pieces.white.king),
-        source_square as usize,
-      ),
-      WHITE_BISHOP => get_bishop_moves(
-        0,
-        self.pieces.all() & (!self.pieces.black.king),
-        source_square as usize,
-      ),
-      BLACK_BISHOP => get_bishop_moves(
-        0,
-        self.pieces.all() & (!self.pieces.white.king),
-        source_square as usize,
-      ),
+      WHITE_QUEEN => {
+        get_queen_moves(0, self.pieces.all() & (!self.pieces.black.king), source_square as usize)
+      },
+      BLACK_QUEEN => {
+        get_queen_moves(0, self.pieces.all() & (!self.pieces.white.king), source_square as usize)
+      },
+      WHITE_ROOK => {
+        get_rook_moves(0, self.pieces.all() & (!self.pieces.black.king), source_square as usize)
+      },
+      BLACK_ROOK => {
+        get_rook_moves(0, self.pieces.all() & (!self.pieces.white.king), source_square as usize)
+      },
+      WHITE_BISHOP => {
+        get_bishop_moves(0, self.pieces.all() & (!self.pieces.black.king), source_square as usize)
+      },
+      BLACK_BISHOP => {
+        get_bishop_moves(0, self.pieces.all() & (!self.pieces.white.king), source_square as usize)
+      },
       WHITE_KNIGHT | BLACK_KNIGHT => KNIGHT_MOVES[source_square as usize],
       WHITE_PAWN => get_white_pawn_captures(source_square as usize),
       BLACK_PAWN => get_black_pawn_captures(source_square as usize),
@@ -639,7 +620,6 @@ impl Board {
   /// the values passed are not valid.
   ///
   /// * `index`: [0..=63]
-  ///
   #[inline]
   pub fn index_to_fr(index: u8) -> (u8, u8) {
     debug_assert!(index < 64);
@@ -693,16 +673,16 @@ impl Board {
     // Try castling first. This will have an influence on the engine if
     // interesting moves are placed first.
     if self.castling_rights.K()
-      && self.checks() == 0
-      && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
-      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black) == 0
+       && self.checks() == 0
+       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_KINGSIDE) == 0
+       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_KINGSIDE, Color::Black) == 0
     {
       other_moves.push(castle_mv!(4, 6));
     }
     if self.castling_rights.Q()
-      && self.checks() == 0
-      && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
-      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black) == 0
+       && self.checks() == 0
+       && (self.pieces.all() & FREE_SQUARE_MASK_WHITE_QUEENSIDE) == 0
+       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_WHITE_QUEENSIDE, Color::Black) == 0
     {
       other_moves.push(castle_mv!(4, 2));
     }
@@ -715,7 +695,7 @@ impl Board {
       1 => {
         checking_ray = unsafe {
           RAYS.get_unchecked(king_position).get_unchecked(self.checkers.trailing_zeros() as usize)
-            | self.checkers
+          | self.checkers
         }
       },
       _ => ssp = self.pieces.white.king,
@@ -724,11 +704,8 @@ impl Board {
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
-      let (mut destinations, promotion) = self.get_piece_destinations(
-        source_square as usize,
-        op,
-        self.get_color_mask(Color::White),
-      );
+      let (mut destinations, promotion) =
+        self.get_piece_destinations(source_square as usize, op, self.get_color_mask(Color::White));
 
       // Restrict destinations not to move out of pins.
       // if there is a check, you can only move into checking rays with other pieces
@@ -747,9 +724,9 @@ impl Board {
       // If a pawn double jumps but no pawn is delivering check, it's a discovered
       // check.
       if square_in_mask!(source_square, self.pieces.white.pawn)
-        && self.en_passant_square != INVALID_SQUARE
-        && self.checkers.count_few_ones() == 1
-        && (self.checkers & self.pieces.black.pawn) != 0
+         && self.en_passant_square != INVALID_SQUARE
+         && self.checkers.count_few_ones() == 1
+         && (self.checkers & self.pieces.black.pawn) != 0
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position as u8 {
@@ -762,50 +739,20 @@ impl Board {
         // Determine if this is a capture or en-passant
         let capture = PieceType::from_u8(self.pieces.get(destination_square));
         let en_passant = square_in_mask!(source_square, self.pieces.white.pawn)
-          && destination_square == self.en_passant_square;
+                         && destination_square == self.en_passant_square;
 
         if en_passant {
           all_moves.push(en_passant_mv!(source_square, destination_square));
         } else if promotion {
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteQueen,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteRook,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteKnight,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::WhiteBishop,
-            capture
-          ));
+          all_moves.push(mv!(source_square, destination_square, Promotion::WhiteQueen, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::WhiteRook, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::WhiteKnight, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::WhiteBishop, capture));
         } else if capture != PieceType::King {
           // King means no capture.. not pretty I know.
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::NoPromotion,
-            capture
-          ));
+          all_moves.push(mv!(source_square, destination_square, Promotion::NoPromotion, capture));
         } else {
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::NoPromotion,
-            capture
-          ));
+          other_moves.push(mv!(source_square, destination_square, Promotion::NoPromotion, capture));
         }
 
         // Remove the last bit set to 1:
@@ -832,16 +779,16 @@ impl Board {
 
     // Now check castling.
     if self.castling_rights.k()
-      && self.checks() == 0
-      && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
-      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White) == 0
+       && self.checks() == 0
+       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_KINGSIDE) == 0
+       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_KINGSIDE, Color::White) == 0
     {
       other_moves.push(castle_mv!(60, 62));
     }
     if self.castling_rights.q()
-      && self.checks() == 0
-      && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
-      && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White) == 0
+       && self.checks() == 0
+       && (self.pieces.all() & FREE_SQUARE_MASK_BLACK_QUEENSIDE) == 0
+       && self.get_attacked_squares(UNATTACKED_SQUARE_MASK_BLACK_QUEENSIDE, Color::White) == 0
     {
       other_moves.push(castle_mv!(60, 58));
     }
@@ -854,7 +801,7 @@ impl Board {
       1 => {
         checking_ray = unsafe {
           RAYS.get_unchecked(king_position).get_unchecked(self.checkers.trailing_zeros() as usize)
-            | self.checkers
+          | self.checkers
         }
       },
       _ => ssp = self.pieces.black.king,
@@ -863,11 +810,8 @@ impl Board {
     // Only generate moves if we have a piece on the square
     while ssp != 0 {
       let source_square = ssp.trailing_zeros() as u8;
-      let (mut destinations, promotion) = self.get_piece_destinations(
-        source_square as usize,
-        op,
-        self.get_color_mask(Color::Black),
-      );
+      let (mut destinations, promotion) =
+        self.get_piece_destinations(source_square as usize, op, self.get_color_mask(Color::Black));
 
       // Restrict destinations not to move out of pins.
       // if there is a check, you can only move into checking rays with other pieces
@@ -886,9 +830,9 @@ impl Board {
       // If a pawn double jumps but no pawn is delivering check, it's a discovered
       // check.
       if square_in_mask!(source_square, self.pieces.black.pawn)
-        && self.en_passant_square != INVALID_SQUARE
-        && self.checkers.count_few_ones() == 1
-        && (self.checkers & self.pieces.white.pawn) != 0
+         && self.en_passant_square != INVALID_SQUARE
+         && self.checkers.count_few_ones() == 1
+         && (self.checkers & self.pieces.white.pawn) != 0
       {
         destinations &= checking_ray | (1 << self.en_passant_square);
       } else if source_square != king_position as u8 {
@@ -901,50 +845,20 @@ impl Board {
         // Determine if this is a capture or en-passant
         let capture = PieceType::from_u8(self.pieces.get(destination_square));
         let en_passant = square_in_mask!(source_square, self.pieces.black.pawn)
-          && destination_square == self.en_passant_square;
+                         && destination_square == self.en_passant_square;
 
         if en_passant {
           all_moves.push(en_passant_mv!(source_square, destination_square));
         } else if promotion {
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackQueen,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackRook,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackKnight,
-            capture
-          ));
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::BlackBishop,
-            capture
-          ));
+          all_moves.push(mv!(source_square, destination_square, Promotion::BlackQueen, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::BlackRook, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::BlackKnight, capture));
+          other_moves.push(mv!(source_square, destination_square, Promotion::BlackBishop, capture));
         } else if capture != PieceType::King {
           // King means no capture.. not pretty I know.
-          all_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::NoPromotion,
-            capture
-          ));
+          all_moves.push(mv!(source_square, destination_square, Promotion::NoPromotion, capture));
         } else {
-          other_moves.push(mv!(
-            source_square,
-            destination_square,
-            Promotion::NoPromotion,
-            capture
-          ));
+          other_moves.push(mv!(source_square, destination_square, Promotion::NoPromotion, capture));
         }
 
         // Remove the last bit set to 1:
@@ -1025,7 +939,7 @@ impl Board {
     // Check if we have a new en-passant location:
     self.en_passant_square = INVALID_SQUARE;
     if (square_in_mask!(source, self.pieces.white.pawn | self.pieces.black.pawn))
-      && (chess_move.dest() as isize - chess_move.src() as isize).abs() == 16
+       && (chess_move.dest() as isize - chess_move.src() as isize).abs() == 16
     {
       let op_pawn = match self.pieces.get(source as u8) {
         WHITE_PAWN => BLACK_PAWN,
@@ -1037,7 +951,7 @@ impl Board {
       if file > 1 {
         let s = Board::fr_to_index(file - 1, rank);
         if self.pieces.get(s) == op_pawn
-          && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
+           && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
         {
           self.en_passant_square = en_passant_target;
         }
@@ -1047,7 +961,7 @@ impl Board {
       if file < 8 {
         let s = Board::fr_to_index(file + 1, rank);
         if self.pieces.get(s) == op_pawn
-          && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
+           && (square_in_mask!(en_passant_target, pins) || !square_in_mask!(s, pins))
         {
           self.en_passant_square = en_passant_target;
         }
@@ -1063,7 +977,7 @@ impl Board {
     // destination square is empty: En passant needs to remove the captured
     // pawn.
     if square_in_mask!(chess_move.src(), self.pieces.pawns())
-      && !square_in_mask!(chess_move.dest(), self.pieces.all())
+       && !square_in_mask!(chess_move.dest(), self.pieces.all())
     {
       let target_capture = match chess_move.dest() as isize - chess_move.src() as isize {
         7 => chess_move.u8_src() - 1,
@@ -1088,10 +1002,7 @@ impl Board {
     }
 
     if chess_move.promotion() != Promotion::NoPromotion {
-      self.pieces.update(
-        chess_move.promotion().to_piece_const(),
-        chess_move.u8_dest(),
-      );
+      self.pieces.update(chess_move.promotion().to_piece_const(), chess_move.u8_dest());
     } else {
       self.pieces.update(self.pieces.get(chess_move.u8_src()), chess_move.u8_dest());
     }
@@ -1129,7 +1040,6 @@ impl Board {
   /// ### Return Value
   ///
   /// Some(Move) if the move was found, None if not
-  /// 
   pub fn find_move_from_pgn_notation(&mut self, move_notation: &str) -> Option<Move> {
     let mut notation = String::from(move_notation);
     let candidate_moves = self.get_moves();
@@ -1169,11 +1079,7 @@ impl Board {
         (Some('N') | Some('n'), Color::White) => promoted_piece = Promotion::WhiteKnight,
         (Some('N') | Some('n'), Color::Black) => promoted_piece = Promotion::BlackKnight,
         _ => {
-          println!(
-            "Could not identify Promotion: {} for board {}",
-            move_notation,
-            self.to_fen()
-          );
+          println!("Could not identify Promotion: {} for board {}", move_notation, self.to_fen());
           return None;
         },
       }
@@ -1194,9 +1100,9 @@ impl Board {
       let destination_square = string_to_square(notation.as_str());
       for m in candidate_moves {
         if m.dest() == destination_square as move_t
-          && square_in_mask!(m.src(), self.pieces.pawns())
-          && m.promotion() == promoted_piece
-          && m.is_capture() == capture
+           && square_in_mask!(m.src(), self.pieces.pawns())
+           && m.promotion() == promoted_piece
+           && m.is_capture() == capture
         {
           mv = m;
           break;
@@ -1230,10 +1136,10 @@ impl Board {
       let mut source_mask = u64::MAX;
 
       if !notation.starts_with('K')
-        && !notation.starts_with('Q')
-        && !notation.starts_with('R')
-        && !notation.starts_with('B')
-        && !notation.starts_with('N')
+         && !notation.starts_with('Q')
+         && !notation.starts_with('R')
+         && !notation.starts_with('B')
+         && !notation.starts_with('N')
       {
         source_mask &= self.pieces.pawns();
       }
@@ -1262,11 +1168,9 @@ impl Board {
           Some('B') => self.pieces.bishops(),
           Some('N') => self.pieces.knights(),
           _ => {
-            println!(
-              "Could not identify source file/rank move: {} for board {}",
-              move_notation,
-              self.to_fen()
-            );
+            println!("Could not identify source file/rank move: {} for board {}",
+                     move_notation,
+                     self.to_fen());
             return None;
           },
         }
@@ -1274,9 +1178,9 @@ impl Board {
 
       for m in candidate_moves {
         if m.dest() == destination_square as move_t
-          && m.is_capture() == capture
-          && m.promotion() == promoted_piece
-          && square_in_mask!(m.src(), source_mask)
+           && m.is_capture() == capture
+           && m.promotion() == promoted_piece
+           && square_in_mask!(m.src(), source_mask)
         {
           mv = m;
           break;
@@ -1286,12 +1190,10 @@ impl Board {
 
     // Did we find the move?
     if mv == Move::default() {
-      println!(
-        "Could not identify matching move: {} for board {} - side to play {:#?}",
-        move_notation,
-        self.to_fen(),
-        self.side_to_play
-      );
+      println!("Could not identify matching move: {} for board {} - side to play {:#?}",
+               move_notation,
+               self.to_fen(),
+               self.side_to_play);
       for m in self.get_moves() {
         println!("Candidate: {}", m);
       }
@@ -1438,15 +1340,15 @@ impl Board {
     match color {
       Color::White => {
         self.pieces.white.king
-          | self.pieces.white.bishop
-          | self.pieces.white.knight
-          | self.pieces.white.pawn
+        | self.pieces.white.bishop
+        | self.pieces.white.knight
+        | self.pieces.white.pawn
       },
       Color::Black => {
         self.pieces.black.king
-          | self.pieces.black.bishop
-          | self.pieces.black.knight
-          | self.pieces.black.pawn
+        | self.pieces.black.bishop
+        | self.pieces.black.knight
+        | self.pieces.black.pawn
       },
     }
   }
@@ -1543,22 +1445,22 @@ impl Board {
   /// false otherwise
   pub fn is_game_over_by_insufficient_material(&self) -> bool {
     if (self.pieces.white.pawn
-      | self.pieces.black.pawn
-      | self.pieces.white.queen
-      | self.pieces.black.queen
-      | self.pieces.white.rook
-      | self.pieces.black.rook)
-      != 0
+        | self.pieces.black.pawn
+        | self.pieces.white.queen
+        | self.pieces.black.queen
+        | self.pieces.white.rook
+        | self.pieces.black.rook)
+       != 0
     {
       return false;
     }
 
     if (self.pieces.white.bishop
-      | self.pieces.black.bishop
-      | self.pieces.white.knight
-      | self.pieces.black.knight)
-      .count_ones()
-      > 1
+        | self.pieces.black.bishop
+        | self.pieces.white.knight
+        | self.pieces.black.knight)
+                                   .count_ones()
+       > 1
     {
       return false;
     }

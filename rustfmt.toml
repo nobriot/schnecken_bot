@@ -1,4 +1,6 @@
-style_edition = 2024
+# rustup toolchain add nightly && rustup component add rustfmt --toolchain nightly
+# cargo +nightly fmt --check
+style_edition = "2024"
 
 indent_style = "Visual"
 struct_lit_single_line = true

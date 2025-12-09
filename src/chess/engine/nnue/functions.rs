@@ -36,11 +36,7 @@ pub fn relu(x: f32) -> f32 {
 /// Derivative value of the ReLU function
 #[inline]
 pub fn relu_backwards(x: f32) -> f32 {
-  if x > 0.0 {
-    1.0
-  } else {
-    0.0
-  }
+  if x > 0.0 { 1.0 } else { 0.0 }
 }
 
 /// Sigmoid activation function
@@ -126,11 +122,7 @@ pub fn clipped_relu(x: f32) -> f32 {
 /// Derivative of the clippped ReLU function.
 #[inline]
 pub fn clipped_relu_backwards(x: f32) -> f32 {
-  if (0.0..=1.0).contains(&x) {
-    0.0
-  } else {
-    1.0
-  }
+  if (0.0..=1.0).contains(&x) { 0.0 } else { 1.0 }
 }
 
 /// Extended Clipped ReLU activation function
@@ -168,11 +160,7 @@ pub fn extended_clipped_relu(x: f32, threshold: f32) -> f32 {
 /// Derivative of the extended clipped ReLU
 #[inline]
 pub fn extended_clipped_relu_backwards(x: f32, t: f32) -> f32 {
-  if x > t || x < -t {
-    0.0
-  } else {
-    1.0
-  }
+  if x > t || x < -t { 0.0 } else { 1.0 }
 }
 
 //------------------------------------------------------------------------------
@@ -288,11 +276,7 @@ pub fn cost_derivative_vector(a: &[f32], y: &[f32]) -> Array2<f32> {
 ///
 /// Cumumated cost value
 pub fn total_cost(a: &[f32], y: &[f32]) -> f32 {
-  assert_eq!(a.len(),
-             y.len(),
-             "Vectors sizes are different: {} vs {}",
-             a.len(),
-             y.len());
+  assert_eq!(a.len(), y.len(), "Vectors sizes are different: {} vs {}", a.len(), y.len());
 
   let mut total_cost = 0.0;
 

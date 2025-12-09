@@ -6,13 +6,13 @@ use crate::model::piece_moves::*;
 /// Computes the number of major / king pieces that a knight attacks.
 ///
 /// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play, etc.
+/// * `game_state`: A GameState object representing a position, side to play,
+///   etc.
 /// * `i`         : Index of the square on the board
 ///
 /// ### Returns
 ///
 /// Number of majors/king pieces attacked by a knight.
-///
 #[inline]
 pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
   let mut victims: u32 = 0;
@@ -30,11 +30,13 @@ pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
     if attackers.count_ones() <= defenders.count_ones() {
       let attacked_pieces = match color {
         Color::White => (KNIGHT_MOVES[knight as usize]
-          & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
-          .count_few_ones(),
+                         & (game_state.board.pieces.black.majors()
+                            | game_state.board.pieces.black.king))
+                                                                  .count_few_ones(),
         Color::Black => (KNIGHT_MOVES[knight as usize]
-          & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
-          .count_few_ones(),
+                         & (game_state.board.pieces.white.majors()
+                            | game_state.board.pieces.white.king))
+                                                                  .count_few_ones(),
       };
 
       victims += attacked_pieces;

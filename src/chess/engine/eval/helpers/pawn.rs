@@ -542,10 +542,8 @@ mod tests {
     assert_eq!(1, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(0, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(0,
-               get_number_of_protected_passers(&game_state, Color::Black));
-    assert_eq!(0,
-               get_number_of_protected_passers(&game_state, Color::White));
+    assert_eq!(0, get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(0, get_number_of_protected_passers(&game_state, Color::White));
   }
 
   #[test]
@@ -559,14 +557,10 @@ mod tests {
     assert_eq!(1, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(0, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(0,
-               get_number_of_protected_passers(&game_state, Color::Black));
-    assert_eq!(0,
-               get_number_of_protected_passers(&game_state, Color::White));
-    assert_eq!(6,
-               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
-    assert_eq!(1,
-               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
+    assert_eq!(0, get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(0, get_number_of_protected_passers(&game_state, Color::White));
+    assert_eq!(6, get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
+    assert_eq!(1, get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
   }
 
   #[test]
@@ -580,14 +574,10 @@ mod tests {
     assert_eq!(3, get_number_of_passers(&game_state, Color::Black));
     assert_eq!(1, get_number_of_passers(&game_state, Color::White));
 
-    assert_eq!(2,
-               get_number_of_protected_passers(&game_state, Color::Black));
-    assert_eq!(1,
-               get_number_of_protected_passers(&game_state, Color::White));
-    assert_eq!(2,
-               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
-    assert_eq!(4,
-               get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
+    assert_eq!(2, get_number_of_protected_passers(&game_state, Color::Black));
+    assert_eq!(1, get_number_of_protected_passers(&game_state, Color::White));
+    assert_eq!(2, get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::White));
+    assert_eq!(4, get_distance_left_for_closest_pawn_to_promotion(&game_state, Color::Black));
   }
 
   #[test]

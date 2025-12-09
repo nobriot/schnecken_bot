@@ -1,3 +1,4 @@
+#![allow(clippy::disallowed_types)]
 pub mod book;
 pub mod provocative_book;
 
@@ -7,6 +8,7 @@ use crate::model::game_state::GameState;
 use crate::model::moves::Move;
 use regex::Regex;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::sync::Mutex;
 
 // -----------------------------------------------------------------------------
@@ -57,11 +59,12 @@ pub fn add_line_to_book(chess_book: &ChessBook, line: &str) {
   let mut book = chess_book.lock().unwrap();
 
   for chess_move in moves {
-    if !book.contains_key(&game_state.board) {
-      let _ = book.insert(game_state.board, Vec::new());
-    }
+    let move_list = if let Entry::Vacant(e) = book.entry(game_state.board) {
+      e.insert(Vec::new())
+    } else {
+      book.get_mut(&game_state.board).unwrap()
+    };
 
-    let move_list = book.get_mut(&game_state.board).unwrap();
     let m = Move::from_string(chess_move);
     if !move_list.contains(&m) {
       move_list.push(m);
@@ -86,7 +89,7 @@ pub fn add_pgn_to_book(chess_book: &ChessBook, pgn: &str) {
   let pgn_re = Regex::new(PGN_REGEX).unwrap();
 
   // Use regex to extract move notations
-  let captures = pgn_re.captures_iter(&pgn);
+  let captures = pgn_re.captures_iter(pgn);
   for value in captures {
     // Find the mv (e.g. 'Kf7') and the annotation (e.g. '{ [%eval 0.36] [%clk
     // 0:10:00] }')
@@ -104,11 +107,13 @@ pub fn add_pgn_to_book(chess_book: &ChessBook, pgn: &str) {
     }
     let m = m_result.unwrap();
 
-    if !book.contains_key(&game_state.board) {
-      let _ = book.insert(game_state.board, Vec::new());
-    }
+    let move_list = if let Entry::Vacant(e) = book.entry(game_state.board) {
+      e.insert(Vec::new())
+    } else {
+      book.get_mut(&game_state.board).unwrap()
+    };
 
-    let move_list = book.get_mut(&game_state.board).unwrap();
+    // let move_list = book.get_mut(&game_state.board).unwrap();
     if !move_list.contains(&m) {
       move_list.push(m);
     }
@@ -149,11 +154,12 @@ pub fn add_pgn_from_position(chess_book: &ChessBook, fen: &str, pgn: &str) {
     }
     let m = m_result.unwrap();
 
-    if !book.contains_key(&game_state.board) {
-      let _ = book.insert(game_state.board, Vec::new());
-    }
+    let move_list = if let Entry::Vacant(e) = book.entry(game_state.board) {
+      e.insert(Vec::new())
+    } else {
+      book.get_mut(&game_state.board).unwrap()
+    };
 
-    let move_list = book.get_mut(&game_state.board).unwrap();
     if !move_list.contains(&m) {
       move_list.push(m);
     }
@@ -173,11 +179,12 @@ pub fn add_single_move_to_book(chess_book: &ChessBook, fen: &str, mv: &str) {
   let mut book = chess_book.lock().unwrap();
   let m = Move::from_string(mv);
 
-  if !book.contains_key(&game_state.board) {
-    let _ = book.insert(game_state.board, Vec::new());
-  }
+  let move_list = if let Entry::Vacant(e) = book.entry(game_state.board) {
+    e.insert(Vec::new())
+  } else {
+    book.get_mut(&game_state.board).unwrap()
+  };
 
-  let move_list = book.get_mut(&game_state.board).unwrap();
   if !move_list.contains(&m) {
     move_list.push(m);
   }

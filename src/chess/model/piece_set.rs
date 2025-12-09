@@ -118,11 +118,7 @@ impl PieceMasks {
   /// * `None`          No king is present on the board.
   #[inline]
   pub fn get_king(&self) -> Option<u8> {
-    if self.king == 0 {
-      None
-    } else {
-      Some(self.king.trailing_zeros() as u8)
-    }
+    if self.king == 0 { None } else { Some(self.king.trailing_zeros() as u8) }
   }
 
   /// Returns a boardmask of all minor pieces.

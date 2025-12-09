@@ -78,9 +78,7 @@ impl Display for GameHistory {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     for entry in &self.entries {
       if entry.last_move.is_null() {
-        writeln!(f,
-                 "{:6} - start position / {} - [{}]",
-                 entry.eval, entry.position, entry.pv)?;
+        writeln!(f, "{:6} - start position / {} - [{}]", entry.eval, entry.position, entry.pv)?;
       } else {
         writeln!(f,
                  "{:6} - {:14} / {} - [{}]",
@@ -129,19 +127,13 @@ mod tests {
 
     let mv = "f2f3";
     game_state.apply_move_from_notation(mv);
-    history.add(game_state.to_fen(),
-                Move::from_string(mv),
-                30,
-                Variation::new());
+    history.add(game_state.to_fen(), Move::from_string(mv), 30, Variation::new());
 
     assert_eq!(history.len(), 2);
 
     let mv = "e7e5";
     game_state.apply_move_from_notation(mv);
-    history.add(game_state.to_fen(),
-                Move::from_string(mv),
-                -50,
-                Variation::new());
+    history.add(game_state.to_fen(), Move::from_string(mv), -50, Variation::new());
 
     assert_eq!(history.len(), 3);
 

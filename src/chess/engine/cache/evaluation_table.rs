@@ -55,8 +55,7 @@ impl EvaluationCacheTable {
   /// An Evaluation Cache table
   #[inline]
   pub fn new(capacity_mb: usize) -> EvaluationCacheTable {
-    debug!("Creating new EvaluationCacheTable with capacity {} MB",
-           capacity_mb);
+    debug!("Creating new EvaluationCacheTable with capacity {} MB", capacity_mb);
     let entry_size = mem::size_of::<EvaluationCacheEntry>();
     let number_of_entries = capacity_mb * 1024 * 1024 / entry_size;
 
@@ -67,8 +66,7 @@ impl EvaluationCacheTable {
     }
     let size = 2_usize.pow(size as u32);
 
-    debug!("EvaluationCacheTable will be able to store {} entries",
-           size);
+    debug!("EvaluationCacheTable will be able to store {} entries", size);
 
     // Create a vector with default entries
     let entries = vec![EvaluationCacheEntry::default(); size];
@@ -97,8 +95,7 @@ impl EvaluationCacheTable {
   /// * `Capacity`: New size for the table, in MB.
   #[inline]
   pub fn resize(&mut self, capacity_mb: usize) {
-    debug!("Resizing EvaluationCacheTable with capacity {} MB",
-           capacity_mb);
+    debug!("Resizing EvaluationCacheTable with capacity {} MB", capacity_mb);
     let new_table = EvaluationCacheTable::new(capacity_mb);
     *self = new_table;
   }

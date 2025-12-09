@@ -1,14 +1,12 @@
-use rand::Rng;
-use std::fs::File;
-use std::io::Write;
-
 use chess::model::board::INVALID_SQUARE;
 use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
 use chess::model::piece_moves::*;
-
 // This is where our definitions are exported at the end
 use chess::model::tables::bishop_destinations::*;
+use rand::Rng;
+use std::fs::File;
+use std::io::Write;
 
 fn main() {
   let filename = "bishop_table.rs";
@@ -24,19 +22,16 @@ fn main() {
     bishop_span_without_edges[i] = BOARD_WITHOUT_EDGES & bishop_span[i];
   }
 
-  let _ = write!(
-    output_file,
-    "/// Array of BoardMasks indicating where the bishop can reach\n/// if there were no other pieces on the board\n///\npub const BISHOP_SPAN:[u64; 64] = {:#018X?};\n\n",
-    bishop_span
-  );
-  let _ = write!(
-    output_file,
-    "/// Array of BoardMasks indicating where the bishop can reach\n/// if there were no other pieces on the board, removing the edges\n///\npub const BISHOP_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};\n\n",
-    bishop_span_without_edges
-  );
+  let _ = write!(output_file,
+                 "/// Array of BoardMasks indicating where the bishop can reach\n/// if there were no other pieces on the board\n///\npub const BISHOP_SPAN:[u64; 64] = {:#018X?};\n\n",
+                 bishop_span);
+  let _ = write!(output_file,
+                 "/// Array of BoardMasks indicating where the bishop can reach\n/// if there were no other pieces on the board, removing the edges\n///\npub const BISHOP_SPAN_WITHOUT_EDGES:[u64; 64] = {:#018X?};\n\n",
+                 bishop_span_without_edges);
 
-  // Then we calculate indices of relevant bits went usingl as bishop spans without edges.
-  // Then the indices of the bits on the bishop span without those edges
+  // Then we calculate indices of relevant bits went usingl as bishop spans
+  // without edges. Then the indices of the bits on the bishop span without
+  // those edges
   let mut bishop_span_indexes: [[usize; 9]; 64] = [[INVALID_SQUARE.into(); 9]; 64];
   // How many bits are describing relevant blockers based on the position
   let mut bishop_blocker_numbers: [u8; 64] = [64; 64];
@@ -53,20 +48,16 @@ fn main() {
     bishop_blocker_numbers[i] = index as u8;
   }
 
-  let _ = write!(
-    output_file,"/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the BISHOP_SPAN.\n///\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const BISHOP_SPAN_INDEXES: [[usize; 9]; 64] = {:#?};\n\n",
-    bishop_span_indexes
-  );
-  let _ = write!(
-      output_file,"/// For a given position, this table indicate the Number of relevant blockers bits for a bishop\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const BISHOP_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
-    bishop_blocker_numbers
-  );
+  let _ = write!(output_file,
+                 "/// For a given position, this table indicate the BoardMasks indices of\n/// possible blockers for the BISHOP_SPAN.\n///\n///\n");
+  let _ = write!(output_file,
+                 "pub const BISHOP_SPAN_INDEXES: [[usize; 9]; 64] = {:#?};\n\n",
+                 bishop_span_indexes);
+  let _ = write!(output_file,
+                 "/// For a given position, this table indicate the Number of relevant blockers bits for a bishop\n///\n");
+  let _ = write!(output_file,
+                 "pub const BISHOP_BLOCKER_NUMBERS: [u8; 64] = {:#?};\n\n",
+                 bishop_blocker_numbers);
 
   // Now we want to find these bishop magic constants
   let mut bishop_magic: [u64; 64] = [0; 64];
@@ -77,11 +68,7 @@ fn main() {
   }
 
   let _ = write!(output_file, "/// Bishop Magic Numbers\n///\n");
-  let _ = write!(
-    output_file,
-    "pub const BISHOP_MAGIC:[u64; 64] = {:#018X?};\n\n",
-    bishop_magic
-  );
+  let _ = write!(output_file, "pub const BISHOP_MAGIC:[u64; 64] = {:#018X?};\n\n", bishop_magic);
 
   // Now we pre-compute the list of destinations for all blocker masks
   let mut bishop_destination_table: [[u64; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS]; 64] =
@@ -112,28 +99,18 @@ fn main() {
         bishop_destination_table[i][j] =
           get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i);
       } else if bishop_destination_table[i][j]
-        != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i)
+                != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i)
       {
         println!("Oh oh... square: {i} blocker {b}, derived index is {j} for blocker mask:");
         print_board_mask(blockers[b]);
         println!("Look up table says:");
         print_board_mask(bishop_destination_table[i][j]);
         println!("while manual calculation says:");
-        print_board_mask(get_moves_from_offsets(
-          &BISHOP_MOVE_OFFSETS,
-          true,
-          0,
-          blockers[b],
-          i,
-        ));
-        println!(
-          "Wrapping mul (shift is {}):",
-          (64 - bishop_blocker_numbers[i])
-        );
+        print_board_mask(get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i));
+        println!("Wrapping mul (shift is {}):", (64 - bishop_blocker_numbers[i]));
         print_board_mask(blockers[b].wrapping_mul(bishop_magic[i]));
-        print_board_mask(
-          (blockers[b].wrapping_mul(bishop_magic[i])) >> (64 - bishop_blocker_numbers[i]),
-        );
+        print_board_mask((blockers[b].wrapping_mul(bishop_magic[i]))
+                         >> (64 - bishop_blocker_numbers[i]));
         panic!("Do not use this result!");
       }
     }
@@ -147,9 +124,9 @@ fn main() {
 
     let manual_calculation =
       get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers, square);
-    let index: usize = ((blockers & bishop_span_without_edges[square])
-      .wrapping_mul(bishop_magic[square])
-      >> (64 - bishop_blocker_numbers[square])) as usize;
+    let index: usize = ((blockers & bishop_span_without_edges[square]).wrapping_mul(bishop_magic
+                                                                                      [square])
+                        >> (64 - bishop_blocker_numbers[square])) as usize;
     let look_up_table = bishop_destination_table[square][index];
 
     println!("Result for blockers from square {square} - looked up index {index}:");
@@ -159,8 +136,7 @@ fn main() {
     assert_eq!(manual_calculation, look_up_table);
   }
 
-  /*
-   */
+  //
   println!("");
   println!("Done! 🙂");
 }

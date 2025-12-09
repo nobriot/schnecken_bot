@@ -27,8 +27,7 @@ fn print_help() {
   println!("Welcome ! You can use the following commands:\n\n");
   println!("{} or {} - Attempts to play with one of our favorite players",
            PLAY_COMMAND, P_COMMAND);
-  println!("{} - Exits the program - keep ongoing games alive",
-           EXIT_COMMAND);
+  println!("{} - Exits the program - keep ongoing games alive", EXIT_COMMAND);
   println!("{} or {} - Exits the program - Aborts/resigns ongoing games",
            QUIT_COMMAND, Q_COMMAND);
   println!("{} - Displays the help", HELP_COMMAND);

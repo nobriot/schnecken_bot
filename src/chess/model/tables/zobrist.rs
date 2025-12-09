@@ -20,23 +20,20 @@ pub const ZOBRIST_BLACK_QUEEN_CASTLE: BoardHash = 0x845FF9C4F0A9381B;
 pub const ZOBRIST_WHITE_TO_MOVE: BoardHash = 0x9F138E68A0F86C1A;
 
 /// Zobrist value for the en-passant square
-pub const ZOBRIST_EN_PASSANT: [BoardHash; NUMBER_OF_FILES] = [
-  0xEAE3ED9F7852290D,
-  0xEEBC4A04F4164C20,
-  0x37CEF8ADE46BE5C1,
-  0x9072CD3299A790D,
-  0xF5C801DBAD2D339E,
-  0x80FC0A62D6F08827,
-  0xAB77B76B022EB515,
-  0xD4BBDD6EE9283A7E,
-];
+pub const ZOBRIST_EN_PASSANT: [BoardHash; NUMBER_OF_FILES] = [0xEAE3ED9F7852290D,
+                                                              0xEEBC4A04F4164C20,
+                                                              0x37CEF8ADE46BE5C1,
+                                                              0x9072CD3299A790D,
+                                                              0xF5C801DBAD2D339E,
+                                                              0x80FC0A62D6F08827,
+                                                              0xAB77B76B022EB515,
+                                                              0xD4BBDD6EE9283A7E];
 
 /// Zobrist Piece/Square table.
 /// use like this:
 /// ZOBRIST_TABLE[piece][square]
-pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
-  [
-    0x8755602580A0BB4D,
+pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] =
+  [[0x8755602580A0BB4D,
     0x39AC19B590DAD462,
     0x701397F3AEB15EA4,
     0x580346948E725D8D,
@@ -99,10 +96,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x62D3078CA684C685,
     0x6530296F9B63602B,
     0x2D0B16C507DA4D87,
-    0x9FC1DBA8179BDACA,
-  ],
-  [
-    0x88EB2E1CA983FC75,
+    0x9FC1DBA8179BDACA],
+   [0x88EB2E1CA983FC75,
     0xA50B2398B1E48DC1,
     0x9D3637AED37E57AD,
     0x2351F4492A9AB7A6,
@@ -165,10 +160,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x19EBA873A1194B3,
     0x34644A4889F14860,
     0x11E7E9CB36B0E080,
-    0xDC93C4315C71B610,
-  ],
-  [
-    0x1EC7104D6CACA170,
+    0xDC93C4315C71B610],
+   [0x1EC7104D6CACA170,
     0xD05F76F5365D2E4,
     0xBD18C9D291FBF6A6,
     0x2AD53F042A420DC4,
@@ -231,10 +224,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x59B1F2FDDA2C81BF,
     0x65A74FF9F3896089,
     0x6E407433ECA6397,
-    0x5C84437123FA9B39,
-  ],
-  [
-    0xF4C75E20830D7400,
+    0x5C84437123FA9B39],
+   [0xF4C75E20830D7400,
     0x59EC076AB9BB5B09,
     0x4ACEA439D785A262,
     0x236ADF2CB6664DAF,
@@ -297,10 +288,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0xEB81FDAF8E3A2FA2,
     0x9C94A05E318289AD,
     0x290256A804C01D78,
-    0x4F651B1641B5F23A,
-  ],
-  [
-    0x57FA1263CB658107,
+    0x4F651B1641B5F23A],
+   [0x57FA1263CB658107,
     0x7DE9402108EAF3A2,
     0x4FB27CA231CA516B,
     0x8972BCCE1C1E863E,
@@ -363,10 +352,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x99B9D80E280628CC,
     0x12651AB327F7E04,
     0x5B8B882CB14D65D0,
-    0xB0F0A3025A71482D,
-  ],
-  [
-    0x4E2867127D85A71,
+    0xB0F0A3025A71482D],
+   [0x4E2867127D85A71,
     0xB18BFBE34DE1AA5B,
     0xBC04209C7E46C919,
     0x92BF77A565A1C418,
@@ -429,10 +416,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x9B8D7BCAA39FED63,
     0x784F4DDFCF115D1,
     0x346966D0C5C252F0,
-    0x4F64C624B9335438,
-  ],
-  [
-    0x2E4B5A884C597F7D,
+    0x4F64C624B9335438],
+   [0x2E4B5A884C597F7D,
     0x7BDB7EE30A31B190,
     0x3AFDE0C3B1635BAC,
     0x7204BEA5950CA650,
@@ -495,10 +480,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0xE720B030392A234,
     0x57497B535810E8C5,
     0xDB304696C3E3B0A0,
-    0xB5DF86C7E5910385,
-  ],
-  [
-    0xDB65361974676F74,
+    0xB5DF86C7E5910385],
+   [0xDB65361974676F74,
     0x69A0D136D0E65937,
     0x2B78CC4B466BBBAA,
     0x3832617D5410C0E3,
@@ -561,10 +544,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x66CFFD961695A87A,
     0x38154E4C5452DE14,
     0x930D11FA891A7592,
-    0x8CACB89CA2CE0A8B,
-  ],
-  [
-    0x5566589D8881AAD9,
+    0x8CACB89CA2CE0A8B],
+   [0x5566589D8881AAD9,
     0xD3DE0A61C5D0A5BC,
     0x4652DB2262DC9958,
     0xC96783E8B9EDB17A,
@@ -627,10 +608,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0xBD3CA3508699AB2E,
     0x7F3832406221E4B2,
     0xB0DD7F99B11A2FCE,
-    0xE1E4F11430790A79,
-  ],
-  [
-    0xEAE5E4FE8B72D10D,
+    0xE1E4F11430790A79],
+   [0xEAE5E4FE8B72D10D,
     0xB3540505A02B39C2,
     0x8C2A0C7B30AA9607,
     0xE018705333616EDB,
@@ -693,10 +672,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x1696979318ECED63,
     0xD03612582D3BE1D5,
     0x523D7F3D7FD0F5D9,
-    0x4CFF4B54C73A57F7,
-  ],
-  [
-    0xAD72CE859B5F7DAD,
+    0x4CFF4B54C73A57F7],
+   [0xAD72CE859B5F7DAD,
     0x3F417FFD4B3CA72C,
     0xDE9987D609BBFE33,
     0x7513F538BC14BA9B,
@@ -759,10 +736,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0x4C00E8CB987BD6CE,
     0x70D17C7CC01FE98A,
     0x1835CF8A8E656F8F,
-    0x44AD87ED58897434,
-  ],
-  [
-    0x81B7AFE9BA87A33C,
+    0x44AD87ED58897434],
+   [0x81B7AFE9BA87A33C,
     0x4D1FBBBCB9046BF2,
     0x8CD641D0494ECF42,
     0x5C79039E0BABE492,
@@ -825,9 +800,7 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] = [
     0xC2BA8C74FE0F980,
     0x6CDC8A15261504,
     0xAB0C5A441D21A0BF,
-    0xA00376DA957DFD4B,
-  ],
-];
+    0xA00376DA957DFD4B]];
 
 // -----------------------------------------------------------------------------
 //  Tests
@@ -852,10 +825,8 @@ mod tests {
       }
     }
 
-    println!(
-      "pub const ZOBRIST_TABLE:[[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES]  = {:#X?};",
-      zobrist
-    );
+    println!("pub const ZOBRIST_TABLE:[[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES]  = {:#X?};",
+             zobrist);
   }
 
   /// Generates the Zobrist castling rights, with a list of random numbers
@@ -864,22 +835,14 @@ mod tests {
   fn generate_zobrist_castling_rights() {
     let mut rng = rand::thread_rng();
 
-    println!(
-      "pub const ZOBRIST_WHITE_KING_CASTLE:BoardHash = {:#X?};",
-      rng.gen_range(0..=BoardHash::MAX)
-    );
-    println!(
-      "pub const ZOBRIST_WHITE_QUEEN_CASTLE:BoardHash = {:#X?};",
-      rng.gen_range(0..=BoardHash::MAX)
-    );
-    println!(
-      "pub const ZOBRIST_BLACK_KING_CASTLE:BoardHash = {:#X?};",
-      rng.gen_range(0..=BoardHash::MAX)
-    );
-    println!(
-      "pub const ZOBRIST_BLACK_QUEEN_CASTLE:BoardHash = {:#X?};",
-      rng.gen_range(0..=BoardHash::MAX)
-    );
+    println!("pub const ZOBRIST_WHITE_KING_CASTLE:BoardHash = {:#X?};",
+             rng.gen_range(0..=BoardHash::MAX));
+    println!("pub const ZOBRIST_WHITE_QUEEN_CASTLE:BoardHash = {:#X?};",
+             rng.gen_range(0..=BoardHash::MAX));
+    println!("pub const ZOBRIST_BLACK_KING_CASTLE:BoardHash = {:#X?};",
+             rng.gen_range(0..=BoardHash::MAX));
+    println!("pub const ZOBRIST_BLACK_QUEEN_CASTLE:BoardHash = {:#X?};",
+             rng.gen_range(0..=BoardHash::MAX));
   }
 
   /// Generates the Zobrist color to move
@@ -888,10 +851,8 @@ mod tests {
   fn generate_zobrist_color_to_move() {
     let mut rng = rand::thread_rng();
 
-    println!(
-      "pub const ZOBRIST_WHITE_TO_MOVE:BoardHash = {:#X?};",
-      rng.gen_range(0..=BoardHash::MAX)
-    );
+    println!("pub const ZOBRIST_WHITE_TO_MOVE:BoardHash = {:#X?};",
+             rng.gen_range(0..=BoardHash::MAX));
   }
 
   /// Generates the Zobrist color to move
@@ -905,9 +866,6 @@ mod tests {
       *hash = rng.gen_range(0..=BoardHash::MAX);
     }
 
-    println!(
-      "pub const ZOBRIST_EN_PASSANT:[[BoardHash; NUMBER_OF_FILES];= {:#X?};",
-      zobrist
-    );
+    println!("pub const ZOBRIST_EN_PASSANT:[[BoardHash; NUMBER_OF_FILES];= {:#X?};", zobrist);
   }
 }

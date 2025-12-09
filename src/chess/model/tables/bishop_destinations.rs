@@ -1,5 +1,5 @@
 use crate::model::board_mask::BoardMask;
-use crate::model::piece_moves::{get_moves_from_offsets, BISHOP_MOVE_OFFSETS};
+use crate::model::piece_moves::{BISHOP_MOVE_OFFSETS, get_moves_from_offsets};
 
 static mut BISHOP_TABLE_INITIALIZED: bool = false;
 static mut BISHOP_DESTINATION_TABLE: [[u64; MAX_BISHOP_BLOCKERS_MASK_COMBINATIONS]; 64] =

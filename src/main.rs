@@ -1,8 +1,8 @@
 // External crates
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::*;
 use std::io;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 // Local modules
 mod bot;

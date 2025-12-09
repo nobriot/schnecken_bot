@@ -1,10 +1,8 @@
+use crate::model::game_state::*;
 use regex::Regex;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
-use std::io::BufWriter;
-
-use crate::model::game_state::*;
+use std::io::{BufReader, BufWriter};
 
 /// Probably not fail-proof for PGN parsing, but it seems to work with our data.
 /// Won't match if we do not have anotated eval in the PGN.
@@ -22,12 +20,11 @@ const WARNING: &str = "\x1B[1m\x1B[93mWarning\x1B[0m";
 /// ### Arguments
 ///
 /// * `input_file`: &str indicating the path where we want to get the data from
-/// * `output_file`: &str indicating the path where we want to export the training set to.
-///
-pub fn create_training_data_from_pgn_file(
-  input_file: &str,
-  output_file: &str,
-) -> std::io::Result<()> {
+/// * `output_file`: &str indicating the path where we want to export the
+///   training set to.
+pub fn create_training_data_from_pgn_file(input_file: &str,
+                                          output_file: &str)
+                                          -> std::io::Result<()> {
   let file = File::open(input_file)?;
   let mut reader = BufReader::new(file);
   let mut line = String::new();
@@ -58,7 +55,8 @@ pub fn create_training_data_from_pgn_file(
     // Use regex to extract move notations
     let captures = pgn_re.captures_iter(&line);
     'move_loop: for value in captures {
-      // Find the mv (e.g. 'Kf7') and the annotation (e.g. '{ [%eval 0.36] [%clk 0:10:00] }')
+      // Find the mv (e.g. 'Kf7') and the annotation (e.g. '{ [%eval 0.36] [%clk
+      // 0:10:00] }')
       let mv = value.name("mv");
       let annotation = value.name("annotation");
       if mv.is_none() || annotation.is_none() {
@@ -66,8 +64,8 @@ pub fn create_training_data_from_pgn_file(
       }
       let mv = mv.unwrap().as_str();
       let annotation = annotation.unwrap().as_str();
-      //println!("Move : {:#?}", mv);
-      //println!("Annotation : {:#?}", annotation);
+      // println!("Move : {:#?}", mv);
+      // println!("Annotation : {:#?}", annotation);
 
       // Now find if we have an eval in the annotations
       let eval_capture = eval_re.captures(annotation);
@@ -102,7 +100,7 @@ pub fn create_training_data_from_pgn_file(
       }
 
       // Print the eval
-      //println!("Move : {:#?} - Eval : {:#?} ", mv, eval);
+      // println!("Move : {:#?} - Eval : {:#?} ", mv, eval);
       let move_result = game_state.apply_pgn_move(mv);
       if move_result.is_err() {
         println!("Error processing PGN: {}", line);
@@ -110,9 +108,9 @@ pub fn create_training_data_from_pgn_file(
       }
 
       // Save our data:
-      //cache.insert(board, eval);
+      // cache.insert(board, eval);
       writer.write_fmt(format_args!("{};{}\n", eval, game_state.to_fen()))?;
-      //println!("Board after move {} : {}", mv, board.to_fen());
+      // println!("Board after move {} : {}", mv, board.to_fen());
     } // 'move_loop
 
     i += 1;
@@ -129,8 +127,8 @@ pub fn create_training_data_from_pgn_file(
 ///
 /// ### Arguments
 ///
-/// * `input_file`: &str indicating the path where we have a CSV formatted training set
-///
+/// * `input_file`: &str indicating the path where we have a CSV formatted
+///   training set
 pub fn load_training_set_in_cache(input_file: &str) -> std::io::Result<Vec<(GameState, f32)>> {
   // Save the results in here:
   let mut cache: Vec<(GameState, f32)> = Vec::new();
@@ -150,24 +148,18 @@ pub fn load_training_set_in_cache(input_file: &str) -> std::io::Result<Vec<(Game
     let csv_elements: Vec<&str> = line.split(';').collect();
 
     if csv_elements.len() < 2 {
-      println!(
-        "{WARNING}: Could not read elemeents from CSV line: {}",
-        line
-      );
+      println!("{WARNING}: Could not read elemeents from CSV line: {}", line);
       continue;
     }
 
     let game_state = GameState::from_fen(csv_elements[1]);
     let eval = csv_elements[0].parse::<f32>().unwrap_or(f32::NAN);
     if eval.is_nan() {
-      println!(
-        "{WARNING}: Could not parse string into f32 value: {}",
-        csv_elements[0]
-      );
+      println!("{WARNING}: Could not parse string into f32 value: {}", csv_elements[0]);
       continue;
     }
 
-    //println!("inserting: {} / {}", game_state.to_fen(), eval);
+    // println!("inserting: {} / {}", game_state.to_fen(), eval);
     cache.push((game_state, eval));
   }
 
