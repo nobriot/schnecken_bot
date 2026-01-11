@@ -3,17 +3,16 @@ name = "lichess"
 version = "0.0.1"
 authors = ["Nicolas Woltmann"]
 description = "Lichess API wrapper"
-edition = "2024"
 license = "MIT"
 keywords = ["lichess", "lichess-api"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-reqwest = { version = "0.12.24", features = ["blocking", "stream"] }
+reqwest = { version = "0.12.28", features = ["blocking", "stream"] }
 serde = { version = "1.0.228", features = ["derive"] }
-log = { version = "0.4.28", features = ["std", "serde"] }
-tokio = "1.48.0"
-serde_json = "1.0.145"
+log = { version = "0.4.29", features = ["std", "serde"] }
+tokio = "1.49.0"
+serde_json = "1.0.149"
 urlencoding = "2"
 futures-util = "0.3.31"
 

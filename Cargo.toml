@@ -9,18 +9,19 @@ license = "MIT"
 keywords = ["bot", "chess", "lichess", "lichess-api", "lichess-bot"]
 default-run = "schnecken_bot"
 resolver = "2"
+rust-version = "1.92"
 
 [workspace]
 members = ["src/lichess", "src/chess"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
-reqwest = { version = "0.12.24", features = ["blocking", "stream"] }
+tokio = { version = "1.49.0", features = ["rt-multi-thread"] }
+reqwest = { version = "0.13.1", features = ["blocking", "stream"] }
 serde = { version = "1.0.228", features = ["derive"] }
-log = { version = "0.4.28", features = ["std", "serde"] }
+log = { version = "0.4.29", features = ["std", "serde"] }
 env_logger = "0.11.8"
-serde_json = "1.0.145"
+serde_json = "1.0.149"
 urlencoding = "2"
 rand = "0.8"
 futures-util = "0.3.31"
