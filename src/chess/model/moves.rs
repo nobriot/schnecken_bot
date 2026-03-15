@@ -154,7 +154,10 @@ macro_rules! capture_mv {
   };
 }
 
-pub use {capture_mv, castle_mv, en_passant_mv, mv};
+pub use capture_mv;
+pub use castle_mv;
+pub use en_passant_mv;
+pub use mv;
 
 /// List of possible promotions in a chess game
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]

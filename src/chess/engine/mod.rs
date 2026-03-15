@@ -234,7 +234,8 @@ pub struct Engine {
   history:      GameHistory,
 }
 
-// type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
+// type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send +
+// Sync>>;
 
 impl Engine {
   //----------------------------------------------------------------------------

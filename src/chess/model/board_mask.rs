@@ -88,7 +88,9 @@ macro_rules! unset_square_in_mask {
 }
 
 // Make the macros public
-pub use {set_square_in_mask, square_in_mask, unset_square_in_mask};
+pub use set_square_in_mask;
+pub use square_in_mask;
+pub use unset_square_in_mask;
 
 // -----------------------------------------------------------------------------
 //  Functions
