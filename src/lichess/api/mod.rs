@@ -33,7 +33,7 @@ impl LichessApi {
   /// Creates a new instance of a LichessApi, using the API token
   pub fn new(token: &str) -> Self {
     LichessApi { client: reqwest::Client::new(),
-                 token:  String::from(token), }
+                 token:  token.trim().to_string(), }
   }
 
   //----------------------------------------------------------------------------
