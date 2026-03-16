@@ -5,6 +5,7 @@ authors = ["Nicolas Woltmann"]
 description = "Lichess API wrapper"
 license = "MIT"
 keywords = ["lichess", "lichess-api"]
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
