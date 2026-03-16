@@ -1,6 +1,7 @@
 use lichess;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum GameMessage {
   /// Starts a game and allocates all the resources for playing a game on
   /// Lichess.

@@ -18,23 +18,25 @@ static BOT_NAME: &str = env!("CARGO_PKG_NAME");
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
   /// game
-  rx:        mpsc::Receiver<GameMessage>,
+  rx:         mpsc::Receiver<GameMessage>,
   /// Lichess API instance to interact with the server
-  api:       LichessApi,
+  api:        LichessApi,
   /// Start FEN
-  start_fen: String,
+  #[allow(dead_code)]
+  _start_fen: String,
   /// Short Lichess Game ID, used in URLs
-  id:        String,
+  id:         String,
   /// Color played by the bot in the ongoing game
-  color:     lichess::types::Color,
+  color:      lichess::types::Color,
   // Chess engine instance used to analyze the game
-  engine:    Engine,
+  engine:     Engine,
 }
 
 impl Game {
   /// Allocates all the resources for playing a game on Lichess.
   /// returns a thread handle and a channel transmitter to send messages to the
   /// game.
+  #[allow(clippy::new_ret_no_self)]
   pub fn new(game: lichess::types::GameStart, api: &LichessApi) -> GameHandle {
     println!("Game::new with game data: {:?}", game);
 
@@ -46,8 +48,8 @@ impl Game {
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),
-                                    start_fen: game.fen
-                                                   .unwrap_or(String::from(START_POSITION_FEN)),
+                                    _start_fen: game.fen
+                                                    .unwrap_or(String::from(START_POSITION_FEN)),
                                     id: game.game_id.clone(),
                                     color: game.color,
                                     engine };
@@ -110,8 +112,7 @@ impl Game {
           let _ = self.api.resign_game(&self.id).await;
         },
         Ok(GameMessage::OpponentGone(opt_t)) => {
-          if opt_t.is_some() {
-            let timeout = opt_t.unwrap();
+          if let Some(timeout) = opt_t {
             info!("Opponent gone. Claiming victory after timeout {}", timeout);
             self.api.claim_victory_after_timeout(timeout, &self.id).await;
           }
@@ -143,8 +144,8 @@ impl Game {
     // Update whether it is our turn
     let move_list = Move::string_to_vec(game.moves.as_str());
     let is_our_turn = match self.color {
-      Color::White => move_list.len() % 2 == 0,
-      Color::Black => move_list.len() % 2 == 1,
+      Color::White => move_list.len().is_multiple_of(2),
+      Color::Black => !move_list.len().is_multiple_of(2),
     };
 
     if !is_our_turn {

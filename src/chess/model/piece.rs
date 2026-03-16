@@ -198,7 +198,7 @@ impl Piece {
     }
   }
 
-  /// Converts a u8 into a piece, reverse of as_u8.
+  #[allow(clippy::result_unit_err)]
   pub fn from_u8(value: u8) -> Result<Self, ()> {
     let piece: Piece = match value {
       WHITE_KING => Piece { p_type: PieceType::King,
@@ -261,6 +261,7 @@ impl Piece {
     }
   }
 
+  #[allow(clippy::result_unit_err)]
   pub fn from_char(c: char) -> Result<Self, ()> {
     let piece: Piece = match c {
       'K' => Piece { p_type: PieceType::King,

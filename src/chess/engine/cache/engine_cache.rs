@@ -2,11 +2,7 @@ use super::evaluation_table::{EvaluationCache, EvaluationCacheTable};
 use super::move_list_cache_table::MoveListCacheTable;
 use crate::model::board::*;
 use crate::model::containers::move_list::MoveList;
-use crate::model::game_state::GameState;
 use crate::model::moves::*;
-use crate::model::piece::Color;
-use std::cmp::Ordering;
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -16,7 +12,7 @@ pub struct EngineCache {
   // Evaluation for a given board configuration (GameStatus, Eval and depth)
   evals:        Arc<Mutex<EvaluationCacheTable>>,
   // List of killer moves that we've met recently during the analysis
-  killer_moves: Arc<Mutex<HashSet<Move>>>,
+  killer_moves: Arc<Mutex<Vec<Move>>>,
 }
 
 impl EngineCache {
@@ -24,7 +20,7 @@ impl EngineCache {
   pub fn new() -> Self {
     EngineCache { move_lists:   Arc::new(Mutex::new(MoveListCacheTable::new(10))),
                   evals:        Arc::new(Mutex::new(EvaluationCacheTable::new(10))),
-                  killer_moves: Arc::new(Mutex::new(HashSet::new())), }
+                  killer_moves: Arc::new(Mutex::new(Vec::new())), }
   }
 
   // ---------------------------------------------------------------------------
@@ -178,7 +174,10 @@ impl EngineCache {
   /// * `self` :            EngineCache
   /// * `killer_move` :     Killer Move to add in the EngineCache
   pub fn add_killer_move(&self, killer_move: &Move) {
-    self.killer_moves.lock().unwrap().insert(*killer_move);
+    let mut moves = self.killer_moves.lock().unwrap();
+    if !moves.contains(killer_move) {
+      moves.push(*killer_move);
+    }
   }
 
   /// Removes all killer moves from the EngineCache
@@ -202,55 +201,6 @@ impl EngineCache {
   /// True if the `candidate_move` is present in the list of Killer moves
   pub fn is_killer_move(&self, candidate_move: &Move) -> bool {
     return self.killer_moves.lock().unwrap().contains(candidate_move);
-  }
-
-  /// Functions used to compare 2 moves by their resulting position evaluation
-  ///
-  /// ### Arguments
-  ///
-  /// * `cache`:     EngineCache to use to look-up assets like Killer Moves
-  /// * `game_state` Reference to a GameState in the cache for which to compare
-  ///   the moves
-  /// * `color`      Side to play. It will order ascending for black, descending
-  ///   for white
-  /// * `a`          Move A
-  /// * `b`          Move B
-  ///
-  /// ### Return value
-  ///
-  /// Ordering telling if B is Greater, Equal or Less than A
-  fn compare_moves_by_cache_eval(&self,
-                                 game_state: &GameState,
-                                 color: Color,
-                                 a: &Move,
-                                 b: &Move)
-                                 -> Ordering {
-    let mut game_state_a = game_state.clone();
-    game_state_a.apply_move(a);
-    let mut game_state_b = game_state.clone();
-    game_state_b.apply_move(b);
-
-    let board_a_eval = self.get_eval(&game_state_a.board).unwrap_or_default();
-    let board_b_eval = self.get_eval(&game_state_b.board).unwrap_or_default();
-
-    match (board_a_eval.eval.is_nan(), board_b_eval.eval.is_nan()) {
-      (true, true) => return Ordering::Equal,
-      (true, _) => return Ordering::Greater,
-      (_, true) => return Ordering::Less,
-      (_, _) => {},
-    }
-
-    let (greater, less) = match color {
-      Color::White => (Ordering::Less, Ordering::Greater),
-      Color::Black => (Ordering::Greater, Ordering::Less),
-    };
-
-    if board_a_eval.eval > board_b_eval.eval {
-      return greater;
-    } else if board_a_eval.eval < board_b_eval.eval {
-      return less;
-    }
-    Ordering::Equal
   }
 }
 

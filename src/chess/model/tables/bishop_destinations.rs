@@ -290,26 +290,30 @@ unsafe fn initialize_bishop_table() {
     let blocker_combinations = 1 << BISHOP_SPAN_WITHOUT_EDGES[i].count_ones();
 
     // Assemble the combinations of possible blockers for square `i`
-    for b in 0..blocker_combinations {
+    for (b, blocker) in blockers.iter_mut().enumerate().take(blocker_combinations) {
       let mut blocker_mask: BoardMask = 0;
-      for j in 0..BISHOP_SPAN_WITHOUT_EDGES[i].count_ones() as usize {
-        assert!(BISHOP_SPAN_INDEXES[i][j] != 255);
+      for (j, span_index) in
+        BISHOP_SPAN_INDEXES[i].iter()
+                              .enumerate()
+                              .take(BISHOP_SPAN_WITHOUT_EDGES[i].count_ones() as usize)
+      {
+        assert!(*span_index != 255);
         if b & (1 << j) != 0 {
-          blocker_mask |= 1 << BISHOP_SPAN_INDEXES[i][j];
+          blocker_mask |= 1 << span_index;
         }
       }
-      blockers[b] = blocker_mask;
+      *blocker = blocker_mask;
     }
 
-    for b in 0..blocker_combinations {
+    for blocker in blockers.iter().take(blocker_combinations) {
       let j: usize =
-        (blockers[b].wrapping_mul(BISHOP_MAGIC[i]) >> (64 - BISHOP_BLOCKER_NUMBERS[i])) as usize;
+        (blocker.wrapping_mul(BISHOP_MAGIC[i]) >> (64 - BISHOP_BLOCKER_NUMBERS[i])) as usize;
 
       if BISHOP_DESTINATION_TABLE[i][j] == 0 {
         BISHOP_DESTINATION_TABLE[i][j] =
-          get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i);
+          get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, *blocker, i);
       } else if BISHOP_DESTINATION_TABLE[i][j]
-                != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers[b], i)
+                != get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, *blocker, i)
       {
         panic!("Bishop table initialization went wrong! =(");
       }

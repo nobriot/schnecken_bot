@@ -56,7 +56,7 @@ impl GameState {
   ///
   /// GameState object with the board passed in argument
   pub fn from_board(board: &Board) -> Self {
-    GameState { board:          board.clone(),
+    GameState { board:          *board,
                 ply:            0,
                 move_count:     0,
                 last_positions: PositionList::new(), }
@@ -319,6 +319,7 @@ impl GameState {
   /// ### Return value
   ///
   /// Result, indicating if the move was identified and applied or not.
+  #[allow(clippy::result_unit_err)]
   pub fn apply_pgn_move(&mut self, move_notation: &str) -> Result<(), ()> {
     if let Some(mv) = self.board.find_move_from_pgn_notation(move_notation) {
       self.apply_move(&mv);

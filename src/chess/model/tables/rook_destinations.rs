@@ -296,15 +296,19 @@ unsafe fn initialize_rook_table() {
     let blocker_combinations = 1 << ROOK_SPAN_WITHOUT_EDGES[i].count_ones();
 
     // Assemble the combinations of possible blockers for square `i`
-    for b in 0..blocker_combinations {
+    for (b, blocker) in blockers.iter_mut().enumerate().take(blocker_combinations) {
       let mut blocker_mask: BoardMask = 0;
-      for j in 0..ROOK_SPAN_WITHOUT_EDGES[i].count_ones() as usize {
-        assert!(ROOK_SPAN_INDEXES[i][j] != 255);
+      for (j, span_index) in
+        ROOK_SPAN_INDEXES[i].iter()
+                            .enumerate()
+                            .take(ROOK_SPAN_WITHOUT_EDGES[i].count_ones() as usize)
+      {
+        assert!(*span_index != 255);
         if b & (1 << j) != 0 {
-          blocker_mask |= 1 << ROOK_SPAN_INDEXES[i][j];
+          blocker_mask |= 1 << span_index;
         }
       }
-      blockers[b] = blocker_mask;
+      *blocker = blocker_mask;
     }
 
     for blocker in blockers.iter().take(blocker_combinations) {

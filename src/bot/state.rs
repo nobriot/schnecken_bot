@@ -51,11 +51,10 @@ impl BotState {
     let mut username = String::from(DEFAULT_USERNAME);
 
     let account_info = api.get_profile().await;
-    if account_info.is_ok() {
-      let json = account_info.unwrap();
-      if json["id"].as_str().is_some() {
-        username = String::from(json["id"].as_str().unwrap());
-      }
+    if let Ok(json) = account_info
+       && let Some(id) = json["id"].as_str()
+    {
+      username = String::from(id);
     }
 
     let bot_state_ref: &'static _ =
@@ -307,11 +306,11 @@ impl BotState {
     if json_value["type"].as_str().is_none() {
       error!("No type for incoming stream event. JSON: {json_value}");
 
-      if let Some(error) = json_value["error"].as_str() {
-        if error.contains("token") {
-          error!("Token error. Exiting the bot.");
-          self.request_exit(true);
-        }
+      if let Some(error) = json_value["error"].as_str()
+         && error.contains("token")
+      {
+        error!("Token error. Exiting the bot.");
+        self.request_exit(true);
       }
       return;
     }

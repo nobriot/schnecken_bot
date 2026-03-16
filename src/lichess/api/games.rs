@@ -59,8 +59,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for Game State stream");
             }
-
-            ()
           })
           .await;
 
@@ -99,8 +97,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for Game State stream");
             }
-
-            ()
           })
           .await;
 

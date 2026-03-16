@@ -114,7 +114,7 @@ pub fn create_training_data_from_pgn_file(input_file: &str,
     } // 'move_loop
 
     i += 1;
-    if i % 100_000 == 0 {
+    if i.is_multiple_of(100_000) {
       println!("Game {} processed", i);
     }
   }

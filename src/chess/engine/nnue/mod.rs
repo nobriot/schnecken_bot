@@ -652,6 +652,7 @@ impl NNUE {
   }
 
   /// Converts any sized type to a slice of bytes.
+  #[allow(clippy::mut_from_ref)]
   unsafe fn as_mut_bytes<T: Sized>(p: &T) -> &mut [u8] {
     ::core::slice::from_raw_parts_mut((p as *const T) as *mut u8, ::core::mem::size_of::<T>())
   }

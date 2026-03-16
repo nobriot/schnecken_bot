@@ -112,7 +112,7 @@ impl LichessApi {
   /// ### Arguments
   ///
   /// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a
-  ///    Get to `https://lichess.org/api/account/playing`
+  ///   Get to `https://lichess.org/api/account/playing`
   /// * `body` for the POST message
   ///
   /// ### Returns
@@ -190,8 +190,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for event stream");
             }
-
-            ()
           })
           .await;
 
@@ -228,8 +226,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for event stream");
             }
-
-            ()
           })
           .await;
 
@@ -281,8 +277,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for Game State stream");
             }
-
-            ()
           })
           .await;
 
@@ -335,8 +329,6 @@ impl LichessApi {
             if chunk.len() == 1 {
               debug!("Received keep-alive message for Game State stream");
             }
-
-            ()
           })
           .await;
 

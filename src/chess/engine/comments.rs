@@ -2,6 +2,7 @@
 
 /// High level position evaluation
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
+#[allow(dead_code)]
 pub enum HighLevelEvaluation {
   WhiteIsMating,
   WhiteIsCrushing,
@@ -16,6 +17,7 @@ pub enum HighLevelEvaluation {
 /// Events/changes that can happen during a game
 /// that do deserve commenting on
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
+#[allow(dead_code)]
 pub enum GameEvents {
   /// The opponent delivered an epic mate
   /// Epic mates are :
@@ -62,6 +64,7 @@ impl std::fmt::Display for GameEvents {
 
 /// List of things we could tell to trash talk during a game.
 #[derive(Copy, Debug, Clone, Eq, PartialEq)]
+#[allow(dead_code)]
 pub enum TrashTalk {
   /// To another human that has a positive score against our
   /// developer(s) that we will be merciless.

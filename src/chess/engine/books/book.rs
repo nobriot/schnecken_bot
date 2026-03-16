@@ -13,7 +13,7 @@ lazy_static! {
 #[rustfmt::skip]
 pub fn initialize_chess_book() {
   // Do not do this several times.
-  if CHESS_BOOK.lock().unwrap().len() > 0 {
+  if !CHESS_BOOK.lock().unwrap().is_empty() {
     return ;
   }
 

@@ -138,8 +138,8 @@ impl LichessApi {
       retries += 1;
       let move_result = self.lichess_post(&api_endpoint, "").await;
 
-      if move_result.is_ok() {
-        json_response = move_result.unwrap();
+      if let Ok(result) = move_result {
+        json_response = result;
         break;
       }
 

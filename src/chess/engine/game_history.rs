@@ -58,6 +58,11 @@ impl GameHistory {
     self.entries.len()
   }
 
+  /// Checks if the game history is empty
+  pub fn is_empty(&self) -> bool {
+    self.entries.is_empty()
+  }
+
   /// Clears the game history. Can be used to start a new game
   pub fn clear(&mut self) {
     self.entries.clear()

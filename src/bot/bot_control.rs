@@ -2,6 +2,7 @@
 
 /// Trying to mess around with other bots in the chat
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
+#[allow(dead_code)]
 pub enum BotKnownCommands {
   /// This represents !help
   #[default]
@@ -12,6 +13,7 @@ pub enum BotKnownCommands {
 
 /// Trying to mess around with other bots in the chat
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Default)]
+#[allow(dead_code)]
 pub enum BotControlState {
   /// The bot has not told us anything yet.
   #[default]
@@ -22,6 +24,7 @@ pub enum BotControlState {
   SupportedCommands,
 }
 
+#[allow(dead_code)]
 impl BotControlState {
   /// Tries to control the bot again based on the last state.
   pub fn next_step(self) {}

@@ -15,6 +15,7 @@ pub struct GameHandle {
   pub id:     String,
 }
 
+#[allow(dead_code)]
 impl GameHandle {
   /// Resigns an ongoing game
   pub fn resign(&self) {
@@ -36,11 +37,11 @@ impl GameStreamHandler for GameHandle {
     if json_value["type"].as_str().is_none() {
       error!("No type for incoming stream event. JSON: {json_value}");
 
-      if let Some(error) = json_value["error"].as_str() {
-        if error.contains("token") {
-          error!("Token error. Exiting the thread.");
-          self.handle.abort();
-        }
+      if let Some(error) = json_value["error"].as_str()
+         && error.contains("token")
+      {
+        error!("Token error. Exiting the thread.");
+        self.handle.abort();
       }
       return;
     }

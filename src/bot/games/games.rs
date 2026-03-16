@@ -17,6 +17,7 @@ pub struct BotGames {
   api:   &'static LichessApi,
 }
 
+#[allow(dead_code)]
 impl BotGames {
   /// Creates a new `BotGames` instance with a predefined capacity
   /// for simultaneous games.
@@ -64,7 +65,7 @@ impl BotGames {
     // Start the game stream
     let api = self.api.clone();
     let handle = game_handle.clone();
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
       let _ =
         api.stream_game_state_with_callback(&handle.id, &handle, GameHandle::game_stream_handler)
            .await;

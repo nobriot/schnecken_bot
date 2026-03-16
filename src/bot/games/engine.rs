@@ -2,7 +2,7 @@ use chess::engine::Engine;
 use chess::engine::config::play_style::PlayStyle;
 use chess::model::game_state::START_POSITION_FEN;
 use lichess;
-use lichess::types::{GameStart, Title};
+use lichess::types::GameStart;
 use log::*;
 
 /// Looks at the game data (which kind of opponent, time control, start
@@ -17,7 +17,7 @@ pub fn configure_engine(game: &GameStart) -> Engine {
 
   // Configure the start position
   let start_fen = game.fen.as_deref().unwrap_or(START_POSITION_FEN);
-  engine.set_position(&start_fen);
+  engine.set_position(start_fen);
 
   // Adjust the level of difficulty based on the rating of the opponent, if they
   // are human
