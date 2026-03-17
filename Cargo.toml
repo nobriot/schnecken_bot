@@ -27,6 +27,10 @@ rand = "0.8"
 futures-util = "0.3.32"
 lazy_static = "1.5"
 anyhow = "1.0.102"
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+rpassword = "7"
+toml = "0.8"
 
 # Our own libraries
 lichess = { path = "src/lichess" }

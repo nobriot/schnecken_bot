@@ -1,36 +1,39 @@
 // External crates
-use anyhow::{Result, anyhow};
+use anyhow::Result;
+use clap::Parser;
 use log::*;
 use std::io;
 use tokio::time::{Duration, sleep};
 
 // Local modules
+mod args;
 mod bot;
-
-// Constants:
-const API_TOKEN: &str = include_str!("../assets/lichess_api_token.txt");
+mod config;
 
 // Main function
 fn main() {
   env_logger::builder().format_timestamp_millis().init();
+
+  let cli = args::Args::parse();
+  let api_token = match config::resolve_token(cli.api_token) {
+    Ok(token) => token,
+    Err(e) => {
+      error!("Failed to resolve API token: {e}");
+      std::process::exit(1);
+    },
+  };
+
   let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-  match rt.block_on(main_loop()) {
+  match rt.block_on(main_loop(&api_token)) {
     Ok(_) => info!("Exiting successfully."),
     Err(_) => error!("An error occurred"),
   };
 }
 
-async fn main_loop() -> Result<()> {
-  // Check that the Lichess Token is okay:
-  if API_TOKEN.is_empty() {
-    error!("Error reading the API token. Make sure that you have added a token file.");
-    return Err(anyhow!("Missing API Token"));
-  }
-  info!("Lichess API token loaded successfully");
-
+async fn main_loop(api_token: &str) -> Result<()> {
   // Starts the bot, it will stream incoming events
-  let schnecken_bot = bot::state::BotState::new(API_TOKEN).await;
+  let schnecken_bot = bot::state::BotState::new(api_token).await;
   schnecken_bot.start();
 
   loop {
