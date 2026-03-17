@@ -83,14 +83,14 @@ impl LichessApi {
     let response_result = self.get(api_endpoint).await;
 
     if let Err(error) = response_result {
-      warn!("Error issuing a Get request to Lichess {}", error);
+      warn!("Error issuing a GET request to Lichess: {error:?}");
       return Err(());
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(error) = response_text_result {
-      warn!("Error reading the payload from Get request to Lichess {}", error);
+      warn!("Error reading the payload from GET request to Lichess: {error:?}");
       return Err(());
     }
 
@@ -121,14 +121,14 @@ impl LichessApi {
   pub async fn lichess_post(&self, api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
     let response_result = self.post(api_endpoint, body).await;
     if let Err(e) = response_result {
-      warn!("Error issuing a Get request to Lichess {e}");
+      warn!("Error issuing a POST request to Lichess: {e:?}");
       return Err(());
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(e) = response_text_result {
-      warn!("Error reading the payload from Post request to Lichess {e}");
+      warn!("Error reading the payload from POST request to Lichess: {e:?}");
       return Err(());
     }
 
@@ -168,7 +168,7 @@ impl LichessApi {
     let response_result = self.get("stream/event").await;
 
     if let Err(e) = response_result {
-      warn!("Error Streaming events (get) request to Lichess {}", e);
+      warn!("Error streaming events (GET) request to Lichess: {e:?}");
       return Err(());
     }
 
@@ -205,7 +205,7 @@ impl LichessApi {
     let response_result = self.get("stream/event").await;
 
     if let Err(e) = response_result {
-      warn!("Error Streaming events (get) request to Lichess {}", e);
+      warn!("Error streaming events (GET) request to Lichess: {e:?}");
       return Err(());
     }
 
@@ -257,7 +257,7 @@ impl LichessApi {
     let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
 
     if let Err(e) = response_result {
-      warn!("Error issuing a Get request to Lichess {}", e);
+      warn!("Error issuing a GET request to Lichess: {e:?}");
       return Err(());
     }
 
@@ -310,7 +310,7 @@ impl LichessApi {
     let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
 
     if let Err(e) = response_result {
-      warn!("Error issuing a Get request to Lichess {}", e);
+      warn!("Error issuing a GET request to Lichess: {e:?}");
       return Err(());
     }
 

@@ -35,7 +35,7 @@ impl LichessApi {
       self.post(&format!("stream/games/{}", Self::GAMES_STREAM_ID), game_id).await;
 
     if let Err(e) = response_result {
-      warn!("Error issuing a Post request to Lichess {}", e);
+      warn!("Error issuing a POST request to Lichess: {e:?}");
       return Err(());
     }
 
@@ -76,7 +76,7 @@ impl LichessApi {
       self.post(&format!("stream/games/{}", Self::GAMES_STREAM_ID), game_id).await;
 
     if let Err(e) = response_result {
-      warn!("Error issuing a Post request to Lichess {}", e);
+      warn!("Error issuing a POST request to Lichess: {e:?}");
       return Err(());
     }
 
