@@ -7,13 +7,21 @@ use log::*;
 
 /// Looks at the game data (which kind of opponent, time control, start
 /// position) and configures the engine accordingly.
-pub fn configure_engine(game: &GameStart) -> Engine {
+pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) -> Engine {
   // We are not using the uci interface internally
   let mut engine = Engine::new(false);
 
-  // Cache table is kinda always the same value, regardless of the game, and
-  // opponent
-  engine.resize_cache_tables(1024);
+  // Cache table size from config
+  engine.resize_cache_tables(config.cache_table_size);
+
+  // Apply play style from config as default
+  if let Some(ref style_str) = config.play_style {
+    if let Ok(style) = style_str.parse::<PlayStyle>() {
+      engine.options.play_style = style;
+    } else {
+      warn!("Unknown play style in config: {style_str}");
+    }
+  }
 
   // Configure the start position
   let start_fen = game.fen.as_deref().unwrap_or(START_POSITION_FEN);

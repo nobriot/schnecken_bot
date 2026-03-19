@@ -37,14 +37,17 @@ impl Game {
   /// returns a thread handle and a channel transmitter to send messages to the
   /// game.
   #[allow(clippy::new_ret_no_self)]
-  pub fn new(game: lichess::types::GameStart, api: &LichessApi) -> GameHandle {
+  pub fn new(game: lichess::types::GameStart,
+             api: &LichessApi,
+             engine_config: &crate::config::EngineConfig)
+             -> GameHandle {
     println!("Game::new with game data: {:?}", game);
 
     // Communication with the game instance
     let (tx, rx) = mpsc::channel();
 
     // Create a new engine for playing
-    let engine = configure_engine(&game);
+    let engine = configure_engine(&game, engine_config);
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),

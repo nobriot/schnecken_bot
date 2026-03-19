@@ -23,17 +23,26 @@ fn main() {
     },
   };
 
+  let mut engine_config = config::load_engine_config();
+  if let Some(size) = cli.cache_table_size {
+    engine_config.cache_table_size = size;
+  }
+  if let Some(style) = cli.play_style {
+    engine_config.play_style = Some(style);
+  }
+  info!("Engine config: {engine_config:?}");
+
   let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-  match rt.block_on(main_loop(&api_token)) {
+  match rt.block_on(main_loop(&api_token, engine_config)) {
     Ok(_) => info!("Exiting successfully."),
     Err(_) => error!("An error occurred"),
   };
 }
 
-async fn main_loop(api_token: &str) -> Result<()> {
+async fn main_loop(api_token: &str, engine_config: config::EngineConfig) -> Result<()> {
   // Starts the bot, it will stream incoming events
-  let schnecken_bot = bot::state::BotState::new(api_token).await;
+  let schnecken_bot = bot::state::BotState::new(api_token, engine_config).await;
   schnecken_bot.start();
 
   loop {

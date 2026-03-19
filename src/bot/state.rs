@@ -26,15 +26,17 @@ pub type BotStateRef = &'static BotState;
 
 pub struct BotState {
   /// Lichess API
-  pub api:   &'static LichessApi,
+  pub api:           &'static LichessApi,
   /// Cache of our lichess username
-  username:  String,
+  username:          String,
   /// List of ongoing games
-  games:     BotGames,
+  games:             BotGames,
   /// Timestamp of the last game we played
-  last_game: Arc<Mutex<std::time::Instant>>,
+  last_game:         Arc<Mutex<std::time::Instant>>,
   /// Bool value indicating if the bot should exit
-  exit:      Arc<Mutex<bool>>,
+  exit:              Arc<Mutex<bool>>,
+  /// Engine configuration from config file / CLI
+  pub engine_config: crate::config::EngineConfig,
 }
 
 // We pass bot state references accross threads
@@ -43,7 +45,7 @@ unsafe impl Sync for BotState {}
 impl BotState {
   /// Instantiates a new bot state, using a given api token for Lichess
   /// (to identify itself in the games, challenges, etc.)
-  pub async fn new(api_token: &str) -> BotStateRef {
+  pub async fn new(api_token: &str, engine_config: crate::config::EngineConfig) -> BotStateRef {
     let api: &'static _ = Box::leak(Box::new(LichessApi::new(api_token)));
     let bot_games = BotGames::new(api);
 
@@ -62,7 +64,8 @@ impl BotState {
                                     username,
                                     games: bot_games,
                                     last_game: Arc::new(Mutex::new(std::time::Instant::now())),
-                                    exit: Arc::new(Mutex::new(false)) }));
+                                    exit: Arc::new(Mutex::new(false)),
+                                    engine_config }));
     bot_state_ref
   }
 
@@ -174,7 +177,7 @@ impl BotState {
     self.update_last_game_timestamp();
 
     // Create a game handle and start the game
-    let game_handle: GameHandle = Game::new(game, self.api);
+    let game_handle: GameHandle = Game::new(game, self.api, &self.engine_config);
     self.games.add(game_handle);
   }
 
