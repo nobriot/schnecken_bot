@@ -647,14 +647,18 @@ impl NNUE {
   }
 
   /// Converts any sized type to a slice of bytes.
-  unsafe fn as_bytes<T: Sized>(p: &T) -> &[u8] {
-    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+  fn as_bytes<T: Sized>(p: &T) -> &[u8] {
+    unsafe {
+      ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
+    }
   }
 
   /// Converts any sized type to a slice of bytes.
   #[allow(clippy::mut_from_ref)]
-  unsafe fn as_mut_bytes<T: Sized>(p: &T) -> &mut [u8] {
-    ::core::slice::from_raw_parts_mut((p as *const T) as *mut u8, ::core::mem::size_of::<T>())
+  fn as_mut_bytes<T: Sized>(p: &T) -> &mut [u8] {
+    unsafe {
+      ::core::slice::from_raw_parts_mut((p as *const T) as *mut u8, ::core::mem::size_of::<T>())
+    }
   }
 
   /// Saves the NNUE bytes to a file, so it can be loaded again later
@@ -669,16 +673,16 @@ impl NNUE {
       // Format will be: Layer size - Activation - Weights - Bias
       let cols = self.layers[i].state.W.shape()[0];
       let rows = self.layers[i].state.W.shape()[1];
-      writer.write_all(unsafe { NNUE::as_bytes(&cols) })?;
-      writer.write_all(unsafe { NNUE::as_bytes(&self.layers[i].a) })?;
+      writer.write_all(NNUE::as_bytes(&cols))?;
+      writer.write_all(NNUE::as_bytes(&self.layers[i].a))?;
       // Then dump the Weights and bias
       for c in 0..cols {
         for r in 0..rows {
-          let bytes = unsafe { NNUE::as_bytes(&self.layers[i].state.W[[c, r]]) };
+          let bytes = NNUE::as_bytes(&self.layers[i].state.W[[c, r]]);
           writer.write_all(bytes)?;
         }
       }
-      let bytes = unsafe { NNUE::as_bytes(&self.layers[i].state.b) };
+      let bytes = NNUE::as_bytes(&self.layers[i].state.b);
       writer.write_all(bytes)?;
     }
 
@@ -706,20 +710,20 @@ impl NNUE {
       let last_layer_size = nnue.layers.last().unwrap().nodes;
       let activation = Activation::None;
 
-      if reader.read_exact(unsafe { NNUE::as_mut_bytes(&layer_size) }).is_err() {
+      if reader.read_exact(NNUE::as_mut_bytes(&layer_size)).is_err() {
         break;
       }
-      reader.read_exact(unsafe { NNUE::as_mut_bytes(&activation) })?;
+      reader.read_exact(NNUE::as_mut_bytes(&activation))?;
 
       // println!("Layer size: {layer_size} - Activation: {:?}", activation);
       nnue.add_layer(layer_size, HyperParameters::default(), activation);
 
       for c in 0..layer_size {
         for r in 0..last_layer_size {
-          reader.read_exact(unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.W[[c, r]]) })?;
+          reader.read_exact(NNUE::as_mut_bytes(&nnue.layers[layer].state.W[[c, r]]))?;
         }
       }
-      reader.read_exact(unsafe { NNUE::as_mut_bytes(&nnue.layers[layer].state.b) })?;
+      reader.read_exact(NNUE::as_mut_bytes(&nnue.layers[layer].state.b))?;
     }
 
     Ok(nnue)

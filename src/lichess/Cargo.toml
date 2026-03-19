@@ -20,6 +20,5 @@ futures-util = "0.3.32"
 [lib]
 name = "lichess"
 path = "lib.rs"
-edition = "2021"
 crate-type = ["lib"]
 required-features = []

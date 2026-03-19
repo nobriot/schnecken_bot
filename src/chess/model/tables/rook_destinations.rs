@@ -289,7 +289,7 @@ pub const ROOK_MAGIC: [u64; 64] = [4719772549088624642,
                                    2269946119734274];
 
 #[cold]
-unsafe fn initialize_rook_table() {
+fn initialize_rook_table() {
   for i in 0..64 {
     let mut blockers: [u64; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS] =
       [0; MAX_ROOK_BLOCKERS_MASK_COMBINATIONS];
@@ -315,17 +315,21 @@ unsafe fn initialize_rook_table() {
       let j: usize =
         (blocker.wrapping_mul(ROOK_MAGIC[i]) >> (64 - ROOK_BLOCKER_NUMBERS[i])) as usize;
 
-      if ROOK_DESTINATION_TABLE[i][j] == 0 {
-        ROOK_DESTINATION_TABLE[i][j] =
-          get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, *blocker, i);
-      } else if ROOK_DESTINATION_TABLE[i][j]
-                != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, *blocker, i)
-      {
-        panic!("Rook table initialization went wrong! =(");
+      unsafe {
+        if ROOK_DESTINATION_TABLE[i][j] == 0 {
+          ROOK_DESTINATION_TABLE[i][j] =
+            get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, *blocker, i);
+        } else if ROOK_DESTINATION_TABLE[i][j]
+                  != get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, *blocker, i)
+        {
+          panic!("Rook table initialization went wrong! =(");
+        }
       }
     }
   }
-  ROOK_TABLE_INITIALIZED = true;
+  unsafe {
+    ROOK_TABLE_INITIALIZED = true;
+  }
 }
 
 pub fn get_rook_destinations(same_side_pieces: BoardMask,

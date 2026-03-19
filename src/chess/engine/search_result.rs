@@ -193,10 +193,10 @@ impl SearchResult {
   pub fn get_top_moves(&self) -> Vec<Move> {
     let mut move_list = Vec::with_capacity(self.variations.len());
     for line in &self.variations {
-      if !line.variation.is_empty() {
-        if let Some(mv) = line.variation.get_first_move() {
-          move_list.push(mv);
-        }
+      if !line.variation.is_empty()
+         && let Some(mv) = line.variation.get_first_move()
+      {
+        move_list.push(mv);
       }
     }
 

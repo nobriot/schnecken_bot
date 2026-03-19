@@ -22,7 +22,6 @@ futures = "0.3.32"
 [lib]
 name = "chess"
 path = "lib.rs"
-edition = "2021"
 crate-type = ["lib"]
 required-features = []
 
