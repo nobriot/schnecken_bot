@@ -9,6 +9,7 @@ use lichess::types::Color;
 use log::*;
 use rand::Rng;
 use std::sync::{Arc, mpsc};
+use std::time::Duration;
 use tokio::runtime::Handle;
 
 static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
@@ -85,19 +86,41 @@ impl Game {
     self.api.write_in_spectator_room(&self.id, message.as_str()).await;
   }
 
+  /// Returns true if the opponent has made at least one move based on the
+  /// moves string and our color.
+  fn opponent_has_moved(moves: &str, color: Color) -> bool {
+    let move_count = if moves.is_empty() { 0 } else { moves.split_whitespace().count() };
+    match color {
+      Color::White => move_count >= 2, // we played, they replied
+      Color::Black => move_count >= 1, // they played first
+    }
+  }
+
   /// Main loop for ongoing games. We dispatch events to the thread taking care
   /// of the game
   pub async fn game_loop(&mut self) {
     // Annonce greetings on the game
     self.start_of_game_announcement().await;
 
+    let mut opponent_moved = false;
+    const ABORT_TIMEOUT: Duration = Duration::from_secs(30);
+
     loop {
-      match self.rx.recv() {
+      let msg = if opponent_moved {
+        self.rx.recv().map_err(|_| ())
+      } else {
+        self.rx.recv_timeout(ABORT_TIMEOUT).map_err(|_| ())
+      };
+
+      match msg {
         Ok(GameMessage::Start(game)) => {
           println!("Received a Game Start : {:?}", game);
         },
         Ok(GameMessage::Update(game)) => {
           println!("Received a Game Update: {:?}", game);
+          if !opponent_moved && Self::opponent_has_moved(&game.moves, self.color) {
+            opponent_moved = true;
+          }
           self.play(game).await;
         },
         Ok(GameMessage::End(_game)) => {
@@ -125,6 +148,13 @@ impl Game {
           println!("Received a Game Message : {:?}", o);
         },
         Err(_) => {
+          if !opponent_moved {
+            info!("Opponent did not move in {}s, aborting game {}",
+                  ABORT_TIMEOUT.as_secs(),
+                  self.id);
+            let _ = self.api.abort_game(&self.id).await;
+            break;
+          }
           info!("Game channel closed. Exiting game loop for game {}.", self.id);
           break;
         },
