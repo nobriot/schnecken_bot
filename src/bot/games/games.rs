@@ -49,6 +49,12 @@ impl BotGames {
     games.len()
   }
 
+  /// Checks if we are already playing against a given opponent
+  pub fn is_playing_opponent(&self, opponent_id: &str) -> bool {
+    let games = self.games.lock().unwrap();
+    games.iter().any(|handle| handle.opponent_id == opponent_id)
+  }
+
   /// Adds a new game to the set of games if there is capacity.
   ///
   /// # Arguments

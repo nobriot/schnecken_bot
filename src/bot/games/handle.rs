@@ -8,11 +8,13 @@ type Handle = tokio::task::JoinHandle<()>;
 #[derive(Debug, Clone)]
 pub struct GameHandle {
   /// Channel to send messages to the game
-  pub tx:     mpsc::Sender<GameMessage>,
+  pub tx:          mpsc::Sender<GameMessage>,
   /// Handle to the game thread
-  pub handle: Arc<Handle>,
+  pub handle:      Arc<Handle>,
   /// Lichess Game ID
-  pub id:     String,
+  pub id:          String,
+  /// Opponent's Lichess user ID
+  pub opponent_id: String,
 }
 
 #[allow(dead_code)]

@@ -256,6 +256,15 @@ impl BotState {
       return;
     }
 
+    // Do not accept if we are already playing this opponent
+    if self.games.is_playing_opponent(&challenge.challenger.id) {
+      info!("Declining challenge from {} — already playing them", challenge.challenger.name);
+      tokio::spawn(async move {
+        self.api.decline_challenge(&challenge.id, lichess::types::DECLINE_LATER).await
+      });
+      return;
+    }
+
     // Do not accept we are playing at capacity
     if self.games.is_full() {
       info!("Ignoring challenge as we are already playing too many games");

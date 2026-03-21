@@ -68,7 +68,8 @@ impl Game {
     // Return a handle to the game
     GameHandle { tx,
                  handle: Arc::new(handle),
-                 id: game.game_id.clone() }
+                 id: game.game_id.clone(),
+                 opponent_id: game.opponent.id.clone() }
   }
 
   /// Writes a couple of message
