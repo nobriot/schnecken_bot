@@ -210,8 +210,9 @@ impl Game {
     let suggested_time_ms =
       if time_left < 10_000 { 200 } else { (time_left / 90) + increment_ms * 10 / 9 };
 
-    info!("Using {} ms to find a move for position {}",
+    info!("Using {}ms (max depth {}) to find a move for position {}",
           suggested_time_ms,
+          self.engine.options.max_depth,
           self.engine.position.to_fen());
 
     self.engine.options.max_search_time = suggested_time_ms;
