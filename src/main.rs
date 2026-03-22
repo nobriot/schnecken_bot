@@ -12,10 +12,11 @@ mod config;
 
 // Main function
 fn main() {
-  env_logger::builder().filter_level(log::LevelFilter::Info)
-                       .format_timestamp_millis()
-                       .parse_default_env()
-                       .init();
+  // use env_logger::Env;
+  env_logger::Builder::new().filter_level(LevelFilter::Info)
+                            .parse_default_env()
+                            .format_timestamp_millis()
+                            .init();
 
   let cli = args::Args::parse();
   let api_token = match config::resolve_token(cli.api_token) {

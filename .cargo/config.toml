@@ -2,7 +2,7 @@
 rustflags = ["-Ctarget-cpu=native", "-Cforce-frame-pointers=yes"]
 
 [env]
-RUST_LOG = "debug"
+# RUST_LOG = "debug"
 RUSTFLAGS = "-Clinker-plugin-lto"
 
 [doc]
