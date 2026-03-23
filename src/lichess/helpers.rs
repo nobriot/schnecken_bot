@@ -21,7 +21,7 @@ pub fn parse_string_to_nd_json(string_value: &str) -> Vec<JsonValue> {
 
     let json_value_result = serde_json::from_str(line);
     if let Err(e) = json_value_result {
-      info!("Error Parsing string line into json? {}", e);
+      warn!("Error Parsing string line into json? {}", e);
       continue;
     }
 

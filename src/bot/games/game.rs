@@ -114,26 +114,26 @@ impl Game {
 
       match msg {
         Ok(GameMessage::Start(game)) => {
-          println!("Received a Game Start : {:?}", game);
+          debug!("Received a Game Start : {:?}", game);
         },
         Ok(GameMessage::Update(game)) => {
-          println!("Received a Game Update: {:?}", game);
+          debug!("Received a Game Update: {:?}", game);
           if !opponent_moved && Self::opponent_has_moved(&game.moves, self.color) {
             opponent_moved = true;
           }
           self.play(game).await;
         },
         Ok(GameMessage::End(_game)) => {
-          println!("Game {} is over", self.id);
+          info!("Game {} is over", self.id);
           self.end_of_game_announcement().await;
           break;
         },
         Ok(GameMessage::Resign) => {
-          println!("Resining game {}", &self.id);
+          info!("Resining game {}", &self.id);
           let _ = self.api.resign_game(&self.id).await;
         },
         Ok(GameMessage::Terminate) => {
-          println!("Leaving game {}", &self.id);
+          info!("Leaving game {}", &self.id);
           self.api.write_in_chat(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           self.api.write_in_spectator_room(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           let _ = self.api.resign_game(&self.id).await;
@@ -145,7 +145,7 @@ impl Game {
           }
         },
         Ok(o) => {
-          println!("Received a Game Message : {:?}", o);
+          info!("Received a Game Message : {:?}", o);
         },
         Err(_) => {
           if !opponent_moved {
@@ -155,7 +155,7 @@ impl Game {
             let _ = self.api.abort_game(&self.id).await;
             break;
           }
-          info!("Game channel closed. Exiting game loop for game {}.", self.id);
+          debug!("Game channel closed. Exiting game loop for game {}.", self.id);
           break;
         },
       }
@@ -186,7 +186,7 @@ impl Game {
       return;
     }
 
-    debug!("It's our turn on game {}", self.id);
+    info!("It's our turn on game {}", self.id);
 
     // Make sure the engine knows the latest move:
     let move_count: usize = self.engine.position.move_count.into();
@@ -196,7 +196,7 @@ impl Game {
       }
     }
 
-    info!("Trying to find a move for game {}", self.id);
+    debug!("Trying to find a move for game {}", self.id);
     let (time_left, mut increment_ms) = match self.color {
       Color::White => (game.wtime, game.winc),
       Color::Black => (game.btime, game.binc),
