@@ -242,7 +242,7 @@ impl Game {
       }
     }
 
-    let move_index = rand::thread_rng().gen_range(0..cutoff);
+    let move_index = rand::rng().random_range(0..cutoff);
     let mv = analysis.get(move_index).variation.get_first_move().unwrap();
     let eval = analysis.get(move_index).eval;
     info!("Playing Line {} ({})  as {:?} for GameID {} - eval: {}",

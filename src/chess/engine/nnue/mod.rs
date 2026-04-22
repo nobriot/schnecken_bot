@@ -6,6 +6,7 @@ use crate::model::game_state::GameState;
 use crate::model::piece::*;
 use ndarray::{Array, Array2, Zip};
 use ndarray_rand::{self, RandomExt};
+use rand::Rng;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter, Write};
@@ -464,8 +465,8 @@ impl NNUE {
 
     // Select 20 points randomly
     for _ in 0..20 {
-      let c = rand::random::<usize>() % shape_c;
-      let r = rand::random::<usize>() % shape_r;
+      let c = rand::rng().random_range(0..shape_c);
+      let r = rand::rng().random_range(0..shape_r);
 
       // Capture a weight at a given layer, row, colum:
       let W = self.layers[layer].state.W[[c, r]];

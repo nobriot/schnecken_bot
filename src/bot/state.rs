@@ -283,7 +283,7 @@ impl BotState {
 
   /// Checks if any of the players we like is online and sends a challenge.
   pub async fn challenge_somebody(&self) {
-    let clock_setting = rand::thread_rng().gen_range(0..40);
+    let clock_setting = rand::rng().random_range(0..40);
     let clock: Clock = match clock_setting {
       0..=15 => Clock { initial:   60,
                         increment: 0,
@@ -300,7 +300,7 @@ impl BotState {
 
     for username in players {
       // TODO: Shuffle the list correctly
-      if rand::thread_rng().gen_range(0..2) == 0 {
+      if rand::rng().random_range(0..2) == 0 {
         continue;
       }
       if self.api.is_online(username).await {

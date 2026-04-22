@@ -171,10 +171,10 @@ fn main() {
                  rook_destination_table);
 
   // test sanity:
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
   for _ in 0..1000 {
     let blockers = rand::random::<u64>();
-    let square = rng.gen_range(0..64);
+    let square = rng.random_range(0..64);
 
     let manual_calculation = get_moves_from_offsets(&ROOK_MOVE_OFFSETS, true, 0, blockers, square);
     let index: usize = ((blockers & ROOK_SPAN_WITHOUT_EDGES[square]).wrapping_mul(rook_magic

@@ -815,13 +815,13 @@ mod tests {
   #[ignore]
   #[test]
   fn generate_zobrist_piece_square_table() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut zobrist: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] =
       [[0; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES];
 
     for s in 0..NUMBER_OF_SQUARES {
       for p in 0..NUMBER_OF_PIECES {
-        zobrist[p][s] = rng.gen_range(0..=BoardHash::MAX);
+        zobrist[p][s] = rng.random_range(0..=BoardHash::MAX);
       }
     }
 
@@ -833,37 +833,37 @@ mod tests {
   #[ignore]
   #[test]
   fn generate_zobrist_castling_rights() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     println!("pub const ZOBRIST_WHITE_KING_CASTLE:BoardHash = {:#X?};",
-             rng.gen_range(0..=BoardHash::MAX));
+             rng.random_range(0..=BoardHash::MAX));
     println!("pub const ZOBRIST_WHITE_QUEEN_CASTLE:BoardHash = {:#X?};",
-             rng.gen_range(0..=BoardHash::MAX));
+             rng.random_range(0..=BoardHash::MAX));
     println!("pub const ZOBRIST_BLACK_KING_CASTLE:BoardHash = {:#X?};",
-             rng.gen_range(0..=BoardHash::MAX));
+             rng.random_range(0..=BoardHash::MAX));
     println!("pub const ZOBRIST_BLACK_QUEEN_CASTLE:BoardHash = {:#X?};",
-             rng.gen_range(0..=BoardHash::MAX));
+             rng.random_range(0..=BoardHash::MAX));
   }
 
   /// Generates the Zobrist color to move
   #[ignore]
   #[test]
   fn generate_zobrist_color_to_move() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     println!("pub const ZOBRIST_WHITE_TO_MOVE:BoardHash = {:#X?};",
-             rng.gen_range(0..=BoardHash::MAX));
+             rng.random_range(0..=BoardHash::MAX));
   }
 
   /// Generates the Zobrist color to move
   #[ignore]
   #[test]
   fn generate_zobrist_en_passant() {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut zobrist: [BoardHash; NUMBER_OF_FILES] = [0; NUMBER_OF_FILES];
 
     for hash in zobrist.iter_mut() {
-      *hash = rng.gen_range(0..=BoardHash::MAX);
+      *hash = rng.random_range(0..=BoardHash::MAX);
     }
 
     println!("pub const ZOBRIST_EN_PASSANT:[[BoardHash; NUMBER_OF_FILES];= {:#X?};", zobrist);

@@ -8,7 +8,7 @@ pub const NUMBER_OF_EPOCH: usize = 100000;
 // Main function
 #[allow(non_snake_case)]
 fn main() -> ExitCode {
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   println!("\n\x1B[4mWelcome to \x1B[1mNNUE testing\x1B[0m. 🙂\n");
 

@@ -117,10 +117,10 @@ fn main() {
   }
 
   // test sanity:
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
   for _ in 0..1000 {
     let blockers = rand::random::<u64>();
-    let square = rng.gen_range(0..64);
+    let square = rng.random_range(0..64);
 
     let manual_calculation =
       get_moves_from_offsets(&BISHOP_MOVE_OFFSETS, true, 0, blockers, square);

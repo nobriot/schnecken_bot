@@ -21,10 +21,10 @@ fn compute_legal_moves(bencher: Bencher) {
     game_states.push(GameState::from_board(&Board::new_random()));
   }
 
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   bencher.bench_local(|| {
-           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           let i = rng.random_range(0..NUMBER_OF_BOARDS);
            let _ = game_states[i].get_moves();
          });
 }
@@ -40,12 +40,12 @@ fn apply_moves_on_a_game_state(bencher: Bencher) {
     move_lists.push(game_states[i].board.get_moves());
   }
 
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   bencher.bench_local(|| {
-           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           let i = rng.random_range(0..NUMBER_OF_BOARDS);
            if !move_lists[i].is_empty() {
-             let j = rng.gen_range(0..move_lists[i].len());
+             let j = rng.random_range(0..move_lists[i].len());
              let old_game = game_states[i].clone();
              game_states[i].apply_move(&move_lists[i][j]);
              game_states[i] = old_game;
@@ -64,12 +64,12 @@ fn apply_moves_on_the_board(bencher: Bencher) {
     move_lists.push(boards[i].get_moves());
   }
 
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   bencher.bench_local(|| {
-           let i = rng.gen_range(0..NUMBER_OF_BOARDS);
+           let i = rng.random_range(0..NUMBER_OF_BOARDS);
            if !move_lists[i].is_empty() {
-             let j = rng.gen_range(0..move_lists[i].len());
+             let j = rng.random_range(0..move_lists[i].len());
              let old_board = boards[i].clone();
              boards[i].apply_move(&move_lists[i][j]);
              boards[i] = old_board;
@@ -81,9 +81,9 @@ fn apply_moves_on_the_board(bencher: Bencher) {
 #[divan::bench(sample_count = 10000)]
 fn find_attackers(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
-  let j = rng.gen_range(0..63);
+  let j = rng.random_range(0..63);
 
   bencher.bench_local(|| {
            let _ = game_state.board.get_attackers(j, Color::White);
@@ -94,7 +94,7 @@ fn find_attackers(bencher: Bencher) {
 #[divan::bench(sample_count = 10000)]
 fn determine_board_pins(bencher: Bencher) {
   let mut game_state: GameState = GameState::from_board(&Board::new_random());
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   for i in 0..63 {
     if game_state.board.has_piece(i) {

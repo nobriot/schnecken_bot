@@ -84,16 +84,16 @@ impl Board {
 
     board.castling_rights = CastlingRights::none();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Let's try to place pieces:
     // White King
-    let square = rng.gen_range(0..64);
+    let square = rng.random_range(0..64);
     set_square_in_mask!(square, board.pieces.white.king);
 
     // Place the black king, try until they do not touch:
     loop {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -109,7 +109,7 @@ impl Board {
 
     // Let's try to place 8 pawns of each color:
     for _ in 0..8 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -125,7 +125,7 @@ impl Board {
       }
     }
     for _ in 0..8 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -147,7 +147,7 @@ impl Board {
 
     // Try to add knights:
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -162,7 +162,7 @@ impl Board {
       }
     }
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -178,7 +178,7 @@ impl Board {
     }
     // Try to add bishops:
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -193,7 +193,7 @@ impl Board {
       }
     }
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -209,7 +209,7 @@ impl Board {
     }
     // Try to add rooks:
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -224,7 +224,7 @@ impl Board {
       }
     }
     for _ in 0..2 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -240,7 +240,7 @@ impl Board {
     }
     // Try to add queens:
     for _ in 0..1 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
@@ -255,7 +255,7 @@ impl Board {
       }
     }
     for _ in 0..1 {
-      let square = rng.gen_range(0..64);
+      let square = rng.random_range(0..64);
       if board.pieces.get(square) != NO_PIECE {
         continue;
       }
