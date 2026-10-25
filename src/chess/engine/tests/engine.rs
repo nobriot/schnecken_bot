@@ -824,3 +824,56 @@ fn engine_search_real_game_Q0UsOw1C_find_mate() {
   assert_eq!(engine.get_best_move().unwrap().to_string(), "e6f6");
   assert!(engine.get_eval().unwrap() > 100.0);
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_lrChWe6R_avoid_mate() {
+  // https://lichess.org/lrChWe6R#33 : Bot played 17...Qd7? and got mated:
+  // 18. Nf6+ gxf6 19. gxf6 Qd5 20. Qh6 Qg5+ 21. Qxg5+ Kf8 22. Rh8#
+  // 17...Qd8 keeps an eye on f6. The mate involves quiet moves, so the eval
+  // has to see that the black king is in danger (open g and h files with a
+  // rook on h1, white pawn wedged on f6)
+  let mut engine = Engine::new(false);
+  engine.set_position("r1b1r1k1/p1n2pp1/2pqp3/1p4P1/2pPN3/P7/1P1Q1PP1/2KR1B1R b - - 4 17");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 5;
+  engine.go();
+  engine.print_evaluations();
+  assert_ne!(engine.get_best_move().unwrap().to_string(), "d6d7");
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_lrChWe6R_attack_the_king() {
+  // Same game, after 17...Qd7? White should go for the king with Nf6+
+  let mut engine = Engine::new(false);
+  engine.set_position("r1b1r1k1/p1nq1pp1/2p1p3/1p4P1/2pPN3/P7/1P1Q1PP1/2KR1B1R w - - 5 18");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 4;
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!(engine.get_best_move().unwrap().to_string(), "e4f6");
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_sodIaezB_no_rook_sacrifice() {
+  // https://lichess.org/sodIaezB/black : Bot played 35...Rxf2+?! in a totally
+  // winning position. The search found lines ending with a bare white king
+  // (after giving away the rook and the knight for the white pawns), and
+  // the +30 "bare king" bonus made them look better than keeping the pieces.
+  let mut engine = Engine::new(false);
+  engine.set_position("8/pp3p1p/7p/8/2kn4/6P1/1r3PK1/8 b - - 3 35");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 6;
+  engine.go();
+  engine.print_evaluations();
+  let analysis = engine.get_analysis();
+  // None of the top lines should give material away: we are a rook and a
+  // knight up, the eval should reflect that and not a bare king bonus.
+  for i in 0..3 {
+    let line = analysis.get(i);
+    assert_ne!(line.variation.get_first_move().unwrap().to_string(), "b2f2");
+    assert!(line.eval < -10.0 && line.eval > -20.0, "Line {i} eval {}", line.eval);
+  }
+}

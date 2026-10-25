@@ -12,6 +12,14 @@ use crate::model::piece_moves::KING_MOVES;
 // const KING_DANGER_FACTOR: f32 = 2.0;
 const SQUARE_TABLE_FACTOR: f32 = 0.03;
 const PASSED_PAWN_FACTOR: f32 = 0.02;
+/// Bonus when the opponent only has a king left. Must stay below the value of
+/// a minor piece, else we sacrifice pieces to remove the opponent's last pawns.
+const BARE_KING_BONUS: f32 = 1.5;
+/// Weight of the king boxing / king distance terms against a bare king.
+/// Kept small so they never outweigh material.
+const BARE_KING_MATING_FACTOR: f32 = 0.1;
+/// Bonus per rank advanced by a pawn, when the opponent only has a king left
+const BARE_KING_PAWN_PROGRESS_FACTOR: f32 = 0.5;
 
 // TODO: Consider this https://lichess.org/blog/W3WeMyQAACQAdfAL/7-piece-syzygy-tablebases-are-complete
 // Or maybe just try as much as I can without any external resources.
@@ -177,7 +185,7 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
 
   // Assign extra weight to the fact that just the opponent king left is very
   // good.
-  let mut score = get_material_score(game_state, attacking_side) + 30.0;
+  let mut score = get_material_score(game_state, attacking_side) + BARE_KING_BONUS;
 
   let king_position = match attacking_side {
     Color::White => game_state.board.get_black_king_square(),
@@ -188,22 +196,62 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     return 0.0;
   }
 
-  // BoardMask bitmap of where the king can go. We want as few squares as
-  // possible
-  score += game_state.board
-                     .get_attacked_squares(KING_MOVES[king_position], attacking_side)
-                     .count_ones() as f32;
+  let attacking_pawns = match attacking_side {
+    Color::White => game_state.board.pieces.white.pawn,
+    Color::Black => game_state.board.pieces.black.pawn,
+  };
 
-  // Now check how many square are available for each king
-  score += 7.0
-           - get_king_distance(game_state.board.get_white_king_square(),
-                               game_state.board.get_black_king_square()) as f32;
+  if attacking_pawns != 0 {
+    // With pawns left, the plan is to promote them, not to box the king.
+    // Without this, the king terms below can outweigh material, and we would
+    // happily give pieces away as long as the opponent ends up with a bare
+    // king.
+    score += BARE_KING_PAWN_PROGRESS_FACTOR * get_pawn_progress(attacking_pawns, attacking_side);
+  } else {
+    // BoardMask bitmap of where the king can go. We want as few squares as
+    // possible
+    let boxed_squares = game_state.board
+                                  .get_attacked_squares(KING_MOVES[king_position], attacking_side)
+                                  .count_ones() as f32;
+
+    // Now check how many square are available for each king
+    let king_proximity = 7.0
+                         - get_king_distance(game_state.board.get_white_king_square(),
+                                             game_state.board.get_black_king_square())
+                           as f32;
+
+    score += BARE_KING_MATING_FACTOR * (boxed_squares + king_proximity);
+  }
 
   if attacking_side == Color::Black {
     score = -score;
   }
 
   score
+}
+
+/// Sums how many ranks the pawns have advanced from their starting rank.
+///
+/// ### Arguments
+///
+/// * `pawns` - BoardMask with the pawns of a color
+/// * `color` - Color of the pawns
+///
+/// ### Return value
+///
+/// Total number of ranks advanced, from 0 (all on the starting rank) to 5 per
+/// pawn (all on the 7th rank)
+fn get_pawn_progress(mut pawns: BoardMask, color: Color) -> f32 {
+  let mut progress = 0;
+  while pawns != 0 {
+    let rank = pawns.trailing_zeros() / 8;
+    progress += match color {
+      Color::White => rank - 1,
+      Color::Black => 6 - rank,
+    };
+    pawns &= pawns - 1;
+  }
+  progress as f32
 }
 
 // -----------------------------------------------------------------------------
@@ -220,26 +268,30 @@ mod tests {
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     // println!("{}", game_state.board);
-    let expected_score = -(QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 4.0);
+    let expected_score =
+      -(QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 4.0) + 4.0));
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Another one from white's perpective
     // King is on a controlled rank, so it will go either side it likes.
     let fen = "8/8/3k1Q2/8/4K3/8/8/8 b - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 2.0) + 5.0;
+    let expected_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 2.0) + 5.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // From a game with another bot:
     let fen = "8/1k6/6Q1/5K2/8/8/8/8 w - - 7 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 3.0;
+    let expected_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 4.0) + 3.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
 
     // Check if the incentive to box the king better is good:
     let fen = "8/1k6/3Q4/5K2/8/8/8/8 b - - 8 80";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 4.0) + 5.0;
+    let expected_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 4.0) + 5.0);
     assert_eq!(expected_score, get_king_vs_queen_or_rook_score(&game_state));
   }
 
@@ -247,17 +299,20 @@ mod tests {
   fn test_engame_eval_queen_vs_king() {
     let fen = "1K6/2Q5/8/8/8/3k4/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
-    let expected_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 3.0;
+    let expected_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 5.0) + 3.0);
     assert_eq!(expected_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/8/2Q5/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let blunder_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 5.0;
+    let blunder_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 5.0) + 5.0);
     assert_eq!(blunder_score, get_endgame_position_evaluation(&game_state));
 
     let fen = "1K6/8/8/2Q5/8/3k4/8/8 b - - 1 1";
     let game_state = GameState::from_fen(fen);
-    let better_score = QUEEN_VALUE + 30.0 + (7.0 - 5.0) + 5.0;
+    let better_score =
+      QUEEN_VALUE + BARE_KING_BONUS + BARE_KING_MATING_FACTOR * ((7.0 - 5.0) + 5.0);
     assert_eq!(better_score, get_endgame_position_evaluation(&game_state));
 
     // FIXME: Blunder scores higher for now.
@@ -283,6 +338,26 @@ mod tests {
     let fen = "2k5/3n4/8/8/3P4/2K5/8/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     assert!(get_endgame_position_evaluation(&game_state) >= 0.0);
+  }
+
+  #[test]
+  fn test_no_piece_sacrifice_for_bare_king() {
+    // https://lichess.org/sodIaezB/black : Rook + knight + 4 pawns against 2
+    // pawns. Giving away the rook and knight to get a bare king with 4 pawns
+    // must not look better than keeping the pieces.
+    let game_state = GameState::from_fen("8/pp3p1p/7p/8/2kn4/6P1/1r3PK1/8 b - - 3 35");
+    let keep_pieces = get_endgame_position_evaluation(&game_state);
+    let game_state = GameState::from_fen("8/pp3p2/8/7p/2k5/6K1/8/8 b - - 0 40");
+    let bare_king_with_pawns = get_endgame_position_evaluation(&game_state);
+    println!("Keep pieces: {keep_pieces} - Bare king with pawns: {bare_king_with_pawns}");
+    assert!(keep_pieces < bare_king_with_pawns);
+
+    // Bare king and pawns: we want to push the pawns.
+    let game_state = GameState::from_fen("8/8/8/8/2k5/p5K1/8/8 w - - 0 1");
+    let advanced_pawn = get_endgame_position_evaluation(&game_state);
+    let game_state = GameState::from_fen("8/p7/8/8/2k5/6K1/8/8 w - - 0 1");
+    let pawn_at_home = get_endgame_position_evaluation(&game_state);
+    assert!(advanced_pawn < pawn_at_home);
   }
 
   #[test]

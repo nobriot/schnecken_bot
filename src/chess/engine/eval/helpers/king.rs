@@ -180,6 +180,64 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
   attacked_squares / total_squares
 }
 
+/// Counts "danger units" around the king of a color: the higher, the more
+/// likely the king is to get mated. Only counts when the opponent still has a
+/// queen, as attacks without queen are rarely deadly.
+///
+/// Units:
+/// * 1 per square around the king attacked by the opponent
+/// * 2 per file next to the king (or the king file) without our pawns, plus 2
+///   if an opponent rook or queen is sitting on that file
+/// * 2 per opponent pawn close to the king (pawn storm, or a pawn wedged next
+///   to the king like a pawn on f6 against a king on g8)
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position, side to play,
+///   etc.
+/// * `color` -      The color of the king for which we evaluate the danger
+///
+/// ### Returns
+///
+/// Number of danger units for the king.
+pub fn get_king_attack_units(game_state: &GameState, color: Color) -> u32 {
+  let (ssp, op) = match color {
+    Color::White => (&game_state.board.pieces.white, &game_state.board.pieces.black),
+    Color::Black => (&game_state.board.pieces.black, &game_state.board.pieces.white),
+  };
+  if op.queen == 0 || ssp.king == 0 {
+    return 0;
+  }
+
+  let king = ssp.king.trailing_zeros() as u8;
+  let king_zone = KING_MOVES[king as usize];
+  let mut units =
+    game_state.board.get_attacked_squares(king_zone, Color::opposite(color)).count_ones();
+
+  let king_file = (king % 8) as usize;
+  let first_file = king_file.saturating_sub(1);
+  let last_file = (king_file + 1).min(7);
+  for file in &FILES[first_file..=last_file] {
+    if file & ssp.pawn == 0 {
+      units += 2;
+      if file & (op.rook | op.queen) != 0 {
+        units += 2;
+      }
+    }
+  }
+
+  let mut opponent_pawns = op.pawn;
+  while opponent_pawns != 0 {
+    let pawn = opponent_pawns.trailing_zeros() as u8;
+    if get_king_distance(king, pawn) <= 2 {
+      units += 2;
+    }
+    opponent_pawns &= opponent_pawns - 1;
+  }
+
+  units
+}
+
 /// Checks if the king is way too adventurous
 ///
 /// Noticed that the engine likes to walk
@@ -320,6 +378,28 @@ pub fn are_casling_rights_lost(game_state: &GameState, color: Color) -> bool {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn test_king_attack_units() {
+    // Starting position: no danger
+    let game_state = GameState::from_fen(START_POSITION_FEN);
+    assert_eq!(0, get_king_attack_units(&game_state, Color::White));
+    assert_eq!(0, get_king_attack_units(&game_state, Color::Black));
+
+    // No opponent queen, no danger counted
+    let game_state = GameState::from_fen("rnb1kbnr/pppppppp/8/8/8/8/8/RNBQKBNR w KQkq - 0 1");
+    assert_eq!(0, get_king_attack_units(&game_state, Color::White));
+
+    // https://lichess.org/lrChWe6R after 18. Nf6+ gxf6 19. gxf6
+    // Black king is busted: g and h files open, rook on h1, pawn on f6.
+    let game_state =
+      GameState::from_fen("r1b1r1k1/p1nq1p2/2p1pP2/1p6/2pP4/P7/1P1Q1PP1/2KR1B1R b - - 0 19");
+    let black_units = get_king_attack_units(&game_state, Color::Black);
+    let white_units = get_king_attack_units(&game_state, Color::White);
+    println!("King attack units: White {white_units} - Black {black_units}");
+    assert!(black_units >= 10);
+    assert!(black_units > 2 * white_units);
+  }
 
   #[test]
   fn test_get_king_danger_score() {

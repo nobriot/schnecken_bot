@@ -1,3 +1,4 @@
+use super::helpers::king::get_king_attack_units;
 use super::position::default_position_evaluation;
 use crate::engine::tables::squares::*;
 use crate::model::game_state::GameState;
@@ -6,6 +7,11 @@ use crate::model::piece::*;
 // const KING_DANGER_FACTOR: f32 = 0.3;
 // const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
 const SQUARE_TABLE_FACTOR: f32 = 0.02;
+/// Penalty per squared king danger unit. Squared because attacks get much
+/// more dangerous as attackers and weaknesses add up.
+const KING_ATTACK_FACTOR: f32 = 0.02;
+/// Maximum penalty for king danger
+const KING_ATTACK_MAX_PENALTY: f32 = 5.0;
 
 /// Computes a total score based on the square where pieces are located in the
 /// middlegame.
@@ -66,9 +72,24 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
   // score += KING_TOO_ADVENTUROUS_PENALTY;
   // }
 
+  score += get_king_attack_penalty(game_state, Color::Black)
+           - get_king_attack_penalty(game_state, Color::White);
+
   score += get_square_table_middlegame_score(game_state);
 
   score + default_position_evaluation(game_state)
+}
+
+/// Converts the danger units around the king into a penalty (positive value)
+///
+/// ### Arguments
+///
+/// * `game_state` - A GameState object representing a position
+/// * `color` -      Color of the king for which we compute the penalty
+#[inline]
+fn get_king_attack_penalty(game_state: &GameState, color: Color) -> f32 {
+  let units = get_king_attack_units(game_state, color) as f32;
+  (units * units * KING_ATTACK_FACTOR).min(KING_ATTACK_MAX_PENALTY)
 }
 
 //------------------------------------------------------------------------------
