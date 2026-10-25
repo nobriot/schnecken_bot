@@ -971,3 +971,39 @@ fn engine_single_move_eval_sees_mate_zVGdOBiO() {
   assert!(eval > 0.0, "eval {eval}");
   assert_eq!(Some(2), mate_distance_in_plies(eval), "eval {eval}");
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn knight_sacrifice_is_not_free_ZR6c8ZB3() {
+  // https://lichess.org/ZR6c8ZB3/white : the bot sacrificed 13. Nxf7?, losing
+  // a knight for a pawn. With White to play, the knight attacked by h6 cost
+  // White a full pawn in the eval (a "pawn victim"), as if Black could take
+  // it, so the sacrifice looked only 0.5 worse than retreating.
+  use crate::engine::eval::position::evaluate_board;
+  let before =
+    GameState::from_fen("r3k2r/1b1nqpb1/p3pnpp/1ppp2N1/4PP2/P1NP4/1PPBB1PP/2RQ1RK1 w kq - 0 13");
+  let after_sac =
+    GameState::from_fen("r6r/1b1nqkb1/p3pnpp/1ppp4/4PP2/P1NP4/1PPBB1PP/2RQ1RK1 w - - 0 14");
+  let (before, after_sac) = (evaluate_board(&before), evaluate_board(&after_sac));
+  println!("Before the sacrifice: {before} - after 13. Nxf7 Kxf7: {after_sac}");
+  assert!(before - after_sac > 1.0);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_ZR6c8ZB3_no_piece_sacrifices() {
+  // Same game: 13. Nxf7? and later 16. Bh5? (bishop sacrifice) both lost
+  // about 2 pawns according to Stockfish
+  for (fen, sacrifice) in
+    [("r3k2r/1b1nqpb1/p3pnpp/1ppp2N1/4PP2/P1NP4/1PPBB1PP/2RQ1RK1 w kq - 0 13", "g5f7"),
+     ("r3n2r/1b1nqkb1/p3p1pp/2ppP3/Pp3P2/2NP4/1PPBB1PP/2RQ1RK1 w - - 0 16", "e2h5")]
+  {
+    let mut engine = Engine::new(false);
+    engine.set_position(fen);
+    engine.options.max_search_time = 0;
+    engine.options.max_depth = 5;
+    engine.go();
+    engine.print_evaluations();
+    assert_ne!(sacrifice, engine.get_best_move().unwrap().to_string());
+  }
+}

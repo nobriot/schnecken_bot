@@ -1,3 +1,4 @@
+use super::generic::threatened_victims;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -54,7 +55,7 @@ pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
         },
       };
 
-      victims += attacked_pieces;
+      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
     }
 
     bishops &= bishops - 1;

@@ -51,6 +51,31 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
   score
 }
 
+/// Converts the number of pieces attacked by one of our pieces into the number
+/// of "victims" worth a bonus in the eval.
+///
+/// If we are to play, the attack is real: we can take. If the opponent is to
+/// play, they simply move the attacked piece away: only forks still win
+/// something (the opponent saves one piece, not the others).
+///
+/// # Arguments
+///
+/// * `attacked_pieces`  - Number of pieces attacked by one of our pieces
+/// * `attacker_to_play` - True if the side owning the attacking piece is to
+///   play
+///
+/// # Return value
+///
+/// Number of victims to count in the eval
+#[inline]
+pub fn threatened_victims(attacked_pieces: u32, attacker_to_play: bool) -> u32 {
+  if attacker_to_play {
+    attacked_pieces
+  } else {
+    attacked_pieces.saturating_sub(1)
+  }
+}
+
 /// Computes the material score of a side
 ///
 ///

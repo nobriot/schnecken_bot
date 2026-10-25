@@ -100,7 +100,7 @@ pub fn get_rook_victims(game_state: &GameState, color: Color) -> u32 {
         },
       };
 
-      victims += attacked_pieces;
+      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
     }
     rooks &= rooks - 1;
   }
@@ -172,10 +172,11 @@ mod tests {
     assert_eq!(3, get_rook_victims(&game_state, Color::White));
     assert_eq!(0, get_rook_victims(&game_state, Color::Black));
 
+    // White to play: the black rook fork only wins one of the 2 pieces
     let fen = "4r3/n3q3/8/1r2k3/8/4R1n1/1Q6/1K6 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     assert_eq!(3, get_rook_victims(&game_state, Color::White));
-    assert_eq!(2, get_rook_victims(&game_state, Color::Black));
+    assert_eq!(1, get_rook_victims(&game_state, Color::Black));
 
     let fen = "4r3/4q3/8/1r2k3/4n3/1N2R3/1Q6/1K6 w - - 0 1";
     let game_state = GameState::from_fen(fen);

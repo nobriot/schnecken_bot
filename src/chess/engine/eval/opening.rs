@@ -176,17 +176,30 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let eval_nothing = get_opening_position_evaluation(&game_state);
 
-    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
+    // Black to play: the attacked knight can be taken
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 0 10";
     let game_state = GameState::from_fen(fen);
     let eval_pawn_1_attack = get_opening_position_evaluation(&game_state);
 
+    // Fork, even with White to play: one of the knights is lost
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
-    let eval_pawn_2_attacks = get_opening_position_evaluation(&game_state);
+    let eval_fork = get_opening_position_evaluation(&game_state);
 
-    println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} vs {eval_pawn_2_attacks}");
+    // Same knights, but the pawn is still on c7: no fork
+    let fen = "rnbq1rk1/ppp1bppp/3p1n2/8/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
+    let game_state = GameState::from_fen(fen);
+    let eval_no_fork = get_opening_position_evaluation(&game_state);
+
+    println!("Evaluation: {eval_nothing} vs {eval_pawn_1_attack} | fork {eval_fork} vs {eval_no_fork}");
     assert!(eval_nothing > eval_pawn_1_attack);
-    assert!(eval_pawn_1_attack > eval_pawn_2_attacks);
+    assert!(eval_no_fork > eval_fork);
+
+    // A single attack with White to play is not worth much: the knight moves
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
+    let game_state = GameState::from_fen(fen);
+    let eval_harmless_attack = get_opening_position_evaluation(&game_state);
+    assert!(eval_harmless_attack > eval_pawn_1_attack + 0.5);
 
     // Try from the other side (white pawns attacking black pieces)
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";

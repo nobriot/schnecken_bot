@@ -1,3 +1,4 @@
+use super::generic::threatened_victims;
 use crate::model::board::*;
 use crate::model::board_geometry::holes::*;
 use crate::model::board_geometry::passed_pawns_areas::*;
@@ -488,7 +489,7 @@ pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
                                                                   .count_few_ones(),
       };
 
-      victims += attacked_pieces;
+      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
     }
 
     pawns &= pawns - 1;
@@ -616,15 +617,21 @@ mod tests {
     assert_eq!(0, get_pawn_victims(&game_state, Color::White));
     assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
 
+    // White to play: the attacked knight just moves away, nothing to count
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
+    // Same position, Black to play: the knight can be taken
+    let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 b - - 0 10";
+    let game_state = GameState::from_fen(fen);
     assert_eq!(1, get_pawn_victims(&game_state, Color::Black));
 
+    // Fork with White to play: one knight escapes, the other one is lost
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/1N1N4/2P5/PP2BPPP/R1BQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_pawn_victims(&game_state, Color::White));
-    assert_eq!(2, get_pawn_victims(&game_state, Color::Black));
+    assert_eq!(1, get_pawn_victims(&game_state, Color::Black));
 
     // White pawn attacking black pieces:
     let fen = "rnbq1rk1/pp2bppp/n2p4/2p5/8/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
@@ -632,15 +639,25 @@ mod tests {
     assert_eq!(0, get_pawn_victims(&game_state, Color::White));
     assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
 
+    // Black to play: the attacked knight just moves away
     let fen = "rnbq1rk1/pp2bppp/3p4/2p5/1n6/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(0, get_pawn_victims(&game_state, Color::White));
+    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
+    // Same position, White to play: the knight can be taken
+    let fen = "rnbq1rk1/pp2bppp/3p4/2p5/1n6/2P2N2/PP2BPPP/RNBQ1RK1 w - - 1 10";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(1, get_pawn_victims(&game_state, Color::White));
+
+    // Fork with Black to play: one piece is lost
+    let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
     let game_state = GameState::from_fen(fen);
     assert_eq!(1, get_pawn_victims(&game_state, Color::White));
     assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
-
-    let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 b - - 1 10";
+    // Same fork with White to play
+    let fen = "rn1q1rk1/pp2bppp/3p4/2p5/1n1b4/2P2N2/PP2BPPP/RNBQ1RK1 w - - 1 10";
     let game_state = GameState::from_fen(fen);
     assert_eq!(2, get_pawn_victims(&game_state, Color::White));
-    assert_eq!(0, get_pawn_victims(&game_state, Color::Black));
   }
 
   #[test]
