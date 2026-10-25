@@ -3,6 +3,7 @@ pub mod account;
 pub mod challenges;
 pub mod game;
 pub mod games;
+pub mod relations;
 pub mod users;
 
 // Other crates
@@ -106,6 +107,45 @@ impl LichessApi {
 
     debug!("Lichess get answer: {}", json_object);
     Ok(json_object)
+  }
+
+  /// HTTPS Get request to Lichess, for endpoints answering with
+  /// [ND-JSON](https://lichess.org/api#description/streaming-with-nd-json)
+  /// (one JSON object per line) and closing the stream when done.
+  ///
+  /// ### Arguments
+  ///
+  /// * `api_endpoint` Endpoint for the API, e.g. `"rel/following"`
+  ///
+  /// ### Returns
+  ///
+  /// Result with the list of JSON values received in the API response.
+  pub async fn lichess_get_nd_json(&self,
+                                   api_endpoint: &str)
+                                   -> Result<Vec<JsonValue>, LichessError> {
+    let response = match self.get(api_endpoint).await {
+      Ok(response) => response,
+      Err(error) => {
+        warn!("Error issuing a GET request to Lichess: {error:?}");
+        return Err(LichessError);
+      },
+    };
+
+    let status = response.status();
+    let text = match response.text().await {
+      Ok(text) => text,
+      Err(error) => {
+        warn!("Error reading the payload from GET request to Lichess: {error:?}");
+        return Err(LichessError);
+      },
+    };
+
+    if !status.is_success() {
+      warn!("Lichess GET request for {api_endpoint} failed with status {status}: {text}");
+      return Err(LichessError);
+    }
+
+    Ok(helpers::parse_string_to_nd_json(&text))
   }
 
   /// Generic HTTPS Post request to Lichess.

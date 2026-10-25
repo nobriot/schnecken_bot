@@ -25,7 +25,7 @@ pub trait BotCommands {
 // Helper functions
 fn print_help() {
   println!("Welcome ! You can use the following commands:\n\n");
-  println!("{} or {} - Attempts to play with one of our favorite players",
+  println!("{} or {} - Challenges a bot we follow (or a new bot with a similar rating)",
            PLAY_COMMAND, P_COMMAND);
   println!("{} - Exits the program - keep ongoing games alive", EXIT_COMMAND);
   println!("{} or {} - Exits the program - Aborts/resigns ongoing games",

@@ -1,21 +1,26 @@
 use super::games::game::Game;
+use super::matchmaking;
 use crate::bot::games::games::BotGames;
 use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
 use lichess::error::LichessError;
-use lichess::types::Clock;
+use lichess::types::{Clock, User};
 // Other libraries from our repo
 use log::*;
 use rand::Rng;
 use serde_json::Value as JsonValue;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tokio::task::JoinHandle;
 
 // -----------------------------------------------------------------------------
 // Constants
 const DEFAULT_USERNAME: &str = "schnecken_bot";
-const LICHESS_PLAYERS: &str =
-  include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/players_we_like.txt"));
+/// Minimum interval between two lookups of new opponents in the online bots
+/// list, so that we do not spam bots we do not know with challenges.
+const ONLINE_BOTS_LOOKUP_INTERVAL: Duration = Duration::from_secs(30 * 60);
+/// How many online bots to fetch when looking for new opponents
+const ONLINE_BOTS_TO_FETCH: usize = 200;
 
 // -----------------------------------------------------------------------------
 // Types
@@ -38,6 +43,10 @@ pub struct BotState {
   exit:              Arc<Mutex<bool>>,
   /// Engine configuration from config file / CLI
   pub engine_config: crate::config::EngineConfig,
+  /// IDs of the users we follow on Lichess
+  following:         Mutex<Vec<String>>,
+  /// Last time we looked for new opponents in the online bots list
+  last_bots_lookup:  Mutex<Option<Instant>>,
 }
 
 // We pass bot state references accross threads
@@ -66,7 +75,9 @@ impl BotState {
                                     games: bot_games,
                                     last_game: Arc::new(Mutex::new(std::time::Instant::now())),
                                     exit: Arc::new(Mutex::new(false)),
-                                    engine_config }));
+                                    engine_config,
+                                    following: Mutex::new(Vec::new()),
+                                    last_bots_lookup: Mutex::new(None) }));
     bot_state_ref
   }
 
@@ -107,6 +118,9 @@ impl BotState {
     });
 
     tokio::spawn(async { self.restart_incoming_streams(handle).await });
+
+    // Clean up the list of users we follow
+    tokio::spawn(async { self.update_following().await });
 
     // Start a thread that sends challenges with a given interval:
     tokio::spawn(async { self.send_challenges_with_interval(7200).await });
@@ -188,12 +202,16 @@ impl BotState {
   /// ### Arguments
   ///
   /// * `json_value` - JSON payload received in the HTTP stream.
-  fn on_game_end(&self, game: lichess::types::GameStart) {
+  fn on_game_end(self: BotStateRef, game: lichess::types::GameStart) {
     // Update the last game time-stamp
     self.update_last_game_timestamp();
 
     // Remove the game from the list of games
     self.games.remove(&game.game_id);
+
+    // Check if this opponent is somebody we would like to follow
+    let opponent_id = game.opponent.id;
+    tokio::spawn(async move { self.consider_following(&opponent_id).await });
   }
 
   /// Handles incoming gameStart events
@@ -217,12 +235,13 @@ impl BotState {
     let crosstable =
       self.api.get_crosstable(self.username.as_str(), &challenge.challenger.id, false).await;
 
-    if let Some(scores) = crosstable {
-      info!("Crosstable {} - {} vs {} - {}",
+    if let Some(crosstable) = crosstable {
+      info!("Crosstable {} - {} vs {} - {} ({} games)",
             self.username.as_str(),
-            scores.0,
-            scores.1,
-            challenge.challenger.id);
+            crosstable.user_1_score,
+            crosstable.user_2_score,
+            challenge.challenger.id,
+            crosstable.games);
     }
 
     // We do not play non-standard for now
@@ -283,7 +302,10 @@ impl BotState {
   // ------------------------
   // Others
 
-  /// Checks if any of the players we like is online and sends a challenge.
+  /// Challenges another bot: one of the bots we follow if any is available
+  /// (preferably with a similar rating), else from time to time a new bot
+  /// with a similar rating from the list of online bots.
+  /// We never challenge humans.
   pub async fn challenge_somebody(&self) {
     let clock_setting = rand::rng().random_range(0..40);
     let clock: Clock = match clock_setting {
@@ -297,21 +319,175 @@ impl BotState {
                    increment: 0,
                    totaltime: None, },
     };
+    let speed = matchmaking::speed_for_clock(&clock);
 
-    let players: Vec<&str> = LICHESS_PLAYERS.lines().collect();
+    let Some(us) = self.get_our_user().await else {
+      warn!("Could not get our own profile, not sending challenges");
+      return;
+    };
+    let Some(our_rating) = us.rating(speed) else {
+      warn!("We have no {speed:?} rating, not sending challenges");
+      return;
+    };
 
-    for username in players {
-      // TODO: Shuffle the list correctly
-      if rand::rng().random_range(0..2) == 0 {
+    // First, try the bots we follow
+    let following = match self.api.get_following().await {
+      Ok(following) => following,
+      Err(_) => {
+        warn!("Could not get the list of users we follow");
+        Vec::new()
+      },
+    };
+    self.set_following(&following);
+
+    let followed_bots: Vec<User> =
+      following.into_iter()
+               .filter(|user| matchmaking::is_challengeable_bot(&us, user))
+               .collect();
+    let candidates = self.available_bots(followed_bots).await;
+    if self.challenge_one_of(candidates, our_rating, &clock).await {
+      return;
+    }
+
+    // None of them is available, look for new opponents once in a while
+    {
+      let mut last_lookup = self.last_bots_lookup.lock().unwrap();
+      if last_lookup.is_some_and(|t| t.elapsed() < ONLINE_BOTS_LOOKUP_INTERVAL) {
+        debug!("None of the bots we follow is available. Not looking for new opponents yet");
+        return;
+      }
+      *last_lookup = Some(Instant::now());
+    }
+
+    info!("None of the bots we follow is available, looking for new opponents online");
+    let online_bots = match self.api.get_online_bots(ONLINE_BOTS_TO_FETCH).await {
+      Ok(bots) => bots,
+      Err(_) => {
+        warn!("Could not get the list of online bots");
+        return;
+      },
+    };
+    let following = self.following.lock().unwrap().clone();
+    let new_opponents = matchmaking::select_new_opponents(&us, online_bots, &following, speed);
+    let candidates = self.available_bots(new_opponents).await;
+    if !self.challenge_one_of(candidates, our_rating, &clock).await {
+      info!("Could not find any bot to challenge");
+    }
+  }
+
+  /// Keeps the bots that are online and not already playing
+  async fn available_bots(&self, bots: Vec<User>) -> Vec<User> {
+    if bots.is_empty() {
+      return bots;
+    }
+    let ids: Vec<&str> = bots.iter().map(|bot| bot.id.as_str()).collect();
+    let Ok(statuses) = self.api.get_users_status(&ids).await else {
+      warn!("Could not get the status of the bots");
+      return Vec::new();
+    };
+
+    bots.into_iter()
+        .filter(|bot| {
+          statuses.iter().any(|s| s.id.eq_ignore_ascii_case(&bot.id) && s.online && !s.playing)
+        })
+        .collect()
+  }
+
+  /// Tries to challenge one of the candidates, closest rating first.
+  ///
+  /// ### Returns
+  ///
+  /// True if a challenge was sent
+  async fn challenge_one_of(&self, candidates: Vec<User>, our_rating: u32, clock: &Clock) -> bool {
+    let speed = matchmaking::speed_for_clock(clock);
+    for bot in matchmaking::challenge_order(candidates, our_rating, speed) {
+      // Should never happen, candidates are filtered, but we really do not want
+      // to spam humans
+      if !bot.is_bot() {
+        warn!("Refusing to challenge {}, not a bot", bot.username);
         continue;
       }
-      if self.api.is_online(username).await {
-        info!("{username} is online. Sending a challenge!");
-        if self.api.send_challenge(username, &clock).await.is_err() {
-          info!("Error sending a challenge to {username}");
+      info!("Challenging {} ({:?} rating {:?}, we have {our_rating})",
+            bot.username,
+            speed,
+            bot.rating(speed));
+      if self.api.send_challenge(&bot.id, clock).await.is_ok() {
+        return true;
+      }
+      info!("Error sending a challenge to {}", bot.username);
+    }
+    false
+  }
+
+  /// Gets our own user information (ratings, etc.)
+  async fn get_our_user(&self) -> Option<User> {
+    let json = self.api.get_profile().await.ok()?;
+    serde_json::from_value::<User>(json).ok()
+  }
+
+  /// Saves the list of IDs of the users we follow
+  fn set_following(&self, users: &[User]) {
+    *self.following.lock().unwrap() = users.iter().map(|user| user.id.clone()).collect();
+  }
+
+  /// Checks if we are following a user
+  fn is_following(&self, user_id: &str) -> bool {
+    self.following.lock().unwrap().iter().any(|id| id.eq_ignore_ascii_case(user_id))
+  }
+
+  /// Cleans up the list of users we follow: unfollows bots whose rating is too
+  /// far from ours (never humans), and makes sure we follow the users we
+  /// always want to follow.
+  async fn update_following(&self) {
+    let (Some(us), Ok(following)) = (self.get_our_user().await, self.api.get_following().await)
+    else {
+      warn!("Could not get our profile or the users we follow. Skipping follow list cleanup");
+      return;
+    };
+    info!("We are following {} users", following.len());
+
+    let mut kept = Vec::new();
+    for user in following {
+      if matchmaking::should_unfollow(&us, &user) {
+        info!("Unfollowing {}, rating too different from ours", user.username);
+        if self.api.unfollow_user(&user.id).await.is_ok() {
           continue;
         }
-        break;
+      }
+      kept.push(user);
+    }
+    self.set_following(&kept);
+
+    for user_id in matchmaking::ALWAYS_FOLLOW {
+      if !self.is_following(user_id) && self.api.follow_user(user_id).await.is_ok() {
+        self.following.lock().unwrap().push(user_id.to_string());
+      }
+    }
+  }
+
+  /// Starts following an opponent if we played many games together and have a
+  /// similar rating.
+  async fn consider_following(&self, opponent_id: &str) {
+    if opponent_id.eq_ignore_ascii_case(&self.username) || self.is_following(opponent_id) {
+      return;
+    }
+
+    let Some(crosstable) = self.api.get_crosstable(&self.username, opponent_id, false).await else {
+      return;
+    };
+    if crosstable.games <= matchmaking::FOLLOW_MIN_GAMES {
+      return;
+    }
+
+    let (Some(us), Ok(opponent)) =
+      (self.get_our_user().await, self.api.get_user(opponent_id).await)
+    else {
+      return;
+    };
+    if matchmaking::should_follow(&us, &opponent, crosstable.games) {
+      info!("Following {} ({} games played together)", opponent.username, crosstable.games);
+      if self.api.follow_user(&opponent.id).await.is_ok() {
+        self.following.lock().unwrap().push(opponent.id);
       }
     }
   }

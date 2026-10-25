@@ -160,7 +160,7 @@ pub struct Player {
   pub title:       Option<Title>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum Speed {
   Bullet,
@@ -212,4 +212,81 @@ pub struct ChatMessage {
 pub enum ChatRoom {
   Spectator,
   Player,
+}
+
+/// Rating of a user in a performance category (bullet, blitz, etc.)
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct PerfRating {
+  #[serde(default)]
+  pub games:  u32,
+  pub rating: u32,
+  /// Provisional rating (not enough games played yet)
+  #[serde(default)]
+  pub prov:   bool,
+}
+
+/// Ratings of a user, for the categories we play
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct UserPerfs {
+  pub bullet:    Option<PerfRating>,
+  pub blitz:     Option<PerfRating>,
+  pub rapid:     Option<PerfRating>,
+  pub classical: Option<PerfRating>,
+}
+
+/// User information, as returned by the user, account, following and online
+/// bots endpoints
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct User {
+  pub id:            String,
+  pub username:      String,
+  /// FIDE title, or "BOT" for bots. Kept as a string, as Lichess has more
+  /// titles than the `Title` enum (NM, LM, etc.)
+  pub title:         Option<String>,
+  #[serde(default)]
+  pub perfs:         UserPerfs,
+  #[serde(default)]
+  pub disabled:      bool,
+  #[serde(default, rename = "tosViolation")]
+  pub tos_violation: bool,
+}
+
+impl User {
+  /// Returns true if the user is a bot account
+  pub fn is_bot(&self) -> bool {
+    self.title.as_deref() == Some("BOT")
+  }
+
+  /// Returns the rating of the user for a game speed, if any
+  pub fn rating(&self, speed: Speed) -> Option<u32> {
+    let perf = match speed {
+      Speed::Bullet => &self.perfs.bullet,
+      Speed::Blitz => &self.perfs.blitz,
+      Speed::Rapid => &self.perfs.rapid,
+      Speed::Classical => &self.perfs.classical,
+    };
+    perf.as_ref().map(|p| p.rating)
+  }
+}
+
+/// Real-time status of a user
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UserStatus {
+  pub id:      String,
+  pub name:    String,
+  #[serde(default)]
+  pub online:  bool,
+  #[serde(default)]
+  pub playing: bool,
+}
+
+/// Crosstable between 2 users
+#[derive(Debug, Clone)]
+pub struct Crosstable {
+  /// Score of the first user
+  pub user_1_score: f64,
+  /// Score of the second user
+  pub user_2_score: f64,
+  /// Number of games played between the 2 users
+  pub games:        u64,
 }
