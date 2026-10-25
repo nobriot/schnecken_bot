@@ -5,7 +5,13 @@ use crate::types::*;
 // External crates
 use log::*;
 use serde_json::Value as JsonValue;
+use std::time::Duration;
 use urlencoding::encode;
+
+/// How many times we try to send a move before giving up
+const MAKE_MOVE_MAX_ATTEMPTS: u32 = 5;
+/// Delay between attempts to send a move (multiplied by the attempt number)
+const MAKE_MOVE_RETRY_DELAY: Duration = Duration::from_millis(100);
 
 impl LichessApi {
   /// Attempts to abort a game.
@@ -145,10 +151,12 @@ impl LichessApi {
       }
 
       warn!("Move was not accepted by Lichess. {:?}", move_result);
-      if retries > 10 {
+      if retries >= MAKE_MOVE_MAX_ATTEMPTS {
         error!("Something is not working with making moves");
         return false;
       }
+      // Give the network a short break before trying again
+      tokio::time::sleep(MAKE_MOVE_RETRY_DELAY * retries).await;
     }
 
     if json_response["ok"].as_bool().is_none() {

@@ -89,11 +89,26 @@ impl BotState {
 
   /// Indicates the bot that it should stop and exit everything.
   pub fn request_exit(&self, resign: bool) {
-    if resign {
-      self.games.terminate_all();
-    }
+    self.games.terminate_all(resign);
     let mut exit = self.exit.lock().unwrap();
     *exit = true;
+  }
+
+  /// Waits for the game loops to finish (e.g. after `request_exit`), so that
+  /// their last requests (resign, chat) are sent before the program exits.
+  ///
+  /// ### Arguments
+  ///
+  /// * `timeout` - Maximum time to wait
+  pub async fn wait_for_games(&self, timeout: Duration) {
+    let start = Instant::now();
+    while !self.games.all_finished() {
+      if start.elapsed() > timeout {
+        warn!("Games did not finish within {}s, exiting anyway", timeout.as_secs());
+        return;
+      }
+      tokio::time::sleep(Duration::from_millis(100)).await;
+    }
   }
 
   /// Update last_game time-stamp

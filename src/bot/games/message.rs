@@ -16,9 +16,12 @@ pub enum GameMessage {
   /// Notifies of an opponent gone event. Bool indicates if the opponent is
   /// gone, or back
   OpponentGone(Option<u64>),
-  /// Terminates the game loop, typically because the program wants to shut down
-  /// But leaves the game open (no resignation)
+  /// Resigns the game (with a goodbye message) and stops the game loop,
+  /// because the program shuts down (`quit` command)
   Terminate,
+  /// Stops the game loop without resigning, because the program shuts down
+  /// (`exit` command). The game stays open on Lichess.
+  Leave,
   /// Just a nop message to check everything is alright
   #[allow(dead_code)] // Not sent yet
   Nop,

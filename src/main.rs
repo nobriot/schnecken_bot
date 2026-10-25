@@ -64,6 +64,10 @@ async fn main_loop(api_token: &str, engine_config: config::EngineConfig) -> Resu
     }
   }
 
+  // Let the games send their last requests (resign, chat) while the runtime is
+  // still alive: once it shuts down, new HTTP requests fail.
+  schnecken_bot.wait_for_games(Duration::from_secs(15)).await;
+
   // End the main loop.
   Ok(())
 }

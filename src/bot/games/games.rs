@@ -97,11 +97,23 @@ impl BotGames {
     games.retain(|handle| !handle.is_over());
   }
 
-  pub fn terminate_all(&self) {
+  /// Asks all the games to stop, because the program shuts down
+  ///
+  /// ### Arguments
+  ///
+  /// * `resign` - Resign the games, or leave them open on Lichess
+  pub fn terminate_all(&self, resign: bool) {
+    let message = || if resign { GameMessage::Terminate } else { GameMessage::Leave };
     let games = self.games.lock().unwrap();
     for handle in games.iter() {
-      let _ = handle.tx.send(GameMessage::Terminate);
+      let _ = handle.tx.send(message());
     }
+  }
+
+  /// Checks if all the game loops are finished
+  pub fn all_finished(&self) -> bool {
+    let games = self.games.lock().unwrap();
+    games.iter().all(|handle| handle.is_over())
   }
 
   /// Checks if any of the players we like is online and sends a challenge.

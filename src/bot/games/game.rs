@@ -153,11 +153,16 @@ impl Game {
           let _ = self.api.resign_game(&self.id).await;
         },
         Ok(GameMessage::Terminate) => {
-          info!("Leaving game {}", self.id);
+          info!("Resigning and leaving game {}", self.id);
           // We already say goodbye here, no message at the end of the game
           self.events.on_game_over();
           self.say(MESSAGE_HAVE_TO_LEAVE).await;
           let _ = self.api.resign_game(&self.id).await;
+          break;
+        },
+        Ok(GameMessage::Leave) => {
+          info!("Leaving game {} without resigning", self.id);
+          break;
         },
         Ok(GameMessage::OpponentGone(opt_t)) => {
           if let Some(timeout) = opt_t {
