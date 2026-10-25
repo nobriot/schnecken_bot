@@ -37,6 +37,9 @@ use std::time::{Duration, Instant};
 // Constants
 pub const NNUE_FILE: &str = "engine/nnue/net.nnue";
 pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
+/// How many plies deeper than the current search depth we can go when
+/// following checks.
+const MAX_CHECK_EXTENSION: usize = 4;
 
 // -----------------------------------------------------------------------------
 // Type definitions
@@ -763,6 +766,15 @@ impl Engine {
 
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
+
+      // Checks are forcing, the opponent has few replies: extend the line so
+      // that we do not stop the search in the middle of a mating attack.
+      if new_game_state.board.checkers != 0
+         && max_line_depth < self.analysis.get_depth() + MAX_CHECK_EXTENSION
+      {
+        max_line_depth += 1;
+        self.analysis.update_selective_depth(max_line_depth);
+      }
 
       // Check if we just repeated the position too much or did not make
       // progress.

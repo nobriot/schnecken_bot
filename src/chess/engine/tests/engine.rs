@@ -793,3 +793,34 @@ fn engine_search_real_game_Lwrv3mnM_hold_the_draw() {
   engine.print_evaluations();
   assert_eq!(engine.get_best_move().unwrap().to_string(), "d1d7");
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Q0UsOw1C_avoid_mate() {
+  // https://lichess.org/Q0UsOw1C#99 : Bot played 50...f4?? and got mated:
+  // 51. Rf6+ Kg7 52. Qe7+ Kh8 53. Rh6+ Kg8 54. Rg6+ Kh8 55. Qg7#
+  // The mate is 10 plies deep, but all white moves are checks. Without check
+  // extensions, the search stopped in the middle of the attack and f4 was
+  // even the preferred move, up to depth 6.
+  let mut engine = Engine::new(false);
+  engine.set_position("2r2k2/8/P3R3/2p2pp1/7p/1P2QPb1/2P1KNq1/8 b - - 1 50");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 5;
+  engine.go();
+  engine.print_evaluations();
+  assert_ne!(engine.get_best_move().unwrap().to_string(), "f5f4");
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Q0UsOw1C_find_mate() {
+  // Same game, after 50...f4?? White mates in 5 starting with Rf6+
+  let mut engine = Engine::new(false);
+  engine.set_position("2r2k2/8/P3R3/2p3p1/5p1p/1P2QPb1/2P1KNq1/8 w - - 0 51");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 5;
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!(engine.get_best_move().unwrap().to_string(), "e6f6");
+  assert!(engine.get_eval().unwrap() > 100.0);
+}
