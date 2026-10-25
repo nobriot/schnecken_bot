@@ -1,13 +1,14 @@
 use crate::bot::games::events::*;
 use chess::engine::Engine;
 use chess::model::board::Board;
+use lichess::types::ChatLine;
 
 #[test]
 fn test_messages() {
   assert_eq!("maia1", display_name("BOT maia1"));
   assert_eq!("thibault", display_name("thibault"));
   assert!(greeting("maia1").starts_with("Hello maia1, I am schnecken_bot v"));
-  assert_eq!("I smell some mate around the corner (#3, move 23)", mate_announcement(3, 23));
+  assert_eq!("Woo-hoo, mate around the corner (#3, move 23)", mate_announcement(3, 23));
 }
 
 #[test]
@@ -106,7 +107,7 @@ fn test_event_messages() {
              EvalEvent::OutOfTrouble.message(31, -0.3));
   assert_eq!(Some(String::from("Maybe not so much in trouble after all (move 31, eval +2.5)")),
              EvalEvent::OutOfTrouble.message(31, 2.5));
-  assert_eq!(Some(String::from("I smell some mate around the corner (#4, move 40)")),
+  assert_eq!(Some(String::from("Woo-hoo, mate around the corner (#4, move 40)")),
              EvalEvent::AnnounceMate(4).message(40, 194.0));
   assert_eq!(Some(String::from("Wow, this is a swindle!")),
              EvalEvent::Swindle.message(40, 197.0));
@@ -231,4 +232,126 @@ fn test_chatty() {
   // And quiet can be asked again afterwards
   assert!(events.set_quiet());
   assert!(events.is_quiet());
+}
+
+fn line(user: &str, text: &str) -> ChatLine {
+  ChatLine { user: user.to_string(),
+             text: text.to_string(), }
+}
+
+#[test]
+fn test_restore_from_chat_new_game() {
+  // Nobody talked yet, or only the opponent: new game, we greet
+  let mut events = GameEvents::default();
+  assert!(!events.restore_from_chat(&[], "schnecken_bot"));
+  assert!(events.on_moves_played(1));
+
+  let mut events = GameEvents::default();
+  assert!(!events.restore_from_chat(&[line("oli567", "hi!")], "schnecken_bot"));
+  assert!(events.on_moves_played(2));
+}
+
+#[test]
+fn test_restore_from_chat_ongoing_game() {
+  // We already greeted: no greeting, no "Have fun" again
+  let chat = [line("schnecken_bot", &greeting("oli567")), line("schnecken_bot", HAVE_FUN)];
+  let mut events = GameEvents::default();
+  assert!(events.restore_from_chat(&chat, "schnecken_bot"));
+  assert!(!events.on_moves_played(1));
+  assert!(!events.on_moves_played(2));
+  // Nothing else happened: trouble and mates can still be commented
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+
+  // Usernames are matched without case and title ("BOT schnecken_bot")
+  let chat = [line("BOT Schnecken_Bot", &greeting("oli567"))];
+  let mut events = GameEvents::default();
+  assert!(events.restore_from_chat(&chat, "schnecken_bot"));
+}
+
+#[test]
+fn test_restore_from_chat_state() {
+  // In trouble, and a mate was already announced earlier
+  let chat = [line("schnecken_bot", &greeting("oli567")),
+              line("schnecken_bot", &mate_announcement(3, 20)),
+              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap())];
+  let mut events = GameEvents::default();
+  assert!(events.restore_from_chat(&chat, "schnecken_bot"));
+  // Still in trouble: no new "in trouble" message, but we can get out of it
+  assert!(events.after_search(-5.0, false).is_empty());
+  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(0.0, false));
+  // Mate already announced
+  assert!(events.after_search(197.0, false).is_empty());
+
+  // Got out of trouble already
+  let chat = [line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap()),
+              line("schnecken_bot", &EvalEvent::OutOfTrouble.message(35, 0.1).unwrap())];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+
+  // Opponent asked us to be quiet, then chatty, then quiet again
+  let chat = [line("schnecken_bot", &greeting("oli567")),
+              line("oli567", "/quiet"),
+              line("oli567", "/chatty"),
+              line("oli567", "/quiet")];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert!(events.is_quiet());
+
+  // Our own messages are never taken as commands
+  let chat = [line("schnecken_bot", "/quiet")];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert!(!events.is_quiet());
+}
+
+#[test]
+fn test_mark_ongoing_game() {
+  let mut events = GameEvents::default();
+  events.mark_ongoing_game();
+  assert!(!events.on_moves_played(1));
+}
+
+#[test]
+fn test_never_say_the_same_comment_twice() {
+  let mut events = GameEvents::default();
+  assert!(events.should_say(HAVE_FUN));
+  assert!(!events.should_say(HAVE_FUN));
+  assert!(events.should_say(WELL_PLAYED));
+
+  // Comments with a different context (move, eval) are different comments
+  let trouble_1 = EvalEvent::InTrouble.message(23, -3.4).unwrap();
+  let trouble_2 = EvalEvent::InTrouble.message(40, -4.0).unwrap();
+  assert!(events.should_say(&trouble_1));
+  assert!(events.should_say(&trouble_2));
+  assert!(!events.should_say(&trouble_1));
+}
+
+#[test]
+fn test_never_repeat_comments_after_restart() {
+  // Everything we said before a restart is not said again
+  let goodbye = "Sorry, I have to leave. I'll resign now!";
+  let chat = [line("schnecken_bot", &greeting("oli567")),
+              line("schnecken_bot", HAVE_FUN),
+              line("schnecken_bot", goodbye),
+              line("oli567", WELL_PLAYED)];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert!(!events.should_say(&greeting("oli567")));
+  assert!(!events.should_say(HAVE_FUN));
+  assert!(!events.should_say(goodbye));
+  // Only our own comments count: the opponent said "Well played!", we can too
+  assert!(events.should_say(WELL_PLAYED));
+}
+
+#[test]
+fn test_can_toggle_commentary() {
+  use lichess::types::ChatRoom;
+  // The opponent, in the player chat
+  assert!(can_toggle_commentary(&ChatRoom::Player, "oli567"));
+  // Not any spectator
+  assert!(!can_toggle_commentary(&ChatRoom::Spectator, "oli567"));
+  // The bot owner, from any room, whatever the case
+  assert!(can_toggle_commentary(&ChatRoom::Spectator, "SchnellSchnecke"));
+  assert!(can_toggle_commentary(&ChatRoom::Player, "schnellschnecke"));
 }

@@ -118,6 +118,23 @@ impl LichessApi {
     }
   }
 
+  /// Fetches the messages posted in the player chat of a game
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID for which we want the chat
+  ///
+  /// ### Returns
+  ///
+  /// The chat lines, oldest first
+  pub async fn get_game_chat(&self, game_id: &str) -> Result<Vec<ChatLine>, LichessError> {
+    let json = self.lichess_get(&format!("bot/game/{game_id}/chat")).await?;
+    serde_json::from_value::<Vec<ChatLine>>(json).map_err(|error| {
+      warn!("Could not parse chat for game {game_id}: {error}");
+      LichessError
+    })
+  }
+
   /// Makes a move on a Game
   ///
   /// Will make a few retries if the move is not accepted at the first attempt.

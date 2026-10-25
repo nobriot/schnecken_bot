@@ -36,6 +36,11 @@ pub struct Game {
   opponent_is_bot: bool,
   /// What already happened during the game
   events:          GameEvents,
+  /// Our Lichess username, to recognize our messages in the chat
+  bot_username:    String,
+  /// We already played a move when the game was started (Lichess `hasMoved`),
+  /// i.e. we are joining an ongoing game
+  we_have_moved:   bool,
 }
 
 impl Game {
@@ -45,7 +50,8 @@ impl Game {
   #[allow(clippy::new_ret_no_self)]
   pub fn new(game: lichess::types::GameStart,
              api: &LichessApi,
-             engine_config: &crate::config::EngineConfig)
+             engine_config: &crate::config::EngineConfig,
+             bot_username: &str)
              -> GameHandle {
     println!("Game::new with game data: {:?}", game);
 
@@ -56,6 +62,7 @@ impl Game {
     let engine = configure_engine(&game, engine_config);
     let opponent_name = events::display_name(&game.opponent.username).to_string();
     let opponent_is_bot = game.opponent_is_bot();
+    let we_have_moved = game.has_moved;
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),
@@ -66,7 +73,9 @@ impl Game {
                                     engine,
                                     opponent_name,
                                     opponent_is_bot,
-                                    events: GameEvents::default() };
+                                    events: GameEvents::default(),
+                                    bot_username: bot_username.to_string(),
+                                    we_have_moved };
 
     // Start the game loop
     // Spawn blocking as calculating chess moves is CPU intense and would block
@@ -83,14 +92,37 @@ impl Game {
                  opponent_id: game.opponent.id.clone() }
   }
 
-  /// Writes a message in the game chat and the spectator room
-  async fn say(&self, message: &str) {
+  /// Writes a comment in the game chat and the spectator room, unless we
+  /// already posted the same comment in this game.
+  async fn say(&mut self, message: &str) {
+    if !self.events.should_say(message) {
+      debug!("Not repeating comment in game {}: {message}", self.id);
+      return;
+    }
     self.api.write_in_chat(&self.id, message).await;
     self.api.write_in_spectator_room(&self.id, message).await;
   }
 
-  /// Writes a couple of message
-  async fn start_of_game_announcement(&self) {
+  /// Greets the opponent, only on new games: when rejoining an ongoing game
+  /// (e.g. after a restart), restores what we already said from the chat
+  /// instead.
+  async fn start_of_game_announcement(&mut self) {
+    let already_talked = match self.api.get_game_chat(&self.id).await {
+      Ok(chat) => self.events.restore_from_chat(&chat, &self.bot_username),
+      Err(_) => {
+        // Could not get the chat: only greet if we did not play yet
+        warn!("Could not get the chat of game {}, guessing if it is a new game", self.id);
+        if self.we_have_moved {
+          self.events.mark_ongoing_game();
+        }
+        self.we_have_moved
+      },
+    };
+
+    if already_talked {
+      info!("Rejoining ongoing game {}, not greeting again", self.id);
+      return;
+    }
     self.say(&events::greeting(&self.opponent_name)).await;
   }
 
@@ -194,31 +226,30 @@ impl Game {
 
   /// Handles chat commands (`/eval`, `/quiet`, `/chatty`)
   async fn on_chat_message(&mut self, message: lichess::types::ChatMessage) {
-    use lichess::types::ChatRoom;
-    match events::parse_chat_command(&message.text) {
-      Some(ChatCommand::Eval) => {
-        let report = self.events.eval_report();
-        self.api.write_in_chat_room(&self.id, message.room, &report).await;
+    let Some(command) = events::parse_chat_command(&message.text) else {
+      return;
+    };
+
+    // Turning the commentary on/off is for the opponent and the bot owners,
+    // not for any spectator
+    if matches!(command, ChatCommand::Quiet | ChatCommand::Chatty)
+       && !events::can_toggle_commentary(&message.room, &message.username)
+    {
+      info!("Ignoring {command:?} from spectator {} in game {}", message.username, self.id);
+      return;
+    }
+
+    // Answer in the room where the command was sent
+    let answer = match command {
+      ChatCommand::Eval => Some(self.events.eval_report()),
+      ChatCommand::Quiet => self.events.set_quiet().then(|| events::QUIET_ACKNOWLEDGED.to_string()),
+      ChatCommand::Chatty => {
+        self.events.set_chatty().then(|| events::CHATTY_ACKNOWLEDGED.to_string())
       },
-      // Only the opponent can make us quiet, not the spectators
-      Some(ChatCommand::Quiet) if message.room == ChatRoom::Player => {
-        if self.events.set_quiet() {
-          info!("{} asked us to be quiet in game {}", message.username, self.id);
-          self.api.write_in_chat_room(&self.id, ChatRoom::Player, events::QUIET_ACKNOWLEDGED).await;
-        }
-      },
-      Some(ChatCommand::Chatty) if message.room == ChatRoom::Player => {
-        if self.events.set_chatty() {
-          info!("{} asked us to comment again in game {}", message.username, self.id);
-          self.api
-              .write_in_chat_room(&self.id, ChatRoom::Player, events::CHATTY_ACKNOWLEDGED)
-              .await;
-        }
-      },
-      Some(command @ (ChatCommand::Quiet | ChatCommand::Chatty)) => {
-        info!("Ignoring {command:?} from spectator {} in game {}", message.username, self.id);
-      },
-      None => {},
+    };
+    info!("{} sent {command:?} in game {}", message.username, self.id);
+    if let Some(answer) = answer {
+      self.api.write_in_chat_room(&self.id, message.room, &answer).await;
     }
   }
 

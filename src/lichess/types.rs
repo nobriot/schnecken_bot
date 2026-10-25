@@ -207,6 +207,13 @@ pub struct ChatMessage {
   pub username:     String,
 }
 
+/// A line of the game chat history (player chat)
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ChatLine {
+  pub text: String,
+  pub user: String,
+}
+
 #[derive(Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum ChatRoom {

@@ -208,7 +208,7 @@ impl BotState {
     self.update_last_game_timestamp();
 
     // Create a game handle and start the game
-    let game_handle: GameHandle = Game::new(game, self.api, &self.engine_config);
+    let game_handle: GameHandle = Game::new(game, self.api, &self.engine_config, &self.username);
     self.games.add(game_handle);
   }
 

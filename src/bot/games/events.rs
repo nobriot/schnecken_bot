@@ -2,7 +2,8 @@
 //! chat and when to do special things like resigning.
 use chess::engine::eval::position::mate_distance_in_plies;
 use chess::model::board::Board;
-use lichess::types::Color;
+use lichess::types::{ChatLine, ChatRoom, Color};
+use std::collections::BTreeSet;
 
 // -----------------------------------------------------------------------------
 // Messages
@@ -19,6 +20,7 @@ pub static NO_EVAL_YET: &str = "No eval yet, I have not thought about this game 
 pub static IN_TROUBLE: &str = "oh oh, I think I am in trouble";
 pub static OUT_OF_TROUBLE: &str = "Maybe not so much in trouble after all";
 pub static SWINDLE: &str = "Wow, this is a swindle!";
+pub static MATE_ANNOUNCEMENT: &str = "Woo-hoo, mate around the corner";
 
 /// Eval (against us) from which we consider being in trouble
 const IN_TROUBLE_EVAL: f32 = -3.0;
@@ -33,7 +35,7 @@ pub fn greeting(opponent_name: &str) -> String {
 
 /// Message when we found a forced mate
 pub fn mate_announcement(moves: u32, move_number: usize) -> String {
-  format!("I smell some mate around the corner (#{moves}, move {move_number})")
+  format!("{MATE_ANNOUNCEMENT} (#{moves}, move {move_number})")
 }
 
 /// Formats an eval (from our point of view) for chat messages: +1.5, -3.2,
@@ -78,6 +80,23 @@ pub enum ChatCommand {
   Quiet,
   /// `/chatty`: comment the game again (opposite of `/quiet`)
   Chatty,
+}
+
+/// Lichess accounts of the bot owners: they can use all the chat commands
+/// from any room (e.g. when watching the bot's games as a spectator)
+pub const BOT_OWNERS: &[&str] = &["schnellschnecke"];
+
+/// Checks if a chat user can turn the commentary on/off (`/quiet`,
+/// `/chatty`): the opponent (player chat) or a bot owner (any room). Other
+/// spectators cannot.
+///
+/// ### Arguments
+///
+/// * `room`     - Chat room where the command was sent
+/// * `username` - Who sent the command
+pub fn can_toggle_commentary(room: &ChatRoom, username: &str) -> bool {
+  *room == ChatRoom::Player
+  || BOT_OWNERS.iter().any(|owner| owner.eq_ignore_ascii_case(display_name(username)))
 }
 
 /// Parses a chat line into a command, if it is one
@@ -145,6 +164,9 @@ pub struct GameEvents {
   quiet:          bool,
   /// Move number and eval (from our point of view) of our last search
   last_eval:      Option<(usize, f32)>,
+  /// Comments we already posted in this game, so that we never post the same
+  /// one twice (also restored from the chat history after a restart)
+  said:           BTreeSet<String>,
 }
 
 impl GameEvents {
@@ -161,6 +183,69 @@ impl GameEvents {
     }
     self.have_fun_sent = true;
     true
+  }
+
+  /// Restores what already happened from the chat history of the game, when
+  /// we join a game that is already ongoing (e.g. after a restart), so that we
+  /// do not repeat ourselves.
+  ///
+  /// ### Arguments
+  ///
+  /// * `chat`         - Player chat history, oldest first
+  /// * `our_username` - Our Lichess username
+  ///
+  /// ### Returns
+  ///
+  /// True if we already wrote in this game, i.e. it is not a new game and we
+  /// should not greet again.
+  pub fn restore_from_chat(&mut self, chat: &[ChatLine], our_username: &str) -> bool {
+    let is_ours =
+      |line: &ChatLine| display_name(&line.user).eq_ignore_ascii_case(display_name(our_username));
+
+    let mut already_talked = false;
+    for line in chat {
+      if is_ours(line) {
+        already_talked = true;
+        self.said.insert(line.text.clone());
+        if line.text.starts_with(MATE_ANNOUNCEMENT) || line.text == SWINDLE {
+          self.mate_announced = true;
+        }
+        // The last trouble-related message tells where we are
+        if line.text.starts_with(IN_TROUBLE) {
+          self.in_trouble = true;
+        } else if line.text.starts_with(OUT_OF_TROUBLE) || line.text == SWINDLE {
+          self.in_trouble = false;
+        }
+      } else {
+        // The last /quiet or /chatty from the opponent wins
+        match parse_chat_command(&line.text) {
+          Some(ChatCommand::Quiet) => self.quiet = true,
+          Some(ChatCommand::Chatty) => self.quiet = false,
+          _ => {},
+        }
+      }
+    }
+
+    if already_talked {
+      self.mark_ongoing_game();
+    }
+    already_talked
+  }
+
+  /// Checks if we can post a comment: true if we never posted it in this game,
+  /// and remembers it so that it is not posted again.
+  ///
+  /// ### Arguments
+  ///
+  /// * `message` - The comment we would like to post
+  pub fn should_say(&mut self, message: &str) -> bool {
+    self.said.insert(message.to_string())
+  }
+
+  /// Marks the game as already ongoing when we join it: "Have fun" is said at
+  /// the start of the game, never later.
+  pub fn mark_ongoing_game(&mut self) {
+    self.have_fun_sent = true;
   }
 
   /// Stops the commentary. Returns true only the first time, so that we
