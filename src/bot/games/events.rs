@@ -2,6 +2,7 @@
 //! chat and when to do special things like resigning.
 use chess::engine::eval::position::mate_distance_in_plies;
 use chess::model::board::Board;
+use lichess::types::Color;
 
 // -----------------------------------------------------------------------------
 // Messages
@@ -10,6 +11,17 @@ static BOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 static BOT_NAME: &str = env!("CARGO_PKG_NAME");
 pub static HAVE_FUN: &str = "Have fun";
 pub static WELL_PLAYED: &str = "Well played!";
+pub static GOOD_GAME: &str = "Good game!";
+pub static THANKS_FOR_PLAYING: &str = "Thanks for playing ! :)";
+pub static IN_TROUBLE: &str = "oh oh, I think I am in trouble";
+pub static OUT_OF_TROUBLE: &str = "Maybe not so much in trouble after all";
+pub static SWINDLE: &str = "Wow, this is a swindle!";
+
+/// Eval (against us) from which we consider being in trouble
+const IN_TROUBLE_EVAL: f32 = -3.0;
+/// Eval from which we are back to a 0-ish (or better) position after being in
+/// trouble
+const OUT_OF_TROUBLE_EVAL: f32 = -0.5;
 
 /// Greeting message at the start of the game
 pub fn greeting(opponent_name: &str) -> String {
@@ -17,8 +29,32 @@ pub fn greeting(opponent_name: &str) -> String {
 }
 
 /// Message when we found a forced mate
-pub fn mate_announcement(moves: u32) -> String {
-  format!("I smell some mate around the corner (#{moves})")
+pub fn mate_announcement(moves: u32, move_number: usize) -> String {
+  format!("I smell some mate around the corner (#{moves}, move {move_number})")
+}
+
+/// Formats an eval (from our point of view) for chat messages: +1.5, -3.2,
+/// or #3 / #-2 for mates (number of moves for the mating side).
+pub fn format_eval(eval_for_us: f32) -> String {
+  match mate_distance_in_plies(eval_for_us) {
+    Some(plies) if eval_for_us > 0.0 => format!("#{}", plies.div_ceil(2)),
+    Some(plies) => format!("#-{}", (plies / 2).max(1)),
+    None => format!("{eval_for_us:+.1}"),
+  }
+}
+
+/// Message at the end of the game, depending on who won
+///
+/// ### Arguments
+///
+/// * `winner` - Color of the winner, None for a draw
+/// * `us`     - Color we played
+pub fn game_over_message(winner: Option<Color>, us: Color) -> &'static str {
+  match winner {
+    Some(color) if color == us => GOOD_GAME,
+    Some(_) => WELL_PLAYED,
+    None => THANKS_FOR_PLAYING,
+  }
 }
 
 /// Lichess sends the username of titled opponents with their title, e.g.
@@ -30,15 +66,39 @@ pub fn display_name(username: &str) -> &str {
 // -----------------------------------------------------------------------------
 // Game events
 
-/// What to do after a search, based on the eval
+/// Things that happened after a search, based on the eval
 #[derive(Debug, PartialEq, Eq)]
-pub enum EvalOutcome {
-  /// Nothing special
-  None,
+pub enum EvalEvent {
   /// We just found a forced mate, in this number of moves
   AnnounceMate(u32),
+  /// The eval dropped to a bad position for us
+  InTrouble,
+  /// We were in trouble, and the position is back to 0-ish (or better)
+  OutOfTrouble,
+  /// We were in trouble, and now we have a forced mate
+  Swindle,
   /// The opponent mates us in one whatever we play
   Resign,
+}
+
+impl EvalEvent {
+  /// Chat message for this event, if any
+  ///
+  /// ### Arguments
+  ///
+  /// * `move_number` - Move number (as in the game notation) we are playing
+  /// * `eval_for_us` - Best eval, from our point of view
+  pub fn message(&self, move_number: usize, eval_for_us: f32) -> Option<String> {
+    let context = format!("(move {move_number}, eval {})", format_eval(eval_for_us));
+    match self {
+      EvalEvent::AnnounceMate(moves) => Some(mate_announcement(*moves, move_number)),
+      EvalEvent::InTrouble => Some(format!("{IN_TROUBLE} {context}")),
+      EvalEvent::OutOfTrouble => Some(format!("{OUT_OF_TROUBLE} {context}")),
+      EvalEvent::Swindle => Some(SWINDLE.to_string()),
+      // Resigning needs a confirmation first, the game sends the message
+      EvalEvent::Resign => None,
+    }
+  }
 }
 
 /// What already happened during the game
@@ -48,6 +108,11 @@ pub struct GameEvents {
   have_fun_sent:  bool,
   /// We announced that we found a forced mate
   mate_announced: bool,
+  /// We said we are in trouble, and did not get out of it yet
+  in_trouble:     bool,
+  /// We already said something at the end of the game (or when resigning /
+  /// leaving)
+  game_over:      bool,
 }
 
 impl GameEvents {
@@ -66,32 +131,60 @@ impl GameEvents {
     true
   }
 
-  /// Decides what to do after a search, based on the best eval.
+  /// Marks the game as over. Returns true only the first time, so that we say
+  /// goodbye only once (e.g. not after we already said "Well played!" when
+  /// resigning).
+  pub fn on_game_over(&mut self) -> bool {
+    !std::mem::replace(&mut self.game_over, true)
+  }
+
+  /// Decides what happened after a search, based on the best eval.
   ///
   /// ### Arguments
   ///
   /// * `eval_for_us`     - Best eval, from our point of view (positive is good
   ///   for us)
   /// * `opponent_is_bot` - We only resign against bots
-  pub fn after_search(&mut self, eval_for_us: f32, opponent_is_bot: bool) -> EvalOutcome {
-    let Some(plies) = mate_distance_in_plies(eval_for_us) else {
-      return EvalOutcome::None;
-    };
+  ///
+  /// ### Returns
+  ///
+  /// The events to act on, in order. Usually empty.
+  pub fn after_search(&mut self, eval_for_us: f32, opponent_is_bot: bool) -> Vec<EvalEvent> {
+    let mut events = Vec::new();
+    if eval_for_us.is_nan() {
+      return events;
+    }
+    let mate_plies = mate_distance_in_plies(eval_for_us);
 
-    if eval_for_us > 0.0 {
-      if self.mate_announced {
-        return EvalOutcome::None;
+    if eval_for_us > 0.0
+       && let Some(plies) = mate_plies
+    {
+      if self.in_trouble {
+        // Going from trouble to a forced mate: the opponent blundered
+        self.in_trouble = false;
+        self.mate_announced = true;
+        events.push(EvalEvent::Swindle);
+      } else if !self.mate_announced {
+        self.mate_announced = true;
+        // Our moves left: we play the 1st, 3rd, 5th... ply
+        events.push(EvalEvent::AnnounceMate(plies.div_ceil(2)));
       }
-      self.mate_announced = true;
-      // Our moves left: we play the 1st, 3rd, 5th... ply
-      return EvalOutcome::AnnounceMate(plies.div_ceil(2));
+      return events;
+    }
+
+    if !self.in_trouble && eval_for_us <= IN_TROUBLE_EVAL {
+      self.in_trouble = true;
+      events.push(EvalEvent::InTrouble);
+    } else if self.in_trouble && eval_for_us >= OUT_OF_TROUBLE_EVAL {
+      self.in_trouble = false;
+      events.push(EvalEvent::OutOfTrouble);
     }
 
     // We play a move, and the opponent mates us with the next one
-    if plies == 2 && opponent_is_bot {
-      return EvalOutcome::Resign;
+    if eval_for_us < 0.0 && mate_plies == Some(2) && opponent_is_bot {
+      events.push(EvalEvent::Resign);
     }
-    EvalOutcome::None
+    events
   }
 }
 

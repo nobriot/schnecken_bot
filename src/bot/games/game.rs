@@ -1,5 +1,5 @@
 use super::engine::configure_engine;
-use super::events::{self, EvalOutcome, GameEvents};
+use super::events::{self, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
@@ -94,8 +94,16 @@ impl Game {
     self.say(&events::greeting(&self.opponent_name)).await;
   }
 
-  async fn end_of_game_announcement(&self) {
-    self.say("Thanks for playing ! :)").await;
+  /// Says goodbye depending on the result, only once per game
+  async fn end_of_game_announcement(&mut self, game: &lichess::types::GameState) {
+    use lichess::types::GameStatus;
+    // Nothing to say if the game never really happened
+    if matches!(game.status, GameStatus::Aborted | GameStatus::NoStart) {
+      return;
+    }
+    if self.events.on_game_over() {
+      self.say(events::game_over_message(game.winner, self.color)).await;
+    }
   }
 
   /// Returns true if the opponent has made at least one move based on the
@@ -135,9 +143,9 @@ impl Game {
           }
           self.play(game).await;
         },
-        Ok(GameMessage::End(_game)) => {
+        Ok(GameMessage::End(game)) => {
           info!("Game {} is over", self.id);
-          self.end_of_game_announcement().await;
+          self.end_of_game_announcement(&game).await;
           break;
         },
         Ok(GameMessage::Resign) => {
@@ -146,8 +154,9 @@ impl Game {
         },
         Ok(GameMessage::Terminate) => {
           info!("Leaving game {}", self.id);
-          self.api.write_in_chat(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
-          self.api.write_in_spectator_room(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
+          // We already say goodbye here, no message at the end of the game
+          self.events.on_game_over();
+          self.say(MESSAGE_HAVE_TO_LEAVE).await;
           let _ = self.api.resign_game(&self.id).await;
         },
         Ok(GameMessage::OpponentGone(opt_t)) => {
@@ -182,9 +191,8 @@ impl Game {
     // Check if we just got a notification that the game is over, and make sure
     // to remove the game from our list if that's the case.
     if game.status != lichess::types::GameStatus::Started {
-      // Write a well played / goodbye message
-      // self.api.send_end_of_game_message(&game_id_clone,
-      // game_state.winner).await;
+      // Write a good game / well played / goodbye message
+      self.end_of_game_announcement(&game).await;
       return;
     }
 
@@ -255,21 +263,24 @@ impl Game {
       Color::White => best_eval,
       Color::Black => -best_eval,
     };
-    match self.events.after_search(eval_for_us, self.opponent_is_bot) {
-      EvalOutcome::AnnounceMate(moves) => {
-        info!("Found a mate in {moves} for game {}", self.id);
-        self.say(&events::mate_announcement(moves)).await;
-      },
-      EvalOutcome::Resign => {
+    // Move number, as in the game notation, of the move we are about to play
+    let move_number = move_list.len() / 2 + 1;
+    for event in self.events.after_search(eval_for_us, self.opponent_is_bot) {
+      info!("Game event {event:?} for game {} (eval {best_eval})", self.id);
+      if let Some(message) = event.message(move_number, eval_for_us) {
+        self.say(&message).await;
+      }
+      if event == EvalEvent::Resign {
         if events::is_forced_mate_in_one_against(&self.engine.position.board) {
           info!("Opponent mates in one whatever we play, resigning game {}", self.id);
+          // We say "Well played!" now, no need to say it again at the end
+          self.events.on_game_over();
           self.say(events::WELL_PLAYED).await;
           let _ = self.api.resign_game(&self.id).await;
           return;
         }
         debug!("Eval says mate in one against us, but it is not forced. Playing on.");
-      },
-      EvalOutcome::None => {},
+      }
     }
 
     while analysis.len() > cutoff {
