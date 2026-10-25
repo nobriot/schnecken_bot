@@ -20,6 +20,18 @@ pub static NO_EVAL_YET: &str = "No eval yet, I have not thought about this game 
 pub static IN_TROUBLE: &str = "oh oh, I think I am in trouble";
 pub static OUT_OF_TROUBLE: &str = "Maybe not so much in trouble after all";
 pub static SWINDLE: &str = "Wow, this is a swindle!";
+pub static ATTEMPTING_TO_FLAG: &str = "Attempting to flag!";
+
+/// We try to flag the opponent only when they have less time than this
+pub const FLAG_MAX_OPPONENT_TIME_MS: usize = 60_000;
+/// We start trying to flag when the eval (for us) is this bad or worse
+pub const FLAG_START_EVAL: f32 = -2.5;
+/// We stop trying to flag when the eval (for us) is this good or better
+pub const FLAG_STOP_EVAL: f32 = 2.5;
+/// Time per move when flagging and the opponent has a minute left
+pub const FLAG_MOVE_TIME_MAX_MS: usize = 500;
+/// Time per move when flagging and the opponent is about to run out of time
+pub const FLAG_MOVE_TIME_MIN_MS: usize = 200;
 pub static MATE_ANNOUNCEMENT: &str = "Woo-hoo, mate around the corner";
 
 /// Eval (against us) from which we consider being in trouble
@@ -164,6 +176,8 @@ pub struct GameEvents {
   quiet:          bool,
   /// Move number and eval (from our point of view) of our last search
   last_eval:      Option<(usize, f32)>,
+  /// We are trying to win on time against a human (playing very fast)
+  flagging:       bool,
   /// Comments we already posted in this game, so that we never post the same
   /// one twice (also restored from the chat history after a restart)
   said:           BTreeSet<String>,
@@ -272,6 +286,54 @@ impl GameEvents {
     }
   }
 
+  /// Decides if we should try to flag the opponent (win on time): against a
+  /// human short on time (less than a minute, and less than us) who is
+  /// winning on the board. We stop only when we are clearly better, an eval
+  /// around 0 keeps us flagging.
+  ///
+  /// Uses the eval of our last search (from our point of view).
+  ///
+  /// ### Arguments
+  ///
+  /// * `opponent_is_human` - We never try to flag bots
+  /// * `our_time_ms`       - Time left on our clock
+  /// * `opponent_time_ms`  - Time left on the opponent clock
+  ///
+  /// ### Returns
+  ///
+  /// True only when we just started flagging (to announce it)
+  pub fn update_flagging(&mut self,
+                         opponent_is_human: bool,
+                         our_time_ms: usize,
+                         opponent_time_ms: usize)
+                         -> bool {
+    let Some(eval) = self.last_eval() else {
+      return false;
+    };
+
+    if self.flagging {
+      if eval >= FLAG_STOP_EVAL {
+        self.flagging = false;
+      }
+      return false;
+    }
+
+    if opponent_is_human
+       && opponent_time_ms < FLAG_MAX_OPPONENT_TIME_MS
+       && opponent_time_ms < our_time_ms
+       && eval <= FLAG_START_EVAL
+    {
+      self.flagging = true;
+      return true;
+    }
+    false
+  }
+
+  /// True if we are trying to flag the opponent
+  pub fn is_flagging(&self) -> bool {
+    self.flagging
+  }
+
   /// Eval (from our point of view) of our last search, if any
   pub fn last_eval(&self) -> Option<f32> {
     self.last_eval.map(|(_, eval)| eval)
@@ -340,6 +402,18 @@ impl GameEvents {
     }
     events
   }
+}
+
+/// Time to spend on a move when trying to flag the opponent: 500ms when they
+/// have a minute left, going down to 200ms as they get close to 0.
+///
+/// ### Arguments
+///
+/// * `opponent_time_ms` - Time left on the opponent clock
+pub fn flagging_move_time_ms(opponent_time_ms: usize) -> usize {
+  let opponent_time_ms = opponent_time_ms.min(FLAG_MAX_OPPONENT_TIME_MS);
+  FLAG_MOVE_TIME_MIN_MS
+  + (FLAG_MOVE_TIME_MAX_MS - FLAG_MOVE_TIME_MIN_MS) * opponent_time_ms / FLAG_MAX_OPPONENT_TIME_MS
 }
 
 /// Above this eval (from our point of view), we do not claim draws: we are

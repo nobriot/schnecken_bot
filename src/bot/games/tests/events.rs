@@ -394,3 +394,78 @@ fn test_resign_with_single_legal_move() {
   assert!(result.contains(&EvalEvent::Resign), "eval {eval_for_black}: {result:?}");
   assert!(is_forced_mate_in_one_against(&Board::from_fen(fen)));
 }
+
+/// Game events where our last search gave this eval (from our point of view)
+fn events_with_eval(eval_for_us: f32) -> GameEvents {
+  let mut events = GameEvents::default();
+  events.set_last_eval(30, eval_for_us);
+  events
+}
+
+#[test]
+fn test_flagging_start_conditions() {
+  // Human, 30s left (less than our 2 minutes), and winning: we flag
+  let mut events = events_with_eval(-3.0);
+  assert!(events.update_flagging(true, 120_000, 30_000));
+  assert!(events.is_flagging());
+  // Announced only once
+  assert!(!events.update_flagging(true, 120_000, 25_000));
+  assert!(events.is_flagging());
+
+  // Never against bots
+  let mut events = events_with_eval(-3.0);
+  assert!(!events.update_flagging(false, 120_000, 30_000));
+  assert!(!events.is_flagging());
+  // Not when the opponent has a minute or more
+  let mut events = events_with_eval(-3.0);
+  assert!(!events.update_flagging(true, 120_000, 61_000));
+  assert!(!events.is_flagging());
+  // Not when the opponent has more time than us
+  let mut events = events_with_eval(-3.0);
+  assert!(!events.update_flagging(true, 20_000, 30_000));
+  assert!(!events.is_flagging());
+  // Not when the opponent is not clearly winning
+  let mut events = events_with_eval(-2.0);
+  assert!(!events.update_flagging(true, 120_000, 30_000));
+  assert!(!events.is_flagging());
+  // Not before we have an eval
+  let mut events = GameEvents::default();
+  assert!(!events.update_flagging(true, 120_000, 30_000));
+  assert!(!events.is_flagging());
+}
+
+#[test]
+fn test_flagging_stop_conditions() {
+  let mut events = events_with_eval(-2.5);
+  assert!(events.update_flagging(true, 120_000, 30_000));
+
+  // Getting back to an even or still losing position: keep flagging
+  events.set_last_eval(31, 0.0);
+  events.update_flagging(true, 120_000, 20_000);
+  assert!(events.is_flagging());
+  events.set_last_eval(32, -5.0);
+  events.update_flagging(true, 120_000, 15_000);
+  assert!(events.is_flagging());
+  // Even if the time conditions are not met anymore
+  events.update_flagging(true, 5_000, 70_000);
+  assert!(events.is_flagging());
+
+  // Clearly better: stop, silently
+  events.set_last_eval(33, 2.5);
+  assert!(!events.update_flagging(true, 120_000, 10_000));
+  assert!(!events.is_flagging());
+
+  // And start again if the opponent is winning again later
+  events.set_last_eval(40, -4.0);
+  assert!(events.update_flagging(true, 120_000, 8_000));
+  assert!(events.is_flagging());
+}
+
+#[test]
+fn test_flagging_move_time() {
+  assert_eq!(500, flagging_move_time_ms(60_000));
+  assert_eq!(500, flagging_move_time_ms(120_000));
+  assert_eq!(350, flagging_move_time_ms(30_000));
+  assert_eq!(200, flagging_move_time_ms(0));
+  assert!(flagging_move_time_ms(10_000) < flagging_move_time_ms(20_000));
+}
