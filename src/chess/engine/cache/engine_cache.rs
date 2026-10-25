@@ -97,6 +97,29 @@ impl EngineCache {
     Some(MoveList::new_from_slice(entry?))
   }
 
+  /// Gives access to the Move List of a board position, computing it and
+  /// saving it in the cache first if it is not known yet.
+  ///
+  /// This takes the cache lock only once and does not copy the move list.
+  ///
+  /// ### Arguments
+  ///
+  /// * `self` :            EngineCache
+  /// * `board` :           Board configuration to look up in the cache
+  /// * `f` :               Function called with the list of moves
+  ///
+  /// ### Return value
+  ///
+  /// The value returned by `f`
+  #[inline]
+  pub fn with_move_list<R>(&self, board: &Board, f: impl FnOnce(&[Move]) -> R) -> R {
+    let mut table = self.move_lists.lock().unwrap();
+    if table.get(board.hash).is_none() {
+      table.add(board.hash, &board.get_moves());
+    }
+    f(table.get(board.hash).expect("Move list was just added to the cache"))
+  }
+
   // ---------------------------------------------------------------------------
   // Evaluation cached data
 

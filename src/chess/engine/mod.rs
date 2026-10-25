@@ -25,11 +25,13 @@ use super::model::moves::Move;
 use super::model::piece::Color;
 use crate::engine::search_result::VariationWithEval;
 use crate::model::board::Board;
+use crate::model::containers::move_list::MoveList;
 use books::*;
 use config::options::*;
 use config::play_style::*;
 use log::*;
 use nnue::NNUE;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -43,6 +45,10 @@ const MAX_CHECK_EXTENSION: usize = 4;
 /// Search depth when there is only one legal move: enough to see if a mate
 /// follows, while still playing the move almost instantly.
 const SINGLE_MOVE_SEARCH_DEPTH: usize = 3;
+/// The search checks the clock once every that many calls to `search()`
+/// (must be a power of 2): reading the time at every node is expensive. Most
+/// calls are just above the leaves, so this is about a thousand leaves.
+const TIME_CHECK_SEARCH_INTERVAL: usize = 32;
 
 // -----------------------------------------------------------------------------
 // Type definitions
@@ -66,21 +72,23 @@ struct Analysis {
   /// After the search, the nth best lines will be saved in this vector.
   pub result:          Arc<Mutex<SearchResult>>,
   /// Represent how deep the analysis is/was
-  pub depth:           Arc<Mutex<usize>>,
+  pub depth:           Arc<AtomicUsize>,
   /// Represent how deep the analysis is/was
-  pub selective_depth: Arc<Mutex<usize>>,
+  pub selective_depth: Arc<AtomicUsize>,
   /// Represents how many nodes we visited in the search
-  pub nodes_visited:   Arc<Mutex<usize>>,
+  pub nodes_visited:   Arc<AtomicUsize>,
 }
 
 #[derive(Clone, Debug)]
 struct EngineState {
   /// Indicates if the engine is active at resolving positions
-  pub active:         Arc<Mutex<bool>>,
+  pub active:         Arc<AtomicBool>,
   /// Indicates that we want the engine to stop resolving positions
-  pub stop_requested: Arc<Mutex<bool>>,
+  pub stop_requested: Arc<AtomicBool>,
   /// Indicates when the engine was requested to start searching
   pub start_time:     Arc<Mutex<Instant>>,
+  /// Number of calls to `search()`, used to check the clock periodically
+  pub search_calls:   Arc<AtomicUsize>,
 }
 
 impl Analysis {
@@ -110,8 +118,7 @@ impl Analysis {
   /// * `self`:   Instance of the Chess Engine
   /// * `depth`:  New depth to set.
   pub fn set_depth(&self, depth: usize) {
-    let mut analysis_depth = self.depth.lock().unwrap();
-    *analysis_depth = depth;
+    self.depth.store(depth, Ordering::Relaxed);
   }
 
   /// Increments the depth we have reached during the analysis
@@ -120,8 +127,7 @@ impl Analysis {
   ///
   /// * `self`:   Instance of the Chess Engine
   pub fn increment_depth(&self) {
-    let mut analysis_depth = self.depth.lock().unwrap();
-    *analysis_depth += 1;
+    self.depth.fetch_add(1, Ordering::Relaxed);
   }
 
   /// Decrements the depth we have reached during the analysis
@@ -130,10 +136,10 @@ impl Analysis {
   ///
   /// * `self`:   Instance of the Chess Engine
   pub fn decrement_depth(&self) {
-    let mut analysis_depth = self.depth.lock().unwrap();
-    if *analysis_depth > 0 {
-      *analysis_depth -= 1;
-    }
+    // Only the thread running go() changes the depth: no need for an atomic
+    // read-modify-write.
+    let depth = self.depth.load(Ordering::Relaxed);
+    self.depth.store(depth.saturating_sub(1), Ordering::Relaxed);
   }
 
   /// Increments the depth we have reached during the analysis
@@ -146,7 +152,7 @@ impl Analysis {
   ///
   /// The value contained in the analysis depth.
   pub fn get_depth(&self) -> usize {
-    *self.depth.lock().unwrap()
+    self.depth.load(Ordering::Relaxed)
   }
 
   /// Sets the selective depth we have reached during the analysis
@@ -156,8 +162,7 @@ impl Analysis {
   /// * `self`:   Instance of the Chess Engine
   /// * `selective_depth`:  New depth to set.
   pub fn set_selective_depth(&self, depth: usize) {
-    let mut selective_depth = self.selective_depth.lock().unwrap();
-    *selective_depth = depth;
+    self.selective_depth.store(depth, Ordering::Relaxed);
   }
 
   /// Updates the selective depth if the new value is higher than the current
@@ -168,10 +173,7 @@ impl Analysis {
   /// * `self`:   Instance of the Chess Engine
   /// * `selective_depth`:  New depth to set.
   pub fn update_selective_depth(&self, depth: usize) {
-    let mut selective_depth = self.selective_depth.lock().unwrap();
-    if *selective_depth < depth {
-      *selective_depth = depth;
-    }
+    self.selective_depth.fetch_max(depth, Ordering::Relaxed);
   }
 
   /// Increments the selective depth we have reached during the analysis
@@ -180,8 +182,7 @@ impl Analysis {
   ///
   /// * `self`:   Instance of the Chess Engine
   pub fn increment_selective_depth(&self) {
-    let mut selective_depth = self.selective_depth.lock().unwrap();
-    *selective_depth += 1;
+    self.selective_depth.fetch_add(1, Ordering::Relaxed);
   }
 
   /// Increments the depth we have reached during the analysis
@@ -194,31 +195,29 @@ impl Analysis {
   ///
   /// The value contained in the analysis depth.
   pub fn get_selective_depth(&self) -> usize {
-    *self.selective_depth.lock().unwrap()
+    self.selective_depth.load(Ordering::Relaxed)
   }
 
   /// Increments the nodes we visited
   pub fn increment_nodes_visited(&self) {
-    let mut analysis_nodes_visited = self.nodes_visited.lock().unwrap();
-    *analysis_nodes_visited += 1;
+    self.nodes_visited.fetch_add(1, Ordering::Relaxed);
   }
 
   pub fn get_nodes_visited(&self) -> usize {
-    *self.nodes_visited.lock().unwrap()
+    self.nodes_visited.load(Ordering::Relaxed)
   }
 
   pub fn set_nodes_visited(&self, value: usize) {
-    let mut analysis_nodes_visited = self.nodes_visited.lock().unwrap();
-    *analysis_nodes_visited = value;
+    self.nodes_visited.store(value, Ordering::Relaxed);
   }
 }
 
 impl Default for Analysis {
   fn default() -> Self {
     Analysis { result:          Arc::new(Mutex::new(SearchResult::new(1, Color::White))),
-               depth:           Arc::new(Mutex::new(0)),
-               selective_depth: Arc::new(Mutex::new(0)),
-               nodes_visited:   Arc::new(Mutex::new(0)), }
+               depth:           Arc::new(AtomicUsize::new(0)),
+               selective_depth: Arc::new(AtomicUsize::new(0)),
+               nodes_visited:   Arc::new(AtomicUsize::new(0)), }
   }
 }
 
@@ -256,9 +255,10 @@ impl Engine {
                analysis: Analysis::default(),
                cache:    EngineCache::new(),
                options:  EngineOptions::default(),
-               state:    EngineState { active:         Arc::new(Mutex::new(false)),
-                                       stop_requested: Arc::new(Mutex::new(false)),
-                                       start_time:     Arc::new(Mutex::new(Instant::now())), },
+               state:    EngineState { active:         Arc::new(AtomicBool::new(false)),
+                                       stop_requested: Arc::new(AtomicBool::new(false)),
+                                       start_time:     Arc::new(Mutex::new(Instant::now())),
+                                       search_calls:   Arc::new(AtomicUsize::new(0)), },
                nnue:     Arc::new(Mutex::new(NNUE::load(nnue_path.as_str()).unwrap_or_default())),
                history:  GameHistory::new(), };
 
@@ -273,7 +273,7 @@ impl Engine {
   ///
   /// * True if searching a position, False otherwise
   pub fn is_active(&self) -> bool {
-    return *self.state.active.lock().unwrap();
+    self.state.active.load(Ordering::Acquire)
   }
 
   /// Helper function that sets the "active" bool value in the engine
@@ -282,8 +282,7 @@ impl Engine {
   ///
   /// * `active`: The new value to apply to active
   fn set_engine_active(&self, active: bool) {
-    let mut s = self.state.active.lock().unwrap();
-    *s = active;
+    self.state.active.store(active, Ordering::Release);
   }
 
   /// Checks if the engine has been requested to stop evaluating
@@ -292,7 +291,7 @@ impl Engine {
   ///
   /// * True if the engine should stop searching positions, False otherwise
   pub fn stop_requested(&self) -> bool {
-    return *self.state.stop_requested.lock().unwrap();
+    self.state.stop_requested.load(Ordering::Acquire)
   }
 
   /// Helper function that sets the "stop_requested" bool value in the engine
@@ -301,8 +300,7 @@ impl Engine {
   ///
   /// * `stop_requested`: The new value to apply to stop_requested
   fn set_stop_requested(&self, stop_requested: bool) {
-    let mut s = self.state.stop_requested.lock().unwrap();
-    *s = stop_requested;
+    self.state.stop_requested.store(stop_requested, Ordering::Release);
   }
 
   /// Checks if the engine has been searching a position for too long
@@ -414,6 +412,7 @@ impl Engine {
     self.set_engine_active(true);
     self.set_start_time(); // Capture that we started searching now.
     self.analysis.set_nodes_visited(0);
+    self.state.search_calls.store(0, Ordering::Relaxed);
 
     // Make sure we know the move list:
     Engine::find_move_list(&self.cache, &self.position.board);
@@ -750,7 +749,13 @@ impl Engine {
             mut alpha: f32,
             mut beta: f32)
             -> Option<SearchResult> {
-    if self.stop_requested() || self.has_been_searching_too_long() {
+    if self.stop_requested() {
+      return None;
+    }
+    let search_calls = self.state.search_calls.fetch_add(1, Ordering::Relaxed);
+    if search_calls & (TIME_CHECK_SEARCH_INTERVAL - 1) == 0 && self.has_been_searching_too_long() {
+      // Make sure that the rest of the search tree stops right away too.
+      self.set_stop_requested(true);
       return None;
     }
 
@@ -760,14 +765,15 @@ impl Engine {
     }
 
     // Check that we know the moves
-    Engine::find_move_list(&self.cache, &game_state.board);
-    let moves = self.cache.get_move_list(&game_state.board).unwrap();
+    let moves = self.cache.with_move_list(&game_state.board, MoveList::new_from_slice);
+    // Depth of the current iteration of the iterative deepening.
+    let analysis_depth = self.analysis.get_depth();
     let mut result =
       SearchResult::new(NUMBER_OF_MOVES_IN_SEARCH_RESULTS, game_state.board.side_to_play);
     // Set when we did not look at all the moves (cut-off or interrupted)
     let mut pruned = false;
 
-    for m in moves {
+    for &m in moves.get_moves() {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
@@ -782,7 +788,7 @@ impl Engine {
       // If we are looking at a capture, make sure that we analyze possible
       // recaptures by increasing temporarily the maximum depth
       let mut max_line_depth = max_depth;
-      if depth == max_depth && m.is_piece_capture() && (depth < self.analysis.get_depth() + 3) {
+      if depth == max_depth && m.is_piece_capture() && (depth < analysis_depth + 3) {
         max_line_depth = max_depth + 1;
         self.analysis.update_selective_depth(max_line_depth);
         // println!("Continuing to depth {max_line_depth}");
@@ -793,8 +799,7 @@ impl Engine {
 
       // Checks are forcing, the opponent has few replies: extend the line so
       // that we do not stop the search in the middle of a mating attack.
-      if new_game_state.board.checkers != 0
-         && max_line_depth < self.analysis.get_depth() + MAX_CHECK_EXTENSION
+      if new_game_state.board.checkers != 0 && max_line_depth < analysis_depth + MAX_CHECK_EXTENSION
       {
         max_line_depth += 1;
         self.analysis.update_selective_depth(max_line_depth);
@@ -932,19 +937,19 @@ impl Engine {
     if !result.is_empty() {
       // Influence next visit by promoting the multi_pv best moves to be first
       // in the move list
-      let mut top_moves = result.get_top_moves();
-      Engine::find_move_list(&self.cache, &game_state.board);
-      let mut moves = self.cache.get_move_list(&game_state.board).unwrap().to_vec();
-      let initial_length = moves.len();
-      moves.retain(|&m| !top_moves.contains(&m));
-      top_moves.extend(moves);
-      top_moves.dedup();
+      let top_moves = result.get_top_moves();
+      let mut reordered_moves = MoveList::new_from_slice(&top_moves);
+      for &m in moves.get_moves() {
+        if !top_moves.contains(&m) {
+          reordered_moves.add(m);
+        }
+      }
 
-      debug_assert!(initial_length == top_moves.len(),
+      debug_assert!(moves.len() == reordered_moves.len(),
                     "Reordered moves should be the same length {} -> {}",
-                    initial_length,
-                    top_moves.len());
-      self.cache.set_move_list(&game_state.board, &top_moves);
+                    moves.len(),
+                    reordered_moves.len());
+      self.cache.set_move_list(&game_state.board, reordered_moves.get_moves());
     }
 
     // Return our result

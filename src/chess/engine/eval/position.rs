@@ -7,7 +7,6 @@ use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
 use super::opening::get_opening_position_evaluation;
-use crate::engine::Engine;
 use crate::engine::cache::engine_cache::EngineCache;
 use crate::model::board::Board;
 use crate::model::board_geometry::*;
@@ -205,8 +204,7 @@ pub fn determine_game_phase(game_state: &GameState) -> GamePhase {
 ///
 /// * GameStatus indicating if the game is ongoing or not.
 pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
-  Engine::find_move_list(cache, board);
-  if cache.get_move_list(board).unwrap().is_empty() {
+  if cache.with_move_list(board, |moves| moves.is_empty()) {
     match (board.side_to_play, board.checkers.count_few_ones()) {
       (_, 0) => {
         return GameStatus::Stalemate;
