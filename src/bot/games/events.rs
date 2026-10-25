@@ -1,6 +1,6 @@
 //! Keeps track of what happened during a game, to decide what to say in the
 //! chat and when to do special things like resigning.
-use chess::engine::eval::position::mate_distance_in_plies;
+use chess::engine::eval::position::{EpicMate, mate_distance_in_plies};
 use chess::model::board::Board;
 use lichess::types::{ChatLine, ChatRoom, Color};
 use std::collections::BTreeSet;
@@ -71,6 +71,16 @@ pub fn game_over_message(winner: Option<Color>, us: Color) -> &'static str {
     Some(color) if color == us => GOOD_GAME,
     Some(_) => WELL_PLAYED,
     None => THANKS_FOR_PLAYING,
+  }
+}
+
+/// Joyful message when we deliver an epic mate
+pub fn epic_mate_message(epic_mate: EpicMate) -> String {
+  match epic_mate {
+    EpicMate::Smothered => String::from("Smothered mate!!! This is just epic, I am so happy \\o/"),
+    EpicMate::MatingNet(pieces) => {
+      format!("Epic mate!!! {pieces} pieces in the mating net, what a finish \\o/")
+    },
   }
 }
 

@@ -469,3 +469,11 @@ fn test_flagging_move_time() {
   assert_eq!(200, flagging_move_time_ms(0));
   assert!(flagging_move_time_ms(10_000) < flagging_move_time_ms(20_000));
 }
+
+#[test]
+fn test_epic_mate_messages() {
+  use chess::engine::eval::position::EpicMate;
+  assert!(epic_mate_message(EpicMate::Smothered).starts_with("Smothered mate!!!"));
+  assert_eq!("Epic mate!!! 6 pieces in the mating net, what a finish \\o/",
+             epic_mate_message(EpicMate::MatingNet(6)));
+}

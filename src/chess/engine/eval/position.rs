@@ -11,7 +11,7 @@ use crate::engine::Engine;
 use crate::engine::cache::engine_cache::EngineCache;
 use crate::model::board::Board;
 use crate::model::board_geometry::*;
-use crate::model::board_mask::CountFewOnes;
+use crate::model::board_mask::{BoardMask, CountFewOnes};
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
@@ -350,6 +350,88 @@ pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
   }
 }
 
+/// Minimum number of pieces taking part in a mating net to call it epic
+pub const EPIC_MATE_MIN_PIECES: u32 = 5;
+
+/// Kinds of mates worth celebrating
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EpicMate {
+  /// The king is surrounded by its own pieces and mated by a knight
+  Smothered,
+  /// Many pieces take part in the mating net (number of pieces)
+  MatingNet(u32),
+}
+
+/// Pieces taking part in a mating net, on a board where the side to play is
+/// checkmated: the checking pieces, the pieces of the mated side blocking
+/// their own king, and the pieces of the mating side attacking the other
+/// squares around the king.
+///
+/// ### Arguments
+///
+/// * `board` - Board where the side to play is checkmated
+///
+/// ### Returns
+///
+/// BoardMask of the pieces (both colors) taking part in the mating net
+pub fn get_mating_net_pieces(board: &Board) -> BoardMask {
+  let mated_color = board.side_to_play;
+  let mating_color = Color::opposite(mated_color);
+  let king = board.get_king(mated_color);
+  if king > 63 {
+    return 0;
+  }
+  let own_pieces = match mated_color {
+    Color::White => board.pieces.white.all(),
+    Color::Black => board.pieces.black.all(),
+  };
+
+  let mut net = board.checkers;
+  let mut squares = KING_MOVES[king as usize];
+  while squares != 0 {
+    let square = squares.trailing_zeros() as u8;
+    if own_pieces & (1 << square) != 0 {
+      // The king is blocked by its own piece
+      net |= 1 << square;
+    } else {
+      // The square is taken away by the attacking pieces
+      net |= board.get_attackers(square, mating_color);
+    }
+    squares &= squares - 1;
+  }
+  net
+}
+
+/// Checks if a checkmate deserves to be celebrated: smothered mates, or mates
+/// where many pieces take part in the mating net.
+///
+/// ### Arguments
+///
+/// * `board` - Board where the side to play is checkmated
+///
+/// ### Returns
+///
+/// The kind of epic mate, or None if this is not a mate or not an epic one
+pub fn get_epic_mate(board: &Board) -> Option<EpicMate> {
+  if board.checkers == 0 || !board.get_moves().is_empty() {
+    return None;
+  }
+
+  let game_status = match board.side_to_play {
+    Color::White => GameStatus::BlackWon,
+    Color::Black => GameStatus::WhiteWon,
+  };
+  if is_smothered_mate(board, game_status) {
+    return Some(EpicMate::Smothered);
+  }
+
+  let pieces = get_mating_net_pieces(board).count_ones();
+  if pieces >= EPIC_MATE_MIN_PIECES {
+    return Some(EpicMate::MatingNet(pieces));
+  }
+  None
+}
+
 /// Evaluates a position and returns a score, assuming that the game is Ongoing
 ///
 /// ### Arguments
@@ -400,6 +482,28 @@ pub fn evaluate_board_simple(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn test_epic_mates() {
+    // https://lichess.org/x7dayCsd : smothered mate with Nf2#
+    let board = Board::from_fen("r3r1k1/1Q2ppB1/p6p/4R1p1/2P5/P2B4/5nPP/6RK w - - 1 25");
+    assert_eq!(Some(EpicMate::Smothered), get_epic_mate(&board));
+
+    // Simple back rank mate: rook + 3 pawns blocking the king, not epic
+    let board = Board::from_fen("R5k1/5ppp/8/8/8/8/8/6K1 b - - 1 1");
+    assert_eq!(4, get_mating_net_pieces(&board).count_ones());
+    assert_eq!(None, get_epic_mate(&board));
+
+    // Same, with a bishop also covering f8: 5 pieces in the net
+    let board = Board::from_fen("R5k1/5ppp/8/8/1B6/8/8/6K1 b - - 1 1");
+    assert_eq!(Some(EpicMate::MatingNet(5)), get_epic_mate(&board));
+
+    // Not a mate at all
+    let board = Board::from_fen("6k1/5ppp/8/8/8/8/8/R5K1 b - - 1 1");
+    assert_eq!(None, get_epic_mate(&board));
+    let board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    assert_eq!(None, get_epic_mate(&board));
+  }
 
   #[test]
   fn test_mate_distance_in_plies() {

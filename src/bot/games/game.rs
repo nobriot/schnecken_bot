@@ -3,7 +3,7 @@ use super::events::{self, ChatCommand, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
-use chess::engine::eval::position::can_declare_draw;
+use chess::engine::eval::position::{can_declare_draw, get_epic_mate};
 use chess::model::game_state::{GameStatus as EngineGameStatus, START_POSITION_FEN};
 use chess::model::moves::Move;
 use lichess::api::LichessApi;
@@ -424,7 +424,17 @@ impl Game {
       info!("Our move {mv} gives a draw by repetition/50 moves, claiming it");
     }
 
+    // Is our move an epic mate (smothered, or lots of pieces in the net)?
+    let epic_mate = get_epic_mate(&after_our_move.board);
+
     // Make the move
     self.api.make_move(&self.id, &mv.to_string(), claim_draw).await;
+
+    if let Some(epic_mate) = epic_mate {
+      info!("Epic mate {epic_mate:?} in game {}", self.id);
+      if !self.events.is_quiet() {
+        self.say(&events::epic_mate_message(epic_mate)).await;
+      }
+    }
   }
 }
