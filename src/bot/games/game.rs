@@ -1,4 +1,5 @@
 use super::engine::configure_engine;
+use super::events::{self, EvalOutcome, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
@@ -13,24 +14,28 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 
 static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
-static BOT_VERSION: &str = env!("CARGO_PKG_VERSION");
-static BOT_NAME: &str = env!("CARGO_PKG_NAME");
 
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
   /// game
-  rx:         mpsc::Receiver<GameMessage>,
+  rx:              mpsc::Receiver<GameMessage>,
   /// Lichess API instance to interact with the server
-  api:        LichessApi,
+  api:             LichessApi,
   /// Start FEN
   #[allow(dead_code)]
-  _start_fen: String,
+  _start_fen:      String,
   /// Short Lichess Game ID, used in URLs
-  id:         String,
+  id:              String,
   /// Color played by the bot in the ongoing game
-  color:      lichess::types::Color,
+  color:           lichess::types::Color,
   // Chess engine instance used to analyze the game
-  engine:     Engine,
+  engine:          Engine,
+  /// Opponent name, used in chat messages
+  opponent_name:   String,
+  /// True if the opponent is a bot
+  opponent_is_bot: bool,
+  /// What already happened during the game
+  events:          GameEvents,
 }
 
 impl Game {
@@ -49,6 +54,8 @@ impl Game {
 
     // Create a new engine for playing
     let engine = configure_engine(&game, engine_config);
+    let opponent_name = events::display_name(&game.opponent.username).to_string();
+    let opponent_is_bot = game.opponent_is_bot();
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),
@@ -56,7 +63,10 @@ impl Game {
                                                     .unwrap_or(String::from(START_POSITION_FEN)),
                                     id: game.game_id.clone(),
                                     color: game.color,
-                                    engine };
+                                    engine,
+                                    opponent_name,
+                                    opponent_is_bot,
+                                    events: GameEvents::default() };
 
     // Start the game loop
     // Spawn blocking as calculating chess moves is CPU intense and would block
@@ -73,17 +83,19 @@ impl Game {
                  opponent_id: game.opponent.id.clone() }
   }
 
+  /// Writes a message in the game chat and the spectator room
+  async fn say(&self, message: &str) {
+    self.api.write_in_chat(&self.id, message).await;
+    self.api.write_in_spectator_room(&self.id, message).await;
+  }
+
   /// Writes a couple of message
   async fn start_of_game_announcement(&self) {
-    let message = format!("Hey there! I am {} v{}", BOT_NAME, BOT_VERSION);
-    self.api.write_in_chat(&self.id, message.as_str()).await;
-    self.api.write_in_spectator_room(&self.id, message.as_str()).await;
+    self.say(&events::greeting(&self.opponent_name)).await;
   }
 
   async fn end_of_game_announcement(&self) {
-    let message = "Thanks for playing ! :)".to_string();
-    self.api.write_in_chat(&self.id, message.as_str()).await;
-    self.api.write_in_spectator_room(&self.id, message.as_str()).await;
+    self.say("Thanks for playing ! :)").await;
   }
 
   /// Returns true if the opponent has made at least one move based on the
@@ -181,6 +193,10 @@ impl Game {
 
     // Update whether it is our turn
     let move_list = Move::string_to_vec(game.moves.as_str());
+    if self.events.on_moves_played(move_list.len()) {
+      self.say(events::HAVE_FUN).await;
+    }
+
     let is_our_turn = match self.color {
       Color::White => move_list.len().is_multiple_of(2),
       Color::Black => !move_list.len().is_multiple_of(2),
@@ -233,6 +249,27 @@ impl Game {
       self.api.write_in_chat(&self.id, "Error: Could not find a move to play.").await;
       let _ = self.api.resign_game(&self.id).await;
       return;
+    }
+
+    let eval_for_us = match self.color {
+      Color::White => best_eval,
+      Color::Black => -best_eval,
+    };
+    match self.events.after_search(eval_for_us, self.opponent_is_bot) {
+      EvalOutcome::AnnounceMate(moves) => {
+        info!("Found a mate in {moves} for game {}", self.id);
+        self.say(&events::mate_announcement(moves)).await;
+      },
+      EvalOutcome::Resign => {
+        if events::is_forced_mate_in_one_against(&self.engine.position.board) {
+          info!("Opponent mates in one whatever we play, resigning game {}", self.id);
+          self.say(events::WELL_PLAYED).await;
+          let _ = self.api.resign_game(&self.id).await;
+          return;
+        }
+        debug!("Eval says mate in one against us, but it is not forced. Playing on.");
+      },
+      EvalOutcome::None => {},
     }
 
     while analysis.len() > cutoff {

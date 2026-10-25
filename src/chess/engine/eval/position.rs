@@ -259,6 +259,29 @@ pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
   if eval.abs() > 100.0 { eval - eval.signum() } else { eval }
 }
 
+/// Number of plies until mate (including the mating move) encoded in an eval.
+///
+/// A mate on the board is evaluated 200 (220 for a smothered mate), and the
+/// eval is decremented by 1 for each ply when going up the search tree (see
+/// `decrement_eval_if_mating_sequence`), so a mate N plies away is evaluated
+/// 200 - (N - 1). The sign of the eval indicates which side is mating.
+///
+/// ### Arguments
+///
+/// * `eval` - Evaluation of a position (from white's point of view)
+///
+/// ### Returns
+///
+/// The number of plies until mate, or None if the eval is not a mate score.
+pub fn mate_distance_in_plies(eval: f32) -> Option<u32> {
+  let eval = eval.abs();
+  if eval.is_nan() || eval <= 100.0 {
+    return None;
+  }
+  let mate_score = if eval > 200.0 { 220.0 } else { 200.0 };
+  Some(((mate_score - eval).round() as u32) + 1)
+}
+
 /// Looks at a game state and check if the game can be declared a draw
 /// (3 fold repetitions and 100-ply)
 ///
@@ -377,6 +400,22 @@ pub fn evaluate_board_simple(game_state: &GameState) -> f32 {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn test_mate_distance_in_plies() {
+    assert_eq!(Some(1), mate_distance_in_plies(200.0));
+    assert_eq!(Some(2), mate_distance_in_plies(199.0));
+    assert_eq!(Some(6), mate_distance_in_plies(195.0));
+    assert_eq!(Some(2), mate_distance_in_plies(-199.0));
+    assert_eq!(Some(1), mate_distance_in_plies(-200.0));
+    // Smothered mates
+    assert_eq!(Some(1), mate_distance_in_plies(220.0));
+    assert_eq!(Some(2), mate_distance_in_plies(219.0));
+    // Not a mate
+    assert_eq!(None, mate_distance_in_plies(5.0));
+    assert_eq!(None, mate_distance_in_plies(-43.0));
+    assert_eq!(None, mate_distance_in_plies(f32::NAN));
+  }
 
   #[test]
   fn test_evaluate_board() {
