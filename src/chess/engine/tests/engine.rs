@@ -951,3 +951,23 @@ fn engine_takes_repetition_when_worse_xahcEEYQ() {
   let cached = engine.cache.get_eval(&engine.position.board);
   assert!(cached.is_none_or(|c| c.eval != 0.0), "cached {:?}", cached.map(|c| c.eval));
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_single_move_eval_sees_mate_zVGdOBiO() {
+  // https://lichess.org/zVGdOBiO/black : after 21. Qf6+ the only legal move is
+  // Ne7, and 22. Qxe7 is mate. With a single legal move, the engine used to
+  // only evaluate the position statically (+13.7), so the bot did not see the
+  // mate and did not resign.
+  use crate::engine::eval::position::mate_distance_in_plies;
+  let mut engine = Engine::new(false);
+  engine.set_position("r1bk3r/1p1p1B2/p2P1Qn1/2p1p1Np/1P6/P7/2P2PPP/R3K2R b KQ - 1 21");
+  engine.options.max_search_time = 2000;
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!("g6e7", engine.get_best_move().unwrap().to_string());
+  let eval = engine.get_eval().unwrap();
+  // White mates: we play Ne7, White plays Qxe7#
+  assert!(eval > 0.0, "eval {eval}");
+  assert_eq!(Some(2), mate_distance_in_plies(eval), "eval {eval}");
+}

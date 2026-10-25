@@ -377,3 +377,20 @@ fn test_last_eval() {
   events.set_last_eval(18, -3.0);
   assert_eq!(Some(-3.0), events.last_eval());
 }
+
+#[test]
+fn test_resign_with_single_legal_move() {
+  // https://lichess.org/zVGdOBiO/black : our only legal move is Ne7, then
+  // Qxe7#. We play Black against a bot: we must resign.
+  let fen = "r1bk3r/1p1p1B2/p2P1Qn1/2p1p1Np/1P6/P7/2P2PPP/R3K2R b KQ - 1 21";
+  let mut engine = Engine::new(false);
+  engine.set_position(fen);
+  engine.options.max_search_time = 2000;
+  engine.go();
+  let eval_for_black = -engine.get_eval().unwrap();
+
+  let mut events = GameEvents::default();
+  let result = events.after_search(eval_for_black, true);
+  assert!(result.contains(&EvalEvent::Resign), "eval {eval_for_black}: {result:?}");
+  assert!(is_forced_mate_in_one_against(&Board::from_fen(fen)));
+}

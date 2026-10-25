@@ -40,6 +40,9 @@ pub const NUMBER_OF_MOVES_IN_SEARCH_RESULTS: usize = 30;
 /// How many plies deeper than the current search depth we can go when
 /// following checks.
 const MAX_CHECK_EXTENSION: usize = 4;
+/// Search depth when there is only one legal move: enough to see if a mate
+/// follows, while still playing the move almost instantly.
+const SINGLE_MOVE_SEARCH_DEPTH: usize = 3;
 
 // -----------------------------------------------------------------------------
 // Type definitions
@@ -438,11 +441,27 @@ impl Engine {
       return;
     }
 
-    // If we have only one legal move, we should just give it a score and play
-    // it instantaneously.
+    // If we have only one legal move, we should play it instantaneously.
+    // We still run a very shallow search to give it a meaningful eval (e.g. a
+    // forced mate after it): a static eval would hide it.
     let moves = self.cache.get_move_list(&self.position.board).unwrap();
     if moves.len() == 1 {
-      debug!("Single or no move available. Just evaluating quickly");
+      debug!("Single move available. Just evaluating quickly");
+      let result =
+        self.search(&self.position.clone(), 1, SINGLE_MOVE_SEARCH_DEPTH, f32::MIN, f32::MAX);
+      if let Some(result) = result
+         && !result.is_empty()
+      {
+        self.analysis.update_result(result);
+        self.analysis.set_depth(SINGLE_MOVE_SEARCH_DEPTH);
+        self.print_uci_info();
+        self.print_uci_best_move();
+        self.set_stop_requested(false);
+        self.set_engine_active(false);
+        return;
+      }
+
+      // No time for the search: just evaluate the position after the move
       let mut game_state = self.position.clone();
       game_state.apply_move(&moves[0]);
 
