@@ -1,5 +1,5 @@
 use super::engine::configure_engine;
-use super::events::{self, EvalEvent, GameEvents};
+use super::events::{self, ChatCommand, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
@@ -167,6 +167,7 @@ impl Game {
         },
         Ok(GameMessage::ChatMessage(m)) => {
           info!("Message on the chat: {:?}", m);
+          self.on_chat_message(m).await;
         },
         Ok(o) => {
           info!("Received a Game Message : {:?}", o);
@@ -186,6 +187,36 @@ impl Game {
     }
   }
 
+  /// Handles chat commands (`/eval`, `/quiet`, `/chatty`)
+  async fn on_chat_message(&mut self, message: lichess::types::ChatMessage) {
+    use lichess::types::ChatRoom;
+    match events::parse_chat_command(&message.text) {
+      Some(ChatCommand::Eval) => {
+        let report = self.events.eval_report();
+        self.api.write_in_chat_room(&self.id, message.room, &report).await;
+      },
+      // Only the opponent can make us quiet, not the spectators
+      Some(ChatCommand::Quiet) if message.room == ChatRoom::Player => {
+        if self.events.set_quiet() {
+          info!("{} asked us to be quiet in game {}", message.username, self.id);
+          self.api.write_in_chat_room(&self.id, ChatRoom::Player, events::QUIET_ACKNOWLEDGED).await;
+        }
+      },
+      Some(ChatCommand::Chatty) if message.room == ChatRoom::Player => {
+        if self.events.set_chatty() {
+          info!("{} asked us to comment again in game {}", message.username, self.id);
+          self.api
+              .write_in_chat_room(&self.id, ChatRoom::Player, events::CHATTY_ACKNOWLEDGED)
+              .await;
+        }
+      },
+      Some(command @ (ChatCommand::Quiet | ChatCommand::Chatty)) => {
+        info!("Ignoring {command:?} from spectator {} in game {}", message.username, self.id);
+      },
+      None => {},
+    }
+  }
+
   /// Plays a move in a game if it is ongoing and our turn
   pub async fn play(&mut self, game: lichess::types::GameState) {
     // Check if we just got a notification that the game is over, and make sure
@@ -201,7 +232,7 @@ impl Game {
 
     // Update whether it is our turn
     let move_list = Move::string_to_vec(game.moves.as_str());
-    if self.events.on_moves_played(move_list.len()) {
+    if self.events.on_moves_played(move_list.len()) && !self.events.is_quiet() {
       self.say(events::HAVE_FUN).await;
     }
 
@@ -265,9 +296,13 @@ impl Game {
     };
     // Move number, as in the game notation, of the move we are about to play
     let move_number = move_list.len() / 2 + 1;
+    self.events.set_last_eval(move_number, eval_for_us);
     for event in self.events.after_search(eval_for_us, self.opponent_is_bot) {
       info!("Game event {event:?} for game {} (eval {best_eval})", self.id);
-      if let Some(message) = event.message(move_number, eval_for_us) {
+      // Commentary, unless we were asked to be quiet
+      if let Some(message) = event.message(move_number, eval_for_us)
+         && !self.events.is_quiet()
+      {
         self.say(&message).await;
       }
       if event == EvalEvent::Resign {

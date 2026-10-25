@@ -13,6 +13,9 @@ pub static HAVE_FUN: &str = "Have fun";
 pub static WELL_PLAYED: &str = "Well played!";
 pub static GOOD_GAME: &str = "Good game!";
 pub static THANKS_FOR_PLAYING: &str = "Thanks for playing ! :)";
+pub static QUIET_ACKNOWLEDGED: &str = "Okay, I will stop commenting";
+pub static CHATTY_ACKNOWLEDGED: &str = "Alright, I will comment the game again";
+pub static NO_EVAL_YET: &str = "No eval yet, I have not thought about this game yet";
 pub static IN_TROUBLE: &str = "oh oh, I think I am in trouble";
 pub static OUT_OF_TROUBLE: &str = "Maybe not so much in trouble after all";
 pub static SWINDLE: &str = "Wow, this is a swindle!";
@@ -61,6 +64,31 @@ pub fn game_over_message(winner: Option<Color>, us: Color) -> &'static str {
 /// "BOT maia1". Usernames cannot contain spaces, so we keep the last word.
 pub fn display_name(username: &str) -> &str {
   username.split_whitespace().last().unwrap_or(username)
+}
+
+// -----------------------------------------------------------------------------
+// Chat commands
+
+/// Commands that can be sent to the bot in the game chat
+#[derive(Debug, PartialEq, Eq)]
+pub enum ChatCommand {
+  /// `/eval`: tell the current move number and eval
+  Eval,
+  /// `/quiet`: stop commenting the game
+  Quiet,
+  /// `/chatty`: comment the game again (opposite of `/quiet`)
+  Chatty,
+}
+
+/// Parses a chat line into a command, if it is one
+pub fn parse_chat_command(text: &str) -> Option<ChatCommand> {
+  let command = text.split_whitespace().next()?.to_lowercase();
+  match command.as_str() {
+    "/eval" => Some(ChatCommand::Eval),
+    "/quiet" => Some(ChatCommand::Quiet),
+    "/chatty" => Some(ChatCommand::Chatty),
+    _ => None,
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -113,6 +141,10 @@ pub struct GameEvents {
   /// We already said something at the end of the game (or when resigning /
   /// leaving)
   game_over:      bool,
+  /// We were asked to stop commenting (`/quiet`)
+  quiet:          bool,
+  /// Move number and eval (from our point of view) of our last search
+  last_eval:      Option<(usize, f32)>,
 }
 
 impl GameEvents {
@@ -129,6 +161,38 @@ impl GameEvents {
     }
     self.have_fun_sent = true;
     true
+  }
+
+  /// Stops the commentary. Returns true only the first time, so that we
+  /// acknowledge it only once.
+  pub fn set_quiet(&mut self) -> bool {
+    !std::mem::replace(&mut self.quiet, true)
+  }
+
+  /// Resumes the commentary. Returns true only if we were quiet, so that we
+  /// acknowledge it only when something changes.
+  pub fn set_chatty(&mut self) -> bool {
+    std::mem::replace(&mut self.quiet, false)
+  }
+
+  /// True if we were asked to stop commenting
+  pub fn is_quiet(&self) -> bool {
+    self.quiet
+  }
+
+  /// Saves the move number and eval of our last search, for `/eval`
+  pub fn set_last_eval(&mut self, move_number: usize, eval_for_us: f32) {
+    if !eval_for_us.is_nan() {
+      self.last_eval = Some((move_number, eval_for_us));
+    }
+  }
+
+  /// Answer to the `/eval` command
+  pub fn eval_report(&self) -> String {
+    match self.last_eval {
+      Some((move_number, eval)) => format!("Move {move_number}, eval {}", format_eval(eval)),
+      None => NO_EVAL_YET.to_string(),
+    }
   }
 
   /// Marks the game as over. Returns true only the first time, so that we say

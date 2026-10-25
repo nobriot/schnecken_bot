@@ -173,3 +173,62 @@ fn test_engine_eval_leads_to_resign() {
   let result = events.after_search(eval_for_white, true);
   assert!(result.contains(&EvalEvent::Resign), "eval {eval_for_white}: {result:?}");
 }
+
+#[test]
+fn test_parse_chat_command() {
+  assert_eq!(Some(ChatCommand::Eval), parse_chat_command("/eval"));
+  assert_eq!(Some(ChatCommand::Eval), parse_chat_command("  /EVAL please"));
+  assert_eq!(Some(ChatCommand::Quiet), parse_chat_command("/quiet"));
+  assert_eq!(Some(ChatCommand::Chatty), parse_chat_command("/chatty"));
+  assert_eq!(Some(ChatCommand::Chatty), parse_chat_command("/Chatty again"));
+  assert_eq!(None, parse_chat_command("eval"));
+  assert_eq!(None, parse_chat_command("what is the /eval?"));
+  assert_eq!(None, parse_chat_command("/evaluate"));
+  assert_eq!(None, parse_chat_command(""));
+}
+
+#[test]
+fn test_eval_report() {
+  let mut events = GameEvents::default();
+  assert_eq!(NO_EVAL_YET, events.eval_report());
+  events.set_last_eval(12, 1.25);
+  assert_eq!("Move 12, eval +1.2", events.eval_report());
+  // NaN evals (no result) do not replace the last one
+  events.set_last_eval(13, f32::NAN);
+  assert_eq!("Move 12, eval +1.2", events.eval_report());
+  events.set_last_eval(30, -197.0);
+  assert_eq!("Move 30, eval #-2", events.eval_report());
+}
+
+#[test]
+fn test_quiet() {
+  let mut events = GameEvents::default();
+  assert!(!events.is_quiet());
+  // Acknowledged only once
+  assert!(events.set_quiet());
+  assert!(!events.set_quiet());
+  assert!(events.is_quiet());
+
+  // The trouble state is still tracked while quiet, so that we do not comment
+  // on an old situation if this changes later
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+  assert!(events.after_search(-6.0, false).is_empty());
+}
+
+#[test]
+fn test_chatty() {
+  let mut events = GameEvents::default();
+  // Already chatty: nothing to acknowledge
+  assert!(!events.set_chatty());
+  assert!(!events.is_quiet());
+
+  // Quiet, then chatty again: acknowledged once
+  assert!(events.set_quiet());
+  assert!(events.set_chatty());
+  assert!(!events.is_quiet());
+  assert!(!events.set_chatty());
+
+  // And quiet can be asked again afterwards
+  assert!(events.set_quiet());
+  assert!(events.is_quiet());
+}
