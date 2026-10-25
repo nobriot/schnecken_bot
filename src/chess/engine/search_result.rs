@@ -94,8 +94,11 @@ impl Default for Variation {
 
 #[derive(Debug, Clone)]
 pub struct VariationWithEval {
-  pub variation: Variation,
-  pub eval:      f32,
+  pub variation:  Variation,
+  pub eval:       f32,
+  /// The variation ends with a draw by repetition (or 50 moves): its eval
+  /// depends on the moves that led to the position, not only on the board.
+  pub repetition: bool,
 }
 
 impl VariationWithEval {
@@ -103,7 +106,16 @@ impl VariationWithEval {
   pub fn new_from_move(eval: f32, mv: Move) -> Self {
     let mut variation = Variation::new();
     variation.add(mv);
-    VariationWithEval { variation, eval }
+    VariationWithEval { variation,
+                        eval,
+                        repetition: false }
+  }
+
+  /// Creates a new variation from a single move leading to a draw by
+  /// repetition (or 50 moves)
+  pub fn new_repetition_draw(mv: Move) -> Self {
+    VariationWithEval { repetition: true,
+                        ..Self::new_from_move(0.0, mv) }
   }
 }
 

@@ -355,3 +355,25 @@ fn test_can_toggle_commentary() {
   assert!(can_toggle_commentary(&ChatRoom::Spectator, "SchnellSchnecke"));
   assert!(can_toggle_commentary(&ChatRoom::Player, "schnellschnecke"));
 }
+
+#[test]
+fn test_should_claim_draw() {
+  // We do not know how we stand: claim
+  assert!(should_claim_draw(None));
+  assert!(should_claim_draw(Some(f32::NAN)));
+  // Worse, equal or only slightly better: claim
+  assert!(should_claim_draw(Some(-4.0)));
+  assert!(should_claim_draw(Some(0.0)));
+  assert!(should_claim_draw(Some(CLAIM_DRAW_MAX_EVAL)));
+  // Better: play on
+  assert!(!should_claim_draw(Some(1.5)));
+  assert!(!should_claim_draw(Some(197.0)));
+}
+
+#[test]
+fn test_last_eval() {
+  let mut events = GameEvents::default();
+  assert_eq!(None, events.last_eval());
+  events.set_last_eval(18, -3.0);
+  assert_eq!(Some(-3.0), events.last_eval());
+}

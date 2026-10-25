@@ -118,6 +118,28 @@ impl LichessApi {
     }
   }
 
+  /// Offers a draw, or accepts the one offered by the opponent.
+  /// When a threefold repetition (or the 50 moves rule) is on the board, this
+  /// claims the draw.
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID in which we offer the draw
+  ///
+  /// ### Returns
+  ///
+  /// Result indicating if Lichess accepted the request
+  pub async fn offer_draw(&self, game_id: &str) -> Result<(), LichessError> {
+    info!("Offering/claiming a draw on game id {game_id}");
+    let json = self.lichess_post(&format!("bot/game/{game_id}/draw/yes"), "").await?;
+    if json["ok"].as_bool() == Some(true) {
+      Ok(())
+    } else {
+      warn!("Lichess refused our draw offer/claim on game {game_id}: {json}");
+      Err(LichessError)
+    }
+  }
+
   /// Fetches the messages posted in the player chat of a game
   ///
   /// ### Arguments

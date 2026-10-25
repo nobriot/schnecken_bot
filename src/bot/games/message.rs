@@ -6,6 +6,10 @@ pub enum GameMessage {
   /// Lichess.
   #[allow(dead_code)] // Not sent yet
   Start(lichess::types::GameStart),
+  /// Full game information, sent first by the game stream (also when
+  /// rejoining an ongoing game): we set the initial position and replay all
+  /// the moves, so that the engine knows the game history (repetitions)
+  Full(lichess::types::GameFull),
   /// Updates the game state, plays moves if it is our turn
   Update(lichess::types::GameState),
   /// Notifies that the game is over (based on what the server says)

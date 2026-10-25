@@ -272,6 +272,11 @@ impl GameEvents {
     }
   }
 
+  /// Eval (from our point of view) of our last search, if any
+  pub fn last_eval(&self) -> Option<f32> {
+    self.last_eval.map(|(_, eval)| eval)
+  }
+
   /// Answer to the `/eval` command
   pub fn eval_report(&self) -> String {
     match self.last_eval {
@@ -335,6 +340,21 @@ impl GameEvents {
     }
     events
   }
+}
+
+/// Above this eval (from our point of view), we do not claim draws: we are
+/// better and should play on
+pub const CLAIM_DRAW_MAX_EVAL: f32 = 0.5;
+
+/// Checks if we should claim a draw that is available on the board (threefold
+/// repetition, 50 moves rule).
+///
+/// ### Arguments
+///
+/// * `last_eval_for_us` - Eval of our last search, from our point of view. If
+///   we do not know, we claim.
+pub fn should_claim_draw(last_eval_for_us: Option<f32>) -> bool {
+  last_eval_for_us.is_none_or(|eval| eval.is_nan() || eval <= CLAIM_DRAW_MAX_EVAL)
 }
 
 /// Checks if every legal move of the side to play allows a mate in one.

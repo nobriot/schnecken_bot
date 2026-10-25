@@ -62,8 +62,7 @@ impl GameStreamHandler for GameHandle {
           let game_full = game_full.unwrap();
           debug!("Parsed data: {:?}", game_full);
 
-          let _ = self.tx.send(GameMessage::Update(game_full.state));
-          // self.games.update_game_and_play(game_full.state, game_id.as_str());
+          let _ = self.tx.send(GameMessage::Full(game_full));
         }
       },
 

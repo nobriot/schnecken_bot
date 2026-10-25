@@ -877,3 +877,77 @@ fn engine_search_real_game_sodIaezB_no_rook_sacrifice() {
     assert!(line.eval < -10.0 && line.eval > -20.0, "Line {i} eval {}", line.eval);
   }
 }
+
+/// Moves of the game https://lichess.org/xahcEEYQ, ending in a threefold
+/// repetition with White's last move c3d2
+#[allow(non_upper_case_globals)]
+const GAME_xahcEEYQ_MOVES: &str = "e2e4 e7e5 g1f3 b8c6 d2d4 e5d4 f3d4 g8f6 d4c6 d7c6 d1d8 e8d8 f2f3 d8e7 c1g5 c6c5 e4e5 e7e6 e5f6 c8d7 f1c4 e6f5 f6g7 f8g7 g5c1 d7a4 e1d2 g7h6 d2c3 h6g7 c3d2 g7h6 d2c3 h6g7 c3d2";
+
+/// Engine with the game xahcEEYQ replayed from the start, up to `plies` moves,
+/// so that it knows the history of the game (repetitions)
+#[allow(non_snake_case)]
+fn engine_for_game_xahcEEYQ(plies: usize) -> Engine {
+  let mut engine = Engine::new(false);
+  engine.set_position(START_POSITION_FEN);
+  for m in GAME_xahcEEYQ_MOVES.split(' ').take(plies) {
+    engine.apply_move(m);
+  }
+  engine
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn threefold_repetition_detected_with_game_history_xahcEEYQ() {
+  use crate::engine::eval::position::can_declare_draw;
+  let engine = engine_for_game_xahcEEYQ(35);
+  assert_eq!(engine.position.to_fen().split(' ').next(),
+             Some("r6r/ppp2pbp/8/2p2k2/b1B5/5P2/PPPK2PP/RNB4R"));
+  assert_eq!(2, engine.position.get_board_repetitions());
+  assert_eq!(GameStatus::ThreeFoldRepetition, can_declare_draw(&engine.position));
+
+  // One ply earlier, not a threefold yet
+  let engine = engine_for_game_xahcEEYQ(34);
+  assert_eq!(GameStatus::Ongoing, can_declare_draw(&engine.position));
+}
+
+#[test]
+fn engine_avoids_repetition_when_better() {
+  use crate::engine::eval::position::can_declare_draw;
+  // White is a queen up. The kings shuffle so that the position after e1f1
+  // (white king f1, black king e8, black to play) already occurred twice:
+  // e1f1 would be a threefold repetition, the engine must avoid it.
+  let mut engine = Engine::new(false);
+  engine.set_position("4k3/pppp4/8/8/8/8/PPPP4/3Q2K1 w - - 0 1");
+  for m in ["g1f1", "e8d8", "f1g1", "d8e8", "g1f1", "e8d8", "f1e1", "d8e8"] {
+    engine.apply_move(m);
+  }
+  assert_eq!(GameStatus::Ongoing, can_declare_draw(&engine.position));
+  let mut after_e1f1 = engine.position.clone();
+  after_e1f1.apply_move_from_notation("e1f1");
+  assert_eq!(GameStatus::ThreeFoldRepetition, can_declare_draw(&after_e1f1));
+
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 4;
+  engine.go();
+  engine.print_evaluations();
+  assert_ne!("e1f1", engine.get_best_move().unwrap().to_string());
+  assert!(engine.get_eval().unwrap() > 5.0);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_takes_repetition_when_worse_xahcEEYQ() {
+  // Black is a knight down, g7h6 repeats the position a third time: draw
+  let mut engine = engine_for_game_xahcEEYQ(35);
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 3;
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!("g7h6", engine.get_best_move().unwrap().to_string());
+  assert_eq!(0.0, engine.get_eval().unwrap());
+
+  // That 0 comes from the repetition, it depends on the path: it must not be
+  // cached for the board, where it would be reused in other lines
+  let cached = engine.cache.get_eval(&engine.position.board);
+  assert!(cached.is_none_or(|c| c.eval != 0.0), "cached {:?}", cached.map(|c| c.eval));
+}

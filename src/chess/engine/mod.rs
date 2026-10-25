@@ -783,7 +783,7 @@ impl Engine {
         // Do not cache this: repetitions / 50 moves depend on the path that led
         // to the board, the same board reached via another line is not a draw.
         Engine::update_alpha_beta(game_state.board.side_to_play, 0.0, &mut alpha, &mut beta);
-        result.update(VariationWithEval::new_from_move(0.0, m));
+        result.update(VariationWithEval::new_repetition_draw(m));
         continue;
       }
 
@@ -886,7 +886,11 @@ impl Engine {
     // Only save the eval when we looked at all the moves. If we pruned, the
     // eval is just a bound for this alpha/beta window and not the value of the
     // position: caching it would leak it into other lines and later searches.
-    if !result.is_empty() && !pruned {
+    // Same for an eval coming from a draw by repetition at the end of the best
+    // line: it depends on the path, the same board in another line is not a
+    // draw.
+    let best_line_is_repetition = result.variations.first().is_some_and(|v| v.repetition);
+    if !result.is_empty() && !pruned && !best_line_is_repetition {
       let best_move = &result.get_best_move().expect("Valid move in non-empty result");
       debug_assert!(!best_move.is_null(), "Best move is NULL.");
       let mut pv = game_state.clone();

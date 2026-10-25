@@ -3,7 +3,8 @@ use super::events::{self, ChatCommand, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
-use chess::model::game_state::START_POSITION_FEN;
+use chess::engine::eval::position::can_declare_draw;
+use chess::model::game_state::{GameStatus as EngineGameStatus, START_POSITION_FEN};
 use chess::model::moves::Move;
 use lichess::api::LichessApi;
 use lichess::types::Color;
@@ -168,6 +169,21 @@ impl Game {
         Ok(GameMessage::Start(game)) => {
           debug!("Received a Game Start : {:?}", game);
         },
+        Ok(GameMessage::Full(game)) => {
+          debug!("Received the full game: {:?}", game);
+          // Start from the initial position: play() replays all the moves, so
+          // that the engine knows the game history (threefold repetitions),
+          // also when rejoining an ongoing game.
+          let initial_fen = match game.initial_fen.as_str() {
+            "startpos" | "" => START_POSITION_FEN,
+            fen => fen,
+          };
+          self.engine.set_position(initial_fen);
+          if !opponent_moved && Self::opponent_has_moved(&game.state.moves, self.color) {
+            opponent_moved = true;
+          }
+          self.play(game.state).await;
+        },
         Ok(GameMessage::Update(game)) => {
           debug!("Received a Game Update: {:?}", game);
           if !opponent_moved && Self::opponent_has_moved(&game.moves, self.color) {
@@ -291,6 +307,17 @@ impl Game {
       }
     }
 
+    // A threefold repetition (or the 50 moves rule) is on the board: claim the
+    // draw unless we are better. No need to search, the game is over.
+    if can_declare_draw(&self.engine.position) != EngineGameStatus::Ongoing
+       && events::should_claim_draw(self.events.last_eval())
+    {
+      info!("Draw available on the board for game {}, claiming it", self.id);
+      if self.api.offer_draw(&self.id).await.is_ok() {
+        return;
+      }
+    }
+
     debug!("Trying to find a move for game {}", self.id);
     let (time_left, mut increment_ms) = match self.color {
       Color::White => (game.wtime, game.winc),
@@ -371,7 +398,16 @@ impl Game {
     info!("Playing Line {} ({})  as {:?} for GameID {} - eval: {}",
           move_index, mv, self.color, self.id, eval);
 
+    // If our move gives a threefold repetition (or reaches the 50 moves rule),
+    // the engine picked a draw as the best we have: claim it with the move.
+    let mut after_our_move = self.engine.position.clone();
+    after_our_move.apply_move(&mv);
+    let claim_draw = can_declare_draw(&after_our_move) != EngineGameStatus::Ongoing;
+    if claim_draw {
+      info!("Our move {mv} gives a draw by repetition/50 moves, claiming it");
+    }
+
     // Make the move
-    self.api.make_move(&self.id, &mv.to_string(), false).await;
+    self.api.make_move(&self.id, &mv.to_string(), claim_draw).await;
   }
 }
