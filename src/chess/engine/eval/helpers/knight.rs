@@ -1,4 +1,5 @@
 use super::generic::threatened_victims;
+use crate::model::board_geometry::BOARD_EDGES;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
@@ -49,9 +50,76 @@ pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
   victims
 }
 
+/// Counts the knights on the edge of the board that have no safe square to go
+/// to, i.e. every destination is either occupied by our own pieces, attacked
+/// by an enemy pawn, or attacked by the enemy and not defended by us.
+/// Such knights are likely to be lost (e.g. a knight grabbing the a2 pawn).
+///
+/// ### Argument
+/// * `game_state`: A GameState object representing a position, side to play,
+///   etc.
+/// * `color`     : Color of the knights to look at
+///
+/// ### Returns
+///
+/// Number of trapped knights on the edge of the board.
+pub fn get_trapped_knights(game_state: &GameState, color: Color) -> u32 {
+  let board = &game_state.board;
+  let (mut knights, own_pieces, enemy_pawns) = match color {
+    Color::White => {
+      (board.pieces.white.knight & BOARD_EDGES, board.pieces.white.all(), board.pieces.black.pawn)
+    },
+    Color::Black => {
+      (board.pieces.black.knight & BOARD_EDGES, board.pieces.black.all(), board.pieces.white.pawn)
+    },
+  };
+
+  let mut trapped: u32 = 0;
+  while knights != 0 {
+    let knight = knights.trailing_zeros() as u8;
+    let mut destinations = KNIGHT_MOVES[knight as usize] & !own_pieces;
+    let mut safe_squares = 0;
+    while destinations != 0 {
+      let destination = destinations.trailing_zeros() as u8;
+      let attackers = board.get_attackers(destination, Color::opposite(color));
+      let defenders = board.get_attackers(destination, color) & !(1 << knight);
+      if attackers & enemy_pawns == 0 && (attackers == 0 || defenders != 0) {
+        safe_squares += 1;
+      }
+      destinations &= destinations - 1;
+    }
+    if safe_squares == 0 {
+      trapped += 1;
+    }
+    knights &= knights - 1;
+  }
+
+  trapped
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn test_trapped_knights() {
+    // https://lichess.org/kzc4RftG : 16...Nxa2, the knight cannot come back
+    let fen = "4rrk1/pp3pp1/7p/1N1p1n2/3P4/2P4P/nP3PP1/3R1KNR w - - 0 17";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(1, get_trapped_knights(&game_state, Color::Black));
+    assert_eq!(0, get_trapped_knights(&game_state, Color::White));
+
+    // Before taking on a2, the knight on b4 is fine
+    let fen = "4rrk1/pp3pp1/7p/1N1p1n2/1n1P4/2P4P/PP3PP1/3R1KNR b - - 0 16";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(0, get_trapped_knights(&game_state, Color::Black));
+
+    // Knights at home in the start position are not trapped
+    let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    let game_state = GameState::from_fen(fen);
+    assert_eq!(0, get_trapped_knights(&game_state, Color::White));
+    assert_eq!(0, get_trapped_knights(&game_state, Color::Black));
+  }
 
   #[ignore]
   #[test]

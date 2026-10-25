@@ -10,7 +10,7 @@ use crate::model::piece_moves::KING_MOVES;
 
 // const PIECE_MOBILITY_FACTOR: f32 = 0.01;
 // const KING_DANGER_FACTOR: f32 = 2.0;
-const SQUARE_TABLE_FACTOR: f32 = 0.03;
+const SQUARE_TABLE_FACTOR: f32 = 0.015;
 const PASSED_PAWN_FACTOR: f32 = 0.02;
 /// Bonus when the opponent only has a king left. Must stay below the value of
 /// a minor piece, else we sacrifice pieces to remove the opponent's last pawns.

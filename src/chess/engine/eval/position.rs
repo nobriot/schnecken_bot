@@ -2,7 +2,7 @@
 use super::endgame::get_endgame_position_evaluation;
 use super::helpers::bishop::get_bishop_victims;
 use super::helpers::generic::*;
-use super::helpers::knight::get_knight_victims;
+use super::helpers::knight::{get_knight_victims, get_trapped_knights};
 use super::helpers::pawn::*;
 use super::helpers::rook::*;
 use super::middlegame::get_middlegame_position_evaluation;
@@ -23,6 +23,8 @@ const ROOK_FILE_FACTOR: f32 = 0.06;
 const HANGING_FACTOR: f32 = 0.4;
 const HANGING_PENALTY: f32 = 0.15;
 const PIN_PENALTY: f32 = 0.25;
+/// A knight on the edge without any safe square is likely to be lost
+const TRAPPED_KNIGHT_PENALTY: f32 = 1.5;
 
 /// Default way to look at a position regardless of the game phase
 ///
@@ -123,6 +125,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
   // Look for knight spans
   score += 0.5 * get_knight_victims(game_state, Color::White) as f32;
   score -= 0.5 * get_knight_victims(game_state, Color::Black) as f32;
+  score -= TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::White) as f32;
+  score += TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::Black) as f32;
 
   // Look for bishop tricks
   score += 0.5 * get_bishop_victims(game_state, Color::White) as f32;
@@ -351,7 +355,7 @@ pub fn is_smothered_mate(board: &Board, game_status: GameStatus) -> bool {
 }
 
 /// Minimum number of pieces taking part in a mating net to call it epic
-pub const EPIC_MATE_MIN_PIECES: u32 = 5;
+pub const EPIC_MATE_MIN_PIECES: u32 = 6;
 
 /// Kinds of mates worth celebrating
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -494,9 +498,14 @@ mod tests {
     assert_eq!(4, get_mating_net_pieces(&board).count_ones());
     assert_eq!(None, get_epic_mate(&board));
 
-    // Same, with a bishop also covering f8: 5 pieces in the net
+    // Same, with a bishop also covering f8: 5 pieces in the net, still not epic
     let board = Board::from_fen("R5k1/5ppp/8/8/1B6/8/8/6K1 b - - 1 1");
-    assert_eq!(Some(EpicMate::MatingNet(5)), get_epic_mate(&board));
+    assert_eq!(5, get_mating_net_pieces(&board).count_ones());
+    assert_eq!(None, get_epic_mate(&board));
+
+    // And a knight covering f8 as well: 6 pieces in the net
+    let board = Board::from_fen("R5k1/3N1ppp/8/8/1B6/8/8/6K1 b - - 1 1");
+    assert_eq!(Some(EpicMate::MatingNet(6)), get_epic_mate(&board));
 
     // Not a mate at all
     let board = Board::from_fen("6k1/5ppp/8/8/8/8/8/R5K1 b - - 1 1");

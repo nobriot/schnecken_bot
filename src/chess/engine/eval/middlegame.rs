@@ -6,7 +6,7 @@ use crate::model::piece::*;
 
 // const KING_DANGER_FACTOR: f32 = 0.3;
 // const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.02;
+const SQUARE_TABLE_FACTOR: f32 = 0.015;
 /// Penalty per squared king danger unit. Squared because attacks get much
 /// more dangerous as attackers and weaknesses add up.
 const KING_ATTACK_FACTOR: f32 = 0.02;

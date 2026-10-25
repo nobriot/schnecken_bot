@@ -1007,3 +1007,33 @@ fn engine_search_real_game_ZR6c8ZB3_no_piece_sacrifices() {
     assert_ne!(sacrifice, engine.get_best_move().unwrap().to_string());
   }
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Y3jUUt4g_do_not_give_the_knight() {
+  // https://lichess.org/Y3jUUt4g : 6. Nxd4? Qxd4 7. Qxd4 Nxd4 just loses a
+  // knight for a pawn. The square tables made 8. e4 look worth more than that.
+  let mut engine = Engine::new(false);
+  engine.set_position("r1bqkb1r/pp2pppp/2n2n2/2P3B1/3p4/2N2N2/PPP1PPPP/R2QKB1R w KQkq - 0 6");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 6;
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move().unwrap().to_string();
+  assert_ne!("f3d4", best_move);
+  assert_ne!("c3e4", best_move);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_kzc4RftG_do_not_trap_the_knight() {
+  // https://lichess.org/kzc4RftG : 16... Nxa2? grabs a pawn, but the knight
+  // cannot come back from a2.
+  let mut engine = Engine::new(false);
+  engine.set_position("4rrk1/pp3pp1/7p/1N1p1n2/1n1P4/2P4P/PP3PP1/3R1KNR b - - 0 16");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 5;
+  engine.go();
+  engine.print_evaluations();
+  assert_ne!("b4a2", engine.get_best_move().unwrap().to_string());
+}

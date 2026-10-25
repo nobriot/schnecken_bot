@@ -8,7 +8,7 @@ use crate::model::piece::*;
 const DEVELOPMENT_FACTOR: f32 = 0.03;
 // const KING_DANGER_FACTOR: f32 = 0.3;
 // const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.02;
+const SQUARE_TABLE_FACTOR: f32 = 0.015;
 const _CASTLING_PENATLY: f32 = 1.0;
 
 /// Computes a total score based on the square where pieces are located in the
