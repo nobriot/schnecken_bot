@@ -30,7 +30,6 @@ use config::options::*;
 use config::play_style::*;
 use log::*;
 use nnue::NNUE;
-use std::cmp::min;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -385,8 +384,8 @@ impl Engine {
 
     // FIXME: THis does not capture evals when opponent applies a move
     // let eval = self.get_best_eval();
-    // let mv = self.position.last_moves.last().unwrap_or(&Move::null()).clone();
-    // self.history.add(self.position.to_fen(), mv, eval as isize);
+    // let mv = self.position.last_moves.last().unwrap_or(&Move::null()).
+    // clone(); self.history.add(self.position.to_fen(), mv, eval as isize);
 
     self.position.apply_move_from_notation(chess_move);
     self.cache.clear_killer_moves();
@@ -413,8 +412,8 @@ impl Engine {
     // Make sure we know the move list:
     Engine::find_move_list(&self.cache, &self.position.board);
 
-    // First check if we are in a known book position. If yes, just return the known
-    // list
+    // First check if we are in a known book position. If yes, just return the
+    // known list
     let play_style = self.options.play_style;
     let book_entry = get_book_moves(&self.position.board, play_style == PlayStyle::Provocative);
     if let Some(move_list) = book_entry {
@@ -436,8 +435,8 @@ impl Engine {
       return;
     }
 
-    // If we have only one legal move, we should just give it a score and play it
-    // instantaneously.
+    // If we have only one legal move, we should just give it a score and play
+    // it instantaneously.
     let moves = self.cache.get_move_list(&self.position.board).unwrap();
     if moves.len() == 1 {
       debug!("Single or no move available. Just evaluating quickly");
@@ -490,7 +489,8 @@ impl Engine {
       self.analysis.update_result(result);
       self.print_uci_info();
 
-      // If the best move is just winning for us, stop searching unless requested to.
+      // If the best move is just winning for us, stop searching unless
+      // requested to.
       if Engine::best_move_is_mating_sequence(self.position.board.side_to_play, best_eval)
          && !self.options.ponder
       {
@@ -544,8 +544,8 @@ impl Engine {
     let start_time = self.get_start_time();
     let multi_pv_setting = self.options.multi_pv;
 
-    for i in 0..min(multi_pv_setting, result.variations.len()) {
-      let eval = result.variations[i].eval;
+    for (i, variation) in result.variations.iter().take(multi_pv_setting).enumerate() {
+      let eval = variation.eval;
       let score_string = if eval.abs() > 100.0 {
         format!("score mate {}", ((eval.signum() * 200.0) - eval) as isize)
       } else {
@@ -563,7 +563,7 @@ impl Engine {
                nodes_visited,
                (Instant::now() - start_time).as_millis(),
                multi_pv_string,
-               result.variations[i].variation,);
+               variation.variation,);
     }
   }
 
@@ -737,15 +737,18 @@ impl Engine {
     let moves = self.cache.get_move_list(&game_state.board).unwrap();
     let mut result =
       SearchResult::new(NUMBER_OF_MOVES_IN_SEARCH_RESULTS, game_state.board.side_to_play);
+    // Set when we did not look at all the moves (cut-off or interrupted)
+    let mut pruned = false;
 
     for m in moves {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
       // Here we have low trust in eval accuracy, so it has to be more than
       // good gap between alpha and beta before we prune.
       if (alpha - 0.5) > beta {
-        // TODO: Test this a bit better, I think we are pruning stuff that should not
-        // get pruned. println!("Skipping {} as it is pruned
+        // TODO: Test this a bit better, I think we are pruning stuff that
+        // should not get pruned. println!("Skipping {} as it is pruned
         // {}/{}",game_state.to_fen(), alpha, beta);
+        pruned = true;
         break;
       }
 
@@ -761,12 +764,12 @@ impl Engine {
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
 
-      // Check if we just repeated the position too much or did not make progress.
+      // Check if we just repeated the position too much or did not make
+      // progress.
       let draw = can_declare_draw(&new_game_state);
       if draw != GameStatus::Ongoing {
-        self.cache.set_eval(&new_game_state.board, EvaluationCache { game_status: draw,
-                                                                     eval:        0.0,
-                                                                     depth:       1, });
+        // Do not cache this: repetitions / 50 moves depend on the path that led
+        // to the board, the same board reached via another line is not a draw.
         Engine::update_alpha_beta(game_state.board.side_to_play, 0.0, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_from_move(0.0, m));
         continue;
@@ -776,9 +779,9 @@ impl Engine {
       let mut eval_cache = self.cache.get_eval(&new_game_state.board).unwrap_or_default();
       if eval_cache.depth > 0 && depth >= max_line_depth {
         // Nothing to do, we already looked at this position.
-        // FIXME: If the position appears in another variation but leads to a draw, e.g.
-        // 3 fold repetitions, we won't detect it and skip it. Get the alpha/
-        // beta result propagated upwards.
+        // FIXME: If the position appears in another variation but leads to a
+        // draw, e.g. 3 fold repetitions, we won't detect it and skip
+        // it. Get the alpha/ beta result propagated upwards.
         Engine::update_alpha_beta(game_state.board.side_to_play,
                                   eval_cache.eval,
                                   &mut alpha,
@@ -791,8 +794,8 @@ impl Engine {
         eval_cache.game_status = is_game_over(&self.cache, &new_game_state.board);
       };
 
-      // No need to look at other moves in this variation if we found a checkmate for
-      // the side to play:
+      // No need to look at other moves in this variation if we found a
+      // checkmate for the side to play:
       let mut eval = get_eval_from_game_status(eval_cache.game_status);
       if eval_cache.game_status == GameStatus::WhiteWon
          || eval_cache.game_status == GameStatus::BlackWon
@@ -806,8 +809,8 @@ impl Engine {
           }
         }
 
-        // FIXME: We should make this a bit smarter, go one level up to save the good
-        // move Also if there is an eval swing, not just checkmate.
+        // FIXME: We should make this a bit smarter, go one level up to save the
+        // good move Also if there is an eval swing, not just checkmate.
         self.cache.add_killer_move(&m);
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_from_move(eval, m));
@@ -822,6 +825,7 @@ impl Engine {
         if depth < max_line_depth {
           let sub_result = self.search(&new_game_state, depth + 1, max_line_depth, alpha, beta);
           if sub_result.is_none() {
+            pruned = true;
             continue;
           }
           let mut sub_result = sub_result.unwrap();
@@ -838,44 +842,54 @@ impl Engine {
           eval = evaluate_board(&new_game_state);
           self.analysis.increment_nodes_visited();
 
-          // FIXME:  NNUE eval is still too slow, we should implement incremental updates
+          // FIXME:  NNUE eval is still too slow, we should implement
+          // incremental updates
           if depth > 10 && self.options.use_nnue {
             let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
             // println!("board: {} - Eval: {} - NNUE Eval: {} - final eval
-            // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 + nnue_eval * 0.5);
+            // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 +
+            // nnue_eval * 0.5);
             eval = eval * 0.5 + nnue_eval * 0.5;
           }
 
           result.update(VariationWithEval::new_from_move(eval, m));
           Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
+
+          // Save the static eval of the leaf. (Searched children save their
+          // own eval at the end of their search)
+          eval_cache.eval = eval;
+          eval_cache.depth = 1;
+          self.cache.set_eval(&new_game_state.board, eval_cache);
         }
       } else {
         // Here the game is no longer ongoing (draw, etc.)
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_from_move(eval, m));
-      }
-
-      // Save the intermediate result in the transposition table
-      if !result.is_empty() {
-        eval_cache.eval = result.get_eval().expect("Result is not empty, eval should be valid");
-        eval_cache.depth = max_line_depth - depth + 1;
+        eval_cache.eval = eval;
+        eval_cache.depth = 1;
         self.cache.set_eval(&new_game_state.board, eval_cache);
       }
     } // for m in &moves
 
-    if !result.is_empty() {
-      // Save in the cache table:
-
+    // Only save the eval when we looked at all the moves. If we pruned, the
+    // eval is just a bound for this alpha/beta window and not the value of the
+    // position: caching it would leak it into other lines and later searches.
+    if !result.is_empty() && !pruned {
       let best_move = &result.get_best_move().expect("Valid move in non-empty result");
       debug_assert!(!best_move.is_null(), "Best move is NULL.");
       let mut pv = game_state.clone();
       pv.apply_move(best_move);
-      let mut best_move_eval = self.cache.get_eval(&pv.board).unwrap_or_default();
+      let best_move_depth = self.cache.get_eval(&pv.board).unwrap_or_default().depth;
+      let eval = result.get_eval().expect("valid eval in non-empty result");
 
-      best_move_eval.depth += 1;
-      best_move_eval.eval = result.get_eval().expect("valid eval in non-empty result");
-      self.cache.set_eval(&game_state.board, best_move_eval);
+      // The game status is the one of this board (we are searching it, so it
+      // is ongoing), not the one of the board after the best move.
+      self.cache.set_eval(&game_state.board, EvaluationCache { game_status: GameStatus::Ongoing,
+                                                               eval,
+                                                               depth: best_move_depth + 1 });
+    }
 
+    if !result.is_empty() {
       // Influence next visit by promoting the multi_pv best moves to be first
       // in the move list
       let mut top_moves = result.get_top_moves();

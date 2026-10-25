@@ -472,8 +472,8 @@ pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
     let defenders = game_state.board.get_attackers(pawn, color);
     let attackers = game_state.board.get_attackers(pawn, Color::opposite(color));
 
-    // Check that the pawn cannot be taken out too easily before assigning a bonus
-    // for the pawn attack.
+    // Check that the pawn cannot be taken out too easily before assigning a
+    // bonus for the pawn attack.
     if attackers.count_ones() <= defenders.count_ones() {
       let attacked_pieces = match color {
         Color::White => (WHITE_PAWN_CONTROL[pawn as usize]

@@ -299,7 +299,8 @@ pub fn get_queen_moves(same_side_pieces: u64, opponent_pieces: u64, square: usiz
 /// * `square` - Start square for the knight
 #[inline]
 pub fn get_king_moves(same_side_pieces: u64, opponent_control: u64, square: usize) -> BoardMask {
-  // King cannot go where the opponent controls or where we have pieces ourselves
+  // King cannot go where the opponent controls or where we have pieces
+  // ourselves
   KING_MOVES[square] & (!same_side_pieces) & (!opponent_control)
 }
 
@@ -343,7 +344,8 @@ pub fn get_white_pawn_moves(same_side_pieces: u64,
   }
 
   // Check if it can capture
-  // en passant can be handled by adding a phantom piece on the en passant square
+  // en passant can be handled by adding a phantom piece on the en passant
+  // square
   destinations |= WHITE_PAWN_CONTROL[square] & opponent_pieces;
 
   destinations
@@ -392,7 +394,8 @@ pub fn get_black_pawn_moves(same_side_pieces: u64,
   }
 
   // Check if it can capture
-  // en passant can be handled by adding a phantom piece on the en passant square
+  // en passant can be handled by adding a phantom piece on the en passant
+  // square
   destinations |= BLACK_PAWN_CONTROL[square] & opponent_pieces;
 
   destinations

@@ -36,3 +36,5 @@ Once the neural net is trained, it is tested with the last batch that has been k
 We can get an idea of how well it performs in `predictions.csv`
 
 FIXME: Finish this up
+
+See [nnue_guide.md](nnue_guide.md) for a roadmap towards a real (efficiently updatable) NNUE.

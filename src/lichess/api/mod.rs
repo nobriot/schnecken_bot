@@ -7,6 +7,7 @@ pub mod users;
 
 // Other crates
 // From the same library:
+use crate::error::LichessError;
 use crate::helpers;
 use crate::traits::{EventStreamHandler, GameStreamHandler};
 use futures_util::StreamExt;
@@ -79,19 +80,19 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result with a JSON value received in the API response.
-  pub async fn lichess_get(&self, api_endpoint: &str) -> Result<JsonValue, ()> {
+  pub async fn lichess_get(&self, api_endpoint: &str) -> Result<JsonValue, LichessError> {
     let response_result = self.get(api_endpoint).await;
 
     if let Err(error) = response_result {
       warn!("Error issuing a GET request to Lichess: {error:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(error) = response_text_result {
       warn!("Error reading the payload from GET request to Lichess: {error:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let json_value_result = serde_json::from_str(&response_text_result.unwrap());
@@ -99,7 +100,7 @@ impl LichessApi {
       Ok(object) => object,
       Err(error) => {
         warn!("Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}");
-        return Err(());
+        return Err(LichessError);
       },
     };
 
@@ -118,18 +119,21 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result with a JSON value received in the API response.
-  pub async fn lichess_post(&self, api_endpoint: &str, body: &str) -> Result<JsonValue, ()> {
+  pub async fn lichess_post(&self,
+                            api_endpoint: &str,
+                            body: &str)
+                            -> Result<JsonValue, LichessError> {
     let response_result = self.post(api_endpoint, body).await;
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(e) = response_text_result {
       warn!("Error reading the payload from POST request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     // debug!("Lichess post answer: {:?}", response_text_result);
@@ -162,14 +166,14 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error receiving/parsing the event stream.
-  pub async fn stream_incoming_events<T>(&self, handler: &T) -> Result<(), ()>
+  pub async fn stream_incoming_events<T>(&self, handler: &T) -> Result<(), LichessError>
     where T: EventStreamHandler
   {
     let response_result = self.get("stream/event").await;
 
     if let Err(e) = response_result {
       warn!("Error streaming events (GET) request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -177,7 +181,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving event stream: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();
@@ -201,12 +205,12 @@ impl LichessApi {
   pub async fn stream_incoming_events_with_callback<T>(&self,
                                                        handler: &'static T,
                                                        callback: fn(&'static T, JsonValue))
-                                                       -> Result<(), ()> {
+                                                       -> Result<(), LichessError> {
     let response_result = self.get("stream/event").await;
 
     if let Err(e) = response_result {
       warn!("Error streaming events (GET) request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -214,7 +218,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving event stream: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();
@@ -250,7 +254,7 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error receiving/parsing the event stream.
-  pub async fn stream_game_state<T>(self, handler: &T, game_id: &str) -> Result<(), ()>
+  pub async fn stream_game_state<T>(self, handler: &T, game_id: &str) -> Result<(), LichessError>
     where T: GameStreamHandler
   {
     info!("Requesting Lichess to stream Game ID {game_id}");
@@ -258,7 +262,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error issuing a GET request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -266,7 +270,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving game stream for {game_id}: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();
@@ -305,13 +309,13 @@ impl LichessApi {
                                                   game_id: &str,
                                                   handler: &T,
                                                   callback: fn(&T, JsonValue, String))
-                                                  -> Result<(), ()> {
+                                                  -> Result<(), LichessError> {
     info!("Requesting Lichess to stream Game ID {game_id}");
     let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
 
     if let Err(e) = response_result {
       warn!("Error issuing a GET request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -319,7 +323,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving game stream for {game_id}: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();

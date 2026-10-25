@@ -81,17 +81,14 @@ impl GameStreamHandler for GameHandle {
       "chatLine" => {
         let result: Result<lichess::types::ChatMessage, serde_json::Error> =
           serde_json::from_value(json_value);
-        if let Err(error) = result {
-          warn!("Error deserializing ChatLine data !! {:?}", error);
-        } else {
-          let message = result.unwrap();
-          // Ignore our own messages
-          // FIXME: remove harcoded username
-          if message.username == "schnecken_bot" {
-            return;
-          }
-          info!("Received a message on game ID {} - {:?}", game_id.as_str(), message);
-          // self.on_incoming_message(game_id.as_str(), result.unwrap());
+        match result {
+          Ok(message) => {
+            info!("Received a message on game ID {} - {:?}", game_id.as_str(), message);
+            let _ = self.tx.send(GameMessage::ChatMessage(message));
+          },
+          Err(e) => {
+            warn!("Error deserializing ChatLine data !! {:?}", e);
+          },
         }
       },
 

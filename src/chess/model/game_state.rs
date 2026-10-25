@@ -175,8 +175,8 @@ impl GameState {
     let mv = Move::from_string(move_notation);
     debug_assert!(!mv.is_null(), "Got null move from {move_notation}");
 
-    // Check if the king is flying (going to more than 1 square away, and in this
-    // case mark it as a castling move
+    // Check if the king is flying (going to more than 1 square away, and in
+    // this case mark it as a castling move
     let king_position = match self.board.side_to_play {
       Color::White => self.board.get_white_king_square(),
       Color::Black => self.board.get_black_king_square(),

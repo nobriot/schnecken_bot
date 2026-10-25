@@ -1,4 +1,5 @@
 use crate::api::LichessApi;
+use crate::error::LichessError;
 use crate::helpers;
 use crate::traits::GameStreamHandler;
 use futures_util::StreamExt;
@@ -28,7 +29,7 @@ impl LichessApi {
                                                    game_id: &str,
                                                    handler: &T,
                                                    callback: fn(&T, JsonValue, String))
-                                                   -> Result<(), ()> {
+                                                   -> Result<(), LichessError> {
     info!("Requesting Lichess to stream games {game_id}");
 
     let response_result =
@@ -36,7 +37,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -44,7 +45,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving games stream for {game_id}: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();
@@ -67,7 +68,7 @@ impl LichessApi {
     Ok(())
   }
 
-  pub async fn stream_games_by_id<T>(self, handler: &T, game_id: &str) -> Result<(), ()>
+  pub async fn stream_games_by_id<T>(self, handler: &T, game_id: &str) -> Result<(), LichessError>
     where T: GameStreamHandler
   {
     info!("Requesting Lichess to stream games {game_id}");
@@ -77,7 +78,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(());
+      return Err(LichessError);
     }
 
     let mut stream = response_result.unwrap().bytes_stream();
@@ -85,7 +86,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving games stream for {game_id}: {e:?}");
-          return Err(());
+          return Err(LichessError);
         },
         Ok(chunk) => {
           let string_value: String = String::from_utf8_lossy(&chunk).to_string();

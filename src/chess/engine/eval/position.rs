@@ -530,13 +530,13 @@ mod tests {
   fn test_moves_and_game_over() {
     // Saw something weird in the log here : https://lichess.org/rrAELqBT
     // both Line 0 and 1 are not checkmates, but evaluated to 200.0
-    // [2023-10-13T07:08:59.308Z INFO  schnecken_bot::bot::state] Using 1889 ms to
-    // find a move for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w
-    // KQkq - 1 7 Starting depth 2
-    // Starting depth 3
+    // [2023-10-13T07:08:59.308Z INFO  schnecken_bot::bot::state] Using 1889 ms
+    // to find a move for position
+    // r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq - 1 7
+    // Starting depth 2 Starting depth 3
     // Starting depth 4
-    // Score for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w KQkq -
-    // 1 7: 200 Line 0 : Eval 200.00     - a3c4 d7d5 c1f4 d5c4
+    // Score for position r1bqkb1r/pp1ppppp/2n2n2/8/8/N7/PPP1QNPP/R1B1KB1R w
+    // KQkq - 1 7: 200 Line 0 : Eval 200.00     - a3c4 d7d5 c1f4 d5c4
     // Line 1 : Eval 200.00     - a3b5 d7d5 e2e4 f6e4
     // Line 2 : Eval -4.54      - a1b1 c6b4 e2c4
     // Line 3 : Eval -4.76      - e1d2 d8b6 d2d1

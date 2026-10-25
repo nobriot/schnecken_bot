@@ -188,7 +188,8 @@ pub fn get_king_vs_queen_or_rook_score(game_state: &GameState) -> f32 {
     return 0.0;
   }
 
-  // BoardMask bitmap of where the king can go. We want as few squares as possible
+  // BoardMask bitmap of where the king can go. We want as few squares as
+  // possible
   score += game_state.board
                      .get_attacked_squares(KING_MOVES[king_position], attacking_side)
                      .count_ones() as f32;
@@ -214,8 +215,8 @@ mod tests {
 
   #[test]
   fn test_get_king_vs_queen_or_rook_score() {
-    // Simple position, the king is boxed with 12 squares and the kings are 4 steps
-    // apart.
+    // Simple position, the king is boxed with 12 squares and the kings are 4
+    // steps apart.
     let fen = "8/8/3k4/8/8/6q1/3K4/8 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     // println!("{}", game_state.board);

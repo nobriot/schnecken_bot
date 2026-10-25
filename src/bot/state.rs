@@ -2,6 +2,7 @@ use super::games::game::Game;
 use crate::bot::games::games::BotGames;
 use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
+use lichess::error::LichessError;
 use lichess::types::Clock;
 // Other libraries from our repo
 use log::*;
@@ -118,7 +119,8 @@ impl BotState {
   ///
   /// * `handle` Thread handle that is supported to stream incoming streams
   /// * `bot`    Reference to the bot, so that we can use the API
-  async fn restart_incoming_streams(self: BotStateRef, mut handle: JoinHandle<Result<(), ()>>) {
+  async fn restart_incoming_streams(self: BotStateRef,
+                                    mut handle: JoinHandle<Result<(), LichessError>>) {
     // Start streaming incoming events again if it stopped
     loop {
       tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
@@ -133,9 +135,9 @@ impl BotState {
               .await
         });
       } else if !self.api.is_online(&self.username).await {
-        // The thread rarely dies, however, sometimes the HTTP stream stops and we do
-        // not receive chunks anymore. Look up if the bot appears offline, and
-        // if so, restart the incoming event stream
+        // The thread rarely dies, however, sometimes the HTTP stream stops and
+        // we do not receive chunks anymore. Look up if the bot appears
+        // offline, and if so, restart the incoming event stream
         warn!("Bot seems offline, restarting event stream");
         handle.abort(); // This will trigger the is_finished() to be to true at
         // the next iteration.
@@ -305,7 +307,7 @@ impl BotState {
       }
       if self.api.is_online(username).await {
         info!("{username} is online. Sending a challenge!");
-        if let Err(()) = self.api.send_challenge(username, &clock).await {
+        if self.api.send_challenge(username, &clock).await.is_err() {
           info!("Error sending a challenge to {username}");
           continue;
         }

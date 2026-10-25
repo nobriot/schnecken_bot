@@ -334,13 +334,13 @@ impl NNUE {
     // This is A0, input data:
     let mut A_prev = self.layers[0].state.cache.A.clone();
 
-    for i in 1..self.layers.len() {
+    for layer in self.layers.iter().skip(1) {
       // Calculate Z for that layer:
-      let mut Zl = self.layers[i].state.W.dot(&A_prev);
-      Zl += self.layers[i].state.b;
+      let mut Zl = layer.state.W.dot(&A_prev);
+      Zl += layer.state.b;
 
       // Al = gl(Zl) where gl is the activation function for that layer
-      match self.layers[i].a {
+      match layer.a {
         Activation::ReLU => Zip::from(&mut Zl).par_for_each(|a| *a = relu(*a)),
         Activation::ClippedReLU => Zip::from(&mut Zl).par_for_each(|a| *a = clipped_relu(*a)),
         Activation::ExtendedClippedReLU => {
@@ -612,9 +612,9 @@ impl NNUE {
         Color::Black => (input[m].board.pieces.black, input[m].board.pieces.white),
       };
 
-      // Let's do: rook (offset = 0), queens (offset = 1 x 64), bishops (offset = 2 x
-      // 64), knights (offset = 3 x 64), king (offset = 4 x 64), pawn (offset = 5 x
-      // 64)
+      // Let's do: rook (offset = 0), queens (offset = 1 x 64), bishops (offset
+      // = 2 x 64), knights (offset = 3 x 64), king (offset = 4 x 64),
+      // pawn (offset = 5 x 64)
       for (mut i, piece) in ptp {
         if flip_board {
           i = 63 - i;
@@ -628,7 +628,8 @@ impl NNUE {
           PieceType::Pawn => a0[[i as usize + 5 * 64, m]] = 1.0,
         }
       }
-      // Same for opponent pieces, except that we have a 384 offset to everything
+      // Same for opponent pieces, except that we have a 384 offset to
+      // everything
       for (mut i, piece) in op {
         if flip_board {
           i = 63 - i;
@@ -670,20 +671,20 @@ impl NNUE {
     // https://en.wikipedia.org/wiki/List_of_file_signatures
     //
     writer.write_all(MAGIC_BYTES.as_bytes())?;
-    for i in 1..self.layers.len() {
+    for layer in self.layers.iter().skip(1) {
       // Format will be: Layer size - Activation - Weights - Bias
-      let cols = self.layers[i].state.W.shape()[0];
-      let rows = self.layers[i].state.W.shape()[1];
+      let cols = layer.state.W.shape()[0];
+      let rows = layer.state.W.shape()[1];
       writer.write_all(NNUE::as_bytes(&cols))?;
-      writer.write_all(NNUE::as_bytes(&self.layers[i].a))?;
+      writer.write_all(NNUE::as_bytes(&layer.a))?;
       // Then dump the Weights and bias
       for c in 0..cols {
         for r in 0..rows {
-          let bytes = NNUE::as_bytes(&self.layers[i].state.W[[c, r]]);
+          let bytes = NNUE::as_bytes(&layer.state.W[[c, r]]);
           writer.write_all(bytes)?;
         }
       }
-      let bytes = NNUE::as_bytes(&self.layers[i].state.b);
+      let bytes = NNUE::as_bytes(&layer.state.b);
       writer.write_all(bytes)?;
     }
 

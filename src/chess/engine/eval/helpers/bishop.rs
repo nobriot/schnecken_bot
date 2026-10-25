@@ -34,8 +34,8 @@ pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
     let defenders = game_state.board.get_attackers(bishop, color);
     let attackers = game_state.board.get_attackers(bishop, Color::opposite(color));
 
-    // Check that the pawn cannot be taken out too easily before assigning a bonus
-    // for the bishop attack.
+    // Check that the pawn cannot be taken out too easily before assigning a
+    // bonus for the bishop attack.
     if attackers.count_ones() <= defenders.count_ones() {
       let attacked_pieces = match color {
         Color::White => {
@@ -75,7 +75,8 @@ mod tests {
     assert_eq!(3, get_bishop_victims(&game_state, Color::White));
     assert_eq!(0, get_bishop_victims(&game_state, Color::Black));
 
-    // We do not like it particularly if the bishop is under attack and un-defended
+    // We do not like it particularly if the bishop is under attack and
+    // un-defended
     let fen = "8/2q3r1/8/4B3/8/2k3n1/8/1K6 w - - 0 1";
     let game_state = GameState::from_fen(fen);
     assert_eq!(0, get_bishop_victims(&game_state, Color::White));

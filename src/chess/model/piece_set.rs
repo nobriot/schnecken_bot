@@ -383,7 +383,8 @@ impl PieceSet {
           file = 0
         },
         ' ' => {
-          // If we find a space, abort, as we are getting somewhere else in the FEN
+          // If we find a space, abort, as we are getting somewhere else in the
+          // FEN
           break;
         },
         _ => {},

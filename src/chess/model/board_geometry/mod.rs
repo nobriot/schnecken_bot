@@ -113,8 +113,8 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
 
-    // Here we generate look-up boardmasks that indicate a line between two squares.
-    // Start from i, continue in a straight line like rooks.
+    // Here we generate look-up boardmasks that indicate a line between two
+    // squares. Start from i, continue in a straight line like rooks.
     let mut lines: [[u64; 64]; 64] = [[0; 64]; 64];
     for i in 0..64 {
       for j in 0..64 {
@@ -129,7 +129,8 @@ mod tests {
           let mut rank = inital_rank;
           let mut file = inital_file;
           mask = 0;
-          // Each move can be repeated until we meet a piece or fall of the board:
+          // Each move can be repeated until we meet a piece or fall of the
+          // board:
           loop {
             rank += rank_offset;
             file += file_offset;
@@ -191,7 +192,8 @@ mod tests {
           let mut rank = inital_rank;
           let mut file = inital_file;
           mask = 0;
-          // Each move can be repeated until we meet a piece or fall of the board:
+          // Each move can be repeated until we meet a piece or fall of the
+          // board:
           loop {
             rank += rank_offset;
             file += file_offset;
@@ -256,7 +258,8 @@ mod tests {
           let mut rank = inital_rank;
           let mut file = inital_file;
           mask = 0;
-          // Each move can be repeated until we meet a piece or fall of the board:
+          // Each move can be repeated until we meet a piece or fall of the
+          // board:
           loop {
             rank += rank_offset;
             file += file_offset;
@@ -286,7 +289,8 @@ mod tests {
           let mut rank = inital_rank;
           let mut file = inital_file;
           mask = 0;
-          // Each move can be repeated until we meet a piece or fall of the board:
+          // Each move can be repeated until we meet a piece or fall of the
+          // board:
           loop {
             rank += rank_offset;
             file += file_offset;

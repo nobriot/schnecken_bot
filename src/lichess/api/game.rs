@@ -1,5 +1,6 @@
 // Internal crates
 use crate::api::LichessApi;
+use crate::error::LichessError;
 use crate::types::*;
 // External crates
 use log::*;
@@ -16,13 +17,13 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error requesting a game abort
-  pub async fn abort_game(&self, game_id: &str) -> Result<(), ()> {
+  pub async fn abort_game(&self, game_id: &str) -> Result<(), LichessError> {
     let api_endpoint: String = format!("bot/game/{game_id}/abort");
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
     } else {
-      return Err(());
+      return Err(LichessError);
     }
 
     Ok(())
@@ -40,13 +41,13 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result indicating if we had error requesting a game abort
-  pub async fn resign_game(&self, game_id: &str) -> Result<(), ()> {
+  pub async fn resign_game(&self, game_id: &str) -> Result<(), LichessError> {
     let api_endpoint: String = format!("bot/game/{game_id}/resign");
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
     } else {
-      return Err(());
+      return Err(LichessError);
     }
 
     Ok(())
@@ -152,9 +153,9 @@ impl LichessApi {
 
     if json_response["ok"].as_bool().is_none() {
       error!("Lichess refused our move! :'( - We're so bad - Error {:?}", json_response);
-      // self .write_in_spectator_room( game_id, format!( "Debug: Just tried to play
-      // move {} but it was refused: {}", chess_move, json_response) .as_str(),)
-      // .await;
+      // self .write_in_spectator_room( game_id, format!( "Debug: Just tried to
+      // play move {} but it was refused: {}", chess_move, json_response)
+      // .as_str(),) .await;
       return false;
     }
 
@@ -171,17 +172,17 @@ impl LichessApi {
   ///
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
-  pub async fn claim_victory(&self, game_id: &str) -> Result<(), ()> {
+  pub async fn claim_victory(&self, game_id: &str) -> Result<(), LichessError> {
     info!("Attempting to claim victory for game id {}", game_id);
     let api_endpoint: String = format!("board/game/{game_id}/claim-victory");
     let body: String = format!("gameId={}", encode(game_id));
     if let Ok(json) = self.lichess_post(&api_endpoint, body.as_str()).await {
       if json.get("error").is_some() {
         error!("POST refused from lichess:{}", json);
-        return Err(());
+        return Err(LichessError);
       }
     } else {
-      return Err(());
+      return Err(LichessError);
     }
 
     Ok(())

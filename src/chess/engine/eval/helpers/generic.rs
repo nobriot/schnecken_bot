@@ -252,11 +252,7 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
     _ => 0,
   };
 
-  if piece_destinations & outposts > 0 {
-    return true;
-  }
-
-  false
+  piece_destinations & outposts > 0
 }
 
 /// Checks if a bishop or knight is sitting on an outpost

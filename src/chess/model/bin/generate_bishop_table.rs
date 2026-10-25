@@ -167,7 +167,8 @@ fn find_bishop_magic(square: usize) -> BoardMask {
   }
 
   for _k in 0..100_000_000 {
-    // bitwise AND on 3 times random to get a random number with few bits set to 1.
+    // bitwise AND on 3 times random to get a random number with few bits set to
+    // 1.
     let magic: BoardMask = rand::random::<u64>() & rand::random::<u64>() & rand::random::<u64>();
 
     if ((relevant_squares.wrapping_mul(magic)) & 0xFF00000000000000).count_ones() < 6 {

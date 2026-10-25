@@ -310,13 +310,8 @@ pub fn are_casling_rights_lost(game_state: &GameState, color: Color) -> bool {
     Color::Black => game_state.board.get_black_king_square(),
   };
 
-  if (color == Color::White && (king_square != 2 && king_square != 6))
-     || (color == Color::Black && (king_square != 62 && king_square != 58))
-  {
-    return true;
-  }
-
-  false
+  (color == Color::White && (king_square != 2 && king_square != 6))
+  || (color == Color::Black && (king_square != 62 && king_square != 58))
 }
 
 // -----------------------------------------------------------------------------

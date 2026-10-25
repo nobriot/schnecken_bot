@@ -400,8 +400,8 @@ impl Board {
          && (ray & (enemy_pieces.all())).count_ones() == 1
       {
         // TBD: This will count enemy pieces as pinnned. See the unit test.
-        // I don't think it is a problem as these pins restrict how our pieces move, not
-        // the enemy pieces.
+        // I don't think it is a problem as these pins restrict how our pieces
+        // move, not the enemy pieces.
         pins |= ray;
       }
 
@@ -433,8 +433,9 @@ impl Board {
       Color::Black => (self.pieces.black, self.pieces.white.king),
     };
 
-    // A bit like I do when I play as a human, here we start from the target piece
-    // and go along diagonals, lines, knight jumps to find if there is an attacker.
+    // A bit like I do when I play as a human, here we start from the target
+    // piece and go along diagonals, lines, knight jumps to find if there is
+    // an attacker.
     let mut attackers = 0;
 
     // note: Here it is inverted on purpose.
@@ -708,8 +709,8 @@ impl Board {
         self.get_piece_destinations(source_square as usize, op, self.get_color_mask(Color::White));
 
       // Restrict destinations not to move out of pins.
-      // if there is a check, you can only move into checking rays with other pieces
-      // than the king.
+      // if there is a check, you can only move into checking rays with other
+      // pieces than the king.
       if square_in_mask!(source_square, self.pins) {
         if LINES[king_position][source_square as usize] & self.pins != 0 {
           destinations &= self.pins & ROOK_SPAN[source_square as usize] & ROOK_SPAN[king_position];
@@ -719,10 +720,10 @@ impl Board {
         }
       }
 
-      // If a pawn double jump delivers check, we should be able to en-passant it,
-      // it removes the checking piece even though outside of the checking ray
-      // If a pawn double jumps but no pawn is delivering check, it's a discovered
-      // check.
+      // If a pawn double jump delivers check, we should be able to en-passant
+      // it, it removes the checking piece even though outside of the
+      // checking ray If a pawn double jumps but no pawn is delivering
+      // check, it's a discovered check.
       if square_in_mask!(source_square, self.pieces.white.pawn)
          && self.en_passant_square != INVALID_SQUARE
          && self.checkers.count_few_ones() == 1
@@ -814,8 +815,8 @@ impl Board {
         self.get_piece_destinations(source_square as usize, op, self.get_color_mask(Color::Black));
 
       // Restrict destinations not to move out of pins.
-      // if there is a check, you can only move into checking rays with other pieces
-      // than the king.
+      // if there is a check, you can only move into checking rays with other
+      // pieces than the king.
       if square_in_mask!(source_square, self.pins) {
         if LINES[king_position][source_square as usize] & self.pins != 0 {
           destinations &= self.pins & ROOK_SPAN[source_square as usize] & ROOK_SPAN[king_position];
@@ -825,10 +826,10 @@ impl Board {
         }
       }
 
-      // If a pawn double jump delivers check, we should be able to en-passant it,
-      // it removes the checking piece even though outside of the checking ray
-      // If a pawn double jumps but no pawn is delivering check, it's a discovered
-      // check.
+      // If a pawn double jump delivers check, we should be able to en-passant
+      // it, it removes the checking piece even though outside of the
+      // checking ray If a pawn double jumps but no pawn is delivering
+      // check, it's a discovered check.
       if square_in_mask!(source_square, self.pieces.black.pawn)
          && self.en_passant_square != INVALID_SQUARE
          && self.checkers.count_few_ones() == 1
@@ -973,9 +974,9 @@ impl Board {
       self.update_hash_en_passant();
     }
 
-    // Check if this is some en-passant action: PAWN is moving diagonally while the
-    // destination square is empty: En passant needs to remove the captured
-    // pawn.
+    // Check if this is some en-passant action: PAWN is moving diagonally while
+    // the destination square is empty: En passant needs to remove the
+    // captured pawn.
     if square_in_mask!(chess_move.src(), self.pieces.pawns())
        && !square_in_mask!(chess_move.dest(), self.pieces.all())
     {
@@ -1131,8 +1132,8 @@ impl Board {
       dest.push(chars[0]);
       let destination_square = string_to_square(dest.as_str());
 
-      // Put a limitation on the source square (with a BoardMask) if the initial piece
-      // and/or file/rank is indicated
+      // Put a limitation on the source square (with a BoardMask) if the initial
+      // piece and/or file/rank is indicated
       let mut source_mask = u64::MAX;
 
       if !notation.starts_with('K')

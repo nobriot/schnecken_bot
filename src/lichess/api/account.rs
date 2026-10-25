@@ -1,5 +1,6 @@
 // Internal crates
 use crate::api::LichessApi;
+use crate::error::LichessError;
 // External crates
 use serde_json::Value as JsonValue;
 
@@ -11,7 +12,7 @@ impl LichessApi {
   ///
   /// Result with JSON value (containing account information) in case of
   /// success.
-  pub async fn get_profile(&self) -> Result<JsonValue, ()> {
+  pub async fn get_profile(&self) -> Result<JsonValue, LichessError> {
     self.lichess_get("account").await
   }
 
@@ -22,11 +23,11 @@ impl LichessApi {
   ///
   /// Result with JSON value (containing account information) in case of
   /// success.
-  pub async fn get_lichess_username(&self) -> Result<String, ()> {
+  pub async fn get_lichess_username(&self) -> Result<String, LichessError> {
     let json = self.lichess_get("account").await?;
 
     if json["id"].as_str().is_none() {
-      Err(())
+      Err(LichessError)
     } else {
       Ok(String::from(json["id"].as_str().unwrap()))
     }
@@ -38,7 +39,7 @@ impl LichessApi {
   /// ### Returns
   ///
   /// Result with JSON value in case of success.
-  pub async fn get_ongoing_games(&self) -> Result<JsonValue, ()> {
+  pub async fn get_ongoing_games(&self) -> Result<JsonValue, LichessError> {
     self.lichess_get("account/playing").await
   }
 }

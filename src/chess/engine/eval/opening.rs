@@ -111,8 +111,8 @@ mod tests {
 
   #[test]
   fn evaluate_material_over_development() {
-    // Here black is under-developed, but they are a knight up. We want the material
-    // to prevail:
+    // Here black is under-developed, but they are a knight up. We want the
+    // material to prevail:
     let fen = "r1bqkbnr/pppppppp/2n5/8/2B1P3/1P3N2/PBPP1PPP/R2QK2R w KQkq - 3 8";
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
@@ -123,8 +123,8 @@ mod tests {
 
   #[test]
   fn evaluate_white_rook_on_second_rank() {
-    // Historically the bot liked to place the rook on the 2nd rank for white / 7th
-    // for black, seems like a bug to me
+    // Historically the bot liked to place the rook on the 2nd rank for white /
+    // 7th for black, seems like a bug to me
     let fen = "rnbqkb1r/pppppppp/5n2/8/8/7P/PPPPPPPR/RNBQKBN1 b Qkq - 2 2";
     let game_state = GameState::from_fen(fen);
     let eval_1 = get_opening_position_evaluation(&game_state);

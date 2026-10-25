@@ -59,8 +59,8 @@ impl Game {
                                     engine };
 
     // Start the game loop
-    // Spawn blocking as calculating chess moves is CPU intense and would block the
-    // async runtime
+    // Spawn blocking as calculating chess moves is CPU intense and would block
+    // the async runtime
     let handle = tokio::task::spawn_blocking(move || {
       let rt_handle = Handle::current();
       rt_handle.block_on(bot_game.game_loop());
@@ -129,11 +129,11 @@ impl Game {
           break;
         },
         Ok(GameMessage::Resign) => {
-          info!("Resining game {}", &self.id);
+          info!("Resining game {}", self.id);
           let _ = self.api.resign_game(&self.id).await;
         },
         Ok(GameMessage::Terminate) => {
-          info!("Leaving game {}", &self.id);
+          info!("Leaving game {}", self.id);
           self.api.write_in_chat(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           self.api.write_in_spectator_room(&self.id, MESSAGE_HAVE_TO_LEAVE).await;
           let _ = self.api.resign_game(&self.id).await;
@@ -143,6 +143,9 @@ impl Game {
             info!("Opponent gone. Claiming victory after timeout {}", timeout);
             self.api.claim_victory_after_timeout(timeout, &self.id).await;
           }
+        },
+        Ok(GameMessage::ChatMessage(m)) => {
+          info!("Message on the chat: {:?}", m);
         },
         Ok(o) => {
           info!("Received a Game Message : {:?}", o);
@@ -164,11 +167,12 @@ impl Game {
 
   /// Plays a move in a game if it is ongoing and our turn
   pub async fn play(&mut self, game: lichess::types::GameState) {
-    // Check if we just got a notification that the game is over, and make sure to
-    // remove the game from our list if that's the case.
+    // Check if we just got a notification that the game is over, and make sure
+    // to remove the game from our list if that's the case.
     if game.status != lichess::types::GameStatus::Started {
       // Write a well played / goodbye message
-      // self.api.send_end_of_game_message(&game_id_clone, game_state.winner).await;
+      // self.api.send_end_of_game_message(&game_id_clone,
+      // game_state.winner).await;
       return;
     }
 

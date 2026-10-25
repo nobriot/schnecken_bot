@@ -475,9 +475,9 @@ impl Move {
       Promotion::NoPromotion
     };
 
-    // By default the notation has small letter, so it will produce black pieces.
-    // Change here the black piece into white piece if the destination rank is the
-    // 8th
+    // By default the notation has small letter, so it will produce black
+    // pieces. Change here the black piece into white piece if the
+    // destination rank is the 8th
     if (dest / 8) == 7 && promotion != Promotion::NoPromotion {
       match promotion {
         Promotion::BlackQueen => promotion = Promotion::WhiteQueen,

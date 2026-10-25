@@ -91,8 +91,8 @@ mod tests {
 
   #[test]
   fn evaluate_outposts() {
-    // Compare 3 position, one with nothing, one with the reachable outpost and one
-    // with the outpost:
+    // Compare 3 position, one with nothing, one with the reachable outpost and
+    // one with the outpost:
     let fen = "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp3/2N1P2P/PP3PPN/R1BQKB1R w KQkq - 8 11";
     let game_state = GameState::from_fen(fen);
     let eval_nothing = get_middlegame_position_evaluation(&game_state);

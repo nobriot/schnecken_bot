@@ -5,13 +5,13 @@ use crate::engine::*;
 #[test]
 #[allow(non_snake_case)]
 fn engine_search_real_game_2Dxi9wZH() {
-  // Engine came up with sacking the knight on this game. This should be avoided.
-  // [2023-10-05T06:38:53.763Z INFO  schnecken_bot::bot::state] Using 639 ms to
-  // find a move for position rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w
-  // KQkq - 1 5 Starting depth 2
-  // Starting depth 3
-  // Score for position rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w KQkq -
-  // 1 5: 4.8500004 Line 0 : Eval 4.85       - e5f7 e8f7 e2e3
+  // Engine came up with sacking the knight on this game. This should be
+  // avoided. [2023-10-05T06:38:53.763Z INFO  schnecken_bot::bot::state] Using
+  // 639 ms to find a move for position
+  // rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w KQkq - 1 5 Starting
+  // depth 2 Starting depth 3
+  // Score for position rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w KQkq
+  // - 1 5: 4.8500004 Line 0 : Eval 4.85       - e5f7 e8f7 e2e3
   // Line 1 : Eval 4.67       - d2d4 g8h6
   // Line 2 : Eval 4.62       - b5c3 b8a6
   // Line 3 : Eval 4.52       - b5d4 f5e6
@@ -41,7 +41,8 @@ fn engine_search_real_game_w1mLoTRZ() {
   // [2023-10-26T10:13:15.054Z INFO  schnecken_bot::bot::state] Using 1758 ms to
   // find a move for position
   // r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w - - 0 13
-  // Score for position r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w -
+  // Score for position r2q1rk1/pp2bppp/2p2n2/4p3/3pP1bP/2NQ4/PPPP1PPR/RNB2K2 w
+  // -
   // - 0 13: -2.2133334 Line 0 : Eval -2.21      - h2h1 d8d6 f1g1 d4c3
   // Line 1 : Eval -2.36      - a2a3 d8d6 f1g1 d4c3
   // Line 2 : Eval -2.41      - c3a4 d8d6 b1c3
@@ -371,11 +372,11 @@ fn test_select_best_move_checkmate_in_one() {
 #[test]
 fn test_avoid_threefold_repetitions() {
   use crate::model::board::Board;
-  // Looks like we had a permutation bug that lead us into some 3-fold repetitions
-  // [2023-07-04T12:36:47Z INFO  schnecken_bot::chess::engine::core] Using 1211 ms
-  // to find a move Line 0 Eval: 10.71348 - d1e2 / Permutation
-  // Line 1 Eval: 6.581044 - h2h3 / Permutation
-  // Line 2 Eval: 6.461045 - g3g2 / Permutation
+  // Looks like we had a permutation bug that lead us into some 3-fold
+  // repetitions [2023-07-04T12:36:47Z INFO
+  // schnecken_bot::chess::engine::core] Using 1211 ms to find a move Line 0
+  // Eval: 10.71348 - d1e2 / Permutation Line 1 Eval: 6.581044 - h2h3 /
+  // Permutation Line 2 Eval: 6.461045 - g3g2 / Permutation
   // Line 3 Eval: 6.431045 - a1b1 / Permutation
   // Line 4 Eval: 6.391044 - g3g1 / Permutation
 
@@ -636,8 +637,8 @@ fn test_knight_bonanza_on_real_game() {
   // multipv 2 pv e5c4 f1c4 f6g4 e3a7 info score cp 76 depth 4 seldepth 7 nodes
   // 38111518 time 13 multipv 3 pv e6d5 f4e5 d6e5 c3d5 info score cp -110 depth
   // 5 seldepth 8 nodes 38186672 time 82 multipv 1 pv e5d7 g1f3 e6d5 e4d5 f6d5
-  // info score cp -59 depth 5 seldepth 8 nodes 38186672 time 82 multipv 2 pv e5g4
-  // h3g4 g6g5 h1h7 g8h7 e3a7 info score cp -58 depth 5 seldepth 8 nodes
+  // info score cp -59 depth 5 seldepth 8 nodes 38186672 time 82 multipv 2 pv
+  // e5g4 h3g4 g6g5 h1h7 g8h7 e3a7 info score cp -58 depth 5 seldepth 8 nodes
   // 38186672 time 82 multipv 3 pv f6g4 h3g4 e6d5 h1h7 g8h7 c4d5 info score cp
   // 51 depth 6 seldepth 9 nodes 39647298 time 1481 multipv 1 pv f6g4 e3a7 d8h4
   // e1d1 a8a7 g1f3 info score cp 59 depth 6 seldepth 9 nodes 39647298 time 1481
@@ -647,8 +648,8 @@ fn test_knight_bonanza_on_real_game() {
   //
   // [2023-11-18T16:08:45.765Z INFO  schnecken_bot::bot::state] Playing Line 0
   // (f6g4) for GameID g5m6cPhb [2023-11-18T16:08:45.765Z INFO
-  // lichess::api::game] Trying chess move f6g4 on game id g5m6cPhb - Draw offer:
-  // false [2023-11-18T16:08:45.765Z DEBUG lichess::api] Lichess POST request at https://lichess.org/api/bot/game/g5m6cPhb/move/f6g4?offeringDraw=false
+  // lichess::api::game] Trying chess move f6g4 on game id g5m6cPhb - Draw
+  // offer: false [2023-11-18T16:08:45.765Z DEBUG lichess::api] Lichess POST request at https://lichess.org/api/bot/game/g5m6cPhb/move/f6g4?offeringDraw=false
   // [2023-11-18T16:08:45.765Z DEBUG reqwest::connect] starting new connection: https://lichess.org/
   // [2023-11-18T16:08:45.875Z DEBUG lichess::api] Lichess post answer:
   // {"ok":true}
@@ -674,13 +675,14 @@ fn real_game_was_winning() {
   // info score cp 202 depth 5 seldepth 8 nodes 17914126 time 267 multipv 2 pv
   // g8h8 h2g3 f7a2 f5e5 a2d5 info score cp 248 depth 5 seldepth 8 nodes
   // 17914126 time 267 multipv 3 pv g8f8 e7g6 f7g6 f5f8 b7a7 h2g3
-  // [2023-11-26T17:16:06.719Z DEBUG lichess::api] Received keep-alive message for
-  // Game State stream info score cp 248 depth 6 seldepth 9 nodes 18375657 time
-  // 2535 multipv 1 pv g8f8 e7g6 f7g6 f5f8 b7a7 h2g3 info score cp 298 depth 6
-  // seldepth 9 nodes 18375657 time 2535 multipv 2 pv e3g1 h2g1 g8f8 f5f7 f8f7
-  // a7b6 info score cp 298 depth 6 seldepth 9 nodes 18375657 time 2535 multipv
-  // 3 pv e3f4 f5f4 g8h8 h2g1 h8f8 f4f7 f8f7 a7b6 bestmove g8f8
-  // Score for position 6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31: 2.485385
+  // [2023-11-26T17:16:06.719Z DEBUG lichess::api] Received keep-alive message
+  // for Game State stream info score cp 248 depth 6 seldepth 9 nodes 18375657
+  // time 2535 multipv 1 pv g8f8 e7g6 f7g6 f5f8 b7a7 h2g3 info score cp 298
+  // depth 6 seldepth 9 nodes 18375657 time 2535 multipv 2 pv e3g1 h2g1 g8f8
+  // f5f7 f8f7 a7b6 info score cp 298 depth 6 seldepth 9 nodes 18375657 time
+  // 2535 multipv 3 pv e3f4 f5f4 g8h8 h2g1 h8f8 f4f7 f8f7 a7b6 bestmove g8f8
+  // Score for position 6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31:
+  // 2.485385
   let fen = "6r1/Bkp1Nbp1/1p6/5R2/8/4bP2/PPP3PK/8 b - - 7 31";
   let mut engine = Engine::new(false);
   engine.set_position(fen);
@@ -723,4 +725,71 @@ fn king_disappeared() {
   let analysis = engine.get_analysis();
   assert_ne!(best_move, Move::default());
   assert!(!analysis.is_empty());
+}
+
+/// Moves of the game https://lichess.org/Lwrv3mnM up to 62...Ka6
+#[allow(non_upper_case_globals)]
+const GAME_Lwrv3mnM_MOVES: &str = "g1f3 g8f6 c2c4 b8c6 d2d4 e7e6 c1d2 d7d5 c4d5 e6d5 d1c1 c8g4 f3e5 c6d4 e5g4 f6g4 e2e3 d8e7 h2h3 e7e4 b1c3 d4c2 e1e2 e4g6 c3d5 g6a6 e2f3 g4e5 f3f4 e5g6 f4f3 a6c6 f1b5 g6h4 f3g4 h7h5 g4h4 g7g5 h4g3 f8d6 g3f3 c6b5 c1c2 b5d5 c2e4 d5e4 f3e4 e8c8 e4f5 h8e8 d2c3 d6e7 a1c1 c8b8 e3e4 h5h4 c3e5 d8d7 c1c4 d7d2 e5c7 b8a8 h1f1 d2b2 c7e5 b2a2 c4c3 a2a5 f1c1 e8b8 c3d3 f7f6 f2f4 g5f4 c1c7 e7b4 f5f6 b8f8 c7f7 f8g8 e5f4 a5b5 e4e5 a7a6 f4e3 a8b8 e5e6 b4c5 e3c5 b5c5 e6e7 c5c8 f6f5 g8g2 d3d8 g2e2 f7f8 e2e7 d8c8 b8a7 f8e8 e7h7 f5g6 h7d7 c8d8 d7d8 e8d8 a6a5 g6f5 a5a4 d8d4 b7b5 d4d3 a7b7 f5e6 b7c6 d3c3 c6b7 c3a3 b7b8 e6d6 b8a7 d6c6 a7a6";
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Lwrv3mnM_cache_pollution() {
+  // The bot keeps the same engine (and cache) for the whole game. In the
+  // rook vs pawns endgame, the eval climbed to 43 (as if all the black pawns
+  // were captured) while the position was about +4, and the bot then let the
+  // pawns run:
+  // Playing Line 3 (a3d3)  as White for GameID Lwrv3mnM - eval: 43
+  // The search was saving the best eval of the parent in the cache entry of
+  // each child position, and saving alpha/beta bounds as exact evals.
+  let mut engine = Engine::new(false);
+  engine.set_position(START_POSITION_FEN);
+  engine.options.max_search_time = 5000;
+  engine.options.max_depth = 20;
+  let moves: Vec<&str> = GAME_Lwrv3mnM_MOVES.split(' ').collect();
+  for (i, m) in moves.iter().enumerate() {
+    // Search the white moves of the endgame like the bot did, filling the cache
+    if i >= 106 && i % 2 == 0 {
+      engine.go();
+    }
+    engine.apply_move(m);
+  }
+  assert_eq!(engine.position.to_fen(), "8/8/k1K5/1p6/p6p/R6P/8/8 w - - 12 63");
+  engine.go();
+  engine.print_evaluations();
+  let eval = engine.get_eval().unwrap();
+  // Tablebase says this is winning for white, but we are not capturing the
+  // pawns anytime soon: Rook + pawn vs 3 pawns.
+  assert!(eval > 1.0, "eval {eval} too low");
+  assert!(eval < 15.0, "eval {eval} too high, polluted cache?");
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Lwrv3mnM_keep_the_win() {
+  // Bot played 64. Rd5?, after which a4-a3 draws (tablebase).
+  // Rd1, Rd4, Rd6 and Rd8 keep the win.
+  let mut engine = Engine::new(false);
+  engine.set_position("8/8/k1K5/8/pp5p/3R3P/8/8 w - - 0 64");
+  engine.options.max_search_time = 5000;
+  engine.options.max_depth = 20;
+  engine.go();
+  engine.print_evaluations();
+  let best_move = engine.get_best_move().unwrap().to_string();
+  assert!(["d3d1", "d3d4", "d3d6", "d3d8"].contains(&best_move.as_str()),
+          "{best_move} does not keep the win");
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_Lwrv3mnM_hold_the_draw() {
+  // Bot played 71. Rf1?? and lost to a1=Q / b1=Q.
+  // Only Rd7 (checking from the side, then perpetual) holds the draw
+  // (tablebase)
+  let mut engine = Engine::new(false);
+  engine.set_position("8/k7/2K5/8/7p/7P/pp6/3R4 w - - 0 71");
+  engine.options.max_search_time = 5000;
+  engine.options.max_depth = 20;
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!(engine.get_best_move().unwrap().to_string(), "d1d7");
 }
