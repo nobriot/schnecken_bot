@@ -29,6 +29,25 @@ fn compute_legal_moves(bencher: Bencher) {
          });
 }
 
+/// Fixed positions, so that move generation benches can be compared between
+/// runs (random boards change at every run).
+const MOVE_GENERATION_POSITIONS: [&str; 4] = [// Start position
+                                              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                                              // "Kiwipete": castling, pins, en-passant, lots of
+                                              // moves
+                                              "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+                                              // Middlegame
+                                              "r1bqk2r/ppp2ppp/2n2n2/3p4/1bPPp3/2N1P2P/PP3PPN/R1BQKB1R w KQkq - 8 11",
+                                              // Rook endgame
+                                              "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43"];
+
+/// Checks how fast we are at deriving legal moves into a vector
+#[divan::bench(args = MOVE_GENERATION_POSITIONS, sample_count = 10000)]
+fn compute_legal_moves_fixed_position(bencher: Bencher, fen: &str) {
+  let board = Board::from_fen(fen);
+  bencher.bench_local(|| divan::black_box(&board).get_moves());
+}
+
 /// Checks how fast we are at applying moves on a board
 #[divan::bench(sample_count = 10000)]
 fn apply_moves_on_a_game_state(bencher: Bencher) {
