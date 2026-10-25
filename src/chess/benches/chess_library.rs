@@ -70,7 +70,7 @@ fn apply_moves_on_the_board(bencher: Bencher) {
            let i = rng.random_range(0..NUMBER_OF_BOARDS);
            if !move_lists[i].is_empty() {
              let j = rng.random_range(0..move_lists[i].len());
-             let old_board = boards[i].clone();
+             let old_board = boards[i];
              boards[i].apply_move(&move_lists[i][j]);
              boards[i] = old_board;
            }
@@ -80,7 +80,7 @@ fn apply_moves_on_the_board(bencher: Bencher) {
 /// Checks how fast we are at computing attackers of a square on the board
 #[divan::bench(sample_count = 10000)]
 fn find_attackers(bencher: Bencher) {
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
+  let game_state: GameState = GameState::from_board(&Board::new_random());
   let mut rng = rand::rng();
 
   let j = rng.random_range(0..63);
@@ -93,8 +93,8 @@ fn find_attackers(bencher: Bencher) {
 /// Checks how fast we are at computing pins for the board
 #[divan::bench(sample_count = 10000)]
 fn determine_board_pins(bencher: Bencher) {
-  let mut game_state: GameState = GameState::from_board(&Board::new_random());
-  let mut rng = rand::rng();
+  let game_state: GameState = GameState::from_board(&Board::new_random());
+  let _rng = rand::rng();
 
   for i in 0..63 {
     if game_state.board.has_piece(i) {

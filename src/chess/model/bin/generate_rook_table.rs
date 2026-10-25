@@ -1,3 +1,6 @@
+// Loops index tables by square: keep the square index explicit.
+#![allow(clippy::needless_range_loop)]
+
 use chess::model::board::INVALID_SQUARE;
 use chess::model::board_geometry::*;
 use chess::model::board_mask::*;
@@ -190,7 +193,7 @@ fn main() {
   }
 
   //
-  println!("");
+  println!();
   println!("Done! 🙂");
 }
 

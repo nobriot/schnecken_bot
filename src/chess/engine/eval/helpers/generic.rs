@@ -375,52 +375,52 @@ mod tests {
   fn test_open_files() {
     let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(false, is_file_open(&game_state, 1));
-    assert_eq!(false, is_file_open(&game_state, 2));
-    assert_eq!(true, is_file_open(&game_state, 3));
-    assert_eq!(true, is_file_open(&game_state, 4));
-    assert_eq!(true, is_file_open(&game_state, 5));
-    assert_eq!(false, is_file_open(&game_state, 6));
-    assert_eq!(false, is_file_open(&game_state, 7));
-    assert_eq!(false, is_file_open(&game_state, 8));
+    assert!(!is_file_open(&game_state, 1));
+    assert!(!is_file_open(&game_state, 2));
+    assert!(is_file_open(&game_state, 3));
+    assert!(is_file_open(&game_state, 4));
+    assert!(is_file_open(&game_state, 5));
+    assert!(!is_file_open(&game_state, 6));
+    assert!(!is_file_open(&game_state, 7));
+    assert!(!is_file_open(&game_state, 8));
 
     // Out of bounds:
-    assert_eq!(false, is_file_open(&game_state, 0));
-    assert_eq!(false, is_file_open(&game_state, 9));
+    assert!(!is_file_open(&game_state, 0));
+    assert!(!is_file_open(&game_state, 9));
 
     // Also test half open files:
-    assert_eq!(false, is_file_half_open(&game_state, 1));
-    assert_eq!(true, is_file_half_open(&game_state, 2));
-    assert_eq!(false, is_file_half_open(&game_state, 3));
-    assert_eq!(false, is_file_half_open(&game_state, 4));
-    assert_eq!(false, is_file_half_open(&game_state, 5));
-    assert_eq!(false, is_file_half_open(&game_state, 6));
-    assert_eq!(false, is_file_half_open(&game_state, 7));
-    assert_eq!(false, is_file_half_open(&game_state, 8));
+    assert!(!is_file_half_open(&game_state, 1));
+    assert!(is_file_half_open(&game_state, 2));
+    assert!(!is_file_half_open(&game_state, 3));
+    assert!(!is_file_half_open(&game_state, 4));
+    assert!(!is_file_half_open(&game_state, 5));
+    assert!(!is_file_half_open(&game_state, 6));
+    assert!(!is_file_half_open(&game_state, 7));
+    assert!(!is_file_half_open(&game_state, 8));
 
     // Out of bounds:
-    assert_eq!(false, is_file_half_open(&game_state, 0));
-    assert_eq!(false, is_file_half_open(&game_state, 9));
+    assert!(!is_file_half_open(&game_state, 0));
+    assert!(!is_file_half_open(&game_state, 9));
 
     // Try with another position
     let fen = "2k5/pp2p1p1/4p3/4p3/1r6/K5P1/Pq2B1PP/R6R w - - 5 26";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(false, is_file_open(&game_state, 1));
-    assert_eq!(false, is_file_open(&game_state, 2));
-    assert_eq!(true, is_file_open(&game_state, 3));
-    assert_eq!(true, is_file_open(&game_state, 4));
-    assert_eq!(false, is_file_open(&game_state, 5));
-    assert_eq!(true, is_file_open(&game_state, 6));
-    assert_eq!(false, is_file_open(&game_state, 7));
-    assert_eq!(false, is_file_open(&game_state, 8));
-    assert_eq!(false, is_file_half_open(&game_state, 1));
-    assert_eq!(true, is_file_half_open(&game_state, 2));
-    assert_eq!(false, is_file_half_open(&game_state, 3));
-    assert_eq!(false, is_file_half_open(&game_state, 4));
-    assert_eq!(true, is_file_half_open(&game_state, 5));
-    assert_eq!(false, is_file_half_open(&game_state, 6));
-    assert_eq!(false, is_file_half_open(&game_state, 7));
-    assert_eq!(true, is_file_half_open(&game_state, 8));
+    assert!(!is_file_open(&game_state, 1));
+    assert!(!is_file_open(&game_state, 2));
+    assert!(is_file_open(&game_state, 3));
+    assert!(is_file_open(&game_state, 4));
+    assert!(!is_file_open(&game_state, 5));
+    assert!(is_file_open(&game_state, 6));
+    assert!(!is_file_open(&game_state, 7));
+    assert!(!is_file_open(&game_state, 8));
+    assert!(!is_file_half_open(&game_state, 1));
+    assert!(is_file_half_open(&game_state, 2));
+    assert!(!is_file_half_open(&game_state, 3));
+    assert!(!is_file_half_open(&game_state, 4));
+    assert!(is_file_half_open(&game_state, 5));
+    assert!(!is_file_half_open(&game_state, 6));
+    assert!(!is_file_half_open(&game_state, 7));
+    assert!(is_file_half_open(&game_state, 8));
   }
 
   #[test]
@@ -444,26 +444,26 @@ mod tests {
     let fen = "2k5/pp3ppp/8/8/1r6/K7/Pq2BPPP/R6R w - - 5 26";
     let game_state = GameState::from_fen(fen);
 
-    assert_eq!(false, is_hanging(&game_state, 0));
-    assert_eq!(false, is_hanging(&game_state, 7));
-    assert_eq!(true, is_hanging(&game_state, 12));
+    assert!(!is_hanging(&game_state, 0));
+    assert!(!is_hanging(&game_state, 7));
+    assert!(is_hanging(&game_state, 12));
 
     let fen = "r1bq1rk1/5pb1/p3p1p1/3pn3/QP6/3PP1N1/1P1BB1PP/1R3RK1 b - - 2 20";
     let game_state = GameState::from_fen(fen);
 
-    assert_eq!(false, is_hanging(&game_state, 0));
-    assert_eq!(false, is_hanging(&game_state, 1));
-    assert_eq!(false, is_hanging(&game_state, 2));
-    assert_eq!(false, is_hanging(&game_state, 3));
-    assert_eq!(false, is_hanging(&game_state, 5));
-    assert_eq!(false, is_hanging(&game_state, 6));
-    assert_eq!(false, is_hanging(&game_state, 6));
-    assert_eq!(true, is_hanging(&game_state, 11));
-    assert_eq!(false, is_hanging(&game_state, 12));
-    assert_eq!(false, is_hanging(&game_state, 22));
-    assert_eq!(true, is_hanging(&game_state, 24));
-    assert_eq!(true, is_hanging(&game_state, 56));
-    assert_eq!(false, is_hanging(&game_state, 58));
+    assert!(!is_hanging(&game_state, 0));
+    assert!(!is_hanging(&game_state, 1));
+    assert!(!is_hanging(&game_state, 2));
+    assert!(!is_hanging(&game_state, 3));
+    assert!(!is_hanging(&game_state, 5));
+    assert!(!is_hanging(&game_state, 6));
+    assert!(!is_hanging(&game_state, 6));
+    assert!(is_hanging(&game_state, 11));
+    assert!(!is_hanging(&game_state, 12));
+    assert!(!is_hanging(&game_state, 22));
+    assert!(is_hanging(&game_state, 24));
+    assert!(is_hanging(&game_state, 56));
+    assert!(!is_hanging(&game_state, 58));
   }
 
   #[test]

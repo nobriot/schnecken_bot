@@ -806,6 +806,8 @@ pub const ZOBRIST_TABLE: [[BoardHash; NUMBER_OF_SQUARES]; NUMBER_OF_PIECES] =
 //  Tests
 
 #[cfg(test)]
+// Loops index tables by square: keep the square index explicit.
+#[allow(clippy::needless_range_loop)]
 mod tests {
 
   use super::*;

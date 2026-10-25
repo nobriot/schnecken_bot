@@ -68,6 +68,8 @@ pub fn get_king_distance(king_position: u8, destination: u8) -> u8 {
 //  Tests
 
 #[cfg(test)]
+// Loops index tables by square: keep the square index explicit.
+#[allow(clippy::needless_range_loop)]
 mod tests {
   use super::*;
   use crate::model::board_mask::print_board_mask;

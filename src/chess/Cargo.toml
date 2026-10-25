@@ -17,7 +17,6 @@ lazy_static = "1.5.1"
 regex = "1.13.1"
 ndarray = { version = "0.16.1", features = ["rayon"] }
 ndarray-rand = "0.15.0"
-futures = "0.3.34"
 
 [lib]
 name = "chess"

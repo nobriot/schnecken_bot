@@ -231,7 +231,7 @@ mod tests {
     }
     assert_eq!(count, 4);
 
-    let mut list = MoveList::new_from_slice(&slice);
+    let list = MoveList::new_from_slice(&slice);
     let vector = list.to_vec();
     assert_eq!(list.len(), vector.len());
     assert_eq!(slice.len(), vector.len());

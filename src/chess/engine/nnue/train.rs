@@ -111,8 +111,8 @@ fn main() -> ExitCode {
     return ExitCode::FAILURE;
   }
 
-  println!("");
+  println!();
   println!("Done! 🙂");
 
-  return ExitCode::SUCCESS;
+  ExitCode::SUCCESS
 }

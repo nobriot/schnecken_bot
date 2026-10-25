@@ -404,6 +404,8 @@ pub const BLACK_PAWN_DOUBLE_JUMP: [u64; 64] = [0x0000000000000000,
 //  Tests
 
 #[cfg(test)]
+// Loops index tables by square: keep the square index explicit.
+#[allow(clippy::needless_range_loop)]
 mod tests {
   use crate::model::board::Board;
   use crate::model::piece_moves::get_moves_from_offsets;

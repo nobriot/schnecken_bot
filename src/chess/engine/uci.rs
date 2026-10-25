@@ -15,9 +15,9 @@ const POSITION_CMD_MOVE_REGEX: &str =
 const SET_OPTION_NAME_VALUE_REGEX: &str =
   r#"^setoption\s+name\s+(?P<name>.+)\s+value\s+(?P<value>.+)"#;
 
-/// This module prodives a UCI interface to the engine
-///
-/// Refer to the specifications here: https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
+// This module provides a UCI interface to the engine
+//
+// Refer to the specifications here: https://www.wbec-ridderkerk.nl/html/UCIProtocol.html
 
 const HELP_MESSAGE: &str = "
 DESCRIPTION
@@ -77,7 +77,7 @@ fn main() -> ExitCode {
       "uci" => {
         println!("id name schnecken_engine {}", env!("CARGO_PKG_VERSION"));
         println!("id author Nicolas W");
-        println!("");
+        println!();
         println!("option name use_nnue type check default false");
         println!("option name ponder type check default false");
         println!("option name play_style type combo default Normal var Conservative var Normal var Aggressive var Provocative");
@@ -89,11 +89,7 @@ fn main() -> ExitCode {
       },
 
       "debug" => {
-        if line.contains("on") {
-          engine.options.debug = true;
-        } else {
-          engine.options.debug = false;
-        }
+        engine.options.debug = line.contains("on");
       },
 
       // Engine options
@@ -223,7 +219,7 @@ fn main() -> ExitCode {
     }
   }
 
-  return ExitCode::SUCCESS;
+  ExitCode::SUCCESS
 }
 
 // -----------------------------------------------------------------------------

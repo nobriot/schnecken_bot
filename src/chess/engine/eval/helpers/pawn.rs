@@ -665,16 +665,16 @@ mod tests {
     let fen = "r1bqkb1r/pp3ppp/3p4/2pPp3/3nP3/3B1N2/PP1P1PPP/R1BQK2R w KQkq - 1 8";
     let game_state = GameState::from_fen(fen);
     for i in 0..64 {
-      assert_eq!(false, is_passed(&game_state, i));
+      assert!(!is_passed(&game_state, i));
     }
 
     let fen = "6k1/r4pp1/8/7p/Pp5P/8/3Q1PP1/6K1 w - - 0 31";
     let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i == 24 || i == 25 {
-        assert_eq!(true, is_passed(&game_state, i));
+        assert!(is_passed(&game_state, i));
       } else {
-        assert_eq!(false, is_passed(&game_state, i));
+        assert!(!is_passed(&game_state, i));
       }
     }
 
@@ -682,9 +682,9 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     for i in 0..64 {
       if i == 24 || i == 18 {
-        assert_eq!(true, is_passed(&game_state, i));
+        assert!(is_passed(&game_state, i));
       } else {
-        assert_eq!(false, is_passed(&game_state, i));
+        assert!(!is_passed(&game_state, i));
       }
     }
   }

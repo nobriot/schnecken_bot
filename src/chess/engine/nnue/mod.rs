@@ -783,8 +783,8 @@ mod tests {
 
     // Evals for games 1, 2, 3 and 4.
     let mut evals = [0.27, -0.29, 0.3, -199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] + 200.0) / 400.0;
+    for eval in evals.iter_mut() {
+      *eval = (*eval + 200.0) / 400.0;
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
@@ -822,8 +822,8 @@ mod tests {
       GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
     let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] / 15.0).tanh();
+    for eval in evals.iter_mut() {
+      *eval = (*eval / 15.0).tanh();
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
@@ -850,8 +850,8 @@ mod tests {
       GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
     let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] / 15.0).tanh();
+    for eval in evals.iter_mut() {
+      *eval = (*eval / 15.0).tanh();
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
@@ -877,8 +877,8 @@ mod tests {
       GameState::from_fen("rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3");
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
     let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] / 15.0).tanh();
+    for eval in evals.iter_mut() {
+      *eval = (*eval / 15.0).tanh();
     }
     assert_eq!(0.0, total_cost(&evals, &evals));
 
@@ -898,8 +898,8 @@ mod tests {
   fn test_gradient_checking_bias_layer_3() {
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
     let mut evals: Vec<f32> = vec![-199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] / 15.0).tanh();
+    for eval in evals.iter_mut() {
+      *eval = (*eval / 15.0).tanh();
     }
 
     let mut nnue = NNUE::default();
@@ -928,8 +928,8 @@ mod tests {
     let game_state_4 = GameState::from_fen("5k2/p1p5/1p5p/6p1/5p1P/2b1P3/Pr5B/3rNKR1 w - - 2 31");
 
     let mut evals: Vec<f32> = vec![0.27, -0.29, 0.3, -199.0];
-    for i in 0..evals.len() {
-      evals[i] = (evals[i] / 15.0).tanh();
+    for eval in evals.iter_mut() {
+      *eval = (*eval / 15.0).tanh();
     }
 
     let mini_batch = vec![&game_state_1, &game_state_2, &game_state_3, &game_state_4];

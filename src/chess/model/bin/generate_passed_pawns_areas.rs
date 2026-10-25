@@ -1,3 +1,6 @@
+// Loops index tables by square: keep the square index explicit.
+#![allow(clippy::needless_range_loop)]
+
 use chess::model::board::*;
 use chess::model::board_mask::*;
 use std::fs::File;
@@ -40,11 +43,11 @@ fn main() {
     }
   }
 
-  let _ = write!(output_file,
-                 "/// Represents boardmask of area where there should be no pawns if\n");
-  let _ = write!(output_file, "/// we want to consider the white pawn passed.\n");
-  let _ = write!(output_file,
-                 "/// For a pawn on square i, check if WHITE_PASSED_PAWN_AREA[i] contains any opponent pawns\n");
+  let _ = writeln!(output_file,
+                   "/// Represents boardmask of area where there should be no pawns if");
+  let _ = writeln!(output_file, "/// we want to consider the white pawn passed.");
+  let _ = writeln!(output_file,
+                   "/// For a pawn on square i, check if WHITE_PASSED_PAWN_AREA[i] contains any opponent pawns");
 
   let _ = write!(output_file,
                  "pub const WHITE_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
@@ -87,16 +90,16 @@ fn main() {
     }
   }
 
-  let _ = write!(output_file,
-                 "/// Represents boardmask of area where there should be no pawns if\n");
-  let _ = write!(output_file, "/// we want to consider the black pawn passed.\n");
-  let _ = write!(output_file,
-                 "/// For a pawn on square i, check if BLACK_PASSED_PAWN_AREA[i] contains any opponent pawns\n");
+  let _ = writeln!(output_file,
+                   "/// Represents boardmask of area where there should be no pawns if");
+  let _ = writeln!(output_file, "/// we want to consider the black pawn passed.");
+  let _ = writeln!(output_file,
+                   "/// For a pawn on square i, check if BLACK_PASSED_PAWN_AREA[i] contains any opponent pawns");
 
   let _ = write!(output_file,
                  "pub const BLACK_PASSED_PAWN_AREA: [BoardMask; 64] = {:#018X?};",
                  black_passed_pawn_area);
 
-  println!("");
+  println!();
   println!("Done! 🙂");
 }

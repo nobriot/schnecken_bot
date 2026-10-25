@@ -200,14 +200,14 @@ fn engine_go_and_stop() {
 
   std::thread::sleep(std::time::Duration::from_millis(20));
 
-  assert_eq!(true, engine.is_active());
+  assert!(engine.is_active());
   std::thread::sleep(std::time::Duration::from_millis(1000));
-  assert_eq!(true, engine.is_active());
+  assert!(engine.is_active());
   engine.stop();
-  assert_eq!(true, engine.is_active());
+  assert!(engine.is_active());
 
   std::thread::sleep(std::time::Duration::from_millis(50));
-  assert_eq!(false, engine.is_active());
+  assert!(!engine.is_active());
 
   // It actually takes super long before handle will be marked as finished.
   // std::thread::sleep(std::time::Duration::from_millis(300));
@@ -296,7 +296,7 @@ fn save_the_queen() {
 
   let static_eval = evaluate_board(&game_state);
   println!("Static eval: {static_eval}");
-  assert_eq!(true, engine.cache.has_eval(&game_state.board));
+  assert!(engine.cache.has_eval(&game_state.board));
 
   let best_move = engine.get_best_move().unwrap().to_string();
   if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {

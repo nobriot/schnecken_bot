@@ -735,12 +735,12 @@ mod tests {
     assert!(is_smothered_mate(&game_state.board, game_status));
 
     // Test if the game status is not WhiteWon / BlackWon
-    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Draw));
-    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Ongoing));
-    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::Stalemate));
-    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition));
+    assert!(!is_smothered_mate(&game_state.board, GameStatus::Draw));
+    assert!(!is_smothered_mate(&game_state.board, GameStatus::Ongoing));
+    assert!(!is_smothered_mate(&game_state.board, GameStatus::Stalemate));
+    assert!(!is_smothered_mate(&game_state.board, GameStatus::ThreeFoldRepetition));
     // Here it is Black who won, the black king is not smothered
-    assert_eq!(false, is_smothered_mate(&game_state.board, GameStatus::WhiteWon));
+    assert!(!is_smothered_mate(&game_state.board, GameStatus::WhiteWon));
 
     // Position 3:
     let fen = "rnbq3r/pppppppp/8/8/QPPk4/2N5/P2PPnPP/2B2BRK w - - 0 1";
