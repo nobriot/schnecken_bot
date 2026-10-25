@@ -551,6 +551,11 @@ impl Engine {
     analysis.get_eval()
   }
 
+  /// Returns the number of nodes (leaf positions) evaluated in the last search
+  pub fn get_nodes_visited(&self) -> usize {
+    self.analysis.get_nodes_visited()
+  }
+
   /// Prints information to stdout for the GUI using UCI protocol
   /// Nothing will be sent if the UCI option is not set in the engine
   #[inline]
