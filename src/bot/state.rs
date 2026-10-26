@@ -9,6 +9,7 @@ use lichess::types::{Clock, User};
 use log::*;
 use rand::Rng;
 use serde_json::Value as JsonValue;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::task::JoinHandle;
@@ -21,6 +22,8 @@ const DEFAULT_USERNAME: &str = "schnecken_bot";
 const ONLINE_BOTS_LOOKUP_INTERVAL: Duration = Duration::from_secs(30 * 60);
 /// How many online bots to fetch when looking for new opponents
 const ONLINE_BOTS_TO_FETCH: usize = 200;
+/// How long we stay quiet (no challenges sent) after Lichess rate limited us
+const RATE_LIMIT_QUIET_PERIOD: Duration = Duration::from_secs(30 * 60);
 
 // -----------------------------------------------------------------------------
 // Types
@@ -47,6 +50,9 @@ pub struct BotState {
   following:         Mutex<Vec<String>>,
   /// Last time we looked for new opponents in the online bots list
   last_bots_lookup:  Mutex<Option<Instant>>,
+  /// True while we are sending challenges, so that we never run several
+  /// challenge rounds in parallel
+  challenging:       AtomicBool,
 }
 
 // We pass bot state references accross threads
@@ -77,7 +83,8 @@ impl BotState {
                                     exit: Arc::new(Mutex::new(false)),
                                     engine_config,
                                     following: Mutex::new(Vec::new()),
-                                    last_bots_lookup: Mutex::new(None) }));
+                                    last_bots_lookup: Mutex::new(None),
+                                    challenging: AtomicBool::new(false) }));
     bot_state_ref
   }
 
@@ -132,6 +139,7 @@ impl BotState {
              .await
     });
 
+    // Safeguard against disconnects / closing of the event stream.
     tokio::spawn(async { self.restart_incoming_streams(handle).await });
 
     // Clean up the list of users we follow
@@ -321,7 +329,24 @@ impl BotState {
   /// (preferably with a similar rating), else from time to time a new bot
   /// with a similar rating from the list of online bots.
   /// We never challenge humans.
+  ///
+  /// Does nothing if we are already sending challenges, or if Lichess rate
+  /// limited us recently: we stay quiet until the rate limit clears.
   pub async fn challenge_somebody(&self) {
+    if self.api.rate_limited_within(RATE_LIMIT_QUIET_PERIOD) {
+      info!("Rate limited by Lichess recently, not sending challenges for now");
+      return;
+    }
+    if self.challenging.swap(true, Ordering::AcqRel) {
+      debug!("Already sending challenges, not starting another round");
+      return;
+    }
+    self.send_challenges().await;
+    self.challenging.store(false, Ordering::Release);
+  }
+
+  /// Picks opponents and sends challenges, see `challenge_somebody`
+  async fn send_challenges(&self) {
     let clock_setting = rand::rng().random_range(0..40);
     let clock: Clock = match clock_setting {
       0..=15 => Clock { initial:   60,
@@ -430,6 +455,10 @@ impl BotState {
         return true;
       }
       info!("Error sending a challenge to {}", bot.username);
+      if self.api.rate_limited_within(RATE_LIMIT_QUIET_PERIOD) {
+        info!("Rate limited by Lichess, not challenging anybody else for now");
+        return false;
+      }
     }
     false
   }

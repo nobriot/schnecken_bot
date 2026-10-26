@@ -38,6 +38,8 @@ struct RateLimit {
   until:       Option<Instant>,
   /// Number of times we got rate limited in a row
   consecutive: u32,
+  /// Last time we received a 429 response
+  last:        Option<Instant>,
 }
 
 // Type definitions
@@ -183,6 +185,8 @@ impl LichessApi {
       rate_limit.consecutive += 1;
     }
 
+    rate_limit.last = Some(now);
+
     let wait = rate_limit_wait(rate_limit.consecutive.max(1), retry_after);
     let until = (now + wait).max(rate_limit.until.unwrap_or(now));
     rate_limit.until = Some(until);
@@ -191,6 +195,24 @@ impl LichessApi {
 
   //----------------------------------------------------------------------------
   // Public functions
+
+  /// Checks if Lichess rate limited us recently, so that callers can hold off
+  /// non-essential requests (e.g. sending challenges) for a while.
+  ///
+  /// ### Arguments
+  ///
+  /// * `period` How far back to look for a 429 response
+  ///
+  /// ### Returns
+  ///
+  /// True if we are currently waiting for a rate limit to clear, or received a
+  /// 429 response within `period`
+  pub fn rate_limited_within(&self, period: Duration) -> bool {
+    let rate_limit = self.rate_limit.lock().unwrap();
+    let now = Instant::now();
+    rate_limit.until.is_some_and(|until| until > now)
+    || rate_limit.last.is_some_and(|last| now.duration_since(last) < period)
+  }
 
   /// Generic HTTPS Get request to Lichess.
   ///
@@ -549,5 +571,19 @@ mod tests {
     let wait = api.on_rate_limited(None);
     assert!(wait > Duration::from_secs(119));
     assert_eq!(2, clone.rate_limit.lock().unwrap().consecutive);
+  }
+
+  #[test]
+  fn test_rate_limited_within() {
+    let api = LichessApi::new("token");
+    assert!(!api.rate_limited_within(Duration::from_secs(1800)));
+
+    api.on_rate_limited(None);
+    assert!(api.rate_limited_within(Duration::from_secs(1800)));
+
+    // Wait is over, but the 429 is still recent
+    api.rate_limit.lock().unwrap().until = Some(Instant::now());
+    assert!(api.rate_limited_within(Duration::from_secs(1800)));
+    assert!(!api.rate_limited_within(Duration::ZERO));
   }
 }
