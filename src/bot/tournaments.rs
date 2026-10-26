@@ -14,8 +14,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Lichess team whose arena tournaments we join
 pub const TEAM_ID: &str = "daily-bot-tournaments";
-/// Interval between two lookups of the team arena tournaments
-pub const ARENA_LOOKUP_INTERVAL: Duration = Duration::from_secs(10 * 60);
+/// Interval between two lookups of the team arena tournaments. Lichess limits
+/// how many new tournaments we can join, so we do not try often.
+pub const ARENA_LOOKUP_INTERVAL: Duration = Duration::from_secs(3 * 60 * 60);
 /// Interval between two "pair me asap" join requests while a tournament is
 /// running. Lichess forgets them after one minute.
 pub const PAIR_ME_REFRESH_INTERVAL: Duration = Duration::from_secs(45);
@@ -23,6 +24,9 @@ pub const PAIR_ME_REFRESH_INTERVAL: Duration = Duration::from_secs(45);
 /// joins when we register to too many tournaments, so we only join the next
 /// upcoming ones.
 pub const MAX_JOINED_TOURNAMENTS: usize = 2;
+/// Maximum number of join requests for new tournaments per lookup, whether
+/// they succeed or not
+pub const MAX_JOIN_ATTEMPTS: usize = 2;
 /// We stop sending challenges this long before a tournament starts, so that we
 /// are not busy with another game when it starts
 pub const PRE_TOURNAMENT_QUIET: Duration = Duration::from_secs(15 * 60);

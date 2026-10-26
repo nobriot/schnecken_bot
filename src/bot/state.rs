@@ -4,8 +4,9 @@ use super::{matchmaking, scopes, tournaments};
 use crate::bot::games::games::BotGames;
 use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
+use lichess::api::tournaments::JoinArenaError;
 use lichess::error::LichessError;
-use lichess::types::{Clock, GameStart, User};
+use lichess::types::{ArenaTournament, Clock, GameStart, User};
 // Other libraries from our repo
 use log::*;
 use rand::Rng;
@@ -58,6 +59,8 @@ pub struct BotState {
   challenging:       AtomicBool,
   /// Arena tournaments we joined, that are not over yet
   tournaments:       Mutex<Vec<JoinedArena>>,
+  /// Ongoing tournament games, as (game ID, tournament ID)
+  tournament_games:  Mutex<Vec<(String, String)>>,
 }
 
 // We pass bot state references accross threads
@@ -90,7 +93,8 @@ impl BotState {
                                     following: Mutex::new(Vec::new()),
                                     last_bots_lookup: Mutex::new(None),
                                     challenging: AtomicBool::new(false),
-                                    tournaments: Mutex::new(Vec::new()) }));
+                                    tournaments: Mutex::new(Vec::new()),
+                                    tournament_games: Mutex::new(Vec::new()) }));
     bot_state_ref
   }
 
@@ -193,6 +197,10 @@ impl BotState {
   async fn manage_tournaments(&self) {
     let mut last_lookup: Option<Instant> = None;
     loop {
+      // Do not join anything while we are leaving
+      if self.should_exit() {
+        return;
+      }
       let now = tournaments::now_ms();
       self.tournaments.lock().unwrap().retain(|joined| {
                                         let over = tournaments::is_over(&joined.arena, now);
@@ -207,12 +215,15 @@ impl BotState {
         self.join_new_tournaments().await;
       }
 
+      // Lichess does not pair us while we play a game of that tournament, and
+      // limits how often we can (re)join: only ask when we are available.
       let running: Vec<(String, Option<String>)> =
         self.tournaments
             .lock()
             .unwrap()
             .iter()
             .filter(|joined| tournaments::is_running(&joined.arena, now))
+            .filter(|joined| !self.is_playing_tournament(&joined.arena.id))
             .map(|joined| (joined.arena.id.clone(), joined.team.clone()))
             .collect();
       for (id, team) in running {
@@ -227,21 +238,16 @@ impl BotState {
   }
 
   /// Looks up the arena tournaments of our tournament team, and joins the next
-  /// upcoming ones, up to `MAX_JOINED_TOURNAMENTS` at once.
+  /// upcoming ones, up to `MAX_JOINED_TOURNAMENTS` at once. We make at most
+  /// `MAX_JOIN_ATTEMPTS` join requests, successful or not, as Lichess limits
+  /// how many new tournaments we can join.
   async fn join_new_tournaments(&self) {
-    let mut arenas = Vec::new();
-    for status in ["started", "created"] {
-      match self.api.get_team_arenas(tournaments::TEAM_ID, status).await {
-        Ok(found) => arenas.extend(found),
-        Err(_) => {
-          warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID)
-        },
-      }
-    }
+    let arenas = self.get_team_tournaments().await;
 
     let joined_ids: Vec<String> =
       self.tournaments.lock().unwrap().iter().map(|joined| joined.arena.id.clone()).collect();
     let mut joined_count = joined_ids.len();
+    let mut attempts = 0;
 
     // Teams we are a member of, fetched only if we find a team battle
     let mut our_teams: Option<Vec<String>> = None;
@@ -249,6 +255,10 @@ impl BotState {
     for arena in tournaments::tournaments_to_join(arenas, &joined_ids) {
       if joined_count >= tournaments::MAX_JOINED_TOURNAMENTS {
         debug!("Already registered to {joined_count} tournaments, not joining more for now");
+        break;
+      }
+      if attempts >= tournaments::MAX_JOIN_ATTEMPTS {
+        debug!("Tried to join {attempts} tournaments, not trying more until the next lookup");
         break;
       }
 
@@ -271,18 +281,47 @@ impl BotState {
       };
 
       let running = tournaments::is_running(&arena, tournaments::now_ms());
-      if self.api.join_arena(&arena.id, running, team.as_deref()).await.is_ok() {
-        let kind = if team.is_some() { "team battle" } else { "tournament" };
-        let for_team = team.as_ref().map(|t| format!(" for team {t}")).unwrap_or_default();
-        info!("Joined {kind} {}{for_team} ({}+{}): https://lichess.org/tournament/{}",
-              arena.full_name,
-              arena.clock.limit as f32 / 60.0,
-              arena.clock.increment,
-              arena.id);
-        self.tournaments.lock().unwrap().push(JoinedArena { arena, team });
-        joined_count += 1;
+      attempts += 1;
+      match self.api.join_arena(&arena.id, running, team.as_deref()).await {
+        Ok(()) => {
+          let kind = if team.is_some() { "team battle" } else { "tournament" };
+          let for_team = team.as_ref().map(|t| format!(" for team {t}")).unwrap_or_default();
+          info!("Joined {kind} {}{for_team} ({}+{}): https://lichess.org/tournament/{}",
+                arena.full_name,
+                arena.clock.limit as f32 / 60.0,
+                arena.clock.increment,
+                arena.id);
+          self.tournaments.lock().unwrap().push(JoinedArena { arena, team });
+          joined_count += 1;
+        },
+        Err(JoinArenaError::TooManyJoins) => {
+          info!("Lichess limits how many new tournaments we can join (about 4 per hour, 15 per \
+                 day). Will try to join {} again at the next lookup",
+                arena.full_name);
+          break;
+        },
+        Err(_) => {},
       }
     }
+  }
+
+  /// Gets the running and upcoming arena tournaments of our tournament team
+  async fn get_team_tournaments(&self) -> Vec<ArenaTournament> {
+    let mut arenas = Vec::new();
+    for status in ["started", "created"] {
+      match self.api.get_team_arenas(tournaments::TEAM_ID, status).await {
+        Ok(found) => arenas.extend(found),
+        Err(_) => {
+          warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID)
+        },
+      }
+    }
+    arenas
+  }
+
+  /// Checks if we are playing a game of a given tournament
+  fn is_playing_tournament(&self, tournament_id: &str) -> bool {
+    self.tournament_games.lock().unwrap().iter().any(|(_, id)| id == tournament_id)
   }
 
   /// Team we play for in a tournament we joined
@@ -377,6 +416,10 @@ impl BotState {
     // Update the last game time-stamp
     self.update_last_game_timestamp();
 
+    if let Some(tournament_id) = &game.tournament_id {
+      self.tournament_games.lock().unwrap().push((game.game_id.clone(), tournament_id.clone()));
+    }
+
     if !tournaments::should_berserk(&game) {
       self.start_game(game);
       return;
@@ -414,6 +457,7 @@ impl BotState {
 
     // Remove the game from the list of games
     self.games.remove(&game.game_id);
+    self.tournament_games.lock().unwrap().retain(|(game_id, _)| *game_id != game.game_id);
 
     // Ask for the next tournament pairing right away
     if let Some(tournament_id) = game.tournament_id

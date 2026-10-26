@@ -6,6 +6,22 @@ use crate::types::ArenaTournament;
 use log::*;
 use urlencoding::encode;
 
+/// Error answered by Lichess when we join too many new tournaments: about 4
+/// per hour and 15 per day for tournaments created by users. Joining a
+/// tournament we are already registered to does not count.
+const TOO_MANY_JOINS: &str = "You are joining too many tournaments";
+
+/// Why we could not join a tournament
+#[derive(Debug, PartialEq, Eq)]
+pub enum JoinArenaError {
+  /// We joined too many new tournaments recently, try again later
+  TooManyJoins,
+  /// Lichess refused for another reason (missing team, missing scope, etc.)
+  Refused,
+  /// The request failed
+  Request,
+}
+
 impl LichessApi {
   /// Gets the arena tournaments of a team, last starting first.
   ///
@@ -46,21 +62,47 @@ impl LichessApi {
                           tournament_id: &str,
                           pair_me_asap: bool,
                           team: Option<&str>)
-                          -> Result<(), LichessError> {
+                          -> Result<(), JoinArenaError> {
     let api_endpoint = format!("tournament/{tournament_id}/join");
     let mut body = format!("pairMeAsap={pair_me_asap}");
     if let Some(team) = team {
       body.push_str(&format!("&team={}", encode(team)));
     }
-    let json = self.lichess_post(&api_endpoint, &body).await?;
+    let json =
+      self.lichess_post(&api_endpoint, &body).await.map_err(|_| JoinArenaError::Request)?;
     if json["ok"].as_bool() == Some(true) {
       Ok(())
+    } else if json["error"].as_str() == Some(TOO_MANY_JOINS) {
+      Err(JoinArenaError::TooManyJoins)
     } else if let Some(error) = json["error"].as_str() {
       warn!("Lichess refused to join tournament {tournament_id}: {error}");
-      Err(LichessError)
+      Err(JoinArenaError::Refused)
     } else {
       warn!("Lichess refused to join tournament {tournament_id}: {json} (does the API token have \
              the tournament:write scope?)");
+      Err(JoinArenaError::Refused)
+    }
+  }
+
+  /// Leaves a future arena tournament, or pauses an ongoing one (we can join
+  /// again later, points are kept).
+  /// Note: leaving a future tournament deletes our registration, joining it
+  /// again counts as a new join (see `JoinArenaError::TooManyJoins`).
+  /// Requires the `tournament:write` scope for the API token.
+  ///
+  /// ### Arguments
+  ///
+  /// * `tournament_id` ID of the arena tournament
+  ///
+  /// ### Returns
+  ///
+  /// Result indicating if Lichess accepted the request
+  pub async fn withdraw_arena(&self, tournament_id: &str) -> Result<(), LichessError> {
+    let json = self.lichess_post(&format!("tournament/{tournament_id}/withdraw"), "").await?;
+    if json["ok"].as_bool() == Some(true) {
+      Ok(())
+    } else {
+      debug!("Lichess refused to withdraw from tournament {tournament_id}: {json}");
       Err(LichessError)
     }
   }
