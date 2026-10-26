@@ -17,21 +17,26 @@ pub const DECLINE_TIME_CONTROL: &str = "timeControl";
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GameStart {
   #[serde(rename = "gameId")]
-  pub game_id:      String,
-  pub color:        Color,
-  pub fen:          Option<String>,
+  pub game_id:       String,
+  pub color:         Color,
+  pub fen:           Option<String>,
   #[serde(rename = "hasMoved")]
-  pub has_moved:    bool,
+  pub has_moved:     bool,
   #[serde(rename = "isMyTurn")]
-  pub is_my_turn:   bool,
+  pub is_my_turn:    bool,
   #[serde(rename = "lastMove")]
-  pub last_move:    Option<String>,
-  pub speed:        String,
-  pub rated:        bool,
-  pub opponent:     Player,
+  pub last_move:     Option<String>,
+  pub speed:         String,
+  pub rated:         bool,
+  pub opponent:      Player,
   #[serde(rename = "secondsLeft")]
-  pub seconds_left: usize,
-  pub winner:       Option<Color>,
+  pub seconds_left:  usize,
+  pub winner:        Option<Color>,
+  /// Our own rating for this game
+  pub rating:        Option<usize>,
+  /// Set if the game is part of a tournament
+  #[serde(rename = "tournamentId")]
+  pub tournament_id: Option<String>,
 }
 
 impl GameStart {
@@ -296,4 +301,41 @@ pub struct Crosstable {
   pub user_2_score: f64,
   /// Number of games played between the 2 users
   pub games:        u64,
+}
+
+/// Status of an arena tournament, as found in the `status` field of
+/// `ArenaTournament`
+pub const ARENA_STATUS_CREATED: u16 = 10;
+pub const ARENA_STATUS_STARTED: u16 = 20;
+pub const ARENA_STATUS_FINISHED: u16 = 30;
+
+/// Clock of an arena tournament
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ArenaClock {
+  /// Initial time, in seconds
+  pub limit:     u32,
+  /// Increment, in seconds
+  pub increment: u32,
+}
+
+/// Arena tournament, as listed by the team arena tournaments API
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ArenaTournament {
+  pub id:           String,
+  #[serde(rename = "fullName")]
+  pub full_name:    String,
+  pub rated:        bool,
+  pub variant:      Variant,
+  pub clock:        ArenaClock,
+  /// Start time, in milliseconds since the Unix epoch
+  #[serde(rename = "startsAt")]
+  pub starts_at:    u64,
+  /// End time, in milliseconds since the Unix epoch
+  #[serde(rename = "finishesAt")]
+  pub finishes_at:  u64,
+  /// One of `ARENA_STATUS_CREATED`, `ARENA_STATUS_STARTED`,
+  /// `ARENA_STATUS_FINISHED`
+  pub status:       u16,
+  #[serde(rename = "botsAllowed")]
+  pub bots_allowed: Option<bool>,
 }

@@ -21,7 +21,7 @@ pub const UNFOLLOW_MIN_RATING_DIFFERENCE: u32 = 400;
 pub const NEW_OPPONENT_MAX_RATING_DIFFERENCE: u32 = 200;
 /// Number of closest-rated candidates among which we pick randomly, so that
 /// we do not always challenge the same opponent
-const CANDIDATES_TO_PICK_FROM: usize = 3;
+const CANDIDATES_TO_PICK_FROM: usize = 5;
 
 // -----------------------------------------------------------------------------
 // Functions

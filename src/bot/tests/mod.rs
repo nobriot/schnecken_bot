@@ -1,1 +1,2 @@
 mod matchmaking;
+mod tournaments;

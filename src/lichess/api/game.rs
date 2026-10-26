@@ -59,6 +59,37 @@ impl LichessApi {
     Ok(())
   }
 
+  /// Goes berserk in an arena tournament game: halves our clock time, and
+  /// grants an extra point upon winning. Only works in arena tournaments
+  /// allowing berserk, before we made a move.
+  ///
+  /// Berserk is only documented for the Board API (`board:play` scope), so we
+  /// try the Bot API equivalent first and fall back to the Board API.
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_id` Game ID in which we go berserk
+  ///
+  /// ### Returns
+  ///
+  /// Result indicating if Lichess accepted the request
+  pub async fn berserk_game(&self, game_id: &str) -> Result<(), LichessError> {
+    let mut answers = Vec::new();
+    for api in ["bot", "board"] {
+      let json = self.lichess_post(&format!("{api}/game/{game_id}/berserk"), "").await?;
+      if json["ok"].as_bool() == Some(true) {
+        debug!("Went berserk in game {game_id} using the {api} API");
+        return Ok(());
+      }
+      answers.push(format!("{api} API: {json}"));
+    }
+
+    info!("Could not go berserk in game {game_id} ({}). The tournament may not allow berserk, or \
+           the API token may lack the bot:play/board:play scope",
+          answers.join(", "));
+    Err(LichessError)
+  }
+
   /// Writes in the game chat, using spectator room
   ///
   /// ### Arguments

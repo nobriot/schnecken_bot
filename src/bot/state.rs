@@ -1,10 +1,10 @@
 use super::games::game::Game;
-use super::matchmaking;
+use super::{matchmaking, scopes, tournaments};
 use crate::bot::games::games::BotGames;
 use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
 use lichess::error::LichessError;
-use lichess::types::{Clock, User};
+use lichess::types::{ArenaTournament, Clock, GameStart, User};
 // Other libraries from our repo
 use log::*;
 use rand::Rng;
@@ -24,6 +24,8 @@ const ONLINE_BOTS_LOOKUP_INTERVAL: Duration = Duration::from_secs(30 * 60);
 const ONLINE_BOTS_TO_FETCH: usize = 200;
 /// How long we stay quiet (no challenges sent) after Lichess rate limited us
 const RATE_LIMIT_QUIET_PERIOD: Duration = Duration::from_secs(30 * 60);
+/// Maximum time we wait for Lichess to accept a berserk before starting a game
+const BERSERK_TIMEOUT: Duration = Duration::from_secs(3);
 
 // -----------------------------------------------------------------------------
 // Types
@@ -53,6 +55,8 @@ pub struct BotState {
   /// True while we are sending challenges, so that we never run several
   /// challenge rounds in parallel
   challenging:       AtomicBool,
+  /// Arena tournaments we joined, that are not over yet
+  tournaments:       Mutex<Vec<ArenaTournament>>,
 }
 
 // We pass bot state references accross threads
@@ -84,7 +88,8 @@ impl BotState {
                                     engine_config,
                                     following: Mutex::new(Vec::new()),
                                     last_bots_lookup: Mutex::new(None),
-                                    challenging: AtomicBool::new(false) }));
+                                    challenging: AtomicBool::new(false),
+                                    tournaments: Mutex::new(Vec::new()) }));
     bot_state_ref
   }
 
@@ -147,6 +152,114 @@ impl BotState {
 
     // Start a thread that sends challenges with a given interval:
     tokio::spawn(async { self.send_challenges_with_interval(7200).await });
+
+    // Check the API token, then join and play tournaments
+    tokio::spawn(async {
+      if self.check_token_scopes().await {
+        self.manage_tournaments().await;
+      }
+    });
+  }
+
+  /// Checks that our API token has all the scopes we need, and logs an error
+  /// explaining how to fix it otherwise.
+  ///
+  /// ### Returns
+  ///
+  /// True if we can join tournaments (also if we could not check the scopes)
+  async fn check_token_scopes(&self) -> bool {
+    let Ok(granted) = self.api.get_token_scopes().await else {
+      warn!("Could not check the scopes of the Lichess API token");
+      return true;
+    };
+
+    let missing = scopes::missing_scopes(&granted);
+    if missing.is_empty() {
+      debug!("Lichess API token scopes: {}", granted.join(", "));
+      return true;
+    }
+    error!("{}", scopes::missing_scopes_message(&missing));
+    let can_join_tournaments = !missing.iter().any(|s| s.scope == scopes::TOURNAMENT_SCOPE);
+    if !can_join_tournaments {
+      error!("Not joining tournaments without the {} scope", scopes::TOURNAMENT_SCOPE);
+    }
+    can_join_tournaments
+  }
+
+  /// Joins the arena tournaments of our tournament team, and keeps asking
+  /// Lichess to pair us while they are running (bots are not connected to the
+  /// tournament page, so Lichess would not pair us otherwise).
+  async fn manage_tournaments(&self) {
+    let mut last_lookup: Option<Instant> = None;
+    loop {
+      let now = tournaments::now_ms();
+      self.tournaments.lock().unwrap().retain(|arena| {
+                                        let over = tournaments::is_over(arena, now);
+                                        if over {
+                                          info!("Tournament {} is over", arena.full_name);
+                                        }
+                                        !over
+                                      });
+
+      if last_lookup.is_none_or(|t| t.elapsed() >= tournaments::ARENA_LOOKUP_INTERVAL) {
+        last_lookup = Some(Instant::now());
+        self.join_new_tournaments().await;
+      }
+
+      let running: Vec<String> = self.tournaments
+                                     .lock()
+                                     .unwrap()
+                                     .iter()
+                                     .filter(|arena| tournaments::is_running(arena, now))
+                                     .map(|arena| arena.id.clone())
+                                     .collect();
+      for id in running {
+        if self.games.is_full() {
+          break;
+        }
+        let _ = self.api.join_arena(&id, true).await;
+      }
+
+      tokio::time::sleep(tournaments::PAIR_ME_REFRESH_INTERVAL).await;
+    }
+  }
+
+  /// Looks up the arena tournaments of our tournament team, and joins the ones
+  /// we have not joined yet.
+  async fn join_new_tournaments(&self) {
+    for status in ["started", "created"] {
+      let Ok(arenas) = self.api.get_team_arenas(tournaments::TEAM_ID, status).await else {
+        warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID);
+        continue;
+      };
+
+      for arena in arenas {
+        if !tournaments::should_join(&arena) || self.is_in_tournament(&arena.id) {
+          continue;
+        }
+        let running = tournaments::is_running(&arena, tournaments::now_ms());
+        if self.api.join_arena(&arena.id, running).await.is_ok() {
+          info!("Joined tournament {} ({}+{}): https://lichess.org/tournament/{}",
+                arena.full_name,
+                arena.clock.limit as f32 / 60.0,
+                arena.clock.increment,
+                arena.id);
+          self.tournaments.lock().unwrap().push(arena);
+        }
+      }
+    }
+  }
+
+  /// Checks if we joined a given tournament
+  fn is_in_tournament(&self, tournament_id: &str) -> bool {
+    self.tournaments.lock().unwrap().iter().any(|arena| arena.id == tournament_id)
+  }
+
+  /// Checks if one of the tournaments we joined is running or starts soon, in
+  /// which case we keep ourselves available for it.
+  pub fn in_tournament(&self) -> bool {
+    let now = tournaments::now_ms();
+    self.tournaments.lock().unwrap().iter().any(|arena| tournaments::is_active(arena, now))
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's
@@ -211,11 +324,32 @@ impl BotState {
   /// ### Arguments
   ///
   /// * `json_value` - JSON payload received in the HTTP stream.
-  fn on_game_start(&self, game: lichess::types::GameStart) {
+  fn on_game_start(self: BotStateRef, game: GameStart) {
     // Update the last game time-stamp
     self.update_last_game_timestamp();
 
-    // Create a game handle and start the game
+    if !tournaments::should_berserk(&game) {
+      self.start_game(game);
+      return;
+    }
+
+    // Berserk before starting the game, so that it happens before our first
+    // move. Do not wait too long though, our clock may be ticking.
+    tokio::spawn(async move {
+      info!("Going berserk against {} ({} vs {})",
+            game.opponent.username,
+            game.rating.unwrap_or_default(),
+            game.opponent.rating);
+      if tokio::time::timeout(BERSERK_TIMEOUT, self.api.berserk_game(&game.game_id)).await.is_err()
+      {
+        warn!("Lichess did not answer our berserk in time, starting the game anyway");
+      }
+      self.start_game(game);
+    });
+  }
+
+  /// Creates a game handle and starts the game
+  fn start_game(&self, game: GameStart) {
     let game_handle: GameHandle = Game::new(game, self.api, &self.engine_config, &self.username);
     self.games.add(game_handle);
   }
@@ -232,6 +366,13 @@ impl BotState {
     // Remove the game from the list of games
     self.games.remove(&game.game_id);
 
+    // Ask for the next tournament pairing right away
+    if let Some(tournament_id) = game.tournament_id
+       && self.is_in_tournament(&tournament_id)
+    {
+      tokio::spawn(async move { self.api.join_arena(&tournament_id, true).await });
+    }
+
     // Check if this opponent is somebody we would like to follow
     let opponent_id = game.opponent.id;
     tokio::spawn(async move { self.consider_following(&opponent_id).await });
@@ -246,6 +387,17 @@ impl BotState {
     // Check if it is a challenge generated by us.
     if challenge.challenger.id == self.username.as_str() {
       debug!("Ignoring notification of our own challenge");
+      return;
+    }
+
+    // Keep ourselves available for tournament games: no games against other
+    // bots while a tournament is running. Humans are still welcome.
+    if self.in_tournament() && challenge.challenger.title.as_deref() == Some("BOT") {
+      info!("Declining challenge from {}, we are playing a tournament",
+            challenge.challenger.name);
+      tokio::spawn(async move {
+        self.api.decline_challenge(&challenge.id, lichess::types::DECLINE_LATER).await
+      });
       return;
     }
 
@@ -335,6 +487,10 @@ impl BotState {
   pub async fn challenge_somebody(&self) {
     if self.api.rate_limited_within(RATE_LIMIT_QUIET_PERIOD) {
       info!("Rate limited by Lichess recently, not sending challenges for now");
+      return;
+    }
+    if self.in_tournament() {
+      info!("Playing a tournament, not sending challenges");
       return;
     }
     if self.challenging.swap(true, Ordering::AcqRel) {

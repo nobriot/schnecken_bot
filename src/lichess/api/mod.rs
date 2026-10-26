@@ -4,6 +4,7 @@ pub mod challenges;
 pub mod game;
 pub mod games;
 pub mod relations;
+pub mod tournaments;
 pub mod users;
 
 // Other crates
