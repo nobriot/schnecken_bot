@@ -19,7 +19,8 @@ fn arena(starts_at: u64, finishes_at: u64) -> ArenaTournament {
                     starts_at,
                     finishes_at,
                     status: ARENA_STATUS_CREATED,
-                    bots_allowed: Some(true) }
+                    bots_allowed: Some(true),
+                    team_battle: None }
 }
 
 fn game(tournament_id: Option<&str>,
@@ -146,5 +147,26 @@ fn test_missing_scopes() {
   // The link to create a new token asks for all the scopes
   for scope in REQUIRED_SCOPES {
     assert!(message.contains(&format!("scopes[]={}", scope.scope)));
+  }
+}
+
+#[test]
+fn test_pick_battle_team() {
+  let teams = |ids: &[&str]| ids.iter().map(|id| id.to_string()).collect::<Vec<String>>();
+  let battle = teams(&["chess-pro-elnur-uktamov", "daily-bot-tournaments"]);
+
+  // Not a member of any of the teams
+  assert_eq!(None, pick_battle_team(&battle, &[]));
+  assert_eq!(None, pick_battle_team(&battle, &teams(&["coders"])));
+
+  // A single team in common (case insensitive)
+  assert_eq!(Some("daily-bot-tournaments".to_string()),
+             pick_battle_team(&battle, &teams(&["coders", "Daily-Bot-Tournaments"])));
+
+  // Several teams in common: any of them
+  let ours = teams(&["daily-bot-tournaments", "chess-pro-elnur-uktamov"]);
+  for _ in 0..20 {
+    let team = pick_battle_team(&battle, &ours).unwrap();
+    assert!(battle.contains(&team));
   }
 }

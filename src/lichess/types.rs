@@ -338,4 +338,14 @@ pub struct ArenaTournament {
   pub status:       u16,
   #[serde(rename = "botsAllowed")]
   pub bots_allowed: Option<bool>,
+  /// Set for team battles
+  #[serde(rename = "teamBattle")]
+  pub team_battle:  Option<TeamBattle>,
+}
+
+/// Teams of a team battle arena tournament
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TeamBattle {
+  /// IDs of the teams competing
+  pub teams: Vec<String>,
 }

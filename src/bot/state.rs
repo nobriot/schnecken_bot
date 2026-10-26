@@ -1,10 +1,11 @@
 use super::games::game::Game;
+use super::tournaments::JoinedArena;
 use super::{matchmaking, scopes, tournaments};
 use crate::bot::games::games::BotGames;
 use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
 use lichess::error::LichessError;
-use lichess::types::{ArenaTournament, Clock, GameStart, User};
+use lichess::types::{Clock, GameStart, User};
 // Other libraries from our repo
 use log::*;
 use rand::Rng;
@@ -56,7 +57,7 @@ pub struct BotState {
   /// challenge rounds in parallel
   challenging:       AtomicBool,
   /// Arena tournaments we joined, that are not over yet
-  tournaments:       Mutex<Vec<ArenaTournament>>,
+  tournaments:       Mutex<Vec<JoinedArena>>,
 }
 
 // We pass bot state references accross threads
@@ -193,10 +194,10 @@ impl BotState {
     let mut last_lookup: Option<Instant> = None;
     loop {
       let now = tournaments::now_ms();
-      self.tournaments.lock().unwrap().retain(|arena| {
-                                        let over = tournaments::is_over(arena, now);
+      self.tournaments.lock().unwrap().retain(|joined| {
+                                        let over = tournaments::is_over(&joined.arena, now);
                                         if over {
-                                          info!("Tournament {} is over", arena.full_name);
+                                          info!("Tournament {} is over", joined.arena.full_name);
                                         }
                                         !over
                                       });
@@ -206,18 +207,19 @@ impl BotState {
         self.join_new_tournaments().await;
       }
 
-      let running: Vec<String> = self.tournaments
-                                     .lock()
-                                     .unwrap()
-                                     .iter()
-                                     .filter(|arena| tournaments::is_running(arena, now))
-                                     .map(|arena| arena.id.clone())
-                                     .collect();
-      for id in running {
+      let running: Vec<(String, Option<String>)> =
+        self.tournaments
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|joined| tournaments::is_running(&joined.arena, now))
+            .map(|joined| (joined.arena.id.clone(), joined.team.clone()))
+            .collect();
+      for (id, team) in running {
         if self.games.is_full() {
           break;
         }
-        let _ = self.api.join_arena(&id, true).await;
+        let _ = self.api.join_arena(&id, true, team.as_deref()).await;
       }
 
       tokio::time::sleep(tournaments::PAIR_ME_REFRESH_INTERVAL).await;
@@ -227,6 +229,9 @@ impl BotState {
   /// Looks up the arena tournaments of our tournament team, and joins the ones
   /// we have not joined yet.
   async fn join_new_tournaments(&self) {
+    // Teams we are a member of, fetched only if we find a team battle
+    let mut our_teams: Option<Vec<String>> = None;
+
     for status in ["started", "created"] {
       let Ok(arenas) = self.api.get_team_arenas(tournaments::TEAM_ID, status).await else {
         warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID);
@@ -237,14 +242,35 @@ impl BotState {
         if !tournaments::should_join(&arena) || self.is_in_tournament(&arena.id) {
           continue;
         }
+
+        let team = match &arena.team_battle {
+          None => None,
+          Some(battle) => {
+            if our_teams.is_none() {
+              our_teams = Some(self.api.get_user_teams(&self.username).await.unwrap_or_default());
+            }
+            let Some(team) =
+              tournaments::pick_battle_team(&battle.teams, our_teams.as_deref().unwrap_or(&[]))
+            else {
+              info!("Not joining team battle {}: we are not a member of any of its teams ({})",
+                    arena.full_name,
+                    battle.teams.join(", "));
+              continue;
+            };
+            Some(team)
+          },
+        };
+
         let running = tournaments::is_running(&arena, tournaments::now_ms());
-        if self.api.join_arena(&arena.id, running).await.is_ok() {
-          info!("Joined tournament {} ({}+{}): https://lichess.org/tournament/{}",
+        if self.api.join_arena(&arena.id, running, team.as_deref()).await.is_ok() {
+          let kind = if team.is_some() { "team battle" } else { "tournament" };
+          let for_team = team.as_ref().map(|t| format!(" for team {t}")).unwrap_or_default();
+          info!("Joined {kind} {}{for_team} ({}+{}): https://lichess.org/tournament/{}",
                 arena.full_name,
                 arena.clock.limit as f32 / 60.0,
                 arena.clock.increment,
                 arena.id);
-          self.tournaments.lock().unwrap().push(arena);
+          self.tournaments.lock().unwrap().push(JoinedArena { arena, team });
         }
       }
     }
@@ -252,14 +278,33 @@ impl BotState {
 
   /// Checks if we joined a given tournament
   fn is_in_tournament(&self, tournament_id: &str) -> bool {
-    self.tournaments.lock().unwrap().iter().any(|arena| arena.id == tournament_id)
+    self.joined_tournament_team(tournament_id).is_some()
+  }
+
+  /// Team we play for in a tournament we joined
+  ///
+  /// ### Returns
+  ///
+  /// None if we did not join the tournament, Some(None) if we joined it
+  /// without a team (not a team battle).
+  fn joined_tournament_team(&self, tournament_id: &str) -> Option<Option<String>> {
+    self.tournaments
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|joined| joined.arena.id == tournament_id)
+        .map(|joined| joined.team.clone())
   }
 
   /// Checks if one of the tournaments we joined is running or starts soon, in
   /// which case we keep ourselves available for it.
   pub fn in_tournament(&self) -> bool {
     let now = tournaments::now_ms();
-    self.tournaments.lock().unwrap().iter().any(|arena| tournaments::is_active(arena, now))
+    self.tournaments
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|joined| tournaments::is_active(&joined.arena, now))
   }
 
   /// Checks if the stream_incoming_events has died and restarts it if that's
@@ -368,9 +413,9 @@ impl BotState {
 
     // Ask for the next tournament pairing right away
     if let Some(tournament_id) = game.tournament_id
-       && self.is_in_tournament(&tournament_id)
+       && let Some(team) = self.joined_tournament_team(&tournament_id)
     {
-      tokio::spawn(async move { self.api.join_arena(&tournament_id, true).await });
+      tokio::spawn(async move { self.api.join_arena(&tournament_id, true, team.as_deref()).await });
     }
 
     // Check if this opponent is somebody we would like to follow

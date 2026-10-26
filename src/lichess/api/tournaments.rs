@@ -4,6 +4,7 @@ use crate::error::LichessError;
 use crate::types::ArenaTournament;
 // External crates
 use log::*;
+use urlencoding::encode;
 
 impl LichessApi {
   /// Gets the arena tournaments of a team, last starting first.
@@ -35,18 +36,28 @@ impl LichessApi {
   /// * `pair_me_asap`  If the tournament is started, asks Lichess to pair us
   ///   even though we are not connected to the tournament page. This expires
   ///   after one minute, so it has to be sent again regularly.
+  /// * `team`          Team we play for, required for team battles. We must be
+  ///   a member of that team.
   ///
   /// ### Returns
   ///
   /// Result indicating if Lichess accepted the request
   pub async fn join_arena(&self,
                           tournament_id: &str,
-                          pair_me_asap: bool)
+                          pair_me_asap: bool,
+                          team: Option<&str>)
                           -> Result<(), LichessError> {
     let api_endpoint = format!("tournament/{tournament_id}/join");
-    let json = self.lichess_post(&api_endpoint, &format!("pairMeAsap={pair_me_asap}")).await?;
+    let mut body = format!("pairMeAsap={pair_me_asap}");
+    if let Some(team) = team {
+      body.push_str(&format!("&team={}", encode(team)));
+    }
+    let json = self.lichess_post(&api_endpoint, &body).await?;
     if json["ok"].as_bool() == Some(true) {
       Ok(())
+    } else if let Some(error) = json["error"].as_str() {
+      warn!("Lichess refused to join tournament {tournament_id}: {error}");
+      Err(LichessError)
     } else {
       warn!("Lichess refused to join tournament {tournament_id}: {json} (does the API token have \
              the tournament:write scope?)");
@@ -112,6 +123,38 @@ mod tests {
     assert_eq!(1762918200000, arena.finishes_at);
     assert_eq!(ARENA_STATUS_FINISHED, arena.status);
     assert_eq!(None, arena.bots_allowed);
+    assert!(arena.team_battle.is_none());
+  }
+
+  #[test]
+  fn test_parse_team_battle() {
+    // Line from the daily-bot-tournaments team arena list
+    let json = vec![serde_json::json!({
+                      "id": "YGyJEbiw",
+                      "createdBy": "sybsuper",
+                      "system": "arena",
+                      "minutes": 120,
+                      "clock": { "limit": 60, "increment": 0 },
+                      "rated": true,
+                      "fullName": "Team Battle Team Battle",
+                      "nbPlayers": 0,
+                      "variant": { "key": "standard", "short": "Std", "name": "Standard" },
+                      "startsAt": 1793098800000u64,
+                      "finishesAt": 1793106000000u64,
+                      "status": 10,
+                      "perf": { "key": "bullet", "name": "Bullet", "position": 0, "icon": "T" },
+                      "botsAllowed": true,
+                      "teamBattle": {
+                        "teams": ["chess-pro-elnur-uktamov", "daily-bot-tournaments"],
+                        "nbLeaders": 5
+                      },
+                    })];
+
+    let arenas = LichessApi::parse_arenas(json);
+    assert_eq!(1, arenas.len());
+    assert_eq!(Some(true), arenas[0].bots_allowed);
+    assert_eq!(vec!["chess-pro-elnur-uktamov", "daily-bot-tournaments"],
+               arenas[0].team_battle.as_ref().unwrap().teams);
   }
 
   #[test]
