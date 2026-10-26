@@ -170,3 +170,24 @@ fn test_pick_battle_team() {
     assert!(battle.contains(&team));
   }
 }
+
+#[test]
+fn test_tournaments_to_join() {
+  let with = |id: &str, starts_at: u64| {
+    let mut a = arena(starts_at, starts_at + HOUR_MS);
+    a.id = id.to_string();
+    a
+  };
+  let mut classical = with("classical", 2 * HOUR_MS);
+  classical.clock = ArenaClock { limit: 1800, increment: 0 };
+
+  let arenas = vec![with("later", 5 * HOUR_MS),
+                    with("joined", HOUR_MS),
+                    classical,
+                    with("next", 3 * HOUR_MS),
+                    with("running", 0),
+                    with("next", 3 * HOUR_MS)];
+  let selected = tournaments_to_join(arenas, &["joined".to_string()]);
+  let ids: Vec<&str> = selected.iter().map(|a| a.id.as_str()).collect();
+  assert_eq!(vec!["running", "next", "later"], ids);
+}

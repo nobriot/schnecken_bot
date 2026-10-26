@@ -226,59 +226,63 @@ impl BotState {
     }
   }
 
-  /// Looks up the arena tournaments of our tournament team, and joins the ones
-  /// we have not joined yet.
+  /// Looks up the arena tournaments of our tournament team, and joins the next
+  /// upcoming ones, up to `MAX_JOINED_TOURNAMENTS` at once.
   async fn join_new_tournaments(&self) {
+    let mut arenas = Vec::new();
+    for status in ["started", "created"] {
+      match self.api.get_team_arenas(tournaments::TEAM_ID, status).await {
+        Ok(found) => arenas.extend(found),
+        Err(_) => {
+          warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID)
+        },
+      }
+    }
+
+    let joined_ids: Vec<String> =
+      self.tournaments.lock().unwrap().iter().map(|joined| joined.arena.id.clone()).collect();
+    let mut joined_count = joined_ids.len();
+
     // Teams we are a member of, fetched only if we find a team battle
     let mut our_teams: Option<Vec<String>> = None;
 
-    for status in ["started", "created"] {
-      let Ok(arenas) = self.api.get_team_arenas(tournaments::TEAM_ID, status).await else {
-        warn!("Could not get the {status} tournaments of the {} team", tournaments::TEAM_ID);
-        continue;
+    for arena in tournaments::tournaments_to_join(arenas, &joined_ids) {
+      if joined_count >= tournaments::MAX_JOINED_TOURNAMENTS {
+        debug!("Already registered to {joined_count} tournaments, not joining more for now");
+        break;
+      }
+
+      let team = match &arena.team_battle {
+        None => None,
+        Some(battle) => {
+          if our_teams.is_none() {
+            our_teams = Some(self.api.get_user_teams(&self.username).await.unwrap_or_default());
+          }
+          let Some(team) =
+            tournaments::pick_battle_team(&battle.teams, our_teams.as_deref().unwrap_or(&[]))
+          else {
+            info!("Not joining team battle {}: we are not a member of any of its teams ({})",
+                  arena.full_name,
+                  battle.teams.join(", "));
+            continue;
+          };
+          Some(team)
+        },
       };
 
-      for arena in arenas {
-        if !tournaments::should_join(&arena) || self.is_in_tournament(&arena.id) {
-          continue;
-        }
-
-        let team = match &arena.team_battle {
-          None => None,
-          Some(battle) => {
-            if our_teams.is_none() {
-              our_teams = Some(self.api.get_user_teams(&self.username).await.unwrap_or_default());
-            }
-            let Some(team) =
-              tournaments::pick_battle_team(&battle.teams, our_teams.as_deref().unwrap_or(&[]))
-            else {
-              info!("Not joining team battle {}: we are not a member of any of its teams ({})",
-                    arena.full_name,
-                    battle.teams.join(", "));
-              continue;
-            };
-            Some(team)
-          },
-        };
-
-        let running = tournaments::is_running(&arena, tournaments::now_ms());
-        if self.api.join_arena(&arena.id, running, team.as_deref()).await.is_ok() {
-          let kind = if team.is_some() { "team battle" } else { "tournament" };
-          let for_team = team.as_ref().map(|t| format!(" for team {t}")).unwrap_or_default();
-          info!("Joined {kind} {}{for_team} ({}+{}): https://lichess.org/tournament/{}",
-                arena.full_name,
-                arena.clock.limit as f32 / 60.0,
-                arena.clock.increment,
-                arena.id);
-          self.tournaments.lock().unwrap().push(JoinedArena { arena, team });
-        }
+      let running = tournaments::is_running(&arena, tournaments::now_ms());
+      if self.api.join_arena(&arena.id, running, team.as_deref()).await.is_ok() {
+        let kind = if team.is_some() { "team battle" } else { "tournament" };
+        let for_team = team.as_ref().map(|t| format!(" for team {t}")).unwrap_or_default();
+        info!("Joined {kind} {}{for_team} ({}+{}): https://lichess.org/tournament/{}",
+              arena.full_name,
+              arena.clock.limit as f32 / 60.0,
+              arena.clock.increment,
+              arena.id);
+        self.tournaments.lock().unwrap().push(JoinedArena { arena, team });
+        joined_count += 1;
       }
     }
-  }
-
-  /// Checks if we joined a given tournament
-  fn is_in_tournament(&self, tournament_id: &str) -> bool {
-    self.joined_tournament_team(tournament_id).is_some()
   }
 
   /// Team we play for in a tournament we joined

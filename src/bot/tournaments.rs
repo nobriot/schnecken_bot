@@ -19,6 +19,10 @@ pub const ARENA_LOOKUP_INTERVAL: Duration = Duration::from_secs(10 * 60);
 /// Interval between two "pair me asap" join requests while a tournament is
 /// running. Lichess forgets them after one minute.
 pub const PAIR_ME_REFRESH_INTERVAL: Duration = Duration::from_secs(45);
+/// Maximum number of tournaments we are registered to at once. Lichess refuses
+/// joins when we register to too many tournaments, so we only join the next
+/// upcoming ones.
+pub const MAX_JOINED_TOURNAMENTS: usize = 2;
 /// We stop sending challenges this long before a tournament starts, so that we
 /// are not busy with another game when it starts
 pub const PRE_TOURNAMENT_QUIET: Duration = Duration::from_secs(15 * 60);
@@ -61,6 +65,25 @@ pub fn should_join(arena: &ArenaTournament) -> bool {
   && arena.bots_allowed != Some(false)
   && arena.status != ARENA_STATUS_FINISHED
   && arena_speed(arena) != Speed::Classical
+}
+
+/// Selects the tournaments we could join, next starting first: the ones we
+/// should join (see `should_join`) and did not join yet, without duplicates.
+///
+/// ### Arguments
+///
+/// * `arenas`     Arena tournaments of the team
+/// * `joined_ids` IDs of the tournaments we already joined
+pub fn tournaments_to_join(arenas: Vec<ArenaTournament>,
+                           joined_ids: &[String])
+                           -> Vec<ArenaTournament> {
+  let mut candidates: Vec<ArenaTournament> =
+    arenas.into_iter()
+          .filter(|arena| should_join(arena) && !joined_ids.contains(&arena.id))
+          .collect();
+  candidates.sort_by_key(|arena| arena.starts_at);
+  candidates.dedup_by(|a, b| a.id == b.id);
+  candidates
 }
 
 /// Checks if an arena tournament is running, i.e. Lichess can pair us
