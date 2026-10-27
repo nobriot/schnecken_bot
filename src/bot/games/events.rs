@@ -33,6 +33,10 @@ pub const FLAG_MOVE_TIME_MAX_MS: usize = 500;
 /// Time per move when flagging and the opponent is about to run out of time
 pub const FLAG_MOVE_TIME_MIN_MS: usize = 200;
 pub static MATE_ANNOUNCEMENT: &str = "Woo-hoo, mate around the corner";
+/// Bots with chat commands usually advertise them with `!help`
+pub static OPPONENT_HELP_COMMAND: &str = "!help";
+/// Asks such an opponent bot for its eval
+pub static ASK_OPPONENT_EVAL: &str = "!eval";
 
 /// Eval (against us) from which we consider being in trouble
 const IN_TROUBLE_EVAL: f32 = -3.0;
@@ -191,6 +195,11 @@ pub struct GameEvents {
   /// Comments we already posted in this game, so that we never post the same
   /// one twice (also restored from the chat history after a restart)
   said:           BTreeSet<String>,
+  /// The opponent mentioned `!help` in the chat, so it likely understands
+  /// `!eval`
+  opponent_help:  bool,
+  /// We already asked the opponent for its eval (`!eval`)
+  opponent_eval:  bool,
 }
 
 impl GameEvents {
@@ -240,7 +249,11 @@ impl GameEvents {
         } else if line.text.starts_with(OUT_OF_TROUBLE) || line.text == SWINDLE {
           self.in_trouble = false;
         }
+        if line.text == ASK_OPPONENT_EVAL {
+          self.opponent_eval = true;
+        }
       } else {
+        self.on_opponent_message(&line.text);
         // The last /quiet or /chatty from the opponent wins
         match parse_chat_command(&line.text) {
           Some(ChatCommand::Quiet) => self.quiet = true,
@@ -264,6 +277,36 @@ impl GameEvents {
   /// * `message` - The comment we would like to post
   pub fn should_say(&mut self, message: &str) -> bool {
     self.said.insert(message.to_string())
+  }
+
+  /// Remembers if the opponent mentioned `!help` in one of its messages
+  /// (e.g. "Type !help for a list of commands").
+  ///
+  /// ### Arguments
+  ///
+  /// * `text` - Message the opponent sent in the player chat
+  pub fn on_opponent_message(&mut self, text: &str) {
+    if text.to_lowercase().contains(OPPONENT_HELP_COMMAND) {
+      self.opponent_help = true;
+    }
+  }
+
+  /// Checks if we should ask the opponent for its eval (`!eval`) along with
+  /// this event's comment: only if it mentioned `!help`, on our first eval
+  /// comment (mate announcement or being in trouble), and only once.
+  ///
+  /// ### Arguments
+  ///
+  /// * `event` - Event we are commenting
+  pub fn should_ask_opponent_eval(&mut self, event: &EvalEvent) -> bool {
+    if !self.opponent_help
+       || self.opponent_eval
+       || !matches!(event, EvalEvent::AnnounceMate(_) | EvalEvent::InTrouble)
+    {
+      return false;
+    }
+    self.opponent_eval = true;
+    true
   }
 
   /// Marks the game as already ongoing when we join it: "Have fun" is said at

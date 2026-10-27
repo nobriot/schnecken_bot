@@ -306,6 +306,36 @@ fn test_restore_from_chat_state() {
 }
 
 #[test]
+fn test_ask_opponent_eval() {
+  // The opponent never mentioned !help: we do not ask
+  let mut events = GameEvents::default();
+  events.on_opponent_message("hello");
+  assert!(!events.should_ask_opponent_eval(&EvalEvent::InTrouble));
+
+  // Only on the first mate announcement / trouble comment
+  let mut events = GameEvents::default();
+  events.on_opponent_message("Type !HELP for a list of commands");
+  assert!(!events.should_ask_opponent_eval(&EvalEvent::OutOfTrouble));
+  assert!(!events.should_ask_opponent_eval(&EvalEvent::Swindle));
+  assert!(events.should_ask_opponent_eval(&EvalEvent::AnnounceMate(3)));
+  assert!(!events.should_ask_opponent_eval(&EvalEvent::InTrouble));
+
+  // After a restart: the opponent said !help, we did not ask yet
+  let chat = [line("schnecken_bot", &greeting("botty")), line("BOT botty", "!help for commands")];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert!(events.should_ask_opponent_eval(&EvalEvent::InTrouble));
+
+  // After a restart: we already asked
+  let chat = [line("BOT botty", "!help for commands"),
+              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap()),
+              line("schnecken_bot", ASK_OPPONENT_EVAL)];
+  let mut events = GameEvents::default();
+  events.restore_from_chat(&chat, "schnecken_bot");
+  assert!(!events.should_ask_opponent_eval(&EvalEvent::AnnounceMate(2)));
+}
+
+#[test]
 fn test_mark_ongoing_game() {
   let mut events = GameEvents::default();
   events.mark_ongoing_game();

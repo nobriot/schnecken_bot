@@ -242,6 +242,12 @@ impl Game {
 
   /// Handles chat commands (`/eval`, `/quiet`, `/chatty`)
   async fn on_chat_message(&mut self, message: lichess::types::ChatMessage) {
+    if message.room == lichess::types::ChatRoom::Player
+       && events::display_name(&message.username).eq_ignore_ascii_case(&self.opponent_name)
+    {
+      self.events.on_opponent_message(&message.text);
+    }
+
     let Some(command) = events::parse_chat_command(&message.text) else {
       return;
     };
@@ -384,6 +390,11 @@ impl Game {
          && !self.events.is_quiet()
       {
         self.say(&message).await;
+        // Opponent bots with chat commands: ask what they think of it
+        if self.opponent_is_bot && self.events.should_ask_opponent_eval(&event) {
+          info!("Asking the opponent for its eval in game {}", self.id);
+          self.api.write_in_chat(&self.id, events::ASK_OPPONENT_EVAL).await;
+        }
       }
       if event == EvalEvent::Resign {
         if events::is_forced_mate_in_one_against(&self.engine.position.board) {
