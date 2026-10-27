@@ -384,9 +384,10 @@ impl BotState {
   }
 
   async fn send_challenges_with_interval(self: BotStateRef, interval: u64) {
-    // Start streaming incoming events again if it stopped
     loop {
-      tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+      // Don't try too agressively to send challenges, if it did not work.
+      // (opponent refused, or we're rate limited)
+      tokio::time::sleep(tokio::time::Duration::from_secs(interval / 4)).await;
 
       if !self.games.is_empty() {
         let mut last_game = self.last_game.lock().unwrap();
