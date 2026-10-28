@@ -28,6 +28,8 @@ const ONLINE_BOTS_TO_FETCH: usize = 200;
 const RATE_LIMIT_QUIET_PERIOD: Duration = Duration::from_secs(30 * 60);
 /// Maximum time we wait for Lichess to accept a berserk before starting a game
 const BERSERK_TIMEOUT: Duration = Duration::from_secs(3);
+/// If other bots are much stronger than us with this margin, we don't play them
+const MAX_BOT_RATING_OFFSET: usize = 600;
 
 // -----------------------------------------------------------------------------
 // Types
@@ -533,6 +535,20 @@ impl BotState {
             challenge.challenger);
       tokio::spawn(async move {
         self.api.decline_challenge(&challenge.id, lichess::types::DECLINE_RATED).await
+      });
+      return;
+    }
+
+    // If the bot is too strong, we don't play it either
+    if !challenge.rated
+       && challenge.challenger.title.is_some()
+       && challenge.challenger.title.as_ref().unwrap() == "BOT"
+       && challenge.challenger.rating > challenge.destination_user.rating + MAX_BOT_RATING_OFFSET
+    {
+      info!("Ignoring challenge from bot {:?}. They are too strong {} and our rating is {}.",
+            challenge.challenger, challenge.challenger.rating, challenge.destination_user.rating);
+      tokio::spawn(async move {
+        self.api.decline_challenge(&challenge.id, lichess::types::DECLINE_GENERIC).await
       });
       return;
     }

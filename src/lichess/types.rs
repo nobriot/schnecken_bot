@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 // Reasons for declining a challenge
-// pub const DECLINE_GENERIC: &str = "generic";
+pub const DECLINE_GENERIC: &str = "generic";
 // pub const DECLINE_TOO_FAST: &str = "tooFast";
 // pub const DECLINE_TOO_SLOW: &str = "tooSlow";
 // pub const DECLINE_STANDARD: &str = "standard";
