@@ -9,7 +9,7 @@ fn test_messages() {
   assert_eq!("thibault", display_name("thibault"));
   assert!(greeting("maia1").starts_with("Hello maia1, I am schnecken_bot v"));
   assert_eq!("Woo-hoo, mate around the corner (#3, move 23)", mate_announcement(3, 23));
-  assert_eq!("I will search 4 plies deep. Type /max-depth N (1-20) to change it",
+  assert_eq!("I will search 4 plies deep. Type max-depth N (1-20) to change it",
              depth_announcement(4));
   // Lichess chat messages are limited to 140 characters
   assert!(depth_announcement(20).len() <= 140);
@@ -186,13 +186,15 @@ fn test_parse_chat_command() {
   assert_eq!(Some(ChatCommand::Quiet), parse_chat_command("/quiet"));
   assert_eq!(Some(ChatCommand::Chatty), parse_chat_command("/chatty"));
   assert_eq!(Some(ChatCommand::Chatty), parse_chat_command("/Chatty again"));
+  assert_eq!(Some(ChatCommand::MaxDepth(Some(5))), parse_chat_command("max-depth 5"));
   assert_eq!(Some(ChatCommand::MaxDepth(Some(5))), parse_chat_command("/max-depth 5"));
+  assert_eq!(None, parse_chat_command("what max-depth 5"));
   assert_eq!(Some(ChatCommand::MaxDepth(Some(20))),
              parse_chat_command("/MAX-DEPTH 20 please"));
-  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("/max-depth"));
-  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("/max-depth 0"));
-  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("/max-depth 21"));
-  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("/max-depth deep"));
+  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth"));
+  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth 0"));
+  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth 21"));
+  assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth deep"));
   assert_eq!(None, parse_chat_command("eval"));
   assert_eq!(None, parse_chat_command("what is the /eval?"));
   assert_eq!(None, parse_chat_command("/evaluate"));
@@ -202,36 +204,36 @@ fn test_parse_chat_command() {
 #[test]
 fn test_parse_max_depth_tricky_input() {
   // Anything that is not a plain number between 1 and 20 is rejected
-  let rejected = ["/max-depth -1",
-                  "/max-depth -0",
-                  "/max-depth 5.5",
-                  "/max-depth 1e3",
-                  "/max-depth 0x10",
-                  "/max-depth 5abc",
-                  "/max-depth ５",
-                  "/max-depth ٥",
-                  "/max-depth 18446744073709551615",
-                  "/max-depth 18446744073709551616",
-                  "/max-depth 99999999999999999999999999999999999999999",
-                  "/max-depth NaN",
-                  "/max-depth inf",
-                  "/max-depth \u{0}",
-                  "/max-depth ; /quiet",
-                  "/max-depth <script>alert(1)</script>",
-                  "/max-depth %s%n",
-                  "/max-depth\t\n"];
+  let rejected = ["max-depth -1",
+                  "max-depth -0",
+                  "max-depth 5.5",
+                  "max-depth 1e3",
+                  "max-depth 0x10",
+                  "max-depth 5abc",
+                  "max-depth ５",
+                  "max-depth ٥",
+                  "max-depth 18446744073709551615",
+                  "max-depth 18446744073709551616",
+                  "max-depth 99999999999999999999999999999999999999999",
+                  "max-depth NaN",
+                  "max-depth inf",
+                  "max-depth \u{0}",
+                  "max-depth ; /quiet",
+                  "max-depth <script>alert(1)</script>",
+                  "max-depth %s%n",
+                  "max-depth\t\n"];
   for text in rejected {
     assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command(text), "{text:?}");
   }
 
   // Leading zeros and a + sign are just the number, extra words are ignored
-  assert_eq!(Some(ChatCommand::MaxDepth(Some(7))), parse_chat_command("/max-depth 007"));
-  assert_eq!(Some(ChatCommand::MaxDepth(Some(7))), parse_chat_command("/max-depth +7"));
-  assert_eq!(Some(ChatCommand::MaxDepth(Some(1))), parse_chat_command("/max-depth 1 2 3"));
-  assert_eq!(Some(ChatCommand::MaxDepth(Some(3))), parse_chat_command("\t/max-depth\u{a0}3"));
+  assert_eq!(Some(ChatCommand::MaxDepth(Some(7))), parse_chat_command("max-depth 007"));
+  assert_eq!(Some(ChatCommand::MaxDepth(Some(7))), parse_chat_command("max-depth +7"));
+  assert_eq!(Some(ChatCommand::MaxDepth(Some(1))), parse_chat_command("max-depth 1 2 3"));
+  assert_eq!(Some(ChatCommand::MaxDepth(Some(3))), parse_chat_command("\tmax-depth\u{a0}3"));
 
   // Long garbage does not crash
-  let long = format!("/max-depth {}", "9".repeat(100_000));
+  let long = format!("max-depth {}", "9".repeat(100_000));
   assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command(&long));
 }
 
@@ -362,15 +364,15 @@ fn test_restore_from_chat_state() {
 
   // The last valid depth the opponent asked for is kept
   let chat = [line("schnecken_bot", &depth_announcement(4)),
-              line("oli567", "/max-depth 6"),
-              line("oli567", "/max-depth 8"),
-              line("oli567", "/max-depth 99")];
+              line("oli567", "max-depth 6"),
+              line("oli567", "max-depth 8"),
+              line("oli567", "max-depth 99")];
   let mut events = GameEvents::default();
   events.restore_from_chat(&chat, "schnecken_bot");
   assert_eq!(Some(8), events.requested_max_depth());
 
   let mut events = GameEvents::default();
-  events.restore_from_chat(&[line("schnecken_bot", "/max-depth 6")], "schnecken_bot");
+  events.restore_from_chat(&[line("schnecken_bot", "max-depth 6")], "schnecken_bot");
   assert_eq!(None, events.requested_max_depth());
 }
 

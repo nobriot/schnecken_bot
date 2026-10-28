@@ -42,7 +42,7 @@ pub struct Game {
   /// We already played a move when the game was started (Lichess `hasMoved`),
   /// i.e. we are joining an ongoing game
   we_have_moved:    bool,
-  /// The opponent can change the search depth with `/max-depth` (casual game
+  /// The opponent can change the search depth with `max-depth` (casual game
   /// against a human)
   depth_adjustable: bool,
 }
@@ -254,7 +254,7 @@ impl Game {
     }
   }
 
-  /// Handles chat commands (`/eval`, `/quiet`, `/chatty`, `/max-depth`)
+  /// Handles chat commands (`/eval`, `/quiet`, `/chatty`, `max-depth`)
   async fn on_chat_message(&mut self, message: lichess::types::ChatMessage) {
     if message.room == lichess::types::ChatRoom::Player
        && events::display_name(&message.username).eq_ignore_ascii_case(&self.opponent_name)
