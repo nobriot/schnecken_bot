@@ -31,16 +31,16 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
   // are human
   if !game.rated && !game.opponent_is_bot() && game.opponent.title.is_none() {
     if game.opponent.rating < 1300 {
-      engine.options.max_depth = 2;
-      engine.options.play_style = PlayStyle::Provocative;
-    } else if game.opponent.rating < 1500 {
       engine.options.max_depth = 3;
       engine.options.play_style = PlayStyle::Provocative;
-    } else if game.opponent.rating < 1700 {
+    } else if game.opponent.rating < 1500 {
       engine.options.max_depth = 4;
       engine.options.play_style = PlayStyle::Provocative;
-    } else if game.opponent.rating < 1800 {
+    } else if game.opponent.rating < 1700 {
       engine.options.max_depth = 5;
+      engine.options.play_style = PlayStyle::Provocative;
+    } else if game.opponent.rating < 1800 {
+      engine.options.max_depth = 6;
       engine.options.play_style = PlayStyle::Provocative;
     } else if game.opponent.rating < 1900 {
       engine.options.max_depth = 6;
