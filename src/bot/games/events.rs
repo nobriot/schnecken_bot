@@ -49,6 +49,23 @@ pub fn greeting(opponent_name: &str) -> String {
   format!("Hello {opponent_name}, I am {BOT_NAME} v{BOT_VERSION}")
 }
 
+/// Highest depth that can be requested with `/max-depth` (the engine default)
+pub const MAX_REQUESTED_DEPTH: usize = 20;
+pub static MAX_DEPTH_USAGE: &str = "Usage: /max-depth N, with N between 1 and 20";
+pub static MAX_DEPTH_NOT_ADJUSTABLE: &str =
+  "Sorry, the depth can only be changed in casual games against humans";
+
+/// Tells how deep we search in this game, and how to change it
+pub fn depth_announcement(max_depth: usize) -> String {
+  format!("I will search {max_depth} plies deep. Type /max-depth N (1-{MAX_REQUESTED_DEPTH}) \
+           to change it")
+}
+
+/// Answer to a successful `/max-depth` command
+pub fn max_depth_set(max_depth: usize) -> String {
+  format!("Okay, I will now search {max_depth} plies deep")
+}
+
 /// Message when we found a forced mate
 pub fn mate_announcement(moves: u32, move_number: usize) -> String {
   format!("{MATE_ANNOUNCEMENT} (#{moves}, move {move_number})")
@@ -106,6 +123,9 @@ pub enum ChatCommand {
   Quiet,
   /// `/chatty`: comment the game again (opposite of `/quiet`)
   Chatty,
+  /// `/max-depth N`: change the search depth (casual games against humans).
+  /// None if N is missing or out of range.
+  MaxDepth(Option<usize>),
 }
 
 /// Lichess accounts of the bot owners: they can use all the chat commands
@@ -113,8 +133,8 @@ pub enum ChatCommand {
 pub const BOT_OWNERS: &[&str] = &["schnellschnecke"];
 
 /// Checks if a chat user can turn the commentary on/off (`/quiet`,
-/// `/chatty`): the opponent (player chat) or a bot owner (any room). Other
-/// spectators cannot.
+/// `/chatty`) or change the depth (`/max-depth`): the opponent (player chat) or
+/// a bot owner (any room). Other spectators cannot.
 ///
 /// ### Arguments
 ///
@@ -127,11 +147,18 @@ pub fn can_toggle_commentary(room: &ChatRoom, username: &str) -> bool {
 
 /// Parses a chat line into a command, if it is one
 pub fn parse_chat_command(text: &str) -> Option<ChatCommand> {
-  let command = text.split_whitespace().next()?.to_lowercase();
+  let mut words = text.split_whitespace();
+  let command = words.next()?.to_lowercase();
   match command.as_str() {
     "/eval" => Some(ChatCommand::Eval),
     "/quiet" => Some(ChatCommand::Quiet),
     "/chatty" => Some(ChatCommand::Chatty),
+    "/max-depth" => {
+      let depth = words.next()
+                       .and_then(|word| word.parse::<usize>().ok())
+                       .filter(|depth| (1..=MAX_REQUESTED_DEPTH).contains(depth));
+      Some(ChatCommand::MaxDepth(depth))
+    },
     _ => None,
   }
 }
@@ -200,6 +227,9 @@ pub struct GameEvents {
   opponent_help:  bool,
   /// We already asked the opponent for its eval (`!eval`)
   opponent_eval:  bool,
+  /// Last valid depth the opponent asked for with `/max-depth`, found in the
+  /// chat history when rejoining a game
+  max_depth:      Option<usize>,
 }
 
 impl GameEvents {
@@ -258,6 +288,7 @@ impl GameEvents {
         match parse_chat_command(&line.text) {
           Some(ChatCommand::Quiet) => self.quiet = true,
           Some(ChatCommand::Chatty) => self.quiet = false,
+          Some(ChatCommand::MaxDepth(Some(depth))) => self.max_depth = Some(depth),
           _ => {},
         }
       }
@@ -325,6 +356,12 @@ impl GameEvents {
   /// acknowledge it only when something changes.
   pub fn set_chatty(&mut self) -> bool {
     std::mem::replace(&mut self.quiet, false)
+  }
+
+  /// Depth the opponent asked for with `/max-depth` before we rejoined the
+  /// game, if any
+  pub fn requested_max_depth(&self) -> Option<usize> {
+    self.max_depth
   }
 
   /// True if we were asked to stop commenting

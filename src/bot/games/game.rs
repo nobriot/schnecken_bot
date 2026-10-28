@@ -1,4 +1,4 @@
-use super::engine::configure_engine;
+use super::engine::{configure_engine, is_depth_adjustable};
 use super::events::{self, ChatCommand, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
@@ -19,29 +19,32 @@ static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
   /// game
-  rx:              mpsc::Receiver<GameMessage>,
+  rx:               mpsc::Receiver<GameMessage>,
   /// Lichess API instance to interact with the server
-  api:             LichessApi,
+  api:              LichessApi,
   /// Start FEN
   #[allow(dead_code)]
-  _start_fen:      String,
+  _start_fen:       String,
   /// Short Lichess Game ID, used in URLs
-  id:              String,
+  id:               String,
   /// Color played by the bot in the ongoing game
-  color:           lichess::types::Color,
+  color:            lichess::types::Color,
   // Chess engine instance used to analyze the game
-  engine:          Engine,
+  engine:           Engine,
   /// Opponent name, used in chat messages
-  opponent_name:   String,
+  opponent_name:    String,
   /// True if the opponent is a bot
-  opponent_is_bot: bool,
+  opponent_is_bot:  bool,
   /// What already happened during the game
-  events:          GameEvents,
+  events:           GameEvents,
   /// Our Lichess username, to recognize our messages in the chat
-  bot_username:    String,
+  bot_username:     String,
   /// We already played a move when the game was started (Lichess `hasMoved`),
   /// i.e. we are joining an ongoing game
-  we_have_moved:   bool,
+  we_have_moved:    bool,
+  /// The opponent can change the search depth with `/max-depth` (casual game
+  /// against a human)
+  depth_adjustable: bool,
 }
 
 impl Game {
@@ -64,6 +67,7 @@ impl Game {
     let opponent_name = events::display_name(&game.opponent.username).to_string();
     let opponent_is_bot = game.opponent_is_bot();
     let we_have_moved = game.has_moved;
+    let depth_adjustable = is_depth_adjustable(&game);
 
     let mut bot_game: Game = Game { rx,
                                     api: api.clone(),
@@ -76,7 +80,8 @@ impl Game {
                                     opponent_is_bot,
                                     events: GameEvents::default(),
                                     bot_username: bot_username.to_string(),
-                                    we_have_moved };
+                                    we_have_moved,
+                                    depth_adjustable };
 
     // Start the game loop
     // Spawn blocking as calculating chess moves is CPU intense and would block
@@ -122,9 +127,18 @@ impl Game {
 
     if already_talked {
       info!("Rejoining ongoing game {}, not greeting again", self.id);
+      // Keep the depth the opponent asked for before we restarted
+      if self.depth_adjustable
+         && let Some(depth) = self.events.requested_max_depth()
+      {
+        self.engine.options.max_depth = depth;
+      }
       return;
     }
     self.say(&events::greeting(&self.opponent_name)).await;
+    if self.depth_adjustable {
+      self.say(&events::depth_announcement(self.engine.options.max_depth)).await;
+    }
   }
 
   /// Says goodbye depending on the result, only once per game
@@ -240,7 +254,7 @@ impl Game {
     }
   }
 
-  /// Handles chat commands (`/eval`, `/quiet`, `/chatty`)
+  /// Handles chat commands (`/eval`, `/quiet`, `/chatty`, `/max-depth`)
   async fn on_chat_message(&mut self, message: lichess::types::ChatMessage) {
     if message.room == lichess::types::ChatRoom::Player
        && events::display_name(&message.username).eq_ignore_ascii_case(&self.opponent_name)
@@ -254,7 +268,7 @@ impl Game {
 
     // Turning the commentary on/off is for the opponent and the bot owners,
     // not for any spectator
-    if matches!(command, ChatCommand::Quiet | ChatCommand::Chatty)
+    if matches!(command, ChatCommand::Quiet | ChatCommand::Chatty | ChatCommand::MaxDepth(_))
        && !events::can_toggle_commentary(&message.room, &message.username)
     {
       info!("Ignoring {command:?} from spectator {} in game {}", message.username, self.id);
@@ -268,6 +282,14 @@ impl Game {
       ChatCommand::Chatty => {
         self.events.set_chatty().then(|| events::CHATTY_ACKNOWLEDGED.to_string())
       },
+      ChatCommand::MaxDepth(_) if !self.depth_adjustable => {
+        Some(events::MAX_DEPTH_NOT_ADJUSTABLE.to_string())
+      },
+      ChatCommand::MaxDepth(Some(depth)) => {
+        self.engine.options.max_depth = depth;
+        Some(events::max_depth_set(depth))
+      },
+      ChatCommand::MaxDepth(None) => Some(events::MAX_DEPTH_USAGE.to_string()),
     };
     info!("{} sent {command:?} in game {}", message.username, self.id);
     if let Some(answer) = answer {

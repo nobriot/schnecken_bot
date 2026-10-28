@@ -5,6 +5,12 @@ use lichess;
 use lichess::types::GameStart;
 use log::*;
 
+/// Checks if the engine level is adjusted for this game, and can be changed by
+/// the opponent with `/max-depth`: casual games against untitled humans.
+pub fn is_depth_adjustable(game: &GameStart) -> bool {
+  !game.rated && !game.opponent_is_bot() && game.opponent.title.is_none()
+}
+
 /// Looks at the game data (which kind of opponent, time control, start
 /// position) and configures the engine accordingly.
 pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) -> Engine {
@@ -29,7 +35,7 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
 
   // Adjust the level of difficulty based on the rating of the opponent, if they
   // are human
-  if !game.rated && !game.opponent_is_bot() && game.opponent.title.is_none() {
+  if is_depth_adjustable(game) {
     if game.opponent.rating < 1300 {
       engine.options.max_depth = 3;
       engine.options.play_style = PlayStyle::Provocative;
