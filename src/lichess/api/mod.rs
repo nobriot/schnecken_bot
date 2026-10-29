@@ -361,6 +361,8 @@ impl LichessApi {
       return Err(LichessError);
     }
 
+    let mut nd_json_buffer = helpers::NdJsonBuffer::default();
+
     let mut stream = response_result.unwrap().bytes_stream();
     while let Some(chunk_response) = stream.next().await {
       match chunk_response {
@@ -369,8 +371,7 @@ impl LichessApi {
           return Err(LichessError);
         },
         Ok(chunk) => {
-          let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-          let json_entries = helpers::parse_string_to_nd_json(&string_value);
+          let json_entries = nd_json_buffer.push(&chunk);
 
           for json_entry in json_entries {
             handler.event_stream_handler(json_entry);
@@ -398,6 +399,8 @@ impl LichessApi {
       return Err(LichessError);
     }
 
+    let mut nd_json_buffer = helpers::NdJsonBuffer::default();
+
     let mut stream = response_result.unwrap().bytes_stream();
     while let Some(chunk_response) = stream.next().await {
       match chunk_response {
@@ -406,8 +409,7 @@ impl LichessApi {
           return Err(LichessError);
         },
         Ok(chunk) => {
-          let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-          let json_entries = helpers::parse_string_to_nd_json(&string_value);
+          let json_entries = nd_json_buffer.push(&chunk);
 
           for json_entry in json_entries {
             callback(handler, json_entry);
@@ -450,6 +452,8 @@ impl LichessApi {
       return Err(LichessError);
     }
 
+    let mut nd_json_buffer = helpers::NdJsonBuffer::default();
+
     let mut stream = response_result.unwrap().bytes_stream();
     while let Some(chunk_response) = stream.next().await {
       match chunk_response {
@@ -458,8 +462,7 @@ impl LichessApi {
           return Err(LichessError);
         },
         Ok(chunk) => {
-          let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-          let json_entries = helpers::parse_string_to_nd_json(&string_value);
+          let json_entries = nd_json_buffer.push(&chunk);
 
           for json_entry in json_entries {
             handler.game_stream_handler(json_entry, String::from(game_id));
@@ -503,6 +506,8 @@ impl LichessApi {
       return Err(LichessError);
     }
 
+    let mut nd_json_buffer = helpers::NdJsonBuffer::default();
+
     let mut stream = response_result.unwrap().bytes_stream();
     while let Some(chunk_response) = stream.next().await {
       match chunk_response {
@@ -511,8 +516,7 @@ impl LichessApi {
           return Err(LichessError);
         },
         Ok(chunk) => {
-          let string_value: String = String::from_utf8_lossy(&chunk).to_string();
-          let json_entries = helpers::parse_string_to_nd_json(&string_value);
+          let json_entries = nd_json_buffer.push(&chunk);
 
           for json_entry in json_entries {
             callback(handler, json_entry, String::from(game_id));
