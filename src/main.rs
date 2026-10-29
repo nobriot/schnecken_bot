@@ -9,16 +9,13 @@ use tokio::time::{Duration, sleep};
 mod args;
 mod bot;
 mod config;
+mod logger;
+mod tee_writer;
 
 // Main function
 fn main() {
-  // use env_logger::Env;
-  env_logger::Builder::new().filter_level(LevelFilter::Info)
-                            .parse_default_env()
-                            .format_timestamp_millis()
-                            .init();
-
   let cli = args::Args::parse();
+  logger::init_logger(cli.log_file.as_deref());
   let api_token = match config::resolve_token(cli.api_token) {
     Ok(token) => token,
     Err(e) => {

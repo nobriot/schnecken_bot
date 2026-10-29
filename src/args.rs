@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "schnecken_bot", about = "Lichess bot with integrated engine")]
@@ -14,4 +15,8 @@ pub struct Args {
   /// Engine play style: normal, conservative, aggressive, provocative
   #[arg(long = "play-style")]
   pub play_style: Option<String>,
+
+  /// Also append the logs to this file
+  #[arg(long = "log-file")]
+  pub log_file: Option<PathBuf>,
 }
