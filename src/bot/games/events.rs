@@ -150,9 +150,9 @@ pub fn parse_chat_command(text: &str) -> Option<ChatCommand> {
   let mut words = text.split_whitespace();
   let command = words.next()?.to_lowercase();
   match command.as_str() {
-    "/eval" => Some(ChatCommand::Eval),
-    "/quiet" => Some(ChatCommand::Quiet),
-    "/chatty" => Some(ChatCommand::Chatty),
+    "/eval" | "eval" => Some(ChatCommand::Eval),
+    "/quiet" | "quiet" => Some(ChatCommand::Quiet),
+    "/chatty" | "chatty" => Some(ChatCommand::Chatty),
     // Lichess filters chat messages starting with a "/", so no "/" here, but we
     // still accept it in case it gets through
     "max-depth" | "/max-depth" => {
