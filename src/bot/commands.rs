@@ -1,4 +1,6 @@
 use crate::bot::state::BotStateRef;
+use crate::logger;
+use log::*;
 
 // Constants
 const EXIT_COMMAND: &str = "exit";
@@ -7,6 +9,7 @@ const Q_COMMAND: &str = "q";
 const HELP_COMMAND: &str = "help";
 const PLAY_COMMAND: &str = "play";
 const P_COMMAND: &str = "p";
+const LOG_COMMAND: &str = "log";
 const EMPTY_COMMAND: &str = "";
 
 // -----------------------------------------------------------------------------
@@ -30,7 +33,21 @@ fn print_help() {
   println!("{} - Exits the program - keep ongoing games alive", EXIT_COMMAND);
   println!("{} or {} - Exits the program - Aborts/resigns ongoing games",
            QUIT_COMMAND, Q_COMMAND);
+  println!("{} <level> - Sets the log level: off, error, warn, info, debug, trace",
+           LOG_COMMAND);
   println!("{} - Displays the help", HELP_COMMAND);
+}
+
+fn set_log_level(level: &str) {
+  match level.parse::<LevelFilter>() {
+    Ok(level) => {
+      logger::set_log_level(level);
+      println!("Log level set to {level}");
+    },
+    Err(_) => {
+      println!("Unknown log level '{level}', use one of: off, error, warn, info, debug, trace")
+    },
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -50,7 +67,10 @@ impl BotCommands for BotStateRef {
       },
       HELP_COMMAND => print_help(),
       EMPTY_COMMAND => {},
-      _ => print_help(),
+      input => match input.split_once(' ') {
+        Some((LOG_COMMAND, level)) => set_log_level(level.trim()),
+        _ => print_help(),
+      },
     }
   }
 }

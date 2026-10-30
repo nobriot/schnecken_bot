@@ -82,6 +82,7 @@ While running, the bot reads commands from the terminal:
 - `play` or `p` - challenge a bot we follow (or a new bot with a similar rating)
 - `exit` - exit the program, keeping ongoing games alive
 - `quit` or `q` - exit the program, aborting/resigning ongoing games
+- `log <level>` - change the log level (off, error, warn, info, debug, trace)
 - `help` - display the help
 
 ## What the bot does on its own
