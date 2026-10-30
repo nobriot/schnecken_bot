@@ -98,8 +98,7 @@ impl LayerCache {
   /// ### Arguments
   ///
   /// * `layer_size`: Number of nodes in the layer for the current cache
-  /// * `previous_layer_size`: Number of nodes in the previous layer for the
-  ///   current cache
+  /// * `previous_layer_size`: Number of nodes in the previous layer for the current cache
   fn new(layer_size: usize, previous_layer_size: usize) -> Self {
     Self { Z:   Array2::zeros((layer_size, previous_layer_size)),
            A:   Array2::zeros((layer_size, previous_layer_size)),

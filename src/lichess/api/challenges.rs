@@ -58,8 +58,7 @@ impl LichessApi {
   /// ### Parameters
   ///
   /// * `player`: Username of the player to challenge
-  /// * `clock`:  Clock settings (set clock.initial for time, and
-  ///   clock.increment for the increment)
+  /// * `clock`:  Clock settings (set clock.initial for time, and clock.increment for the increment)
   ///
   /// ### Returns
   ///

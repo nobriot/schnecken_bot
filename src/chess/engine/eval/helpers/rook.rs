@@ -56,8 +56,7 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
 /// Checks skewers / forks with the rook
 ///
 /// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state`: A GameState object representing a position, side to play, etc.
 /// * `i`         : Index of the square on the board
 ///
 /// ### Returns

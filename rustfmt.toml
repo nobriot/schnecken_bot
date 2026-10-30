@@ -9,6 +9,7 @@ struct_variant_width = 40
 struct_field_align_threshold = 30
 
 wrap_comments = true
+comment_width = 100
 tab_spaces = 2
 group_imports = "One"
 reorder_impl_items = true

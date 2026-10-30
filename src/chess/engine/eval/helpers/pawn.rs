@@ -19,8 +19,7 @@ enum PawnTrackingState {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
@@ -64,8 +63,7 @@ pub fn can_become_protected(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine backwards pawns
 ///
 /// ### Return value
@@ -128,10 +126,8 @@ pub fn get_backwards_pawns(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize {
   let pawns = match color {
     Color::White => game_state.board.pieces.white.pawn,
@@ -158,8 +154,7 @@ pub fn get_number_of_pawn_islands(game_state: &GameState, color: Color) -> usize
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
@@ -206,8 +201,7 @@ pub fn is_protected(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board
 /// * `color` -      Color to check for pawns
 ///
@@ -253,8 +247,7 @@ pub fn is_square_protected_by_pawn(game_state: &GameState, index: u8, color: Col
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board where the pawn is located
 ///
 /// # Return value
@@ -275,10 +268,8 @@ pub fn is_passed(game_state: &GameState, index: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -302,10 +293,8 @@ pub fn get_number_of_passers(game_state: &GameState, color: Color) -> usize {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_passed_pawns(game_state: &GameState, color: Color) -> BoardMask {
   // Same side pawn
   let mut pawns = match color {
@@ -330,10 +319,8 @@ pub fn get_passed_pawns(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -359,10 +346,8 @@ pub fn get_number_of_protected_passers(game_state: &GameState, color: Color) -> 
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> usize {
   // Same side pawn
   let mut pawns = match color {
@@ -387,10 +372,8 @@ pub fn get_number_of_protected_pawns(game_state: &GameState, color: Color) -> us
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the closest pawn
-///   to promotion
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the closest pawn to promotion
 ///
 /// ### Return value
 ///
@@ -424,8 +407,7 @@ pub fn get_distance_left_for_closest_pawn_to_promotion(game_state: &GameState, c
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine holes
 ///
 /// ### Return value

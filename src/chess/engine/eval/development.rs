@@ -10,10 +10,8 @@ use crate::model::piece::*;
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine if development is
-///   completed.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_development_score(game_state: &GameState, color: Color) -> usize {
   let mut score: usize = 6;
 

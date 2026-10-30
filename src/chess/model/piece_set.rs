@@ -109,8 +109,7 @@ impl PieceMasks {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceMasks object where we're looking for a
-  ///   king
+  /// * `self`    Reference to the PieceMasks object where we're looking for a king
   ///
   /// ### Return value
   ///
@@ -398,8 +397,7 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object for which we are reading a
-  ///   square
+  /// * `self`    Reference to the PieceSet object for which we are reading a square
   /// * `square`  Square on which we would like to know what piece is on
   ///
   /// ### Return value
@@ -417,8 +415,7 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object for which we are reading a
-  ///   square
+  /// * `self`    Reference to the PieceSet object for which we are reading a square
   /// * `square`  Square on which we would like to know what piece is on
   ///
   /// ### Return value
@@ -514,8 +511,7 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we are looking for
-  ///   pieces
+  /// * `self`    Reference to the PieceSet object where we are looking for pieces
   /// * `color`   Color of the piece set we are looking for
   ///
   /// ### Return value
@@ -533,8 +529,7 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we're looking for a
-  ///   king
+  /// * `self`    Reference to the PieceSet object where we're looking for a king
   /// * `square`  Square on which we want to check if there is a piece
   ///
   /// ### Return value
@@ -549,8 +544,7 @@ impl PieceSet {
   ///
   /// ### Arguments
   ///
-  /// * `self`    Reference to the PieceSet object where we're looking for a
-  ///   king
+  /// * `self`    Reference to the PieceSet object where we're looking for a king
   /// * `square`  Square on which we want to check if there is a piece
   /// * `color`   Color of the piece set we are looking for
   ///

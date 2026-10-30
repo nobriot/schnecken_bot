@@ -59,8 +59,7 @@ impl BotGames {
   ///
   /// # Arguments
   ///
-  /// * `game` - A `lichess::types::GameStart` instance representing the game to
-  ///   be added.
+  /// * `game` - A `lichess::types::GameStart` instance representing the game to be added.
   pub fn add(&self, game_handle: GameHandle) {
     let mut games = self.games.lock().unwrap();
     if games.len() >= NUMBER_OF_SIMULTANEOUS_GAMES {
@@ -84,8 +83,7 @@ impl BotGames {
   ///
   /// # Arguments
   ///
-  /// * `game_id` - A string slice representing the ID of the game to be
-  ///   removed.
+  /// * `game_id` - A string slice representing the ID of the game to be removed.
   pub fn remove(&self, game_id: &str) {
     let mut games = self.games.lock().unwrap();
     games.retain(|handle| handle.id != game_id);

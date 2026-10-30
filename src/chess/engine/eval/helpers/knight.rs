@@ -8,8 +8,7 @@ use crate::model::piece_moves::*;
 /// Computes the number of major / king pieces that a knight attacks.
 ///
 /// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state`: A GameState object representing a position, side to play, etc.
 /// * `i`         : Index of the square on the board
 ///
 /// ### Returns
@@ -59,8 +58,7 @@ pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
 /// Such knights are likely to be lost (e.g. a knight grabbing the a2 pawn).
 ///
 /// ### Argument
-/// * `game_state`: A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state`: A GameState object representing a position, side to play, etc.
 /// * `color`     : Color of the knights to look at
 ///
 /// ### Returns

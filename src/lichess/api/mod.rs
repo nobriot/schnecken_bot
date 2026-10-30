@@ -61,8 +61,7 @@ pub struct LichessApi {
 ///
 /// ### Arguments
 ///
-/// * `consecutive` Number of times we got rate limited in a row (1 for the
-///   first time)
+/// * `consecutive` Number of times we got rate limited in a row (1 for the first time)
 /// * `retry_after` Wait requested by Lichess, if any
 ///
 /// ### Returns
@@ -220,8 +219,7 @@ impl LichessApi {
   ///
   /// ### Arguments
   ///
-  /// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a
-  ///   Get to `https://lichess.org/api/account/playing`
+  /// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a Get to `https://lichess.org/api/account/playing`
   ///
   /// ### Returns
   ///
@@ -297,8 +295,7 @@ impl LichessApi {
   ///
   /// ### Arguments
   ///
-  /// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a
-  ///   Get to `https://lichess.org/api/account/playing`
+  /// * `api_endpoint` Endpoint for the API, e.g. `"account/playing"` to do a Get to `https://lichess.org/api/account/playing`
   /// * `body` for the POST message
   ///
   /// ### Returns
@@ -343,10 +340,8 @@ impl LichessApi {
   ///
   /// ### Arguments
   ///
-  /// * `object` Reference to the object invoking the stream handler (e.g. bot
-  ///   reference)
-  /// * `stream_handler` Function to invoke when data has been received on the
-  ///   stream
+  /// * `object` Reference to the object invoking the stream handler (e.g. bot reference)
+  /// * `stream_handler` Function to invoke when data has been received on the stream
   ///
   /// ### Returns
   ///
@@ -435,8 +430,7 @@ impl LichessApi {
   /// ### Arguments
   ///
   /// * `game_id` Game ID to stream
-  /// * `stream_handler` Function to invoke when data has been received on the
-  ///   stream
+  /// * `stream_handler` Function to invoke when data has been received on the stream
   ///
   /// ### Returns
   ///

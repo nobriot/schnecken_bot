@@ -50,8 +50,7 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
   let mut score: f32 = 0.0;
 

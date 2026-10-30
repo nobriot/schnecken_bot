@@ -149,10 +149,8 @@ pub const BLACK_KING_SHELTER_PAWNS: [u64; 64] = [0x0000000000000000,
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 ///
 /// # Returns
 ///
@@ -186,15 +184,14 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
 ///
 /// Units:
 /// * 1 per square around the king attacked by the opponent
-/// * 2 per file next to the king (or the king file) without our pawns, plus 2
-///   if an opponent rook or queen is sitting on that file
-/// * 2 per opponent pawn close to the king (pawn storm, or a pawn wedged next
-///   to the king like a pawn on f6 against a king on g8)
+/// * 2 per file next to the king (or the king file) without our pawns, plus 2 if an opponent rook
+///   or queen is sitting on that file
+/// * 2 per opponent pawn close to the king (pawn storm, or a pawn wedged next to the king like a
+///   pawn on f6 against a king on g8)
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color of the king for which we evaluate the danger
 ///
 /// ### Returns
@@ -246,10 +243,8 @@ pub fn get_king_attack_units(game_state: &GameState, color: Color) -> u32 {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 ///
 /// ### Returns
 ///
@@ -271,8 +266,7 @@ pub fn is_king_too_adventurous(game_state: &GameState, color: Color) -> bool {
 /// ### Arguments
 ///
 /// * `game_state` - Reference to a GameState
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `color` -      The color for which we want to determine the number of pawn islands
 ///
 /// ### Returns
 ///
@@ -293,8 +287,7 @@ pub fn get_king_pawns(game_state: &GameState, color: Color) -> BoardMask {
 /// ### Arguments
 ///
 /// * `game_state` - Reference to a GameState
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `color` -      The color for which we want to determine the number of pawn islands
 ///
 /// ### Returns
 ///
@@ -340,10 +333,8 @@ pub fn king_shelter_value(game_state: &GameState, color: Color) -> isize {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine the number of pawn
-///   islands
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine the number of pawn islands
 ///
 /// ### Returns
 ///

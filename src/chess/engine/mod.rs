@@ -336,8 +336,7 @@ impl Engine {
   /// ### Arguments
   ///
   /// * self : Engine reference
-  /// * capacity_mb : Size in MB to use for the engine cache tables (there are 2
-  ///   of them).
+  /// * capacity_mb : Size in MB to use for the engine cache tables (there are 2 of them).
   pub fn resize_cache_tables(&self, capacity_mb: usize) {
     self.cache.resize_tables(capacity_mb);
   }
@@ -379,8 +378,7 @@ impl Engine {
   ///
   /// ### Arguments
   ///
-  /// * `chess_move`: Notation of the chess move to apply on the current
-  ///   position
+  /// * `chess_move`: Notation of the chess move to apply on the current position
   pub fn apply_move(&mut self, chess_move: &str) {
     if self.is_active() {
       self.stop();
@@ -681,8 +679,7 @@ impl Engine {
   ///
   /// ### Arguments
   ///
-  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving
-  ///   a position
+  /// * `max_depth`: Maximum amount of time, in milliseconds, to spend resolving a position
   pub fn get_start_time(&self) -> Instant {
     *self.state.start_time.lock().unwrap()
   }

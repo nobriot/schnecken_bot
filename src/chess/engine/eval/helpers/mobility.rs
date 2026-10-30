@@ -9,8 +9,7 @@ use crate::model::tables::pawn_destinations::*;
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine piece mobility
 ///
 /// # Return value
@@ -51,8 +50,7 @@ pub fn get_mobility_area(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine piece mobility
 ///
 /// # Return value

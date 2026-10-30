@@ -20,8 +20,7 @@ const WARNING: &str = "\x1B[1m\x1B[93mWarning\x1B[0m";
 /// ### Arguments
 ///
 /// * `input_file`: &str indicating the path where we want to get the data from
-/// * `output_file`: &str indicating the path where we want to export the
-///   training set to.
+/// * `output_file`: &str indicating the path where we want to export the training set to.
 pub fn create_training_data_from_pgn_file(input_file: &str,
                                           output_file: &str)
                                           -> std::io::Result<()> {
@@ -127,8 +126,7 @@ pub fn create_training_data_from_pgn_file(input_file: &str,
 ///
 /// ### Arguments
 ///
-/// * `input_file`: &str indicating the path where we have a CSV formatted
-///   training set
+/// * `input_file`: &str indicating the path where we have a CSV formatted training set
 pub fn load_training_set_in_cache(input_file: &str) -> std::io::Result<Vec<(GameState, f32)>> {
   // Save the results in here:
   let mut cache: Vec<(GameState, f32)> = Vec::new();

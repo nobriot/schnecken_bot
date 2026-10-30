@@ -162,8 +162,7 @@ impl Piece {
   ///
   /// ### Arguments
   ///
-  /// * `piece_type`: PieceType value representing a piece, i.e. `WHITE_KING`,
-  ///   `WHITE_QUEEN`, etc.
+  /// * `piece_type`: PieceType value representing a piece, i.e. `WHITE_KING`, `WHITE_QUEEN`, etc.
   ///
   /// ### Return value
   ///

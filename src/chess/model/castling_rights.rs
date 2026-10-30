@@ -48,8 +48,7 @@ impl CastlingRights {
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is
-  ///   allowed, false otherwise
+  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_K(&mut self, right_value: bool) {
     if right_value {
@@ -73,8 +72,7 @@ impl CastlingRights {
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is
-  ///   allowed, false otherwise
+  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_Q(&mut self, right_value: bool) {
     if right_value {
@@ -103,8 +101,7 @@ impl CastlingRights {
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the white kingside castle right is
-  ///   allowed, false otherwise
+  /// * `right_value`: Set to true if the white kingside castle right is allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_k(&mut self, right_value: bool) {
     if right_value {
@@ -128,8 +125,7 @@ impl CastlingRights {
   ///
   /// ### Arguments
   ///
-  /// * `right_value`: Set to true if the black queenside castle right is
-  ///   allowed, false otherwise
+  /// * `right_value`: Set to true if the black queenside castle right is allowed, false otherwise
   #[allow(non_snake_case)]
   pub fn set_q(&mut self, right_value: bool) {
     if right_value {

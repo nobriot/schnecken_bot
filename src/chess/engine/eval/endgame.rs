@@ -63,10 +63,8 @@ pub fn get_square_table_endgame_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine if development is
-///   completed.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine if development is completed.
 pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
   if just_the_opponent_king_left(game_state) {
     return get_king_vs_queen_or_rook_score(game_state);
@@ -126,10 +124,8 @@ pub fn get_endgame_position_evaluation(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine if development is
-///   completed.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine if development is completed.
 #[inline]
 fn just_the_opponent_king_left(game_state: &GameState) -> bool {
   (game_state.board.pieces.black.all() == game_state.board.pieces.black.king)
@@ -165,10 +161,8 @@ pub fn one_minor_left(game_state: &GameState, color: Color) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
-/// * `color` -      The color for which we want to determine if development is
-///   completed.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
+/// * `color` -      The color for which we want to determine if development is completed.
 ///
 /// ### Return value
 ///

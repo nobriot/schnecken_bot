@@ -450,8 +450,7 @@ impl GameEvents {
   ///
   /// ### Arguments
   ///
-  /// * `eval_for_us`     - Best eval, from our point of view (positive is good
-  ///   for us)
+  /// * `eval_for_us`     - Best eval, from our point of view (positive is good for us)
   /// * `opponent_is_bot` - We only resign against bots
   ///
   /// ### Returns
@@ -517,8 +516,8 @@ pub const CLAIM_DRAW_MAX_EVAL: f32 = 0.5;
 ///
 /// ### Arguments
 ///
-/// * `last_eval_for_us` - Eval of our last search, from our point of view. If
-///   we do not know, we claim.
+/// * `last_eval_for_us` - Eval of our last search, from our point of view. If we do not know, we
+///   claim.
 pub fn should_claim_draw(last_eval_for_us: Option<f32>) -> bool {
   last_eval_for_us.is_none_or(|eval| eval.is_nan() || eval <= CLAIM_DRAW_MAX_EVAL)
 }

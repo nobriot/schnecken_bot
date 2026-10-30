@@ -29,8 +29,7 @@ const TRAPPED_KNIGHT_PENALTY: f32 = 1.5;
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 ///
 /// ### Returns
 ///
@@ -290,8 +289,7 @@ pub fn mate_distance_in_plies(eval: f32) -> Option<u32> {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to save the results
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 ///
 /// ### Returns
 ///
@@ -316,8 +314,7 @@ pub fn can_declare_draw(game_state: &GameState) -> GameStatus {
 /// ### Arguments
 ///
 /// * `board` -          Reference to a board position
-/// * `game_status` -    Return value from `is_game_over()` (to avoid to compute
-///   this again)
+/// * `game_status` -    Return value from `is_game_over()` (to avoid to compute this again)
 ///
 /// ### Returns
 ///
@@ -439,8 +436,7 @@ pub fn get_epic_mate(board: &Board) -> Option<EpicMate> {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to store calculations
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 ///
 /// ### Returns
 ///
@@ -458,8 +454,7 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
 /// ### Arguments
 ///
 /// * `cache` -      EngineCache to use to store calculations
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 ///
 /// ### Returns
 ///

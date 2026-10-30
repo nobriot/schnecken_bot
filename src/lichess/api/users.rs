@@ -93,8 +93,7 @@ impl LichessApi {
   ///
   /// * `user_id_1` First user to check
   /// * `user_id_2` Second user to check
-  /// * `matchup`:  Use data from the current match rather than all historical
-  ///   data.
+  /// * `matchup`:  Use data from the current match rather than all historical data.
   ///
   /// ### Returns
   ///

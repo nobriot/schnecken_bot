@@ -20,8 +20,7 @@ pub enum FileState {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the material score
 ///
 /// # Return value
@@ -61,8 +60,7 @@ pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
 /// # Arguments
 ///
 /// * `attacked_pieces`  - Number of pieces attacked by one of our pieces
-/// * `attacker_to_play` - True if the side owning the attacking piece is to
-///   play
+/// * `attacker_to_play` - True if the side owning the attacking piece is to play
 ///
 /// # Return value
 ///
@@ -81,8 +79,7 @@ pub fn threatened_victims(attacked_pieces: u32, attacker_to_play: bool) -> u32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      The color for which we want to determine the material score
 ///
 /// # Return value
@@ -106,8 +103,7 @@ pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 ///
 /// # Return value
 ///
@@ -143,8 +139,7 @@ pub fn get_combined_material_score(game_state: &GameState) -> f32 {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
@@ -161,8 +156,7 @@ pub fn is_file_open(game_state: &GameState, file: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
@@ -186,8 +180,7 @@ pub fn is_file_half_open(game_state: &GameState, file: u8) -> bool {
 ///
 /// # Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `file` -      File number (must be between 1 and 8)
 ///
 /// # Return value
@@ -209,8 +202,7 @@ pub fn get_file_state(game_state: &GameState, file: u8) -> FileState {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `color` -      Color for which we determine outposts
 ///
 /// ### Return value
@@ -246,8 +238,7 @@ pub fn get_outposts(game_state: &GameState, color: Color) -> BoardMask {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
@@ -284,8 +275,7 @@ pub fn has_reachable_outpost(game_state: &GameState, index: usize) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
@@ -309,8 +299,7 @@ pub fn occupies_reachable_outpost(game_state: &GameState, index: usize) -> bool 
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value
@@ -339,8 +328,7 @@ pub fn is_hanging(game_state: &GameState, index: u8) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `game_state` - A GameState object representing a position, side to play,
-///   etc.
+/// * `game_state` - A GameState object representing a position, side to play, etc.
 /// * `index` -      Index of the square on the board
 ///
 /// ### Return value

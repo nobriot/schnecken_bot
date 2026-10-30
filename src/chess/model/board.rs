@@ -209,8 +209,7 @@ impl Board {
   ///
   /// ### Arguments
   ///
-  /// * `self` -   A GameState object representing a position, side to play,
-  ///   etc.
+  /// * `self` -   A GameState object representing a position, side to play, etc.
   /// * `color` -  The color for which we want to determine the bitmap
   ///
   /// ### Return value
@@ -280,8 +279,7 @@ impl Board {
   ///
   /// ### Arguments
   ///
-  /// * `self` -           A Board object representing a position, side to play,
-  ///   etc.
+  /// * `self` -           A Board object representing a position, side to play, etc.
   /// * `target_square` -  Square for which we want to know the attackers
   ///
   /// ### Return value
@@ -348,8 +346,7 @@ impl Board {
   ///
   /// ### Arguments
   ///
-  /// * `self` -           A Board object representing a position, side to play,
-  ///   etc.
+  /// * `self` -           A Board object representing a position, side to play, etc.
   ///
   /// ### Return value
   ///
@@ -364,11 +361,9 @@ impl Board {
   ///
   /// ### Arguments
   ///
-  /// * `self` -           A Board object representing a position, side to play,
-  ///   etc.
+  /// * `self` -           A Board object representing a position, side to play, etc.
   /// * `source_square` -  Square for which we want to know the destinations
-  /// * `op` -             BoardSquare for which we want to know the
-  ///   destinations
+  /// * `op` -             BoardSquare for which we want to know the destinations
   ///
   /// ### Return value
   ///
@@ -428,10 +423,8 @@ impl Board {
   ///
   /// ### Arguments
   ///
-  /// * `self` -           A Board object representing a position, side to play,
-  ///   etc.
-  /// * `source_square` -  Square for which we want to know the controlled
-  ///   squares
+  /// * `self` -           A Board object representing a position, side to play, etc.
+  /// * `source_square` -  Square for which we want to know the controlled squares
   ///
   /// ### Return value
   ///

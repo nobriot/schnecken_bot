@@ -28,8 +28,7 @@ impl LichessApi {
   /// ### Arguments
   ///
   /// * `team_id` ID of the team, e.g. `"daily-bot-tournaments"`
-  /// * `status`  Only tournaments in this state: `"created"`, `"started"` or
-  ///   `"finished"`
+  /// * `status`  Only tournaments in this state: `"created"`, `"started"` or `"finished"`
   ///
   /// ### Returns
   ///
@@ -49,11 +48,11 @@ impl LichessApi {
   /// ### Arguments
   ///
   /// * `tournament_id` ID of the arena tournament
-  /// * `pair_me_asap`  If the tournament is started, asks Lichess to pair us
-  ///   even though we are not connected to the tournament page. This expires
-  ///   after one minute, so it has to be sent again regularly.
-  /// * `team`          Team we play for, required for team battles. We must be
-  ///   a member of that team.
+  /// * `pair_me_asap`  If the tournament is started, asks Lichess to pair us even though we are not
+  ///   connected to the tournament page. This expires after one minute, so it has to be sent again
+  ///   regularly.
+  /// * `team`          Team we play for, required for team battles. We must be a member of that
+  ///   team.
   ///
   /// ### Returns
   ///

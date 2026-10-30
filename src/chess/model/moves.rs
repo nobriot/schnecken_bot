@@ -50,8 +50,8 @@ pub const EN_PASSANT_SHIFT: move_t = 22;
 /// * `source`          Source square for the move : 0..63;
 /// * `destination`     Destination square for the move : 0..63;
 /// * `promotion`       Whether the move yields a promotion
-/// * `capture`         PieceType value to indicate if this is a capture on the
-///   board. Set to 0 (king) for no capture.
+/// * `capture`         PieceType value to indicate if this is a capture on the board. Set to 0
+///   (king) for no capture.
 /// * `checks`          2 bits values indicating the number of checks.
 ///
 /// ### Returns
