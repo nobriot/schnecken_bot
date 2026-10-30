@@ -540,9 +540,7 @@ impl BotState {
     }
 
     // If the bot is too strong, we don't play it either
-    if !challenge.rated
-       && challenge.challenger.title.is_some()
-       && challenge.challenger.title.as_ref().unwrap() == "BOT"
+    if challenge.challenger.title.as_deref() == Some("BOT")
        && challenge.challenger.rating > challenge.destination_user.rating + MAX_BOT_RATING_OFFSET
     {
       info!("Ignoring challenge from bot {:?}. They are too strong {} and our rating is {}.",
