@@ -32,33 +32,36 @@ pub fn get_bishop_victims(game_state: &GameState, color: Color) -> u32 {
 
   while bishops != 0 {
     let bishop = bishops.trailing_zeros() as u8;
-    let defenders = game_state.board.get_attackers(bishop, color);
-    let attackers = game_state.board.get_attackers(bishop, Color::opposite(color));
+    bishops &= bishops - 1;
 
-    // Check that the pawn cannot be taken out too easily before assigning a
-    // bonus for the bishop attack.
-    if attackers.count_ones() <= defenders.count_ones() {
-      let attacked_pieces = match color {
-        Color::White => {
-          let destinations =
-            get_bishop_destinations(game_state.board.pieces.white.all(), op, bishop as usize);
-          (destinations
-            & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
-            .count_few_ones()
-        },
-        Color::Black => {
-          let destinations =
-            get_bishop_destinations(game_state.board.pieces.black.all(), op, bishop as usize);
-          (destinations
-            & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
-            .count_few_ones()
-        },
-      };
-
-      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
+    let attacked_pieces = match color {
+      Color::White => {
+        let destinations =
+          get_bishop_destinations(game_state.board.pieces.white.all(), op, bishop as usize);
+        (destinations
+          & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
+          .count_few_ones()
+      },
+      Color::Black => {
+        let destinations =
+          get_bishop_destinations(game_state.board.pieces.black.all(), op, bishop as usize);
+        (destinations
+          & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
+          .count_few_ones()
+      },
+    };
+    // Most bishops attack nothing: skip the expensive attackers lookups.
+    if attacked_pieces == 0 {
+      continue;
     }
 
-    bishops &= bishops - 1;
+    // Check that the bishop cannot be taken out too easily before assigning a
+    // bonus for the bishop attack.
+    let defenders = game_state.board.get_attackers(bishop, color);
+    let attackers = game_state.board.get_attackers(bishop, Color::opposite(color));
+    if attackers.count_ones() <= defenders.count_ones() {
+      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
+    }
   }
 
   victims

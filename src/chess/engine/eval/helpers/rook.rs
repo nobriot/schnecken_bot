@@ -79,30 +79,34 @@ pub fn get_rook_victims(game_state: &GameState, color: Color) -> u32 {
   };
   while rooks != 0 {
     let rook = rooks.trailing_zeros() as u8;
+    rooks &= rooks - 1;
+
+    let attacked_pieces = match color {
+      Color::White => {
+        let destinations =
+          get_rook_destinations(game_state.board.pieces.white.all(), op, rook as usize);
+        (destinations
+          & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
+          .count_few_ones()
+      },
+      Color::Black => {
+        let destinations =
+          get_rook_destinations(game_state.board.pieces.black.all(), op, rook as usize);
+        (destinations
+          & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
+          .count_few_ones()
+      },
+    };
+    // Most rooks attack nothing: skip the expensive attackers lookups.
+    if attacked_pieces == 0 {
+      continue;
+    }
+
     let defenders = game_state.board.get_attackers(rook, color);
     let attackers = game_state.board.get_attackers(rook, Color::opposite(color));
-
     if attackers.count_ones() <= defenders.count_ones() {
-      let attacked_pieces = match color {
-        Color::White => {
-          let destinations =
-            get_rook_destinations(game_state.board.pieces.white.all(), op, rook as usize);
-          (destinations
-            & (game_state.board.pieces.black.majors() | game_state.board.pieces.black.king))
-            .count_few_ones()
-        },
-        Color::Black => {
-          let destinations =
-            get_rook_destinations(game_state.board.pieces.black.all(), op, rook as usize);
-          (destinations
-            & (game_state.board.pieces.white.majors() | game_state.board.pieces.white.king))
-            .count_few_ones()
-        },
-      };
-
       victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
     }
-    rooks &= rooks - 1;
   }
 
   victims

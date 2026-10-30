@@ -25,26 +25,29 @@ pub fn get_knight_victims(game_state: &GameState, color: Color) -> u32 {
   };
   while knights != 0 {
     let knight = knights.trailing_zeros() as u8;
-    let defenders = game_state.board.get_attackers(knight, color);
-    let attackers = game_state.board.get_attackers(knight, Color::opposite(color));
+    knights &= knights - 1;
 
-    // Check that the knight can be taken down too easily
-    if attackers.count_ones() <= defenders.count_ones() {
-      let attacked_pieces = match color {
-        Color::White => (KNIGHT_MOVES[knight as usize]
-                         & (game_state.board.pieces.black.majors()
-                            | game_state.board.pieces.black.king))
-                                                                  .count_few_ones(),
-        Color::Black => (KNIGHT_MOVES[knight as usize]
-                         & (game_state.board.pieces.white.majors()
-                            | game_state.board.pieces.white.king))
-                                                                  .count_few_ones(),
-      };
-
-      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
+    let attacked_pieces = match color {
+      Color::White => (KNIGHT_MOVES[knight as usize]
+                       & (game_state.board.pieces.black.majors()
+                          | game_state.board.pieces.black.king))
+                                                                .count_few_ones(),
+      Color::Black => (KNIGHT_MOVES[knight as usize]
+                       & (game_state.board.pieces.white.majors()
+                          | game_state.board.pieces.white.king))
+                                                                .count_few_ones(),
+    };
+    // Most knights attack nothing: skip the expensive attackers lookups.
+    if attacked_pieces == 0 {
+      continue;
     }
 
-    knights &= knights - 1;
+    // Check that the knight can be taken down too easily
+    let defenders = game_state.board.get_attackers(knight, color);
+    let attackers = game_state.board.get_attackers(knight, Color::opposite(color));
+    if attackers.count_ones() <= defenders.count_ones() {
+      victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
+    }
   }
 
   victims
@@ -78,17 +81,22 @@ pub fn get_trapped_knights(game_state: &GameState, color: Color) -> u32 {
   while knights != 0 {
     let knight = knights.trailing_zeros() as u8;
     let mut destinations = KNIGHT_MOVES[knight as usize] & !own_pieces;
-    let mut safe_squares = 0;
+    // We only need to know if there is at least one safe square, and the
+    // defenders are only needed when the attackers do not decide it already.
+    let mut has_safe_square = false;
     while destinations != 0 {
       let destination = destinations.trailing_zeros() as u8;
-      let attackers = board.get_attackers(destination, Color::opposite(color));
-      let defenders = board.get_attackers(destination, color) & !(1 << knight);
-      if attackers & enemy_pawns == 0 && (attackers == 0 || defenders != 0) {
-        safe_squares += 1;
-      }
       destinations &= destinations - 1;
+      let attackers = board.get_attackers(destination, Color::opposite(color));
+      if attackers & enemy_pawns != 0 {
+        continue;
+      }
+      if attackers == 0 || board.get_attackers(destination, color) & !(1 << knight) != 0 {
+        has_safe_square = true;
+        break;
+      }
     }
-    if safe_squares == 0 {
+    if !has_safe_square {
       trapped += 1;
     }
     knights &= knights - 1;

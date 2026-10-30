@@ -470,29 +470,32 @@ pub fn get_pawn_victims(game_state: &GameState, color: Color) -> u32 {
   };
   while pawns != 0 {
     let pawn = pawns.trailing_zeros() as u8;
-    let defenders = game_state.board.get_attackers(pawn, color);
-    let attackers = game_state.board.get_attackers(pawn, Color::opposite(color));
+    pawns &= pawns - 1;
+
+    let attacked_pieces = match color {
+      Color::White => (WHITE_PAWN_CONTROL[pawn as usize]
+                       & (game_state.board.pieces.black.majors()
+                          | game_state.board.pieces.black.minors()
+                          | game_state.board.pieces.black.king))
+                                                                .count_few_ones(),
+      Color::Black => (BLACK_PAWN_CONTROL[pawn as usize]
+                       & (game_state.board.pieces.white.majors()
+                          | game_state.board.pieces.white.minors()
+                          | game_state.board.pieces.white.king))
+                                                                .count_few_ones(),
+    };
+    // Most pawns attack nothing: skip the expensive attackers lookups.
+    if attacked_pieces == 0 {
+      continue;
+    }
 
     // Check that the pawn cannot be taken out too easily before assigning a
     // bonus for the pawn attack.
+    let defenders = game_state.board.get_attackers(pawn, color);
+    let attackers = game_state.board.get_attackers(pawn, Color::opposite(color));
     if attackers.count_ones() <= defenders.count_ones() {
-      let attacked_pieces = match color {
-        Color::White => (WHITE_PAWN_CONTROL[pawn as usize]
-                         & (game_state.board.pieces.black.majors()
-                            | game_state.board.pieces.black.minors()
-                            | game_state.board.pieces.black.king))
-                                                                  .count_few_ones(),
-        Color::Black => (BLACK_PAWN_CONTROL[pawn as usize]
-                         & (game_state.board.pieces.white.majors()
-                            | game_state.board.pieces.white.minors()
-                            | game_state.board.pieces.white.king))
-                                                                  .count_few_ones(),
-      };
-
       victims += threatened_victims(attacked_pieces, game_state.board.side_to_play == color);
     }
-
-    pawns &= pawns - 1;
   }
 
   victims
