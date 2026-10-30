@@ -1,15 +1,15 @@
-use super::position::default_position_evaluation;
+use super::position::{Score, default_position_evaluation, square_table_score};
 use crate::engine::eval::development::get_development_score;
 use crate::engine::tables::squares::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
 // Constants
-const DEVELOPMENT_FACTOR: f32 = 0.03;
-// const KING_DANGER_FACTOR: f32 = 0.3;
-// const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.015;
-const _CASTLING_PENATLY: f32 = 1.0;
+/// Bonus (centipawns) per development point
+const DEVELOPMENT_FACTOR: Score = 3;
+// const KING_DANGER_FACTOR: Score = 30;
+// const KING_TOO_ADVENTUROUS_PENALTY: Score = 90;
+const _CASTLING_PENATLY: Score = 100;
 
 /// Computes a total score based on the square where pieces are located in the
 /// opening.
@@ -20,8 +20,8 @@ const _CASTLING_PENATLY: f32 = 1.0;
 ///
 /// ### Return value
 ///
-/// f32 score that can be applied to the evaluation
-pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
+/// Score (centipawns) that can be applied to the evaluation
+pub fn get_square_table_opening_score(game_state: &GameState) -> Score {
   let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
@@ -43,7 +43,7 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
       PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize],
     }
   }
-  score as f32 * SQUARE_TABLE_FACTOR
+  square_table_score(score)
 }
 
 /// Gives a score based on the position in the opening
@@ -51,12 +51,12 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> f32 {
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn get_opening_position_evaluation(game_state: &GameState) -> f32 {
-  let mut score: f32 = 0.0;
+pub fn get_opening_position_evaluation(game_state: &GameState) -> Score {
+  let mut score: Score = 0;
 
   score += DEVELOPMENT_FACTOR
-           * (get_development_score(game_state, Color::White) as f32
-              - get_development_score(game_state, Color::Black) as f32);
+           * (get_development_score(game_state, Color::White) as Score
+              - get_development_score(game_state, Color::Black) as Score);
 
   // score += KING_DANGER_FACTOR
   // (get_king_danger_score(game_state, Color::Black)
@@ -94,8 +94,7 @@ mod tests {
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(-0.01 < eval);
-    assert!(0.01 > eval);
+    assert!(eval.abs() <= 1);
   }
 
   #[test]
@@ -105,7 +104,7 @@ mod tests {
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(0.5 < eval);
+    assert!(50 < eval);
   }
 
   #[test]
@@ -117,7 +116,7 @@ mod tests {
     let eval = get_opening_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(eval < -0.5);
+    assert!(eval < -50);
   }
 
   #[test]
@@ -198,7 +197,7 @@ mod tests {
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/3N4/2P5/PP2BPPP/RNBQ1RK1 w - - 0 10";
     let game_state = GameState::from_fen(fen);
     let eval_harmless_attack = get_opening_position_evaluation(&game_state);
-    assert!(eval_harmless_attack > eval_pawn_1_attack + 0.5);
+    assert!(eval_harmless_attack > eval_pawn_1_attack + 50);
 
     // Try from the other side (white pawns attacking black pieces)
     let fen = "rnbq1rk1/pp2bppp/3p1n2/2p5/5P2/2P2N2/PPN1B1PP/R1BQ1RK1 w - - 0 10";
@@ -231,7 +230,7 @@ mod tests {
 
     println!("Evaluation: no pin {eval_no_pin} vs pin {eval_pin}");
     assert!(eval_pin < eval_no_pin);
-    assert!(eval_pin < 0.5);
+    assert!(eval_pin < 50);
   }
 
   #[test]
@@ -245,7 +244,7 @@ mod tests {
 
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
-    assert!(eval > (material_score + KNIGHT_VALUE * 0.25));
+    assert!(eval > (material_score + KNIGHT_VALUE / 4));
 
     // Capturing should be evaluated slightly better:
     let fen = "r1bqkb1r/1ppppp1p/p7/8/4Q3/5N2/RPPP1PPP/1NB1KB1R b Kkq - 0 9";
@@ -261,7 +260,7 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let eval = get_opening_position_evaluation(&game_state);
     println!("Evaluation: {eval}");
-    assert!(eval > 2.5);
+    assert!(eval > 250);
   }
 
   #[test]
@@ -304,7 +303,7 @@ mod tests {
     let eval = get_opening_position_evaluation(&game_state);
     println!("Eval: {eval}");
 
-    assert!(eval < 1.5);
-    assert!(eval > -1.0);
+    assert!(eval < 150);
+    assert!(eval > -100);
   }
 }

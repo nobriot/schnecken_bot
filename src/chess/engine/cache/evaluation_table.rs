@@ -1,5 +1,6 @@
 // Dependencies
 // From our project
+use crate::engine::eval::position::Score;
 use crate::model::game_state::GameStatus;
 use crate::model::tables::zobrist::BoardHash;
 use log::*;
@@ -9,7 +10,7 @@ use std::mem;
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct EvaluationCache {
   pub game_status: GameStatus,
-  pub eval:        f32,
+  pub eval:        Score,
   pub depth:       usize,
 }
 
@@ -17,7 +18,7 @@ pub struct EvaluationCache {
 impl Default for EvaluationCache {
   fn default() -> Self {
     EvaluationCache { game_status: GameStatus::Ongoing,
-                      eval:        f32::NAN,
+                      eval:        0,
                       depth:       0, }
   }
 }
@@ -148,7 +149,7 @@ mod tests {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let game_state = GameState::from_fen(fen);
     let boardcache = EvaluationCache { game_status: GameStatus::WhiteWon,
-                                       eval:        1.0,
+                                       eval:        100,
                                        depth:       3, };
 
     cache_table.add(game_state.board.hash, boardcache);
@@ -177,7 +178,7 @@ mod tests {
     let fen = "8/5pk1/5p1p/2R5/5K2/1r4P1/7P/8 b - - 8 43";
     let game_state = GameState::from_fen(fen);
     let boardcache = EvaluationCache { game_status: GameStatus::WhiteWon,
-                                       eval:        1.0,
+                                       eval:        100,
                                        depth:       3, };
 
     cache_table.add(game_state.board.hash, boardcache);

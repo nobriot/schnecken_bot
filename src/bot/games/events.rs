@@ -1,6 +1,6 @@
 //! Keeps track of what happened during a game, to decide what to say in the
 //! chat and when to do special things like resigning.
-use chess::engine::eval::position::{EpicMate, mate_distance_in_plies};
+use chess::engine::eval::position::{EpicMate, Score, mate_distance_in_plies};
 use chess::model::board::Board;
 use lichess::types::{ChatLine, ChatRoom, Color};
 use std::collections::BTreeSet;
@@ -25,9 +25,9 @@ pub static ATTEMPTING_TO_FLAG: &str = "Attempting to flag!";
 /// We try to flag the opponent only when they have less time than this
 pub const FLAG_MAX_OPPONENT_TIME_MS: usize = 60_000;
 /// We start trying to flag when the eval (for us) is this bad or worse
-pub const FLAG_START_EVAL: f32 = -2.5;
+pub const FLAG_START_EVAL: Score = -250;
 /// We stop trying to flag when the eval (for us) is this good or better
-pub const FLAG_STOP_EVAL: f32 = 2.5;
+pub const FLAG_STOP_EVAL: Score = 250;
 /// Time per move when flagging and the opponent has a minute left
 pub const FLAG_MOVE_TIME_MAX_MS: usize = 500;
 /// Time per move when flagging and the opponent is about to run out of time
@@ -39,10 +39,10 @@ pub static OPPONENT_HELP_COMMAND: &str = "!help";
 pub static ASK_OPPONENT_EVAL: &str = "!eval";
 
 /// Eval (against us) from which we consider being in trouble
-const IN_TROUBLE_EVAL: f32 = -3.0;
+const IN_TROUBLE_EVAL: Score = -300;
 /// Eval from which we are back to a 0-ish (or better) position after being in
 /// trouble
-const OUT_OF_TROUBLE_EVAL: f32 = -0.5;
+const OUT_OF_TROUBLE_EVAL: Score = -50;
 
 /// Greeting message at the start of the game
 pub fn greeting(opponent_name: &str) -> String {
@@ -73,11 +73,11 @@ pub fn mate_announcement(moves: u32, move_number: usize) -> String {
 
 /// Formats an eval (from our point of view) for chat messages: +1.5, -3.2,
 /// or #3 / #-2 for mates (number of moves for the mating side).
-pub fn format_eval(eval_for_us: f32) -> String {
+pub fn format_eval(eval_for_us: Score) -> String {
   match mate_distance_in_plies(eval_for_us) {
-    Some(plies) if eval_for_us > 0.0 => format!("#{}", plies.div_ceil(2)),
+    Some(plies) if eval_for_us > 0 => format!("#{}", plies.div_ceil(2)),
     Some(plies) => format!("#-{}", (plies / 2).max(1)),
-    None => format!("{eval_for_us:+.1}"),
+    None => format!("{:+.1}", eval_for_us as f32 / 100.0),
   }
 }
 
@@ -190,7 +190,7 @@ impl EvalEvent {
   ///
   /// * `move_number` - Move number (as in the game notation) we are playing
   /// * `eval_for_us` - Best eval, from our point of view
-  pub fn message(&self, move_number: usize, eval_for_us: f32) -> Option<String> {
+  pub fn message(&self, move_number: usize, eval_for_us: Score) -> Option<String> {
     let context = format!("(move {move_number}, eval {})", format_eval(eval_for_us));
     match self {
       EvalEvent::AnnounceMate(moves) => Some(mate_announcement(*moves, move_number)),
@@ -218,7 +218,7 @@ pub struct GameEvents {
   /// We were asked to stop commenting (`/quiet`)
   quiet:          bool,
   /// Move number and eval (from our point of view) of our last search
-  last_eval:      Option<(usize, f32)>,
+  last_eval:      Option<(usize, Score)>,
   /// We are trying to win on time against a human (playing very fast)
   flagging:       bool,
   /// Comments we already posted in this game, so that we never post the same
@@ -372,10 +372,8 @@ impl GameEvents {
   }
 
   /// Saves the move number and eval of our last search, for `/eval`
-  pub fn set_last_eval(&mut self, move_number: usize, eval_for_us: f32) {
-    if !eval_for_us.is_nan() {
-      self.last_eval = Some((move_number, eval_for_us));
-    }
+  pub fn set_last_eval(&mut self, move_number: usize, eval_for_us: Score) {
+    self.last_eval = Some((move_number, eval_for_us));
   }
 
   /// Decides if we should try to flag the opponent (win on time): against a
@@ -427,7 +425,7 @@ impl GameEvents {
   }
 
   /// Eval (from our point of view) of our last search, if any
-  pub fn last_eval(&self) -> Option<f32> {
+  pub fn last_eval(&self) -> Option<Score> {
     self.last_eval.map(|(_, eval)| eval)
   }
 
@@ -456,14 +454,11 @@ impl GameEvents {
   /// ### Returns
   ///
   /// The events to act on, in order. Usually empty.
-  pub fn after_search(&mut self, eval_for_us: f32, opponent_is_bot: bool) -> Vec<EvalEvent> {
+  pub fn after_search(&mut self, eval_for_us: Score, opponent_is_bot: bool) -> Vec<EvalEvent> {
     let mut events = Vec::new();
-    if eval_for_us.is_nan() {
-      return events;
-    }
     let mate_plies = mate_distance_in_plies(eval_for_us);
 
-    if eval_for_us > 0.0
+    if eval_for_us > 0
        && let Some(plies) = mate_plies
     {
       if self.in_trouble {
@@ -488,7 +483,7 @@ impl GameEvents {
     }
 
     // We play a move, and the opponent mates us with the next one
-    if eval_for_us < 0.0 && mate_plies == Some(2) && opponent_is_bot {
+    if eval_for_us < 0 && mate_plies == Some(2) && opponent_is_bot {
       events.push(EvalEvent::Resign);
     }
     events
@@ -509,7 +504,7 @@ pub fn flagging_move_time_ms(opponent_time_ms: usize) -> usize {
 
 /// Above this eval (from our point of view), we do not claim draws: we are
 /// better and should play on
-pub const CLAIM_DRAW_MAX_EVAL: f32 = 0.5;
+pub const CLAIM_DRAW_MAX_EVAL: Score = 50;
 
 /// Checks if we should claim a draw that is available on the board (threefold
 /// repetition, 50 moves rule).
@@ -518,8 +513,8 @@ pub const CLAIM_DRAW_MAX_EVAL: f32 = 0.5;
 ///
 /// * `last_eval_for_us` - Eval of our last search, from our point of view. If we do not know, we
 ///   claim.
-pub fn should_claim_draw(last_eval_for_us: Option<f32>) -> bool {
-  last_eval_for_us.is_none_or(|eval| eval.is_nan() || eval <= CLAIM_DRAW_MAX_EVAL)
+pub fn should_claim_draw(last_eval_for_us: Option<Score>) -> bool {
+  last_eval_for_us.is_none_or(|eval| eval <= CLAIM_DRAW_MAX_EVAL)
 }
 
 /// Checks if every legal move of the side to play allows a mate in one.

@@ -15,15 +15,24 @@ use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::piece_moves::KING_MOVES;
 
-// Constants
-const PAWN_ISLAND_FACTOR: f32 = 0.05;
-const CONNECTED_ROOKS_FACTOR: f32 = 0.03;
-const ROOK_FILE_FACTOR: f32 = 0.06;
-const HANGING_FACTOR: f32 = 0.4;
-const HANGING_PENALTY: f32 = 0.15;
-const PIN_PENALTY: f32 = 0.25;
+// Constants (centipawns)
+const PAWN_ISLAND_FACTOR: Score = 5;
+const CONNECTED_ROOKS_FACTOR: Score = 3;
+/// Penalty for a piece attacked more than defended, when the opponent is to
+/// play (40% of the lowest piece value)
+const HANGING_FACTOR: Score = 120;
+const HANGING_PENALTY: Score = 15;
+const PIN_PENALTY: Score = 25;
 /// A knight on the edge without any safe square is likely to be lost
-const TRAPPED_KNIGHT_PENALTY: f32 = 1.5;
+const TRAPPED_KNIGHT_PENALTY: Score = 150;
+/// Bonus per piece attacked by a pawn
+const PAWN_VICTIM_BONUS: Score = 100;
+/// Bonus per piece attacked by a knight
+const KNIGHT_VICTIM_BONUS: Score = 50;
+/// Bonus per piece attacked by a bishop
+const BISHOP_VICTIM_BONUS: Score = 50;
+/// Bonus per piece attacked by a rook
+const ROOK_VICTIM_BONUS: Score = 30;
 
 /// Default way to look at a position regardless of the game phase
 ///
@@ -34,30 +43,30 @@ const TRAPPED_KNIGHT_PENALTY: f32 = 1.5;
 /// ### Returns
 ///
 /// Score assigned to the position, applicable in all game phases
-pub fn default_position_evaluation(game_state: &GameState) -> f32 {
-  let mut score: f32 = 0.0;
+pub fn default_position_evaluation(game_state: &GameState) -> Score {
+  let mut score: Score = 0;
 
   // Pawn structure comparisons
   score += PAWN_ISLAND_FACTOR
-           * (get_number_of_pawn_islands(game_state, Color::Black) as f32
-              - get_number_of_pawn_islands(game_state, Color::White) as f32);
+           * (get_number_of_pawn_islands(game_state, Color::Black) as Score
+              - get_number_of_pawn_islands(game_state, Color::White) as Score);
 
   // FIXME: These computations are slow
   // score += PASSED_PAWN_FACTOR
-  // (get_number_of_passers(game_state, Color::White) as f32
-  // - get_number_of_passers(game_state, Color::Black) as f32);
+  // (get_number_of_passers(game_state, Color::White) as Score
+  // - get_number_of_passers(game_state, Color::Black) as Score);
   //
   // score += PROTECTED_PASSED_PAWN_FACTOR
-  // (get_number_of_protected_passers(game_state, Color::White) as f32
-  // - get_number_of_protected_passers(game_state, Color::Black) as f32);
+  // (get_number_of_protected_passers(game_state, Color::White) as Score
+  // - get_number_of_protected_passers(game_state, Color::Black) as Score);
   //
   // score += PROTECTED_PAWN_FACTOR
-  // (get_number_of_protected_pawns(game_state, Color::White) as f32
-  // - get_number_of_protected_pawns(game_state, Color::Black) as f32);
+  // (get_number_of_protected_pawns(game_state, Color::White) as Score
+  // - get_number_of_protected_pawns(game_state, Color::Black) as Score);
   //
   // score += BACKWARDS_PAWN_FACTOR
-  // (get_backwards_pawns(game_state, Color::Black).count_ones() as f32
-  // - get_backwards_pawns(game_state, Color::White).count_ones() as f32);
+  // (get_backwards_pawns(game_state, Color::Black).count_ones() as Score
+  // - get_backwards_pawns(game_state, Color::White).count_ones() as Score);
 
   // Evaluate the quality of our rooks:
   if are_rooks_connected(game_state, Color::White) {
@@ -67,9 +76,8 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     score -= CONNECTED_ROOKS_FACTOR;
   }
 
-  score += ROOK_FILE_FACTOR
-           * (get_rooks_file_score(game_state, Color::Black)
-              - get_rooks_file_score(game_state, Color::White));
+  score +=
+    get_rooks_file_score(game_state, Color::Black) - get_rooks_file_score(game_state, Color::White);
 
   let mut white_pieces =
     game_state.board.pieces.white.minors() & game_state.board.pieces.white.majors();
@@ -84,8 +92,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if attackers.count_ones() > defenders.count_ones()
        && game_state.board.side_to_play == Color::Black
     {
-      // Lowest value of any piece is 3.0.
-      score -= HANGING_FACTOR * 3.0;
+      score -= HANGING_FACTOR;
     }
     white_pieces &= white_pieces - 1;
   }
@@ -110,29 +117,28 @@ pub fn default_position_evaluation(game_state: &GameState) -> f32 {
     if attackers.count_ones() > defenders.count_ones()
        && game_state.board.side_to_play == Color::White
     {
-      // Lowest value of any piece is 3.0.
-      score += HANGING_FACTOR * 3.0;
+      score += HANGING_FACTOR;
     }
     black_pieces &= black_pieces - 1;
   }
 
   // Look for pawns attacking pieces, or forking
-  score += get_pawn_victims(game_state, Color::White) as f32;
-  score -= get_pawn_victims(game_state, Color::Black) as f32;
+  score += PAWN_VICTIM_BONUS * get_pawn_victims(game_state, Color::White) as Score;
+  score -= PAWN_VICTIM_BONUS * get_pawn_victims(game_state, Color::Black) as Score;
 
   // Look for knight spans
-  score += 0.5 * get_knight_victims(game_state, Color::White) as f32;
-  score -= 0.5 * get_knight_victims(game_state, Color::Black) as f32;
-  score -= TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::White) as f32;
-  score += TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::Black) as f32;
+  score += KNIGHT_VICTIM_BONUS * get_knight_victims(game_state, Color::White) as Score;
+  score -= KNIGHT_VICTIM_BONUS * get_knight_victims(game_state, Color::Black) as Score;
+  score -= TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::White) as Score;
+  score += TRAPPED_KNIGHT_PENALTY * get_trapped_knights(game_state, Color::Black) as Score;
 
   // Look for bishop tricks
-  score += 0.5 * get_bishop_victims(game_state, Color::White) as f32;
-  score -= 0.5 * get_bishop_victims(game_state, Color::Black) as f32;
+  score += BISHOP_VICTIM_BONUS * get_bishop_victims(game_state, Color::White) as Score;
+  score -= BISHOP_VICTIM_BONUS * get_bishop_victims(game_state, Color::Black) as Score;
 
   // Look for rook attacks
-  score += 0.3 * get_rook_victims(game_state, Color::White) as f32;
-  score -= 0.3 * get_rook_victims(game_state, Color::Black) as f32;
+  score += ROOK_VICTIM_BONUS * get_rook_victims(game_state, Color::White) as Score;
+  score -= ROOK_VICTIM_BONUS * get_rook_victims(game_state, Color::Black) as Score;
 
   // Check if we have some good positional stuff
   // if has_reachable_outpost(game_state, i as usize) {
@@ -226,61 +232,93 @@ pub fn is_game_over(cache: &EngineCache, board: &Board) -> GameStatus {
   GameStatus::Ongoing
 }
 
+/// Evaluation score, in centipawns (from white's point of view)
+///
+/// Mates are encoded relative to the mate scores: a mate in N plies (including the mating move)
+/// is evaluated `MATE - N`, or `EPIC_MATE - N` for epic mates (see `get_epic_mate`). The sign
+/// indicates which side is mating.
+pub type Score = i16;
+
+/// Maximum number of plies we can encode in a mate score
+pub const MAX_MATE_PLY: Score = 200;
+/// Score of a mate on the board (a mate in N plies is evaluated `MATE - N`)
+pub const MATE: Score = 30_000;
+/// Score of an epic mate on the board (an epic mate in N plies is evaluated `EPIC_MATE - N`)
+pub const EPIC_MATE: Score = 32_000;
+/// Largest absolute score that is not a mate. Static evaluations are clamped to it.
+pub const MAX_EVAL: Score = MATE - MAX_MATE_PLY - 1;
+/// Bound for the alpha/beta search window, larger than any score
+pub const SCORE_INF: Score = Score::MAX;
+
+/// Converts the sum of the square table values of the pieces into a Score:
+/// each square table point is worth 1.5 centipawns.
+#[inline]
+pub fn square_table_score(square_table_sum: isize) -> Score {
+  (square_table_sum * 3 / 2) as Score
+}
+
+/// Checks if a score encodes a mate (normal or epic)
+#[inline]
+pub fn is_mate_score(score: Score) -> bool {
+  score.unsigned_abs() > (MATE - MAX_MATE_PLY) as u16
+}
+
 /// Returns evaluation scores based on the game status.
 ///
 /// ### Arguments
 ///
-/// * `cache` -      EngineCache to use to save the results
-/// * `board` -      Board reference to look at.
+/// * `game_status` - Status of the game on the board
 ///
 /// ### Returns
 ///
-/// * GameStatus indicating if the game is ongoing or not.
+/// * Score of the position, or None if the game is ongoing
 #[inline]
-pub fn get_eval_from_game_status(game_status: GameStatus) -> f32 {
+pub fn get_eval_from_game_status(game_status: GameStatus) -> Option<Score> {
   match game_status {
-    GameStatus::Ongoing => f32::NAN,
-    GameStatus::WhiteWon => 200.0,
-    GameStatus::BlackWon => -200.0,
-    GameStatus::ThreeFoldRepetition | GameStatus::Stalemate | GameStatus::Draw => 0.0,
+    GameStatus::Ongoing => None,
+    GameStatus::WhiteWon => Some(MATE - 1),
+    GameStatus::BlackWon => Some(-(MATE - 1)),
+    GameStatus::ThreeFoldRepetition | GameStatus::Stalemate | GameStatus::Draw => Some(0),
   }
-}
-/// Returns a decrement of the evaluation scores if we are in a mating sequence.
-///
-/// ### Arguments
-///
-/// * `cache` -      EngineCache to use to save the results
-/// * `eval` -       Eval to decrement if mating.
-///
-/// ### Returns
-///
-/// * New eval value
-#[inline]
-pub fn decrement_eval_if_mating_sequence(eval: f32) -> f32 {
-  if eval.abs() > 100.0 { eval - eval.signum() } else { eval }
 }
 
-/// Number of plies until mate (including the mating move) encoded in an eval.
-///
-/// A mate on the board is evaluated 200 (220 for a smothered mate), and the
-/// eval is decremented by 1 for each ply when going up the search tree (see
-/// `decrement_eval_if_mating_sequence`), so a mate N plies away is evaluated
-/// 200 - (N - 1). The sign of the eval indicates which side is mating.
+/// Moves a mate score one ply further away from the mate, when going up one
+/// ply in the search tree. Other scores are left unchanged.
 ///
 /// ### Arguments
 ///
-/// * `eval` - Evaluation of a position (from white's point of view)
+/// * `score` -       Score to decrement if mating.
 ///
 /// ### Returns
 ///
-/// The number of plies until mate, or None if the eval is not a mate score.
-pub fn mate_distance_in_plies(eval: f32) -> Option<u32> {
-  let eval = eval.abs();
-  if eval.is_nan() || eval <= 100.0 {
+/// * New score value
+#[inline]
+pub fn decrement_mate_score(score: Score) -> Score {
+  if is_mate_score(score) { score - score.signum() } else { score }
+}
+
+/// Number of plies until mate (including the mating move) encoded in a score.
+///
+/// ### Arguments
+///
+/// * `score` - Evaluation of a position (from white's point of view)
+///
+/// ### Returns
+///
+/// The number of plies until mate, or None if the score is not a mate score.
+pub fn mate_distance_in_plies(score: Score) -> Option<u32> {
+  if !is_mate_score(score) {
     return None;
   }
-  let mate_score = if eval > 200.0 { 220.0 } else { 200.0 };
-  Some(((mate_score - eval).round() as u32) + 1)
+  let score = score.unsigned_abs();
+  let mate_score = if score > (EPIC_MATE - MAX_MATE_PLY) as u16 { EPIC_MATE } else { MATE };
+  Some((mate_score as u16 - score) as u32)
+}
+
+/// Checks if a mate score is an epic mate (see `get_epic_mate`)
+#[inline]
+pub fn is_epic_mate_score(score: Score) -> bool {
+  score.unsigned_abs() > (EPIC_MATE - MAX_MATE_PLY) as u16
 }
 
 /// Looks at a game state and check if the game can be declared a draw
@@ -440,13 +478,14 @@ pub fn get_epic_mate(board: &Board) -> Option<EpicMate> {
 ///
 /// ### Returns
 ///
-/// Score assigned to the position.
-pub fn evaluate_board(game_state: &GameState) -> f32 {
-  match determine_game_phase(game_state) {
+/// Score assigned to the position, in centipawns.
+pub fn evaluate_board(game_state: &GameState) -> Score {
+  let score = match determine_game_phase(game_state) {
     GamePhase::Opening => get_opening_position_evaluation(game_state),
     GamePhase::Middlegame => get_middlegame_position_evaluation(game_state),
     GamePhase::Endgame => get_endgame_position_evaluation(game_state),
-  }
+  };
+  score.clamp(-MAX_EVAL, MAX_EVAL)
 }
 
 /// Very minimalistic version of evaluate board
@@ -459,7 +498,7 @@ pub fn evaluate_board(game_state: &GameState) -> f32 {
 /// ### Returns
 ///
 /// Score assigned to the position.
-pub fn evaluate_board_simple(game_state: &GameState) -> f32 {
+pub fn evaluate_board_simple(game_state: &GameState) -> Score {
   use crate::engine::eval::endgame::get_square_table_endgame_score;
   use crate::engine::eval::middlegame::get_square_table_middlegame_score;
   use crate::engine::eval::opening::get_square_table_opening_score;
@@ -509,18 +548,30 @@ mod tests {
 
   #[test]
   fn test_mate_distance_in_plies() {
-    assert_eq!(Some(1), mate_distance_in_plies(200.0));
-    assert_eq!(Some(2), mate_distance_in_plies(199.0));
-    assert_eq!(Some(6), mate_distance_in_plies(195.0));
-    assert_eq!(Some(2), mate_distance_in_plies(-199.0));
-    assert_eq!(Some(1), mate_distance_in_plies(-200.0));
-    // Smothered mates
-    assert_eq!(Some(1), mate_distance_in_plies(220.0));
-    assert_eq!(Some(2), mate_distance_in_plies(219.0));
+    assert_eq!(Some(1), mate_distance_in_plies(MATE - 1));
+    assert_eq!(Some(2), mate_distance_in_plies(MATE - 2));
+    assert_eq!(Some(6), mate_distance_in_plies(MATE - 6));
+    assert_eq!(Some(2), mate_distance_in_plies(-(MATE - 2)));
+    assert_eq!(Some(1), mate_distance_in_plies(-(MATE - 1)));
+    // Epic mates
+    assert_eq!(Some(1), mate_distance_in_plies(EPIC_MATE - 1));
+    assert_eq!(Some(2), mate_distance_in_plies(-(EPIC_MATE - 2)));
+    assert!(is_epic_mate_score(EPIC_MATE - 2));
+    assert!(!is_epic_mate_score(MATE - 2));
     // Not a mate
-    assert_eq!(None, mate_distance_in_plies(5.0));
-    assert_eq!(None, mate_distance_in_plies(-43.0));
-    assert_eq!(None, mate_distance_in_plies(f32::NAN));
+    assert_eq!(None, mate_distance_in_plies(500));
+    assert_eq!(None, mate_distance_in_plies(-4300));
+    assert_eq!(None, mate_distance_in_plies(MAX_EVAL));
+    assert_eq!(None, mate_distance_in_plies(-MAX_EVAL));
+    assert_eq!(None, mate_distance_in_plies(0));
+  }
+
+  #[test]
+  fn test_decrement_mate_score() {
+    assert_eq!(MATE - 2, decrement_mate_score(MATE - 1));
+    assert_eq!(-(EPIC_MATE - 3), decrement_mate_score(-(EPIC_MATE - 2)));
+    assert_eq!(150, decrement_mate_score(150));
+    assert_eq!(-MAX_EVAL, decrement_mate_score(-MAX_EVAL));
   }
 
   #[test]
@@ -530,7 +581,7 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let evaluation = evaluate_board(&game_state);
     println!("Evaluation {evaluation}");
-    assert!(evaluation > 4.0);
+    assert!(evaluation > 400);
   }
 
   #[test]
@@ -540,7 +591,7 @@ mod tests {
     let game_state = GameState::from_fen(fen);
     let evaluation = evaluate_board(&game_state);
     println!("Evaluation {evaluation}");
-    assert!(evaluation > 4.0);
+    assert!(evaluation > 400);
   }
 
   #[test]
@@ -563,8 +614,8 @@ mod tests {
     game_state.get_moves();
     let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
-    assert!(evaluation < 1.0);
-    assert!(evaluation > -1.0);
+    assert!(evaluation < 100);
+    assert!(evaluation > -100);
   }
 
   #[test]
@@ -574,7 +625,7 @@ mod tests {
     game_state.get_moves();
     let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
-    assert!(evaluation < -7.0);
+    assert!(evaluation < -700);
   }
 
   #[test]
@@ -592,7 +643,7 @@ mod tests {
     game_state.get_moves();
     let evaluation = evaluate_board(&game_state);
     println!("Evaluation: {}", evaluation);
-    assert!(evaluation > 7.0);
+    assert!(evaluation > 700);
   }
 
   #[test]
@@ -693,7 +744,7 @@ mod tests {
     let cache = EngineCache::new();
     assert_eq!(GameStatus::Ongoing, is_game_over(&cache, &game_state.board));
 
-    assert!(evaluate_board(&game_state) < 0.0);
+    assert!(evaluate_board(&game_state) < 0);
   }
 
   #[test]
@@ -708,7 +759,7 @@ mod tests {
   fn evaluate_position_material_down() {
     let game_state = GameState::from_fen("4r1k1/2p2ppp/8/p1b5/P7/2N3PP/1P1n1P2/R5K1 w - - 0 23");
     let eval = evaluate_board(&game_state);
-    assert!(eval < -2.0);
+    assert!(eval < -200);
   }
 
   #[test]
@@ -751,7 +802,7 @@ mod tests {
     let material_eval = get_combined_material_score(&game_state);
     println!("Position {fen} got material score {material_eval}");
     println!("Position {fen} got evaluated {eval}");
-    assert!(eval < 0.6);
-    assert!(eval > -0.6);
+    assert!(eval < 60);
+    assert!(eval > -60);
   }
 }

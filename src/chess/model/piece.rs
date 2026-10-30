@@ -1,3 +1,4 @@
+use crate::engine::eval::position::Score;
 use serde::{Deserialize, Serialize};
 
 // -----------------------------------------------------------------------------
@@ -30,13 +31,13 @@ pub const BLACK_KNIGHT: u8 = 11;
 /// Numerical value used on the board to represent a Black Pawn
 pub const BLACK_PAWN: u8 = 12;
 
-// Piece values
-pub const KING_VALUE: f32 = 100.0;
-pub const QUEEN_VALUE: f32 = 9.5;
-pub const ROOK_VALUE: f32 = 5.0;
-pub const BISHOP_VALUE: f32 = 3.05;
-pub const KNIGHT_VALUE: f32 = 3.0;
-pub const PAWN_VALUE: f32 = 1.0;
+// Piece values, in centipawns
+pub const KING_VALUE: Score = 10_000;
+pub const QUEEN_VALUE: Score = 950;
+pub const ROOK_VALUE: Score = 500;
+pub const BISHOP_VALUE: Score = 305;
+pub const KNIGHT_VALUE: Score = 300;
+pub const PAWN_VALUE: Score = 100;
 
 // -----------------------------------------------------------------------------
 //  Strucs/Enums
@@ -57,12 +58,12 @@ impl Color {
     }
   }
 
-  /// Returns -1.0 for black color and +1.0 for white, which can be used in
+  /// Returns -1 for black color and +1 for white, which can be used in
   /// evaluations
-  pub fn score_factor(color: Self) -> f32 {
+  pub fn score_factor(color: Self) -> Score {
     match color {
-      Color::Black => -1.0,
-      Color::White => 1.0,
+      Color::Black => -1,
+      Color::White => 1,
     }
   }
 }
@@ -117,9 +118,9 @@ impl Piece {
   ///
   /// ### Return value
   ///
-  /// f32 value assigned to the material value of the piece. 0 if the piece is
+  /// Value (centipawns) assigned to the material value of the piece. 0 if the piece is
   /// invalid. Values are always positive, also for black pieces
-  pub fn material_value(&self) -> f32 {
+  pub fn material_value(&self) -> Score {
     match self.p_type {
       PieceType::King => KING_VALUE,
       PieceType::Queen => QUEEN_VALUE,
@@ -138,9 +139,9 @@ impl Piece {
   ///
   /// ### Return value
   ///
-  /// f32 value assigned to the material value of the piece. 0 if the piece is
+  /// Value (centipawns) assigned to the material value of the piece. 0 if the piece is
   /// invalid. Values are always positive, also for black pieces
-  pub fn material_value_from_u8(piece: u8) -> f32 {
+  pub fn material_value_from_u8(piece: u8) -> Score {
     match piece {
       WHITE_KING => KING_VALUE,
       WHITE_QUEEN => QUEEN_VALUE,
@@ -154,7 +155,7 @@ impl Piece {
       BLACK_BISHOP => BISHOP_VALUE,
       BLACK_KNIGHT => KNIGHT_VALUE,
       BLACK_PAWN => PAWN_VALUE,
-      _ => 0.0,
+      _ => 0,
     }
   }
 
@@ -166,8 +167,8 @@ impl Piece {
   ///
   /// ### Return value
   ///
-  /// f32 value assigned to the material value of the piece.
-  pub fn material_value_from_type(piece_type: PieceType) -> f32 {
+  /// Value (centipawns) assigned to the material value of the piece.
+  pub fn material_value_from_type(piece_type: PieceType) -> Score {
     match piece_type {
       PieceType::King => KING_VALUE,
       PieceType::Queen => QUEEN_VALUE,

@@ -1,4 +1,5 @@
 use super::pawn::*;
+use crate::engine::eval::position::Score;
 use crate::model::board::*;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::*;
@@ -26,28 +27,17 @@ pub enum FileState {
 /// # Return value
 ///
 /// Score for material
-pub fn get_material_score(game_state: &GameState, color: Color) -> f32 {
-  // Basic material count
-  let mut score: f32 = 0.0;
+pub fn get_material_score(game_state: &GameState, color: Color) -> Score {
+  let pieces = match color {
+    Color::White => &game_state.board.pieces.white,
+    Color::Black => &game_state.board.pieces.black,
+  };
 
-  match color {
-    Color::White => {
-      score += game_state.board.pieces.white.queen.count_few_ones() as f32 * QUEEN_VALUE;
-      score += game_state.board.pieces.white.rook.count_few_ones() as f32 * ROOK_VALUE;
-      score += game_state.board.pieces.white.bishop.count_few_ones() as f32 * BISHOP_VALUE;
-      score += game_state.board.pieces.white.knight.count_few_ones() as f32 * KNIGHT_VALUE;
-      score += game_state.board.pieces.white.pawn.count_ones() as f32 * PAWN_VALUE;
-    },
-    Color::Black => {
-      score += game_state.board.pieces.black.queen.count_few_ones() as f32 * QUEEN_VALUE;
-      score += game_state.board.pieces.black.rook.count_few_ones() as f32 * ROOK_VALUE;
-      score += game_state.board.pieces.black.bishop.count_few_ones() as f32 * BISHOP_VALUE;
-      score += game_state.board.pieces.black.knight.count_few_ones() as f32 * KNIGHT_VALUE;
-      score += game_state.board.pieces.black.pawn.count_ones() as f32 * PAWN_VALUE;
-    },
-  }
-
-  score
+  pieces.queen.count_few_ones() as Score * QUEEN_VALUE
+  + pieces.rook.count_few_ones() as Score * ROOK_VALUE
+  + pieces.bishop.count_few_ones() as Score * BISHOP_VALUE
+  + pieces.knight.count_few_ones() as Score * KNIGHT_VALUE
+  + pieces.pawn.count_ones() as Score * PAWN_VALUE
 }
 
 /// Converts the number of pieces attacked by one of our pieces into the number
@@ -85,17 +75,12 @@ pub fn threatened_victims(attacked_pieces: u32, attacker_to_play: bool) -> u32 {
 /// # Return value
 ///
 /// Score for material
-pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask) -> f32 {
-  // Basic material count
-  let mut score: f32 = 0.0;
-
-  score += (piece_set.queen & pin_mask).count_few_ones() as f32 * QUEEN_VALUE;
-  score += (piece_set.rook & pin_mask).count_few_ones() as f32 * ROOK_VALUE;
-  score += (piece_set.bishop & pin_mask).count_few_ones() as f32 * BISHOP_VALUE;
-  score += (piece_set.knight & pin_mask).count_few_ones() as f32 * KNIGHT_VALUE;
-  score += (piece_set.pawn & pin_mask).count_ones() as f32 * PAWN_VALUE;
-
-  score
+pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask) -> Score {
+  (piece_set.queen & pin_mask).count_few_ones() as Score * QUEEN_VALUE
+  + (piece_set.rook & pin_mask).count_few_ones() as Score * ROOK_VALUE
+  + (piece_set.bishop & pin_mask).count_few_ones() as Score * BISHOP_VALUE
+  + (piece_set.knight & pin_mask).count_few_ones() as Score * KNIGHT_VALUE
+  + (piece_set.pawn & pin_mask).count_ones() as Score * PAWN_VALUE
 }
 
 /// Computes the combined material score (white score - black score)
@@ -108,30 +93,8 @@ pub fn get_pinned_piece_set_material(piece_set: &PieceMasks, pin_mask: BoardMask
 /// # Return value
 ///
 /// Combined score for material
-pub fn get_combined_material_score(game_state: &GameState) -> f32 {
-  // Basic material count
-  let mut score: f32 = 0.0;
-
-  score += (game_state.board.pieces.white.queen.count_few_ones() as f32
-            - game_state.board.pieces.black.queen.count_few_ones() as f32)
-           * QUEEN_VALUE
-           + (game_state.board.pieces.white.rook.count_few_ones() as f32
-              - game_state.board.pieces.black.rook.count_few_ones() as f32)
-             * ROOK_VALUE
-           + (game_state.board.pieces.white.bishop.count_few_ones() as f32
-              - game_state.board.pieces.black.bishop.count_few_ones() as f32)
-             * BISHOP_VALUE
-           + (game_state.board.pieces.white.knight.count_few_ones() as f32
-              - game_state.board.pieces.black.knight.count_few_ones() as f32)
-             * KNIGHT_VALUE
-           + (game_state.board.pieces.white.pawn.count_ones() as f32
-              - game_state.board.pieces.black.pawn.count_ones() as f32)
-             * PAWN_VALUE;
-
-  // Scale the value by the amount of material left:
-  // score *= 32.0 / game_state.board.pieces.all().count_ones() as f32;
-
-  score
+pub fn get_combined_material_score(game_state: &GameState) -> Score {
+  get_material_score(game_state, Color::White) - get_material_score(game_state, Color::Black)
 }
 
 /// Checks if a file is open
@@ -458,14 +421,14 @@ mod tests {
   fn test_material_scores() {
     let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(get_combined_material_score(&game_state), 0.0);
-    assert_eq!(get_material_score(&game_state, Color::White), 39.6);
-    assert_eq!(get_material_score(&game_state, Color::Black), 39.6);
+    assert_eq!(get_combined_material_score(&game_state), 0);
+    assert_eq!(get_material_score(&game_state, Color::White), 3960);
+    assert_eq!(get_material_score(&game_state, Color::Black), 3960);
 
     let fen = "rnbqk1nr/pppppppp/8/8/8/8/PPPPP2P/RNBQKBNR w KQkq - 0 1";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(get_combined_material_score(&game_state), 1.05);
-    assert_eq!(get_material_score(&game_state, Color::White), 37.6);
-    assert_eq!(get_material_score(&game_state, Color::Black), 36.55);
+    assert_eq!(get_combined_material_score(&game_state), 105);
+    assert_eq!(get_material_score(&game_state, Color::White), 3760);
+    assert_eq!(get_material_score(&game_state, Color::Black), 3655);
   }
 }

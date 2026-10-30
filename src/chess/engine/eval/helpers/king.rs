@@ -1,4 +1,5 @@
 use crate::engine::eval::helpers::generic::*;
+use crate::engine::eval::position::Score;
 use crate::model::board_geometry::*;
 use crate::model::board_mask::BoardMask;
 use crate::model::game_state::*;
@@ -154,14 +155,14 @@ pub const BLACK_KING_SHELTER_PAWNS: [u64; 64] = [0x0000000000000000,
 ///
 /// # Returns
 ///
-/// The number of squares surrounding the king attacked by enemy pieces
-/// divided by the total number of squares around the king.
-pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
+/// The percentage (0 to 100) of the squares surrounding the king attacked by
+/// enemy pieces.
+pub fn get_king_danger_score(game_state: &GameState, color: Color) -> Score {
   // debug_assert!(game_state.board.pieces.white.king != 0 &&
   // game_state.board.pieces.black.king != 0);
   if game_state.board.pieces.white.king == 0 || game_state.board.pieces.black.king == 0 {
     debug!("King disappeared {}", game_state.to_fen());
-    return 0.0;
+    return 0;
   }
 
   let surrounding_squares = match color {
@@ -169,13 +170,13 @@ pub fn get_king_danger_score(game_state: &GameState, color: Color) -> f32 {
     Color::Black => KING_MOVES[game_state.board.pieces.black.king.trailing_zeros() as usize],
   };
 
-  let total_squares: f32 = surrounding_squares.count_ones() as f32;
-  let attacked_squares: f32 =
+  let total_squares = surrounding_squares.count_ones() as Score;
+  let attacked_squares =
     game_state.board
               .get_attacked_squares(surrounding_squares, Color::opposite(color))
-              .count_ones() as f32;
+              .count_ones() as Score;
 
-  attacked_squares / total_squares
+  attacked_squares * 100 / total_squares
 }
 
 /// Counts "danger units" around the king of a color: the higher, the more
@@ -396,24 +397,24 @@ mod tests {
   fn test_get_king_danger_score() {
     let fen = "rnb1kbnr/pppp1ppp/5q2/4p3/4P3/5Q2/PPPP1PPP/RNB1KBNR w KQkq - 2 3";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(0.0, get_king_danger_score(&game_state, Color::Black));
-    assert_eq!(0.0, get_king_danger_score(&game_state, Color::White));
+    assert_eq!(0, get_king_danger_score(&game_state, Color::Black));
+    assert_eq!(0, get_king_danger_score(&game_state, Color::White));
 
     let fen = "1r1qk1nr/p2bppbp/6p1/1p2N3/3p1P2/1Q4P1/PP1PP1BP/R1B1K2R b KQk - 0 12";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(2.0 / 5.0, get_king_danger_score(&game_state, Color::Black));
-    assert_eq!(0.0 / 5.0, get_king_danger_score(&game_state, Color::White));
+    assert_eq!(200 / 5, get_king_danger_score(&game_state, Color::Black));
+    assert_eq!(0, get_king_danger_score(&game_state, Color::White));
 
     let fen = "6k1/4pp1p/2n3p1/P7/8/6P1/3P1QKP/2q5 b - - 1 33";
     let game_state = GameState::from_fen(fen);
-    assert_eq!(1.0 / 5.0, get_king_danger_score(&game_state, Color::Black));
-    assert_eq!(3.0 / 8.0, get_king_danger_score(&game_state, Color::White));
+    assert_eq!(100 / 5, get_king_danger_score(&game_state, Color::Black));
+    assert_eq!(300 / 8, get_king_danger_score(&game_state, Color::White));
 
     let fen = "8/4ppkp/2n3p1/P7/8/6P1/3P1QKP/2q5 w - - 2 34";
     let game_state = GameState::from_fen(fen);
 
-    assert_eq!(2.0 / 8.0, get_king_danger_score(&game_state, Color::Black));
-    assert_eq!(3.0 / 8.0, get_king_danger_score(&game_state, Color::White));
+    assert_eq!(200 / 8, get_king_danger_score(&game_state, Color::Black));
+    assert_eq!(300 / 8, get_king_danger_score(&game_state, Color::White));
   }
 
   #[test]

@@ -15,6 +15,8 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 
 static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
+/// We pick randomly among the moves whose eval is this close (centipawns) to the best one
+const MOVE_CHOICE_MAX_EVAL_DIFF: i32 = 1;
 
 pub struct Game {
   /// Channel to receive messages from the bot or whoever is controlling the
@@ -387,16 +389,15 @@ impl Game {
 
     // Select randomly one of the good moves.
     let analysis = self.engine.get_analysis();
-    let best_eval = analysis.get_eval().unwrap_or(f32::NAN);
     let mut cutoff = 1;
     // We are in trouble if the engine could not find a move
-    if analysis.is_empty() {
+    let Some(best_eval) = analysis.get_eval() else {
       error!("Empty result from the engine.");
       self.api.write_in_spectator_room(&self.id, "Error: Could not find a move to play.").await;
       self.api.write_in_chat(&self.id, "Error: Could not find a move to play.").await;
       let _ = self.api.resign_game(&self.id).await;
       return;
-    }
+    };
 
     let eval_for_us = match self.color {
       Color::White => best_eval,
@@ -431,15 +432,11 @@ impl Game {
       }
     }
 
-    while analysis.len() > cutoff {
-      if analysis.get(cutoff).eval.is_nan() {
-        break;
-      }
-      if (best_eval - analysis.get(cutoff).eval).abs() > 0.015 {
-        break;
-      } else {
-        cutoff += 1;
-      }
+    while analysis.len() > cutoff
+          && (best_eval as i32 - analysis.get(cutoff).eval as i32).abs()
+             <= MOVE_CHOICE_MAX_EVAL_DIFF
+    {
+      cutoff += 1;
     }
 
     let move_index = rand::rng().random_range(0..cutoff);

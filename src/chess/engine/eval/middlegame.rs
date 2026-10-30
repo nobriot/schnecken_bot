@@ -1,17 +1,16 @@
 use super::helpers::king::get_king_attack_units;
-use super::position::default_position_evaluation;
+use super::position::{Score, default_position_evaluation, square_table_score};
 use crate::engine::tables::squares::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
 
-// const KING_DANGER_FACTOR: f32 = 0.3;
-// const KING_TOO_ADVENTUROUS_PENALTY: f32 = 0.9;
-const SQUARE_TABLE_FACTOR: f32 = 0.015;
-/// Penalty per squared king danger unit. Squared because attacks get much
-/// more dangerous as attackers and weaknesses add up.
-const KING_ATTACK_FACTOR: f32 = 0.02;
-/// Maximum penalty for king danger
-const KING_ATTACK_MAX_PENALTY: f32 = 5.0;
+// const KING_DANGER_FACTOR: Score = 30;
+// const KING_TOO_ADVENTUROUS_PENALTY: Score = 90;
+/// Penalty (centipawns) per squared king danger unit. Squared because attacks
+/// get much more dangerous as attackers and weaknesses add up.
+const KING_ATTACK_FACTOR: Score = 2;
+/// Maximum penalty (centipawns) for king danger
+const KING_ATTACK_MAX_PENALTY: Score = 500;
 
 /// Computes a total score based on the square where pieces are located in the
 /// middlegame.
@@ -22,8 +21,8 @@ const KING_ATTACK_MAX_PENALTY: f32 = 5.0;
 ///
 /// ### Return value
 ///
-/// f32 score that can be applied to the evaluation
-pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
+/// Score (centipawns) that can be applied to the evaluation
+pub fn get_square_table_middlegame_score(game_state: &GameState) -> Score {
   let mut score: isize = 0;
   for (i, piece) in game_state.board.pieces.white {
     match piece {
@@ -45,7 +44,7 @@ pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
       PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize],
     }
   }
-  score as f32 * SQUARE_TABLE_FACTOR
+  square_table_score(score)
 }
 
 /// Gives a score based on the position in the middlegame
@@ -53,12 +52,12 @@ pub fn get_square_table_middlegame_score(game_state: &GameState) -> f32 {
 /// # Arguments
 ///
 /// * `game_state` - A GameState object representing a position, side to play, etc.
-pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
-  let mut score: f32 = 0.0;
+pub fn get_middlegame_position_evaluation(game_state: &GameState) -> Score {
+  let mut score: Score = 0;
 
   // score += PIECE_MOBILITY_FACTOR
-  // (get_piece_mobility(game_state, Color::White) as f32
-  // - get_piece_mobility(game_state, Color::Black) as f32);
+  // (get_piece_mobility(game_state, Color::White) as Score
+  // - get_piece_mobility(game_state, Color::Black) as Score);
   //
   // score += KING_DANGER_FACTOR
   // (get_king_danger_score(game_state, Color::Black)
@@ -86,9 +85,9 @@ pub fn get_middlegame_position_evaluation(game_state: &GameState) -> f32 {
 /// * `game_state` - A GameState object representing a position
 /// * `color` -      Color of the king for which we compute the penalty
 #[inline]
-fn get_king_attack_penalty(game_state: &GameState, color: Color) -> f32 {
-  let units = get_king_attack_units(game_state, color) as f32;
-  (units * units * KING_ATTACK_FACTOR).min(KING_ATTACK_MAX_PENALTY)
+fn get_king_attack_penalty(game_state: &GameState, color: Color) -> Score {
+  let units = get_king_attack_units(game_state, color) as i32;
+  (units * units * KING_ATTACK_FACTOR as i32).min(KING_ATTACK_MAX_PENALTY as i32) as Score
 }
 
 //------------------------------------------------------------------------------
@@ -106,7 +105,7 @@ mod tests {
     let eval = get_middlegame_position_evaluation(&game_state);
 
     println!("Evaluation: {eval}");
-    assert!(-1.0 >= eval);
+    assert!(-100 >= eval);
   }
 
   #[test]

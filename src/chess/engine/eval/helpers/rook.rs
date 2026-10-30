@@ -1,10 +1,16 @@
 use super::generic::*;
+use crate::engine::eval::position::Score;
 use crate::model::board::*;
 use crate::model::board_mask::*;
 use crate::model::game_state::*;
 use crate::model::piece::*;
 use crate::model::tables::rook_destinations::get_rook_destinations;
 use crate::square_in_mask;
+
+/// Bonus (centipawns) for a rook on an open file
+pub const ROOK_OPEN_FILE_BONUS: Score = 6;
+/// Bonus (centipawns) for a rook on a half-open file
+pub const ROOK_HALF_OPEN_FILE_BONUS: Score = 3;
 
 /// Determine if rooks are connected for a color
 pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
@@ -25,12 +31,12 @@ pub fn are_rooks_connected(game_state: &GameState, color: Color) -> bool {
   square_in_mask!(rook_2, destinations)
 }
 
-/// Assigns a score to a rooks based on if it is located on:
-/// * a closed file: 0.0
-/// * a half-open file: 0.5
-/// * an open file: 1.0
-pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
-  let mut score: f32 = 0.0;
+/// Assigns a score (centipawns) to the rooks based on if they are located on:
+/// * a closed file: 0
+/// * a half-open file: `ROOK_HALF_OPEN_FILE_BONUS`
+/// * an open file: `ROOK_OPEN_FILE_BONUS`
+pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> Score {
+  let mut score: Score = 0;
 
   let mut rooks = match color {
     Color::White => game_state.board.pieces.white.rook,
@@ -42,8 +48,8 @@ pub fn get_rooks_file_score(game_state: &GameState, color: Color) -> f32 {
     let (file, _) = Board::index_to_fr(rook);
 
     match get_file_state(game_state, file) {
-      FileState::Open => score += 1.0,
-      FileState::HalfOpen => score += 0.5,
+      FileState::Open => score += ROOK_OPEN_FILE_BONUS,
+      FileState::HalfOpen => score += ROOK_HALF_OPEN_FILE_BONUS,
       FileState::Closed => {},
     }
 

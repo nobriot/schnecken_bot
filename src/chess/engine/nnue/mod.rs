@@ -1,6 +1,7 @@
 pub mod functions;
 pub mod preprocessing;
 
+use crate::engine::eval::position::{MAX_EVAL, Score};
 use crate::engine::nnue::functions::*;
 use crate::model::game_state::GameState;
 use crate::model::piece::*;
@@ -365,10 +366,10 @@ impl NNUE {
   }
 
   /// Evaluates the board with NNUE prediction, returns an evaluation
-  /// between -200 and 200.
+  /// in centipawns, between -MAX_EVAL and MAX_EVAL.
   ///
   /// TODO: Finish description
-  pub fn eval(&mut self, game_state: &GameState) -> f32 {
+  pub fn eval(&mut self, game_state: &GameState) -> Score {
     self.game_state_to_input_layer(&[game_state]);
     let eval = self.predict();
     let eval = eval[0];
@@ -378,7 +379,8 @@ impl NNUE {
       eval = -eval;
     }
 
-    eval
+    // The network predicts pawns
+    (eval * 100.0).clamp(-MAX_EVAL as f32, MAX_EVAL as f32) as Score
   }
 
   /// Back propagate using gradient descent.

@@ -1,5 +1,5 @@
 // Chess Engine
-use crate::engine::decrement_eval_if_mating_sequence;
+use crate::engine::eval::position::{Score, decrement_mate_score, mate_distance_in_plies};
 // Chess model
 use crate::model::moves::Move;
 use crate::model::piece::Color;
@@ -95,7 +95,7 @@ impl Default for Variation {
 #[derive(Debug, Clone)]
 pub struct VariationWithEval {
   pub variation:  Variation,
-  pub eval:       f32,
+  pub eval:       Score,
   /// The variation ends with a draw by repetition (or 50 moves): its eval
   /// depends on the moves that led to the position, not only on the board.
   pub repetition: bool,
@@ -103,7 +103,7 @@ pub struct VariationWithEval {
 
 impl VariationWithEval {
   /// Creates a new variation with eval from a single move
-  pub fn new_from_move(eval: f32, mv: Move) -> Self {
+  pub fn new_from_move(eval: Score, mv: Move) -> Self {
     let mut variation = Variation::new();
     variation.add(mv);
     VariationWithEval { variation,
@@ -115,7 +115,7 @@ impl VariationWithEval {
   /// repetition (or 50 moves)
   pub fn new_repetition_draw(mv: Move) -> Self {
     VariationWithEval { repetition: true,
-                        ..Self::new_from_move(0.0, mv) }
+                        ..Self::new_from_move(0, mv) }
   }
 }
 
@@ -185,7 +185,7 @@ impl SearchResult {
   }
 
   /// Returns the best evaluation in the current position
-  pub fn get_eval(&self) -> Option<f32> {
+  pub fn get_eval(&self) -> Option<Score> {
     if self.variations.is_empty() {
       return None;
     }
@@ -220,7 +220,7 @@ impl SearchResult {
   pub fn push_move_to_variations(&mut self, mv: Move) {
     for line in &mut self.variations {
       line.variation.push_front(mv);
-      line.eval = decrement_eval_if_mating_sequence(line.eval);
+      line.eval = decrement_mate_score(line.eval);
     }
     self.sort = Color::opposite(self.sort);
   }
@@ -230,10 +230,14 @@ impl Display for SearchResult {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     writeln!(f, "Search Result:")?;
     for (i, v) in self.variations.iter().enumerate() {
+      let eval = match mate_distance_in_plies(v.eval) {
+        Some(plies) => format!("#{}{}", if v.eval < 0 { "-" } else { "" }, plies.div_ceil(2)),
+        None => format!("{:.2}", v.eval as f32 / 100.0),
+      };
       writeln!(f,
-               "Line {:<2}: Eval {:<7.2} @ depth {} - {}",
+               "Line {:<2}: Eval {:<7} @ depth {} - {}",
                i,
-               v.eval,
+               eval,
                v.variation.len(),
                v.variation)?;
     }

@@ -1,5 +1,6 @@
 use crate::bot::games::events::*;
 use chess::engine::Engine;
+use chess::engine::eval::position::{EPIC_MATE, MATE, Score};
 use chess::model::board::Board;
 use lichess::types::ChatLine;
 
@@ -39,16 +40,16 @@ fn test_have_fun_once_at_game_start() {
 #[test]
 fn test_mate_announcement_once() {
   let mut events = GameEvents::default();
-  assert!(events.after_search(3.5, true).is_empty());
-  // Mate in 3 for us (5 plies: 200 - 4)
-  assert_eq!(vec![EvalEvent::AnnounceMate(3)], events.after_search(196.0, false));
+  assert!(events.after_search(350, true).is_empty());
+  // Mate in 3 for us (5 plies)
+  assert_eq!(vec![EvalEvent::AnnounceMate(3)], events.after_search(MATE - 5, false));
   // Announced only once
-  assert!(events.after_search(198.0, false).is_empty());
-  assert!(events.after_search(200.0, false).is_empty());
+  assert!(events.after_search(MATE - 3, false).is_empty());
+  assert!(events.after_search(MATE - 1, false).is_empty());
 
   // Mate in one for us (our move mates)
   let mut events = GameEvents::default();
-  assert_eq!(vec![EvalEvent::AnnounceMate(1)], events.after_search(200.0, true));
+  assert_eq!(vec![EvalEvent::AnnounceMate(1)], events.after_search(MATE - 1, true));
 }
 
 #[test]
@@ -56,78 +57,79 @@ fn test_resign_against_bots_only() {
   // Mate in one against us: resign against bots (after saying we are in
   // trouble, as it is the first bad eval)
   let mut events = GameEvents::default();
-  assert_eq!(vec![EvalEvent::InTrouble, EvalEvent::Resign], events.after_search(-199.0, true));
-  // Smothered mate in one against us as well
-  assert_eq!(vec![EvalEvent::Resign], events.after_search(-219.0, true));
+  assert_eq!(vec![EvalEvent::InTrouble, EvalEvent::Resign],
+             events.after_search(-(MATE - 2), true));
+  // Epic mate in one against us as well
+  assert_eq!(vec![EvalEvent::Resign], events.after_search(-(EPIC_MATE - 2), true));
   // Not against humans
-  assert!(events.after_search(-199.0, false).is_empty());
+  assert!(events.after_search(-(MATE - 2), false).is_empty());
   // Not for longer mates
-  assert!(events.after_search(-197.0, true).is_empty());
+  assert!(events.after_search(-(MATE - 4), true).is_empty());
   // Not when we are just losing
-  assert!(events.after_search(-15.0, true).is_empty());
+  assert!(events.after_search(-1500, true).is_empty());
 }
 
 #[test]
 fn test_trouble_commentary() {
   let mut events = GameEvents::default();
-  assert!(events.after_search(0.3, false).is_empty());
-  assert!(events.after_search(-2.9, false).is_empty());
+  assert!(events.after_search(30, false).is_empty());
+  assert!(events.after_search(-290, false).is_empty());
   // First time at -3 or worse
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-3.0, false));
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-300, false));
   // Never again while still in trouble, even if it gets better or worse
-  assert!(events.after_search(-5.0, false).is_empty());
-  assert!(events.after_search(-1.0, false).is_empty());
-  assert!(events.after_search(-8.0, false).is_empty());
+  assert!(events.after_search(-500, false).is_empty());
+  assert!(events.after_search(-100, false).is_empty());
+  assert!(events.after_search(-800, false).is_empty());
   // Back to a 0-ish eval
-  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(-0.4, false));
-  assert!(events.after_search(0.2, false).is_empty());
+  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(-40, false));
+  assert!(events.after_search(20, false).is_empty());
   // In trouble again later: we can say it again
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-400, false));
   // Jumping straight to a winning (non-mate) position also gets us out of
   // trouble
-  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(2.5, false));
+  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(250, false));
 }
 
 #[test]
 fn test_swindle() {
   let mut events = GameEvents::default();
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-6.0, false));
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-600, false));
   // Opponent blunders, we have a mate: swindle instead of the mate announcement
-  assert_eq!(vec![EvalEvent::Swindle], events.after_search(197.0, false));
+  assert_eq!(vec![EvalEvent::Swindle], events.after_search(MATE - 4, false));
   // Out of trouble, and the mate counts as announced
-  assert!(events.after_search(199.0, false).is_empty());
-  assert!(events.after_search(1.0, false).is_empty());
+  assert!(events.after_search(MATE - 2, false).is_empty());
+  assert!(events.after_search(100, false).is_empty());
 
   // Without being in trouble, finding a mate is a normal announcement
   let mut events = GameEvents::default();
-  assert_eq!(vec![EvalEvent::AnnounceMate(2)], events.after_search(198.0, false));
+  assert_eq!(vec![EvalEvent::AnnounceMate(2)], events.after_search(MATE - 3, false));
 }
 
 #[test]
 fn test_event_messages() {
   assert_eq!(Some(String::from("oh oh, I think I am in trouble (move 23, eval -3.4)")),
-             EvalEvent::InTrouble.message(23, -3.4));
+             EvalEvent::InTrouble.message(23, -340));
   assert_eq!(Some(String::from("Maybe not so much in trouble after all (move 31, eval -0.3)")),
-             EvalEvent::OutOfTrouble.message(31, -0.3));
+             EvalEvent::OutOfTrouble.message(31, -30));
   assert_eq!(Some(String::from("Maybe not so much in trouble after all (move 31, eval +2.5)")),
-             EvalEvent::OutOfTrouble.message(31, 2.5));
+             EvalEvent::OutOfTrouble.message(31, 250));
   assert_eq!(Some(String::from("Woo-hoo, mate around the corner (#4, move 40)")),
-             EvalEvent::AnnounceMate(4).message(40, 194.0));
+             EvalEvent::AnnounceMate(4).message(40, MATE - 7));
   assert_eq!(Some(String::from("Wow, this is a swindle!")),
-             EvalEvent::Swindle.message(40, 197.0));
-  assert_eq!(None, EvalEvent::Resign.message(40, -199.0));
+             EvalEvent::Swindle.message(40, MATE - 4));
+  assert_eq!(None, EvalEvent::Resign.message(40, -(MATE - 2)));
 }
 
 #[test]
 fn test_format_eval() {
-  assert_eq!("+1.5", format_eval(1.5));
-  assert_eq!("-3.2", format_eval(-3.24));
-  assert_eq!("+0.0", format_eval(0.0));
+  assert_eq!("+1.5", format_eval(150));
+  assert_eq!("-3.2", format_eval(-324));
+  assert_eq!("+0.0", format_eval(0));
   // Mates: number of moves for the mating side
-  assert_eq!("#1", format_eval(200.0));
-  assert_eq!("#3", format_eval(196.0));
-  assert_eq!("#-1", format_eval(-199.0));
-  assert_eq!("#-2", format_eval(-197.0));
+  assert_eq!("#1", format_eval(MATE - 1));
+  assert_eq!("#3", format_eval(MATE - 5));
+  assert_eq!("#-1", format_eval(-(MATE - 2)));
+  assert_eq!("#-2", format_eval(-(MATE - 4)));
 }
 
 #[test]
@@ -250,12 +252,9 @@ fn test_engine_plays_at_lowest_max_depth() {
 fn test_eval_report() {
   let mut events = GameEvents::default();
   assert_eq!(NO_EVAL_YET, events.eval_report());
-  events.set_last_eval(12, 1.25);
+  events.set_last_eval(12, 125);
   assert_eq!("Move 12, eval +1.2", events.eval_report());
-  // NaN evals (no result) do not replace the last one
-  events.set_last_eval(13, f32::NAN);
-  assert_eq!("Move 12, eval +1.2", events.eval_report());
-  events.set_last_eval(30, -197.0);
+  events.set_last_eval(30, -(MATE - 4));
   assert_eq!("Move 30, eval #-2", events.eval_report());
 }
 
@@ -270,8 +269,8 @@ fn test_quiet() {
 
   // The trouble state is still tracked while quiet, so that we do not comment
   // on an old situation if this changes later
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
-  assert!(events.after_search(-6.0, false).is_empty());
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-400, false));
+  assert!(events.after_search(-600, false).is_empty());
 }
 
 #[test]
@@ -318,7 +317,7 @@ fn test_restore_from_chat_ongoing_game() {
   assert!(!events.on_moves_played(1));
   assert!(!events.on_moves_played(2));
   // Nothing else happened: trouble and mates can still be commented
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-400, false));
 
   // Usernames are matched without case and title ("BOT schnecken_bot")
   let chat = [line("BOT Schnecken_Bot", &greeting("oli567"))];
@@ -331,21 +330,21 @@ fn test_restore_from_chat_state() {
   // In trouble, and a mate was already announced earlier
   let chat = [line("schnecken_bot", &greeting("oli567")),
               line("schnecken_bot", &mate_announcement(3, 20)),
-              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap())];
+              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -400).unwrap())];
   let mut events = GameEvents::default();
   assert!(events.restore_from_chat(&chat, "schnecken_bot"));
   // Still in trouble: no new "in trouble" message, but we can get out of it
-  assert!(events.after_search(-5.0, false).is_empty());
-  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(0.0, false));
+  assert!(events.after_search(-500, false).is_empty());
+  assert_eq!(vec![EvalEvent::OutOfTrouble], events.after_search(0, false));
   // Mate already announced
-  assert!(events.after_search(197.0, false).is_empty());
+  assert!(events.after_search(MATE - 4, false).is_empty());
 
   // Got out of trouble already
-  let chat = [line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap()),
-              line("schnecken_bot", &EvalEvent::OutOfTrouble.message(35, 0.1).unwrap())];
+  let chat = [line("schnecken_bot", &EvalEvent::InTrouble.message(30, -400).unwrap()),
+              line("schnecken_bot", &EvalEvent::OutOfTrouble.message(35, 10).unwrap())];
   let mut events = GameEvents::default();
   events.restore_from_chat(&chat, "schnecken_bot");
-  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-4.0, false));
+  assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-400, false));
 
   // Opponent asked us to be quiet, then chatty, then quiet again
   let chat = [line("schnecken_bot", &greeting("oli567")),
@@ -399,7 +398,7 @@ fn test_ask_opponent_eval() {
 
   // After a restart: we already asked
   let chat = [line("BOT botty", "!help for commands"),
-              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -4.0).unwrap()),
+              line("schnecken_bot", &EvalEvent::InTrouble.message(30, -400).unwrap()),
               line("schnecken_bot", ASK_OPPONENT_EVAL)];
   let mut events = GameEvents::default();
   events.restore_from_chat(&chat, "schnecken_bot");
@@ -421,8 +420,8 @@ fn test_never_say_the_same_comment_twice() {
   assert!(events.should_say(WELL_PLAYED));
 
   // Comments with a different context (move, eval) are different comments
-  let trouble_1 = EvalEvent::InTrouble.message(23, -3.4).unwrap();
-  let trouble_2 = EvalEvent::InTrouble.message(40, -4.0).unwrap();
+  let trouble_1 = EvalEvent::InTrouble.message(23, -340).unwrap();
+  let trouble_2 = EvalEvent::InTrouble.message(40, -400).unwrap();
   assert!(events.should_say(&trouble_1));
   assert!(events.should_say(&trouble_2));
   assert!(!events.should_say(&trouble_1));
@@ -461,22 +460,21 @@ fn test_can_toggle_commentary() {
 fn test_should_claim_draw() {
   // We do not know how we stand: claim
   assert!(should_claim_draw(None));
-  assert!(should_claim_draw(Some(f32::NAN)));
   // Worse, equal or only slightly better: claim
-  assert!(should_claim_draw(Some(-4.0)));
-  assert!(should_claim_draw(Some(0.0)));
+  assert!(should_claim_draw(Some(-400)));
+  assert!(should_claim_draw(Some(0)));
   assert!(should_claim_draw(Some(CLAIM_DRAW_MAX_EVAL)));
   // Better: play on
-  assert!(!should_claim_draw(Some(1.5)));
-  assert!(!should_claim_draw(Some(197.0)));
+  assert!(!should_claim_draw(Some(150)));
+  assert!(!should_claim_draw(Some(MATE - 4)));
 }
 
 #[test]
 fn test_last_eval() {
   let mut events = GameEvents::default();
   assert_eq!(None, events.last_eval());
-  events.set_last_eval(18, -3.0);
-  assert_eq!(Some(-3.0), events.last_eval());
+  events.set_last_eval(18, -300);
+  assert_eq!(Some(-300), events.last_eval());
 }
 
 #[test]
@@ -497,7 +495,7 @@ fn test_resign_with_single_legal_move() {
 }
 
 /// Game events where our last search gave this eval (from our point of view)
-fn events_with_eval(eval_for_us: f32) -> GameEvents {
+fn events_with_eval(eval_for_us: Score) -> GameEvents {
   let mut events = GameEvents::default();
   events.set_last_eval(30, eval_for_us);
   events
@@ -506,7 +504,7 @@ fn events_with_eval(eval_for_us: f32) -> GameEvents {
 #[test]
 fn test_flagging_start_conditions() {
   // Human, 30s left (less than our 2 minutes), and winning: we flag
-  let mut events = events_with_eval(-3.0);
+  let mut events = events_with_eval(-300);
   assert!(events.update_flagging(true, 120_000, 30_000));
   assert!(events.is_flagging());
   // Announced only once
@@ -514,19 +512,19 @@ fn test_flagging_start_conditions() {
   assert!(events.is_flagging());
 
   // Never against bots
-  let mut events = events_with_eval(-3.0);
+  let mut events = events_with_eval(-300);
   assert!(!events.update_flagging(false, 120_000, 30_000));
   assert!(!events.is_flagging());
   // Not when the opponent has a minute or more
-  let mut events = events_with_eval(-3.0);
+  let mut events = events_with_eval(-300);
   assert!(!events.update_flagging(true, 120_000, 61_000));
   assert!(!events.is_flagging());
   // Not when the opponent has more time than us
-  let mut events = events_with_eval(-3.0);
+  let mut events = events_with_eval(-300);
   assert!(!events.update_flagging(true, 20_000, 30_000));
   assert!(!events.is_flagging());
   // Not when the opponent is not clearly winning
-  let mut events = events_with_eval(-2.0);
+  let mut events = events_with_eval(-200);
   assert!(!events.update_flagging(true, 120_000, 30_000));
   assert!(!events.is_flagging());
   // Not before we have an eval
@@ -537,14 +535,14 @@ fn test_flagging_start_conditions() {
 
 #[test]
 fn test_flagging_stop_conditions() {
-  let mut events = events_with_eval(-2.5);
+  let mut events = events_with_eval(-250);
   assert!(events.update_flagging(true, 120_000, 30_000));
 
   // Getting back to an even or still losing position: keep flagging
-  events.set_last_eval(31, 0.0);
+  events.set_last_eval(31, 0);
   events.update_flagging(true, 120_000, 20_000);
   assert!(events.is_flagging());
-  events.set_last_eval(32, -5.0);
+  events.set_last_eval(32, -500);
   events.update_flagging(true, 120_000, 15_000);
   assert!(events.is_flagging());
   // Even if the time conditions are not met anymore
@@ -552,12 +550,12 @@ fn test_flagging_stop_conditions() {
   assert!(events.is_flagging());
 
   // Clearly better: stop, silently
-  events.set_last_eval(33, 2.5);
+  events.set_last_eval(33, 250);
   assert!(!events.update_flagging(true, 120_000, 10_000));
   assert!(!events.is_flagging());
 
   // And start again if the opponent is winning again later
-  events.set_last_eval(40, -4.0);
+  events.set_last_eval(40, -400);
   assert!(events.update_flagging(true, 120_000, 8_000));
   assert!(events.is_flagging());
 }

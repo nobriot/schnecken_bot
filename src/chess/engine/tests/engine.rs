@@ -32,7 +32,7 @@ fn engine_search_real_game_2Dxi9wZH() {
   assert!(!analysis.is_empty());
   assert!(engine.get_best_move().unwrap().to_string() != "e5f7");
   let eval = analysis.get(0).eval;
-  assert!(eval > 2.0);
+  assert!(eval > 200);
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn engine_search_real_game_w1mLoTRZ() {
   let best_move_string = engine.get_best_move().unwrap().to_string();
   assert!(best_move_string == "c3e2" || best_move_string == "f2f3");
   let eval = analysis.get(0).eval;
-  assert!(eval < -2.0);
+  assert!(eval < -200);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn engine_earch_real_game_W89VkRfp() {
   assert!(!analysis.is_empty());
   assert!(engine.get_best_move().unwrap().to_string() == "c3e4");
   let eval = analysis.get(0).eval;
-  assert!(eval > 1.0);
+  assert!(eval > 100);
 }
 
 #[test]
@@ -139,7 +139,13 @@ fn engine_select_best_move_checkmate_in_two() {
   let expected_move = "c1b2";
   assert_eq!(expected_move, engine.get_best_move().unwrap().to_string());
   let analysis = engine.get_analysis();
-  assert_eq!(analysis.get(0).eval, 198.0);
+  // b6d5# is an epic mate: lots of pieces in the mating net
+  let mut game_state = GameState::from_fen(engine.position.to_fen().as_str());
+  for mv in ["c1b2", "d4e3", "b6d5"] {
+    game_state.apply_move_from_notation(mv);
+  }
+  assert!(matches!(get_epic_mate(&game_state.board), Some(EpicMate::MatingNet(_))));
+  assert_eq!(analysis.get(0).eval, EPIC_MATE - 3);
 }
 
 #[test]
@@ -516,7 +522,7 @@ fn evaluate_real_game_ov5SZJLX_example() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis.get(0).eval < -4.0);
+  assert!(analysis.get(0).eval < -400);
 }
 
 #[ignore]
@@ -559,8 +565,8 @@ fn test_drawn_pawn_and_king_endgame() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis.get(0).eval < 1.0);
-  assert!(analysis.get(0).eval > -1.0);
+  assert!(analysis.get(0).eval < 100);
+  assert!(analysis.get(0).eval > -100);
 }
 
 #[test]
@@ -606,8 +612,8 @@ fn test_under_promotion_got_evaluated_better() {
   assert!(analysis.len() >= 2);
   assert_eq!(best_move.to_string(), "h2h1q");
   assert_eq!(analysis.get(1).variation.get_first_move().unwrap().to_string(), "h2h1r");
-  assert!(analysis.get(1).eval < 1.0);
-  assert!(analysis.get(1).eval > -1.0);
+  assert!(analysis.get(1).eval < 100);
+  assert!(analysis.get(1).eval > -100);
 
   // Same but from the next move perspective:
   let fen = "8/8/4K3/7k/8/8/6R1/7r w - - 0 59";
@@ -621,9 +627,9 @@ fn test_under_promotion_got_evaluated_better() {
   assert_ne!(best_move, Move::default());
   let analysis = engine.get_analysis();
   assert!(analysis.len() >= 3);
-  assert!(analysis.get(0).eval.abs() < 0.4);
-  assert!(analysis.get(1).eval.abs() < 0.4);
-  assert!(analysis.get(2).eval.abs() < 0.4);
+  assert!(analysis.get(0).eval.abs() < 40);
+  assert!(analysis.get(1).eval.abs() < 40);
+  assert!(analysis.get(2).eval.abs() < 40);
 }
 
 #[test]
@@ -759,8 +765,8 @@ fn engine_search_real_game_Lwrv3mnM_cache_pollution() {
   let eval = engine.get_eval().unwrap();
   // Tablebase says this is winning for white, but we are not capturing the
   // pawns anytime soon: Rook + pawn vs 3 pawns.
-  assert!(eval > 1.0, "eval {eval} too low");
-  assert!(eval < 15.0, "eval {eval} too high, polluted cache?");
+  assert!(eval > 100, "eval {eval} too low");
+  assert!(eval < 1500, "eval {eval} too high, polluted cache?");
 }
 
 #[test]
@@ -822,7 +828,7 @@ fn engine_search_real_game_Q0UsOw1C_find_mate() {
   engine.go();
   engine.print_evaluations();
   assert_eq!(engine.get_best_move().unwrap().to_string(), "e6f6");
-  assert!(engine.get_eval().unwrap() > 100.0);
+  assert!(is_mate_score(engine.get_eval().unwrap()) && engine.get_eval().unwrap() > 0);
 }
 
 #[test]
@@ -874,7 +880,7 @@ fn engine_search_real_game_sodIaezB_no_rook_sacrifice() {
   for i in 0..3 {
     let line = analysis.get(i);
     assert_ne!(line.variation.get_first_move().unwrap().to_string(), "b2f2");
-    assert!(line.eval < -10.0 && line.eval > -20.0, "Line {i} eval {}", line.eval);
+    assert!(line.eval < -1000 && line.eval > -2000, "Line {i} eval {}", line.eval);
   }
 }
 
@@ -931,7 +937,7 @@ fn engine_avoids_repetition_when_better() {
   engine.go();
   engine.print_evaluations();
   assert_ne!("e1f1", engine.get_best_move().unwrap().to_string());
-  assert!(engine.get_eval().unwrap() > 5.0);
+  assert!(engine.get_eval().unwrap() > 500);
 }
 
 #[test]
@@ -944,12 +950,12 @@ fn engine_takes_repetition_when_worse_xahcEEYQ() {
   engine.go();
   engine.print_evaluations();
   assert_eq!("g7h6", engine.get_best_move().unwrap().to_string());
-  assert_eq!(0.0, engine.get_eval().unwrap());
+  assert_eq!(0, engine.get_eval().unwrap());
 
   // That 0 comes from the repetition, it depends on the path: it must not be
   // cached for the board, where it would be reused in other lines
   let cached = engine.cache.get_eval(&engine.position.board);
-  assert!(cached.is_none_or(|c| c.eval != 0.0), "cached {:?}", cached.map(|c| c.eval));
+  assert!(cached.is_none_or(|c| c.eval != 0), "cached {:?}", cached.map(|c| c.eval));
 }
 
 #[test]
@@ -968,7 +974,7 @@ fn engine_single_move_eval_sees_mate_zVGdOBiO() {
   assert_eq!("g6e7", engine.get_best_move().unwrap().to_string());
   let eval = engine.get_eval().unwrap();
   // White mates: we play Ne7, White plays Qxe7#
-  assert!(eval > 0.0, "eval {eval}");
+  assert!(eval > 0, "eval {eval}");
   assert_eq!(Some(2), mate_distance_in_plies(eval), "eval {eval}");
 }
 
@@ -986,7 +992,7 @@ fn knight_sacrifice_is_not_free_ZR6c8ZB3() {
     GameState::from_fen("r6r/1b1nqkb1/p3pnpp/1ppp4/4PP2/P1NP4/1PPBB1PP/2RQ1RK1 w - - 0 14");
   let (before, after_sac) = (evaluate_board(&before), evaluate_board(&after_sac));
   println!("Before the sacrifice: {before} - after 13. Nxf7 Kxf7: {after_sac}");
-  assert!(before - after_sac > 1.0);
+  assert!(before - after_sac > 100);
 }
 
 #[test]

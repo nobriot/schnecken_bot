@@ -133,9 +133,7 @@ fn cache_for_game_status(bencher: Bencher) {
   bencher.bench_local(|| {
            let eval_cache = cache.get_eval(&game_state.board).unwrap_or_default();
            if eval_cache.depth == 0 {
-             cache.set_eval(&game_state.board, EvaluationCache { game_status,
-                                                                 eval: f32::NAN,
-                                                                 depth: 1 });
+             cache.set_eval(&game_state.board, EvaluationCache { game_status, eval: 0, depth: 1 });
            } else {
              assert_eq!(game_status, eval_cache.game_status);
            }
@@ -149,14 +147,8 @@ fn cache_for_evals(bencher: Bencher) {
   let game_state: GameState = GameState::from_board(&Board::new_random());
   let eval = evaluate_board(&game_state);
 
-  assert!(!eval.is_nan(), "Evaluate board returned NaN eval for : {}", game_state.to_fen());
-
   bencher.bench_local(|| {
            if let Some(eval_cache) = cache.get_eval(&game_state.board) {
-             assert!(!eval_cache.eval.is_nan(),
-                     "Eval is Nan For board: {} - hash {}",
-                     game_state.to_fen(),
-                     game_state.board.hash);
              assert_eq!(eval, eval_cache.eval);
            } else {
              cache.set_eval(&game_state.board, EvaluationCache { game_status:

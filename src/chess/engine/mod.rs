@@ -45,6 +45,9 @@ const MAX_CHECK_EXTENSION: usize = 4;
 /// Search depth when there is only one legal move: enough to see if a mate
 /// follows, while still playing the move almost instantly.
 const SINGLE_MOVE_SEARCH_DEPTH: usize = 3;
+/// Alpha has to exceed beta by this many centipawns before we prune: we have
+/// low trust in the eval accuracy.
+const SEARCH_PRUNING_MARGIN: Score = 50;
 /// The search checks the clock once every that many calls to `search()`
 /// (must be a power of 2): reading the time at every node is expensive. Most
 /// calls are just above the leaves, so this is about a thousand leaves.
@@ -426,7 +429,7 @@ impl Engine {
         SearchResult::new(self.options.multi_pv, self.position.board.side_to_play);
 
       for m in &move_list {
-        result.update(VariationWithEval::new_from_move(0.0, *m));
+        result.update(VariationWithEval::new_from_move(0, *m));
       }
       self.analysis.update_result(result);
 
@@ -445,7 +448,7 @@ impl Engine {
     if moves.len() == 1 {
       debug!("Single move available. Just evaluating quickly");
       let result =
-        self.search(&self.position.clone(), 1, SINGLE_MOVE_SEARCH_DEPTH, f32::MIN, f32::MAX);
+        self.search(&self.position.clone(), 1, SINGLE_MOVE_SEARCH_DEPTH, -SCORE_INF, SCORE_INF);
       if let Some(result) = result
          && !result.is_empty()
       {
@@ -465,10 +468,8 @@ impl Engine {
       let mut evaluation_cache = self.cache.get_eval(&game_state.board).unwrap_or_default();
       if evaluation_cache.depth == 0 {
         let game_status = is_game_over(&self.cache, &game_state.board);
-        let mut eval = get_eval_from_game_status(game_status);
-        if eval.is_nan() {
-          eval = evaluate_board(&game_state);
-        }
+        let eval =
+          get_eval_from_game_status(game_status).unwrap_or_else(|| evaluate_board(&game_state));
         evaluation_cache = EvaluationCache { game_status, eval, depth: 1 };
         self.cache.set_eval(&game_state.board, evaluation_cache);
       }
@@ -494,7 +495,7 @@ impl Engine {
 
       // Try to search for the current depth
       let result =
-        self.search(&self.position.clone(), 1, self.analysis.get_depth(), f32::MIN, f32::MAX);
+        self.search(&self.position.clone(), 1, self.analysis.get_depth(), -SCORE_INF, SCORE_INF);
 
       if self.has_been_searching_too_long() || self.stop_requested() || result.is_none() {
         // Toss away unfinished depths
@@ -543,7 +544,7 @@ impl Engine {
   }
 
   /// Returns the best eval saved in the analysis
-  pub fn get_eval(&self) -> Option<f32> {
+  pub fn get_eval(&self) -> Option<Score> {
     let analysis = self.analysis.result.lock().unwrap();
     analysis.get_eval()
   }
@@ -570,10 +571,17 @@ impl Engine {
 
     for (i, variation) in result.variations.iter().take(multi_pv_setting).enumerate() {
       let eval = variation.eval;
-      let score_string = if eval.abs() > 100.0 {
-        format!("score mate {}", ((eval.signum() * 200.0) - eval) as isize)
-      } else {
-        format!("score cp {}", (eval * 100.0) as isize)
+      let score_string = match mate_distance_in_plies(eval) {
+        // UCI mate scores are in moves, from the side to play's point of view
+        Some(plies) => {
+          let moves = plies.div_ceil(2) as isize;
+          let mating = match self.position.board.side_to_play {
+            Color::White => eval > 0,
+            Color::Black => eval < 0,
+          };
+          format!("score mate {}", if mating { moves } else { -moves })
+        },
+        None => format!("score cp {}", eval),
       };
       let multi_pv_string = if multi_pv_setting > 1 {
         format!(" multipv {} ", i + 1)
@@ -650,7 +658,7 @@ impl Engine {
     let best_move = move_list[0];
     let mut best_new_state = game_state.clone();
     best_new_state.apply_move(&best_move);
-    if evaluation_cache.eval.is_nan() {
+    if evaluation_cache.depth == 0 {
       return best_move.to_string() + " - Not evaluated";
     }
 
@@ -662,7 +670,7 @@ impl Engine {
   /// Prints the evaluation result in the console
   pub fn print_evaluations(&self) {
     let lines = self.analysis.result.lock().unwrap();
-    let position_eval = if lines.is_empty() { f32::NAN } else { lines.variations[0].eval };
+    let position_eval = lines.get_eval().map_or(String::from("-"), |e| e.to_string());
 
     println!("Score for position {}: {}\n{}", self.position.to_fen(), position_eval, lines,);
   }
@@ -710,7 +718,7 @@ impl Engine {
   /// * alpha:      Previous alpha value
   /// * beta:       Previous beta value
   #[inline]
-  fn update_alpha_beta(color: Color, eval: f32, alpha: &mut f32, beta: &mut f32) {
+  fn update_alpha_beta(color: Color, eval: Score, alpha: &mut Score, beta: &mut Score) {
     match color {
       Color::White => {
         if *alpha < eval {
@@ -743,8 +751,8 @@ impl Engine {
             game_state: &GameState,
             depth: usize,
             max_depth: usize,
-            mut alpha: f32,
-            mut beta: f32)
+            mut alpha: Score,
+            mut beta: Score)
             -> Option<SearchResult> {
     if self.stop_requested() {
       return None;
@@ -772,9 +780,7 @@ impl Engine {
 
     for &m in moves.get_moves() {
       // println!("Move: {} - alpha-beta: {}/{}", m.to_string(), alpha, beta);
-      // Here we have low trust in eval accuracy, so it has to be more than
-      // good gap between alpha and beta before we prune.
-      if (alpha - 0.5) > beta {
+      if alpha.saturating_sub(SEARCH_PRUNING_MARGIN) > beta {
         // TODO: Test this a bit better, I think we are pruning stuff that
         // should not get pruned. println!("Skipping {} as it is pruned
         // {}/{}",game_state.to_fen(), alpha, beta);
@@ -808,7 +814,7 @@ impl Engine {
       if draw != GameStatus::Ongoing {
         // Do not cache this: repetitions / 50 moves depend on the path that led
         // to the board, the same board reached via another line is not a draw.
-        Engine::update_alpha_beta(game_state.board.side_to_play, 0.0, &mut alpha, &mut beta);
+        Engine::update_alpha_beta(game_state.board.side_to_play, 0, &mut alpha, &mut beta);
         result.update(VariationWithEval::new_repetition_draw(m));
         continue;
       }
@@ -834,17 +840,13 @@ impl Engine {
 
       // No need to look at other moves in this variation if we found a
       // checkmate for the side to play:
-      let mut eval = get_eval_from_game_status(eval_cache.game_status);
+      let mut eval = get_eval_from_game_status(eval_cache.game_status).unwrap_or_default();
       if eval_cache.game_status == GameStatus::WhiteWon
          || eval_cache.game_status == GameStatus::BlackWon
       {
-        if is_smothered_mate(&game_state.board, eval_cache.game_status) {
-          // Just assign a higher score to smothered mates
-          if eval_cache.game_status == GameStatus::WhiteWon {
-            eval = 220.0;
-          } else {
-            eval = -220.0;
-          }
+        if get_epic_mate(&new_game_state.board).is_some() {
+          // Epic mates (smothered, big mating nets) get a higher score
+          eval = eval.signum() * (EPIC_MATE - 1);
         }
 
         // FIXME: We should make this a bit smarter, go one level up to save the
@@ -887,7 +889,7 @@ impl Engine {
             // println!("board: {} - Eval: {} - NNUE Eval: {} - final eval
             // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 +
             // nnue_eval * 0.5);
-            eval = eval * 0.5 + nnue_eval * 0.5;
+            eval = ((eval as i32 + nnue_eval as i32) / 2) as Score;
           }
 
           result.update(VariationWithEval::new_from_move(eval, m));
@@ -956,13 +958,13 @@ impl Engine {
   /// Checks the best move in the result and check if it is a winning sequence
   /// for the color indicated in argument
   #[inline]
-  fn best_move_is_mating_sequence(color: Color, eval: f32) -> bool {
-    if eval.is_nan() {
+  fn best_move_is_mating_sequence(color: Color, eval: Score) -> bool {
+    if !is_mate_score(eval) {
       return false;
     }
     match color {
-      Color::White => eval > 150.0,
-      Color::Black => eval < -150.0,
+      Color::White => eval > 0,
+      Color::Black => eval < 0,
     }
   }
 }
