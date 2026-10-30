@@ -54,9 +54,10 @@ Command line options:
 | `--cache-size <MB>`    | Engine cache table size in MB (default: 1024)                    |
 | `--play-style <STYLE>` | Engine play style: normal, conservative, aggressive, provocative |
 | `--log-file <PATH>`    | Also append the logs to this file                                |
+| `--log-level <LEVEL>`  | Log level: off, error, warn, info, debug, trace                  |
 
 Pass them after `--`, e.g. `cargo run --release -- --log-file bot.log`.
-The log level can be changed with the `RUST_LOG` environment variable
+Without `--log-level`, the log level comes from the `RUST_LOG` environment variable
 (default: `info`).
 
 ### Configuration file

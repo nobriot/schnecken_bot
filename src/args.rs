@@ -1,4 +1,5 @@
 use clap::Parser;
+use log::LevelFilter;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -19,4 +20,9 @@ pub struct Args {
   /// Also append the logs to this file
   #[arg(long = "log-file")]
   pub log_file: Option<PathBuf>,
+
+  /// Log level: off, error, warn, info, debug, trace. Overrides the global level from RUST_LOG
+  /// (defaults to info)
+  #[arg(long = "log-level")]
+  pub log_level: Option<LevelFilter>,
 }

@@ -15,7 +15,7 @@ mod tee_writer;
 // Main function
 fn main() {
   let cli = args::Args::parse();
-  logger::init_logger(cli.log_file.as_deref());
+  logger::init_logger(cli.log_level, cli.log_file.as_deref());
   let api_token = match config::resolve_token(cli.api_token) {
     Ok(token) => token,
     Err(e) => {
