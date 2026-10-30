@@ -38,7 +38,7 @@ pub fn get_square_table_opening_score(game_state: &GameState) -> Score {
       PieceType::King => score -= OpeningSquareTable::BLACK_KING[i as usize],
       PieceType::Queen => score -= OpeningSquareTable::QUEEN[i as usize],
       PieceType::Rook => score -= OpeningSquareTable::BLACK_ROOK[i as usize],
-      PieceType::Bishop => score -= SquareTable::WHITE_BISHOP[i as usize],
+      PieceType::Bishop => score -= SquareTable::BLACK_BISHOP[i as usize],
       PieceType::Knight => score -= SquareTable::KNIGHT[i as usize],
       PieceType::Pawn => score -= SquareTable::BLACK_PAWN[i as usize],
     }

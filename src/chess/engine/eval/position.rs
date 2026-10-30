@@ -77,7 +77,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> Score {
   }
 
   score +=
-    get_rooks_file_score(game_state, Color::Black) - get_rooks_file_score(game_state, Color::White);
+    get_rooks_file_score(game_state, Color::White) - get_rooks_file_score(game_state, Color::Black);
 
   let mut white_pieces =
     game_state.board.pieces.white.minors() & game_state.board.pieces.white.majors();
@@ -112,7 +112,7 @@ pub fn default_position_evaluation(game_state: &GameState) -> Score {
     let attackers = game_state.board.get_attackers(i, Color::White);
 
     if defenders == 0 {
-      score -= HANGING_PENALTY;
+      score += HANGING_PENALTY;
     }
     if attackers.count_ones() > defenders.count_ones()
        && game_state.board.side_to_play == Color::White
