@@ -139,13 +139,15 @@ fn engine_select_best_move_checkmate_in_two() {
   let expected_move = "c1b2";
   assert_eq!(expected_move, engine.get_best_move().unwrap().to_string());
   let analysis = engine.get_analysis();
-  // b6d5# is an epic mate: lots of pieces in the mating net
+  // b6d5# is not an epic mate: only 5 pieces are needed in the mating net
+  // (Nd5, Ke1, e2, Bb2 and f3 or Nd2)
   let mut game_state = GameState::from_fen(engine.position.to_fen().as_str());
   for mv in ["c1b2", "d4e3", "b6d5"] {
     game_state.apply_move_from_notation(mv);
   }
-  assert!(matches!(get_epic_mate(&game_state.board), Some(EpicMate::MatingNet(_))));
-  assert_eq!(analysis.get(0).eval, EPIC_MATE - 3);
+  assert_eq!(5, get_mating_net_pieces(&game_state.board).count_ones());
+  assert_eq!(None, get_epic_mate(&game_state.board));
+  assert_eq!(analysis.get(0).eval, MATE - 3);
 }
 
 #[test]

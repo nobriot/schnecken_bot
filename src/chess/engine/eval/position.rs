@@ -399,10 +399,41 @@ pub enum EpicMate {
   MatingNet(u32),
 }
 
+/// Finds the smallest set of pieces covering all the squares, on top of the
+/// pieces already chosen.
+///
+/// ### Arguments
+///
+/// * `squares_attackers` - For each square to cover, the pieces attacking it
+/// * `chosen` -            Pieces already part of the set
+///
+/// ### Returns
+///
+/// BoardMask with the chosen pieces and the smallest set of pieces to add
+fn get_minimum_cover(squares_attackers: &[BoardMask], chosen: BoardMask) -> BoardMask {
+  let Some(mut attackers) = squares_attackers.iter().copied().find(|a| *a != 0 && *a & chosen == 0)
+  else {
+    return chosen;
+  };
+
+  // One of the attackers of the first uncovered square has to be picked
+  let mut best = BoardMask::MAX;
+  while attackers != 0 {
+    let piece = attackers.isolate_lowest_one();
+    let cover = get_minimum_cover(squares_attackers, chosen | piece);
+    if cover.count_ones() < best.count_ones() {
+      best = cover;
+    }
+    attackers &= attackers - 1;
+  }
+  best
+}
+
 /// Pieces taking part in a mating net, on a board where the side to play is
 /// checkmated: the checking pieces, the pieces of the mated side blocking
-/// their own king, and the pieces of the mating side attacking the other
-/// squares around the king.
+/// their own king, and the smallest set of pieces of the mating side attacking
+/// the other squares around the king (a square attacked by several pieces only
+/// needs one of them).
 ///
 /// ### Arguments
 ///
@@ -424,7 +455,9 @@ pub fn get_mating_net_pieces(board: &Board) -> BoardMask {
   };
 
   let mut net = board.checkers;
+  let mut squares_attackers: [BoardMask; 8] = [0; 8];
   let mut squares = KING_MOVES[king as usize];
+  let mut i = 0;
   while squares != 0 {
     let square = squares.trailing_zeros() as u8;
     if own_pieces & (1 << square) != 0 {
@@ -432,11 +465,12 @@ pub fn get_mating_net_pieces(board: &Board) -> BoardMask {
       net |= 1 << square;
     } else {
       // The square is taken away by the attacking pieces
-      net |= board.get_attackers(square, mating_color);
+      squares_attackers[i] = board.get_attackers(square, mating_color);
+      i += 1;
     }
     squares &= squares - 1;
   }
-  net
+  get_minimum_cover(&squares_attackers[..i], net)
 }
 
 /// Checks if a checkmate deserves to be celebrated: smothered mates, or mates
@@ -530,13 +564,21 @@ mod tests {
     assert_eq!(4, get_mating_net_pieces(&board).count_ones());
     assert_eq!(None, get_epic_mate(&board));
 
-    // Same, with a bishop also covering f8: 5 pieces in the net, still not epic
-    let board = Board::from_fen("R5k1/5ppp/8/8/1B6/8/8/6K1 b - - 1 1");
-    assert_eq!(5, get_mating_net_pieces(&board).count_ones());
+    // Same, with a bishop and a knight also covering f8: they are not needed
+    let board = Board::from_fen("R5k1/3N1ppp/8/8/1B6/8/8/6K1 b - - 1 1");
+    assert_eq!(4, get_mating_net_pieces(&board).count_ones());
     assert_eq!(None, get_epic_mate(&board));
 
-    // And a knight covering f8 as well: 6 pieces in the net
-    let board = Board::from_fen("R5k1/3N1ppp/8/8/1B6/8/8/6K1 b - - 1 1");
+    // https://lichess.org/cuuOMUnj : 45...Bxg5#. h5 is defended by the king and
+    // the rook, g3 attacked by the rook and the f4 pawn: only Bg5, Kg6, Re3 and
+    // h5 are needed
+    let board = Board::from_fen("7r/6p1/pp4k1/6bp/5p1K/4r3/PP5P/8 w - - 0 46");
+    assert_eq!(4, get_mating_net_pieces(&board).count_ones());
+    assert_eq!(None, get_epic_mate(&board));
+
+    // Knight check, pawn blocking the king, each other square covered by a
+    // different piece: 6 pieces in the net
+    let board = Board::from_fen("4k3/2Pp2P1/3P1N2/8/8/8/B7/7K b - - 0 1");
     assert_eq!(Some(EpicMate::MatingNet(6)), get_epic_mate(&board));
 
     // Not a mate at all
