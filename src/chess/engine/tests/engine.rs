@@ -1045,3 +1045,34 @@ fn engine_search_real_game_kzc4RftG_do_not_trap_the_knight() {
   engine.print_evaluations();
   assert_ne!("b4a2", engine.get_best_move().unwrap().to_string());
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_cached_mate_distance_is_stable_MpLQFo7Y() {
+  // https://lichess.org/MpLQFo7Y : after 47...Ke1, 48. Kxf3 Kf1 49. Rd1# is
+  // mate in 2, but the bot shuffled its rook (48. Rd5 49. Rd8) before mating.
+  // The mate distances read from the eval cache were not counted from the
+  // position before the move, so each search reusing the cache of the previous
+  // moves found shorter (wrong) mates and stopped at depth 1 with a random
+  // "mating" move.
+  use crate::engine::eval::position::{MATE, mate_distance_in_plies};
+  let mut engine = Engine::new(false);
+  engine.set_position("3R4/8/8/p7/8/5pK1/PP2kP2/8 w - - 0 47");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 1;
+
+  // A previous search found that after 47. a4, White mates in 4 plies:
+  // 47...Kf1 48. Re8 Kg1 49. Re1#
+  let mut after_a4 = engine.position.clone();
+  after_a4.apply_move_list("a2a4");
+  engine.cache.set_eval(&after_a4.board, EvaluationCache { game_status: GameStatus::Ongoing,
+                                                           eval:        MATE - 4,
+                                                           depth:       4, });
+
+  // Seen from before 47. a4, it is a mate in 5 plies
+  engine.go();
+  engine.print_evaluations();
+  assert_eq!("a2a4", engine.get_best_move().unwrap().to_string());
+  let eval = engine.get_eval().unwrap();
+  assert_eq!(Some(5), mate_distance_in_plies(eval), "eval {eval}");
+}

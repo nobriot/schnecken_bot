@@ -7,6 +7,7 @@ use log::*;
 
 /// Checks if the engine level is adjusted for this game, and can be changed by
 /// the opponent with `max-depth`: casual games against untitled humans.
+#[inline(always)]
 pub fn is_depth_adjustable(game: &GameStart) -> bool {
   !game.rated && !game.opponent_is_bot() && game.opponent.title.is_none()
 }

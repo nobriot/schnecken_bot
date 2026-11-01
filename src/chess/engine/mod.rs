@@ -466,16 +466,19 @@ impl Engine {
       game_state.apply_move(&moves[0]);
 
       let mut evaluation_cache = self.cache.get_eval(&game_state.board).unwrap_or_default();
+      // A cached mate distance is counted from the position after the move:
+      // add the ply of the move.
+      let mut eval = decrement_mate_score(evaluation_cache.eval);
       if evaluation_cache.depth == 0 {
         let game_status = is_game_over(&self.cache, &game_state.board);
-        let eval =
+        eval =
           get_eval_from_game_status(game_status).unwrap_or_else(|| evaluate_board(&game_state));
         evaluation_cache = EvaluationCache { game_status, eval, depth: 1 };
         self.cache.set_eval(&game_state.board, evaluation_cache);
       }
       let mut result: SearchResult =
         SearchResult::new(self.options.multi_pv, game_state.board.side_to_play);
-      result.update(VariationWithEval::new_from_move(evaluation_cache.eval, moves[0]));
+      result.update(VariationWithEval::new_from_move(eval, moves[0]));
 
       self.analysis.update_result(result);
       self.analysis.set_depth(evaluation_cache.depth);
@@ -826,11 +829,11 @@ impl Engine {
         // FIXME: If the position appears in another variation but leads to a
         // draw, e.g. 3 fold repetitions, we won't detect it and skip
         // it. Get the alpha/ beta result propagated upwards.
-        Engine::update_alpha_beta(game_state.board.side_to_play,
-                                  eval_cache.eval,
-                                  &mut alpha,
-                                  &mut beta);
-        result.update(VariationWithEval::new_from_move(eval_cache.eval, m));
+        // The cached mate distance is counted from the child position: add the
+        // ply of this move, like `push_move_to_variations` does.
+        let eval = decrement_mate_score(eval_cache.eval);
+        Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
+        result.update(VariationWithEval::new_from_move(eval, m));
         continue;
       }
 
