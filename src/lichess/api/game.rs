@@ -223,10 +223,11 @@ impl LichessApi {
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
   pub async fn make_move(&self, game_id: &str, chess_move: &str, offer_draw: bool) -> bool {
-    info!("Trying chess move {} on game id {} - Draw offer: {}",
-          chess_move, game_id, offer_draw);
+    debug!("Trying chess move {} on game id {} - Draw offer: {}",
+           chess_move, game_id, offer_draw);
     let api_endpoint: String =
       format!("bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}");
+
     if self.require(Scope::BotPlay, &api_endpoint).is_err() {
       return false;
     }

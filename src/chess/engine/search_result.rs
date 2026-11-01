@@ -96,6 +96,10 @@ impl Default for Variation {
 pub struct VariationWithEval {
   pub variation:  Variation,
   pub eval:       Score,
+  /// Number of plies searched to get the eval, from the first move of the
+  /// variation (including search extensions and the plies of cached
+  /// evaluations). It can be larger than the length of the variation.
+  pub depth:      usize,
   /// The variation ends with a draw by repetition (or 50 moves): its eval
   /// depends on the moves that led to the position, not only on the board.
   pub repetition: bool,
@@ -104,10 +108,17 @@ pub struct VariationWithEval {
 impl VariationWithEval {
   /// Creates a new variation with eval from a single move
   pub fn new_from_move(eval: Score, mv: Move) -> Self {
+    Self::new_from_move_with_depth(eval, 1, mv)
+  }
+
+  /// Creates a new variation with eval from a single move, for an eval that
+  /// was obtained by searching `depth` plies (e.g. read from the eval cache)
+  pub fn new_from_move_with_depth(eval: Score, depth: usize, mv: Move) -> Self {
     let mut variation = Variation::new();
     variation.add(mv);
     VariationWithEval { variation,
                         eval,
+                        depth: depth.max(1),
                         repetition: false }
   }
 
@@ -117,6 +128,23 @@ impl VariationWithEval {
     VariationWithEval { repetition: true,
                         ..Self::new_from_move(0, mv) }
   }
+
+  /// Formats the eval in pawns, followed by the mate notation for mate
+  /// scores, e.g. `1.25` or `-299.94 (#-3)`
+  pub fn eval_string(&self) -> String {
+    let pawns = format!("{:.2}", self.eval as f32 / 100.0);
+    match mate_string(self.eval) {
+      Some(mate) => format!("{pawns} ({mate})"),
+      None => pawns,
+    }
+  }
+}
+
+/// Mate notation (`#3`, or `#-3` when Black mates) for mate scores, in moves
+fn mate_string(eval: Score) -> Option<String> {
+  mate_distance_in_plies(eval).map(|plies| {
+                                format!("#{}{}", if eval < 0 { "-" } else { "" }, plies.div_ceil(2))
+                              })
 }
 
 /// Search result. Contains lines (vector of moves) associated with an
@@ -221,6 +249,7 @@ impl SearchResult {
     for line in &mut self.variations {
       line.variation.push_front(mv);
       line.eval = decrement_mate_score(line.eval);
+      line.depth += 1;
     }
     self.sort = Color::opposite(self.sort);
   }
@@ -230,16 +259,8 @@ impl Display for SearchResult {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     writeln!(f, "Search Result:")?;
     for (i, v) in self.variations.iter().enumerate() {
-      let eval = match mate_distance_in_plies(v.eval) {
-        Some(plies) => format!("#{}{}", if v.eval < 0 { "-" } else { "" }, plies.div_ceil(2)),
-        None => format!("{:.2}", v.eval as f32 / 100.0),
-      };
-      writeln!(f,
-               "Line {:<2}: Eval {:<7} @ depth {} - {}",
-               i,
-               eval,
-               v.variation.len(),
-               v.variation)?;
+      let eval = mate_string(v.eval).unwrap_or_else(|| format!("{:.2}", v.eval as f32 / 100.0));
+      writeln!(f, "Line {:<2}: Eval {:<7} @ depth {} - {}", i, eval, v.depth, v.variation)?;
     }
 
     Ok(())

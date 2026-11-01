@@ -478,7 +478,9 @@ impl Engine {
       }
       let mut result: SearchResult =
         SearchResult::new(self.options.multi_pv, game_state.board.side_to_play);
-      result.update(VariationWithEval::new_from_move(eval, moves[0]));
+      result.update(VariationWithEval::new_from_move_with_depth(eval,
+                                                                evaluation_cache.depth,
+                                                                moves[0]));
 
       self.analysis.update_result(result);
       self.analysis.set_depth(evaluation_cache.depth);
@@ -833,7 +835,7 @@ impl Engine {
         // ply of this move, like `push_move_to_variations` does.
         let eval = decrement_mate_score(eval_cache.eval);
         Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
-        result.update(VariationWithEval::new_from_move(eval, m));
+        result.update(VariationWithEval::new_from_move_with_depth(eval, eval_cache.depth, m));
         continue;
       }
 

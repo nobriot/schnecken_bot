@@ -1076,3 +1076,22 @@ fn engine_cached_mate_distance_is_stable_MpLQFo7Y() {
   let eval = engine.get_eval().unwrap();
   assert_eq!(Some(5), mate_distance_in_plies(eval), "eval {eval}");
 }
+
+#[test]
+fn variation_eval_string_and_depth() {
+  use crate::engine::eval::position::MATE;
+  use crate::engine::search_result::*;
+  let mv = Move::from_string("e2e4");
+  assert_eq!("1.25", VariationWithEval::new_from_move(125, mv).eval_string());
+  assert_eq!("-0.05", VariationWithEval::new_from_move(-5, mv).eval_string());
+  // Black mates in 3 moves (6 plies)
+  assert_eq!("-299.94 (#-3)", VariationWithEval::new_from_move(-(MATE - 6), mv).eval_string());
+  assert_eq!("299.99 (#1)", VariationWithEval::new_from_move(MATE - 1, mv).eval_string());
+
+  // Each move pushed in front of the variation is one more ply searched
+  let mut result = SearchResult::new(1, Color::White);
+  result.update(VariationWithEval::new_from_move_with_depth(MATE - 3, 3, mv));
+  result.push_move_to_variations(Move::from_string("e7e5"));
+  assert_eq!(4, result.get(0).depth);
+  assert_eq!(MATE - 4, result.get(0).eval);
+}
