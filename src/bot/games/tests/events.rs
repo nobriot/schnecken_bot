@@ -197,7 +197,12 @@ fn test_parse_chat_command() {
   assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth 0"));
   assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth 21"));
   assert_eq!(Some(ChatCommand::MaxDepth(None)), parse_chat_command("max-depth deep"));
-  assert_eq!(None, parse_chat_command("eval"));
+  // Lichess filters chat messages starting with a "/", so commands also work
+  // without it
+  assert_eq!(Some(ChatCommand::Eval), parse_chat_command("eval"));
+  assert_eq!(Some(ChatCommand::Quiet), parse_chat_command("Quiet"));
+  assert_eq!(Some(ChatCommand::Chatty), parse_chat_command("chatty please"));
+  assert_eq!(None, parse_chat_command("evaluate"));
   assert_eq!(None, parse_chat_command("what is the /eval?"));
   assert_eq!(None, parse_chat_command("/evaluate"));
   assert_eq!(None, parse_chat_command(""));

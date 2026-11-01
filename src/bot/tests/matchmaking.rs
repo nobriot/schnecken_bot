@@ -108,19 +108,22 @@ fn test_challenge_order() {
                         user("close", Some("BOT"), 1510),
                         user_with_ratings("unrated", Some("BOT"), None, None, None),
                         user("closer", Some("BOT"), 1505),
-                        user("medium", Some("BOT"), 1600),];
+                        user("farthest", Some("BOT"), 2200),
+                        user("medium", Some("BOT"), 1600),
+                        user("further", Some("BOT"), 2100),];
   let mut sorted = candidates.clone();
   sort_by_rating_difference(&mut sorted, 1500, Speed::Blitz);
   let ids: Vec<&str> = sorted.iter().map(|u| u.id.as_str()).collect();
-  assert_eq!(vec!["closer", "close", "medium", "far", "unrated"], ids);
+  assert_eq!(vec!["closer", "close", "medium", "far", "further", "farthest", "unrated"], ids);
 
-  // The first pick is random among the 3 closest, then all the others follow
+  // The first pick is random among the 5 closest, then all the others follow
+  // by rating difference
   for _ in 0..20 {
     let ordered = challenge_order(candidates.clone(), 1500, Speed::Blitz);
-    assert_eq!(candidates.len(), ordered.len());
-    assert!(["closer", "close", "medium"].contains(&ordered[0].id.as_str()));
-    assert_eq!("far", ordered[3].id);
-    assert_eq!("unrated", ordered[4].id);
+    let ordered: Vec<&str> = ordered.iter().map(|u| u.id.as_str()).collect();
+    assert!(ids[..5].contains(&ordered[0]), "{ordered:?}");
+    let others: Vec<&str> = ids.iter().filter(|id| **id != ordered[0]).copied().collect();
+    assert_eq!(others, ordered[1..]);
   }
 }
 
