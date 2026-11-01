@@ -442,13 +442,14 @@ impl Game {
     let move_index = rand::rng().random_range(0..cutoff);
     let line = analysis.get(move_index);
     let mv = line.variation.get_first_move().unwrap();
-    info!("Playing Line {} ({}) as {:?} for GameID {} - eval: {} @ depth {}",
+    info!("Playing Line {} ({}) as {:?} for GameID {} - eval: {} @ depth {} - line:{}",
           move_index,
           mv,
           self.color,
           self.id,
           line.eval_string(),
-          line.depth);
+          line.depth,
+          line.variation);
 
     // If our move gives a threefold repetition (or reaches the 50 moves rule),
     // the engine picked a draw as the best we have: claim it with the move.
