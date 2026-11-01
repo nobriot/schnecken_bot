@@ -1,5 +1,6 @@
 use crate::bot::scopes::*;
 use crate::bot::tournaments::*;
+use lichess::scopes::Scope;
 use lichess::types::{
   ARENA_STATUS_CREATED, ARENA_STATUS_FINISHED, ArenaClock, ArenaTournament, Color, GameStart,
   Player, Variant, VariantKey,
@@ -137,17 +138,31 @@ fn test_missing_scopes() {
   assert!(missing_scopes(&all).is_empty());
 
   let granted: Vec<String> =
-    all.iter().filter(|s| s.as_str() != TOURNAMENT_SCOPE).cloned().collect();
+    all.iter().filter(|s| s.as_str() != Scope::TournamentWrite.as_str()).cloned().collect();
   let missing = missing_scopes(&granted);
   assert_eq!(1, missing.len());
-  assert_eq!(TOURNAMENT_SCOPE, missing[0].scope);
+  assert_eq!(Scope::TournamentWrite, missing[0].scope);
 
   let message = missing_scopes_message(&missing);
   assert!(message.contains("tournament:write (joining tournaments)"));
   // The link to create a new token asks for all the scopes
-  for scope in REQUIRED_SCOPES {
+  for scope in REQUIRED_SCOPES.iter().chain(OPTIONAL_SCOPES) {
     assert!(message.contains(&format!("scopes[]={}", scope.scope)));
   }
+}
+
+#[test]
+fn test_missing_optional_scopes() {
+  let required: Vec<String> = REQUIRED_SCOPES.iter().map(|s| s.scope.to_string()).collect();
+  let missing = missing_optional_scopes(&required);
+  assert_eq!(1, missing.len());
+  assert_eq!(Scope::BoardPlay, missing[0].scope);
+
+  let mut all = required.clone();
+  all.push(Scope::BoardPlay.to_string());
+  assert!(missing_optional_scopes(&all).is_empty());
+  // Optional scopes are never reported as missing required scopes
+  assert!(missing_scopes(&required).is_empty());
 }
 
 #[test]

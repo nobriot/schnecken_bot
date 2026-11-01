@@ -1,6 +1,7 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::error::LichessError;
+use crate::scopes::Scope;
 use crate::types::User;
 // External crates
 use log::*;
@@ -13,6 +14,7 @@ impl LichessApi {
   ///
   /// Result with the list of users we are following
   pub async fn get_following(&self) -> Result<Vec<User>, LichessError> {
+    self.require(Scope::FollowRead, "rel/following")?;
     let json_values = self.lichess_get_nd_json("rel/following").await?;
     Ok(Self::parse_users(json_values))
   }
@@ -28,8 +30,10 @@ impl LichessApi {
   ///
   /// Result indicating if Lichess accepted the request
   pub async fn follow_user(&self, username: &str) -> Result<(), LichessError> {
+    let api_endpoint = format!("rel/follow/{username}");
+    self.require(Scope::FollowWrite, &api_endpoint)?;
     info!("Following {username}");
-    self.relation_request(&format!("rel/follow/{username}")).await
+    self.relation_request(&api_endpoint).await
   }
 
   /// Unfollows a player.
@@ -43,8 +47,10 @@ impl LichessApi {
   ///
   /// Result indicating if Lichess accepted the request
   pub async fn unfollow_user(&self, username: &str) -> Result<(), LichessError> {
+    let api_endpoint = format!("rel/unfollow/{username}");
+    self.require(Scope::FollowWrite, &api_endpoint)?;
     info!("Unfollowing {username}");
-    self.relation_request(&format!("rel/unfollow/{username}")).await
+    self.relation_request(&api_endpoint).await
   }
 
   /// Sends a follow/unfollow request and checks that Lichess answered `ok`
@@ -53,9 +59,8 @@ impl LichessApi {
     if json["ok"].as_bool() == Some(true) {
       Ok(())
     } else {
-      warn!("Lichess refused {api_endpoint}: {json} (does the API token have the follow:write \
-             scope?)");
-      Err(LichessError)
+      warn!("Lichess refused {api_endpoint}: {json}");
+      Err(LichessError::Request)
     }
   }
 

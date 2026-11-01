@@ -12,6 +12,7 @@ pub mod users;
 // From the same library:
 use crate::error::LichessError;
 use crate::helpers;
+use crate::scopes::Scope;
 use crate::traits::{EventStreamHandler, GameStreamHandler};
 use futures_util::StreamExt;
 use log::*;
@@ -53,6 +54,8 @@ pub struct LichessApi {
   token:      String,
   /// Rate limiting state, after receiving 429 responses
   rate_limit: Arc<Mutex<RateLimit>>,
+  /// Scopes granted to our API token, None if we could not read them
+  scopes:     Arc<Option<Vec<String>>>,
 }
 
 /// Computes how long to wait after a 429 (Too Many Requests) response.
@@ -81,11 +84,57 @@ fn parse_retry_after(response: &reqwest::Response) -> Option<Duration> {
 }
 
 impl LichessApi {
-  /// Creates a new instance of a LichessApi, using the API token
-  pub fn new(token: &str) -> Self {
+  /// Creates a new instance of a LichessApi, using the API token.
+  /// Reads the scopes of the token, so that we do not call endpoints that
+  /// Lichess would refuse. If they cannot be read, all the calls are tried.
+  pub async fn new(token: &str) -> Self {
+    let mut api = Self::with_scopes(token, None);
+    match api.get_token_scopes().await {
+      Ok(scopes) => {
+        debug!("Lichess API token scopes: {}", scopes.join(", "));
+        api.scopes = Arc::new(Some(scopes));
+      },
+      Err(_) => warn!("Could not check the scopes of the Lichess API token"),
+    }
+    api
+  }
+
+  /// Creates a new instance of a LichessApi with known token scopes, without
+  /// asking Lichess for them
+  pub fn with_scopes(token: &str, scopes: Option<Vec<String>>) -> Self {
     LichessApi { client:     reqwest::Client::new(),
                  token:      token.trim().to_string(),
-                 rate_limit: Arc::new(Mutex::new(RateLimit::default())), }
+                 rate_limit: Arc::new(Mutex::new(RateLimit::default())),
+                 scopes:     Arc::new(scopes), }
+  }
+
+  /// Scopes granted to our API token, None if we could not read them
+  pub fn granted_scopes(&self) -> Option<&[String]> {
+    self.scopes.as_deref()
+  }
+
+  /// Checks if our API token has a scope. True if the scopes are unknown.
+  pub fn has_scope(&self, scope: Scope) -> bool {
+    self.granted_scopes().is_none_or(|granted| granted.iter().any(|s| s == scope.as_str()))
+  }
+
+  /// Checks that our API token has the scope needed for an endpoint, so that
+  /// we do not send requests that Lichess would refuse.
+  ///
+  /// ### Arguments
+  ///
+  /// * `scope`    Scope needed by the endpoint
+  /// * `endpoint` Endpoint we want to call, for logging
+  ///
+  /// ### Returns
+  ///
+  /// `LichessError::MissingScope` if the token does not have the scope
+  fn require(&self, scope: Scope, endpoint: &str) -> Result<(), LichessError> {
+    if self.has_scope(scope) {
+      return Ok(());
+    }
+    debug!("Not calling {endpoint}: the API token lacks the {scope} scope");
+    Err(LichessError::MissingScope(scope))
   }
 
   //----------------------------------------------------------------------------
@@ -229,14 +278,14 @@ impl LichessApi {
 
     if let Err(error) = response_result {
       warn!("Error issuing a GET request to Lichess: {error:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(error) = response_text_result {
       warn!("Error reading the payload from GET request to Lichess: {error:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let json_value_result = serde_json::from_str(&response_text_result.unwrap());
@@ -244,7 +293,7 @@ impl LichessApi {
       Ok(object) => object,
       Err(error) => {
         warn!("Error parsing JSON from the Lichess Response for API call {api_endpoint}. Error:{error}");
-        return Err(LichessError);
+        return Err(LichessError::Request);
       },
     };
 
@@ -270,7 +319,7 @@ impl LichessApi {
       Ok(response) => response,
       Err(error) => {
         warn!("Error issuing a GET request to Lichess: {error:?}");
-        return Err(LichessError);
+        return Err(LichessError::Request);
       },
     };
 
@@ -279,13 +328,13 @@ impl LichessApi {
       Ok(text) => text,
       Err(error) => {
         warn!("Error reading the payload from GET request to Lichess: {error:?}");
-        return Err(LichessError);
+        return Err(LichessError::Request);
       },
     };
 
     if !status.is_success() {
       warn!("Lichess GET request for {api_endpoint} failed with status {status}: {text}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     Ok(helpers::parse_string_to_nd_json(&text))
@@ -308,14 +357,14 @@ impl LichessApi {
     let response_result = self.post(api_endpoint, body).await;
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let response_text_result = response_result.unwrap().text().await;
 
     if let Err(e) = response_text_result {
       warn!("Error reading the payload from POST request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     // debug!("Lichess post answer: {:?}", response_text_result);
@@ -353,7 +402,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error streaming events (GET) request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -363,7 +412,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving event stream: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);
@@ -391,7 +440,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error streaming events (GET) request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -401,7 +450,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving event stream: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);
@@ -439,11 +488,13 @@ impl LichessApi {
     where T: GameStreamHandler
   {
     info!("Requesting Lichess to stream Game ID {game_id}");
-    let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
+    let endpoint = format!("bot/game/stream/{game_id}");
+    self.require(Scope::BotPlay, &endpoint)?;
+    let response_result = self.get(&endpoint).await;
 
     if let Err(e) = response_result {
       warn!("Error issuing a GET request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -453,7 +504,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving game stream for {game_id}: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);
@@ -493,11 +544,13 @@ impl LichessApi {
                                                   callback: fn(&T, JsonValue, String))
                                                   -> Result<(), LichessError> {
     info!("Requesting Lichess to stream Game ID {game_id}");
-    let response_result = self.get(&format!("bot/game/stream/{game_id}")).await;
+    let endpoint = format!("bot/game/stream/{game_id}");
+    self.require(Scope::BotPlay, &endpoint)?;
+    let response_result = self.get(&endpoint).await;
 
     if let Err(e) = response_result {
       warn!("Error issuing a GET request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -507,7 +560,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving game stream for {game_id}: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);
@@ -553,7 +606,7 @@ mod tests {
 
   #[test]
   fn test_on_rate_limited() {
-    let api = LichessApi::new("token");
+    let api = LichessApi::with_scopes("token", None);
     let clone = api.clone();
 
     // First 429: one minute
@@ -575,7 +628,7 @@ mod tests {
 
   #[test]
   fn test_rate_limited_within() {
-    let api = LichessApi::new("token");
+    let api = LichessApi::with_scopes("token", None);
     assert!(!api.rate_limited_within(Duration::from_secs(1800)));
 
     api.on_rate_limited(None);
@@ -585,5 +638,20 @@ mod tests {
     api.rate_limit.lock().unwrap().until = Some(Instant::now());
     assert!(api.rate_limited_within(Duration::from_secs(1800)));
     assert!(!api.rate_limited_within(Duration::ZERO));
+  }
+
+  #[test]
+  fn test_require_scope() {
+    let api = LichessApi::with_scopes("lip_abc", Some(vec!["bot:play".to_string()]));
+    assert!(api.has_scope(Scope::BotPlay));
+    assert!(!api.has_scope(Scope::BoardPlay));
+    assert_eq!(Ok(()), api.require(Scope::BotPlay, "bot/game/abc/move/e2e4"));
+    assert_eq!(Err(LichessError::MissingScope(Scope::BoardPlay)),
+               api.require(Scope::BoardPlay, "board/game/abc/claim-victory"));
+
+    // Unknown scopes: we try everything
+    let api = LichessApi::with_scopes("lip_abc", None);
+    assert!(api.has_scope(Scope::BoardPlay));
+    assert_eq!(Ok(()), api.require(Scope::BoardPlay, "board/game/abc/claim-victory"));
   }
 }

@@ -48,7 +48,7 @@ impl LichessApi {
         Ok(mut result) => statuses.append(&mut result),
         Err(error) => {
           warn!("Could not parse users status from Lichess: {error}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
       }
     }
@@ -68,7 +68,7 @@ impl LichessApi {
     let json = self.lichess_get(&format!("user/{user_id}")).await?;
     serde_json::from_value::<User>(json).map_err(|error| {
                                           warn!("Could not parse user {user_id}: {error}");
-                                          LichessError
+                                          LichessError::Request
                                         })
   }
 

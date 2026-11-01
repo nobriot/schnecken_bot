@@ -1,6 +1,7 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::error::LichessError;
+use crate::scopes::Scope;
 use crate::types::*;
 // External crates
 use log::*;
@@ -25,11 +26,12 @@ impl LichessApi {
   /// Result indicating if we had error requesting a game abort
   pub async fn abort_game(&self, game_id: &str) -> Result<(), LichessError> {
     let api_endpoint: String = format!("bot/game/{game_id}/abort");
+    self.require(Scope::BotPlay, &api_endpoint)?;
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
     } else {
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     Ok(())
@@ -49,11 +51,12 @@ impl LichessApi {
   /// Result indicating if we had error requesting a game abort
   pub async fn resign_game(&self, game_id: &str) -> Result<(), LichessError> {
     let api_endpoint: String = format!("bot/game/{game_id}/resign");
+    self.require(Scope::BotPlay, &api_endpoint)?;
     let _json_response: JsonValue;
     if let Ok(json) = self.lichess_post(&api_endpoint, "").await {
       _json_response = json;
     } else {
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     Ok(())
@@ -75,7 +78,11 @@ impl LichessApi {
   /// Result indicating if Lichess accepted the request
   pub async fn berserk_game(&self, game_id: &str) -> Result<(), LichessError> {
     let mut answers = Vec::new();
-    for api in ["bot", "board"] {
+    for (api, scope) in [("bot", Scope::BotPlay), ("board", Scope::BoardPlay)] {
+      if !self.has_scope(scope) {
+        answers.push(format!("{api} API: no {scope} scope"));
+        continue;
+      }
       let json = self.lichess_post(&format!("{api}/game/{game_id}/berserk"), "").await?;
       if json["ok"].as_bool() == Some(true) {
         debug!("Went berserk in game {game_id} using the {api} API");
@@ -87,7 +94,7 @@ impl LichessApi {
     info!("Could not go berserk in game {game_id} ({}). The tournament may not allow berserk, or \
            the API token may lack the bot:play/board:play scope",
           answers.join(", "));
-    Err(LichessError)
+    Err(LichessError::Request)
   }
 
   /// Writes in the game chat, using spectator room
@@ -97,8 +104,11 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
   pub async fn write_in_spectator_room(&self, game_id: &str, message: &str) {
-    info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
+    if self.require(Scope::BotPlay, &endpoint).is_err() {
+      return;
+    }
+    info!("Sending message on Game ID {game_id} - {message}");
     let body: String = format!("room=spectator&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
@@ -115,8 +125,11 @@ impl LichessApi {
   /// * `game_id` Game ID on which we should send a chat message
   /// * `message` Message to send
   pub async fn write_in_chat(&self, game_id: &str, message: &str) {
-    info!("Sending message on Game ID {game_id} - {message}");
     let endpoint: String = format!("bot/game/{game_id}/chat");
+    if self.require(Scope::BotPlay, &endpoint).is_err() {
+      return;
+    }
+    info!("Sending message on Game ID {game_id} - {message}");
     let body: String = format!("room=player&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
@@ -134,12 +147,15 @@ impl LichessApi {
   /// * `room`    Room on which to send the message
   /// * `message` Message to send
   pub async fn write_in_chat_room(&self, game_id: &str, room: ChatRoom, message: &str) {
+    let endpoint: String = format!("bot/game/{game_id}/chat");
+    if self.require(Scope::BotPlay, &endpoint).is_err() {
+      return;
+    }
     let room_str = match room {
       ChatRoom::Player => String::from("player"),
       ChatRoom::Spectator => String::from("spectator"),
     };
     info!("Sending message on Game ID {game_id} - {message} for room: {room_str}");
-    let endpoint: String = format!("bot/game/{game_id}/chat");
     let body: String = format!("room={}&text={}", encode(&room_str), encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
@@ -161,13 +177,15 @@ impl LichessApi {
   ///
   /// Result indicating if Lichess accepted the request
   pub async fn offer_draw(&self, game_id: &str) -> Result<(), LichessError> {
+    let api_endpoint = format!("bot/game/{game_id}/draw/yes");
+    self.require(Scope::BotPlay, &api_endpoint)?;
     info!("Offering/claiming a draw on game id {game_id}");
-    let json = self.lichess_post(&format!("bot/game/{game_id}/draw/yes"), "").await?;
+    let json = self.lichess_post(&api_endpoint, "").await?;
     if json["ok"].as_bool() == Some(true) {
       Ok(())
     } else {
       warn!("Lichess refused our draw offer/claim on game {game_id}: {json}");
-      Err(LichessError)
+      Err(LichessError::Request)
     }
   }
 
@@ -181,10 +199,12 @@ impl LichessApi {
   ///
   /// The chat lines, oldest first
   pub async fn get_game_chat(&self, game_id: &str) -> Result<Vec<ChatLine>, LichessError> {
-    let json = self.lichess_get(&format!("bot/game/{game_id}/chat")).await?;
+    let api_endpoint = format!("bot/game/{game_id}/chat");
+    self.require(Scope::BotPlay, &api_endpoint)?;
+    let json = self.lichess_get(&api_endpoint).await?;
     serde_json::from_value::<Vec<ChatLine>>(json).map_err(|error| {
       warn!("Could not parse chat for game {game_id}: {error}");
-      LichessError
+      LichessError::Request
     })
   }
 
@@ -207,6 +227,9 @@ impl LichessApi {
           chess_move, game_id, offer_draw);
     let api_endpoint: String =
       format!("bot/game/{game_id}/move/{chess_move}?offeringDraw={offer_draw}");
+    if self.require(Scope::BotPlay, &api_endpoint).is_err() {
+      return false;
+    }
 
     let json_response: JsonValue;
     let mut retries = 0;
@@ -251,16 +274,17 @@ impl LichessApi {
   /// True if the move was sent and accepted by the Lichess server
   /// False otherwise
   pub async fn claim_victory(&self, game_id: &str) -> Result<(), LichessError> {
-    info!("Attempting to claim victory for game id {}", game_id);
     let api_endpoint: String = format!("board/game/{game_id}/claim-victory");
+    self.require(Scope::BoardPlay, &api_endpoint)?;
+    info!("Attempting to claim victory for game id {}", game_id);
     let body: String = format!("gameId={}", encode(game_id));
     if let Ok(json) = self.lichess_post(&api_endpoint, body.as_str()).await {
       if json.get("error").is_some() {
         error!("POST refused from lichess:{}", json);
-        return Err(LichessError);
+        return Err(LichessError::Request);
       }
     } else {
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     Ok(())

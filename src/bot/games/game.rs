@@ -59,7 +59,7 @@ impl Game {
              engine_config: &crate::config::EngineConfig,
              bot_username: &str)
              -> GameHandle {
-    println!("Game::new with game data: {:?}", game);
+    debug!("Game::new with game data: {:?}", game);
 
     // Communication with the game instance
     let (tx, rx) = mpsc::channel();

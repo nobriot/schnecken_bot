@@ -37,7 +37,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -47,7 +47,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving games stream for {game_id}: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);
@@ -79,7 +79,7 @@ impl LichessApi {
 
     if let Err(e) = response_result {
       warn!("Error issuing a POST request to Lichess: {e:?}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     let mut nd_json_buffer = helpers::NdJsonBuffer::default();
@@ -89,7 +89,7 @@ impl LichessApi {
       match chunk_response {
         Err(e) => {
           warn!("Error receiving games stream for {game_id}: {e:?}");
-          return Err(LichessError);
+          return Err(LichessError::Request);
         },
         Ok(chunk) => {
           let json_entries = nd_json_buffer.push(&chunk);

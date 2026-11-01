@@ -1,6 +1,7 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::error::LichessError;
+use crate::scopes::parse_token_scopes;
 // External crates
 use log::*;
 use serde_json::Value as JsonValue;
@@ -28,7 +29,7 @@ impl LichessApi {
     let json = self.lichess_get("account").await?;
 
     if json["id"].as_str().is_none() {
-      Err(LichessError)
+      Err(LichessError::Request)
     } else {
       Ok(String::from(json["id"].as_str().unwrap()))
     }
@@ -55,35 +56,20 @@ impl LichessApi {
     // Not using lichess_post: it logs the answer, which contains the token
     let response = self.post("token/test", &self.token).await.map_err(|error| {
                      warn!("Error testing the API token with Lichess: {error:?}");
-                     LichessError
+                     LichessError::Request
                    })?;
     let text = response.text().await.map_err(|error| {
                  warn!("Error reading the API token test answer from Lichess: {error:?}");
-                 LichessError
+                 LichessError::Request
                })?;
     let json: JsonValue = serde_json::from_str(&text).map_err(|error| {
                             warn!("Error parsing the API token test answer from Lichess: {error}");
-                            LichessError
+                            LichessError::Request
                           })?;
     let Some(scopes) = parse_token_scopes(&json, &self.token) else {
       warn!("Lichess does not recognize our API token, cannot read its scopes");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     };
     Ok(scopes)
   }
-}
-
-/// Reads the scopes of a token in a `token/test` answer.
-///
-/// ### Arguments
-///
-/// * `json`  Answer from `token/test`: `{ "<token>": { "scopes": "a,b" } }`
-/// * `token` Token we want the scopes of
-///
-/// ### Returns
-///
-/// The list of scopes, None if the token is unknown or invalid.
-pub fn parse_token_scopes(json: &JsonValue, token: &str) -> Option<Vec<String>> {
-  let scopes = json[token]["scopes"].as_str()?;
-  Some(scopes.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect())
 }

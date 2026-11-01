@@ -18,7 +18,7 @@ impl LichessApi {
     let json = self.lichess_get(&format!("team/of/{username}")).await?;
     let Some(teams) = json.as_array() else {
       warn!("Unexpected answer from Lichess for the teams of {username}: {json}");
-      return Err(LichessError);
+      return Err(LichessError::Request);
     };
     Ok(teams.iter().filter_map(|team| team["id"].as_str().map(String::from)).collect())
   }

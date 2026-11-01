@@ -54,7 +54,7 @@ async fn main_loop(api_token: &str, engine_config: config::EngineConfig) -> Resu
 
     schnecken_bot.execute_command(input.trim());
 
-    sleep(Duration::from_millis(100)).await;
+    sleep(Duration::from_millis(200)).await;
     if schnecken_bot.should_exit() {
       info!("Exiting the Lichess bot... ");
       break;

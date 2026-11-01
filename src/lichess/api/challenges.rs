@@ -1,6 +1,7 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::error::LichessError;
+use crate::scopes::Scope;
 use crate::types::Clock;
 // External crates
 use log::*;
@@ -18,10 +19,11 @@ impl LichessApi {
   ///
   /// Result
   pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
-    info!("Accepting challenge ID {challenge_id}");
     let api_endpoint: String = format!("challenge/{}/accept", challenge_id);
+    self.require(Scope::ChallengeWrite, &api_endpoint)?;
+    info!("Accepting challenge ID {challenge_id}");
     if self.lichess_post(&api_endpoint, "").await.is_err() {
-      return Err(LichessError);
+      return Err(LichessError::Request);
     }
 
     Ok(())
@@ -42,14 +44,15 @@ impl LichessApi {
                                  challenge_id: &str,
                                  reason: &str)
                                  -> Result<(), LichessError> {
-    info!("Declining challenge ID {challenge_id}");
     let api_endpoint: String = format!("challenge/{}/decline", challenge_id);
+    self.require(Scope::ChallengeWrite, &api_endpoint)?;
+    info!("Declining challenge ID {challenge_id}");
     let body: String = format!("reason={}", encode(reason));
 
     if self.lichess_post(&api_endpoint, &body).await.is_ok() {
       Ok(())
     } else {
-      Err(LichessError)
+      Err(LichessError::Request)
     }
   }
 
@@ -65,12 +68,13 @@ impl LichessApi {
   /// Result
   pub async fn send_challenge(&self, player: &str, clock: &Clock) -> Result<(), LichessError> {
     let api_endpoint: String = format!("challenge/{}", player);
+    self.require(Scope::ChallengeWrite, &api_endpoint)?;
     let body_parameters = format!("rated=true&clock.limit={}&clock.increment={}&color=random&variant=standard",
                                   clock.initial, clock.increment);
     if self.lichess_post(&api_endpoint, body_parameters.as_str()).await.is_ok() {
       Ok(())
     } else {
-      Err(LichessError)
+      Err(LichessError::Request)
     }
   }
 }

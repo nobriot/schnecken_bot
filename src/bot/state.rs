@@ -6,6 +6,7 @@ use crate::bot::games::handle::GameHandle;
 use lichess::api::LichessApi;
 use lichess::api::tournaments::JoinArenaError;
 use lichess::error::LichessError;
+use lichess::scopes::Scope;
 use lichess::types::{ArenaTournament, Clock, GameStart, User};
 // Other libraries from our repo
 use log::*;
@@ -46,7 +47,7 @@ pub struct BotState {
   username:          String,
   /// List of ongoing games
   games:             BotGames,
-  /// Timestamp of the last game we played
+  /// Timestamp of the last game we played or last sent challenge
   last_game:         Arc<Mutex<std::time::Instant>>,
   /// Bool value indicating if the bot should exit
   exit:              Arc<Mutex<bool>>,
@@ -72,7 +73,7 @@ impl BotState {
   /// Instantiates a new bot state, using a given api token for Lichess
   /// (to identify itself in the games, challenges, etc.)
   pub async fn new(api_token: &str, engine_config: crate::config::EngineConfig) -> BotStateRef {
-    let api: &'static _ = Box::leak(Box::new(LichessApi::new(api_token)));
+    let api: &'static _ = Box::leak(Box::new(LichessApi::new(api_token).await));
     let bot_games = BotGames::new(api);
 
     // Find out our username with the API token:
@@ -162,7 +163,7 @@ impl BotState {
 
     // Check the API token, then join and play tournaments
     tokio::spawn(async {
-      if self.check_token_scopes().await {
+      if self.check_token_scopes() {
         self.manage_tournaments().await;
       }
     });
@@ -174,21 +175,22 @@ impl BotState {
   /// ### Returns
   ///
   /// True if we can join tournaments (also if we could not check the scopes)
-  async fn check_token_scopes(&self) -> bool {
-    let Ok(granted) = self.api.get_token_scopes().await else {
-      warn!("Could not check the scopes of the Lichess API token");
-      return true;
-    };
+  fn check_token_scopes(&self) -> bool {
+    if let Some(granted) = self.api.granted_scopes() {
+      for scope in scopes::missing_optional_scopes(granted) {
+        warn!("The Lichess API token does not have the optional {} scope, used for {}",
+              scope.scope, scope.used_for);
+      }
 
-    let missing = scopes::missing_scopes(&granted);
-    if missing.is_empty() {
-      debug!("Lichess API token scopes: {}", granted.join(", "));
-      return true;
+      let missing = scopes::missing_scopes(granted);
+      if !missing.is_empty() {
+        error!("{}", scopes::missing_scopes_message(&missing));
+      }
     }
-    error!("{}", scopes::missing_scopes_message(&missing));
-    let can_join_tournaments = !missing.iter().any(|s| s.scope == scopes::TOURNAMENT_SCOPE);
+
+    let can_join_tournaments = self.api.has_scope(Scope::TournamentWrite);
     if !can_join_tournaments {
-      error!("Not joining tournaments without the {} scope", scopes::TOURNAMENT_SCOPE);
+      error!("Not joining tournaments without the {} scope", Scope::TournamentWrite);
     }
     can_join_tournaments
   }
@@ -389,7 +391,7 @@ impl BotState {
     loop {
       // Don't try too agressively to send challenges, if it did not work.
       // (opponent refused, or we're rate limited)
-      tokio::time::sleep(tokio::time::Duration::from_secs(interval / 4)).await;
+      tokio::time::sleep(tokio::time::Duration::from_secs(interval)).await;
 
       if !self.games.is_empty() {
         let mut last_game = self.last_game.lock().unwrap();
@@ -398,11 +400,14 @@ impl BotState {
       }
 
       // Check if we have not played in a while, and if not, send a challenge
-      let last_game = self.last_game.lock().unwrap();
+      let mut last_game = self.last_game.lock().unwrap();
       if last_game.elapsed().as_secs() > interval {
         info!("Let's challenge somebody");
         let bot_ref: BotStateRef = self;
         tokio::spawn(async move { bot_ref.challenge_somebody().await });
+
+        // Prevent challenging again by pretending last_game we just played.
+        *last_game = std::time::Instant::now();
       }
     }
   }

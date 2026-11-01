@@ -1,6 +1,7 @@
 // Internal crates
 use crate::api::LichessApi;
 use crate::error::LichessError;
+use crate::scopes::Scope;
 use crate::types::ArenaTournament;
 // External crates
 use log::*;
@@ -20,6 +21,8 @@ pub enum JoinArenaError {
   Refused,
   /// The request failed
   Request,
+  /// The request was not sent: our API token lacks the `tournament:write` scope
+  MissingScope,
 }
 
 impl LichessApi {
@@ -63,6 +66,9 @@ impl LichessApi {
                           team: Option<&str>)
                           -> Result<(), JoinArenaError> {
     let api_endpoint = format!("tournament/{tournament_id}/join");
+    if self.require(Scope::TournamentWrite, &api_endpoint).is_err() {
+      return Err(JoinArenaError::MissingScope);
+    }
     let mut body = format!("pairMeAsap={pair_me_asap}");
     if let Some(team) = team {
       body.push_str(&format!("&team={}", encode(team)));
@@ -77,8 +83,7 @@ impl LichessApi {
       warn!("Lichess refused to join tournament {tournament_id}: {error}");
       Err(JoinArenaError::Refused)
     } else {
-      warn!("Lichess refused to join tournament {tournament_id}: {json} (does the API token have \
-             the tournament:write scope?)");
+      warn!("Lichess refused to join tournament {tournament_id}: {json}");
       Err(JoinArenaError::Refused)
     }
   }
@@ -97,12 +102,14 @@ impl LichessApi {
   ///
   /// Result indicating if Lichess accepted the request
   pub async fn withdraw_arena(&self, tournament_id: &str) -> Result<(), LichessError> {
-    let json = self.lichess_post(&format!("tournament/{tournament_id}/withdraw"), "").await?;
+    let api_endpoint = format!("tournament/{tournament_id}/withdraw");
+    self.require(Scope::TournamentWrite, &api_endpoint)?;
+    let json = self.lichess_post(&api_endpoint, "").await?;
     if json["ok"].as_bool() == Some(true) {
       Ok(())
     } else {
       debug!("Lichess refused to withdraw from tournament {tournament_id}: {json}");
-      Err(LichessError)
+      Err(LichessError::Request)
     }
   }
 
@@ -127,7 +134,6 @@ impl LichessApi {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::api::account::parse_token_scopes;
   use crate::types::{ARENA_STATUS_FINISHED, GameStart, VariantKey};
 
   #[test]
@@ -233,19 +239,5 @@ mod tests {
     let game: GameStart = serde_json::from_value(json).unwrap();
     assert_eq!(None, game.tournament_id);
     assert_eq!(None, game.rating);
-  }
-
-  #[test]
-  fn test_parse_token_scopes() {
-    let json = serde_json::json!({
-      "lip_abc": { "userId": "schnecken_bot", "scopes": "bot:play,challenge:write", "expires": null },
-      "lip_empty": { "userId": "schnecken_bot", "scopes": "", "expires": null },
-      "lip_invalid": null,
-    });
-    assert_eq!(Some(vec!["bot:play".to_string(), "challenge:write".to_string()]),
-               parse_token_scopes(&json, "lip_abc"));
-    assert_eq!(Some(Vec::new()), parse_token_scopes(&json, "lip_empty"));
-    assert_eq!(None, parse_token_scopes(&json, "lip_invalid"));
-    assert_eq!(None, parse_token_scopes(&json, "lip_unknown"));
   }
 }
