@@ -82,7 +82,7 @@ impl GameStreamHandler for GameHandle {
           serde_json::from_value(json_value);
         match result {
           Ok(message) => {
-            info!("Received a message on game ID {} - {:?}", game_id.as_str(), message);
+            debug!("Received a message on game ID {} - {:?}", game_id.as_str(), message);
             let _ = self.tx.send(GameMessage::ChatMessage(message));
           },
           Err(e) => {

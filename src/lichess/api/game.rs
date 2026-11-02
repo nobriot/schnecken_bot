@@ -108,7 +108,7 @@ impl LichessApi {
     if self.require(Scope::BotPlay, &endpoint).is_err() {
       return;
     }
-    info!("Sending message on Game ID {game_id} - {message}");
+    info!("Sending message in the spectator room of game {game_id} - {message}");
     let body: String = format!("room=spectator&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
@@ -129,7 +129,7 @@ impl LichessApi {
     if self.require(Scope::BotPlay, &endpoint).is_err() {
       return;
     }
-    info!("Sending message on Game ID {game_id} - {message}");
+    info!("Sending message in the player room of game {game_id} - {message}");
     let body: String = format!("room=player&text={}", encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;
@@ -155,7 +155,7 @@ impl LichessApi {
       ChatRoom::Player => String::from("player"),
       ChatRoom::Spectator => String::from("spectator"),
     };
-    info!("Sending message on Game ID {game_id} - {message} for room: {room_str}");
+    info!("Sending message in the {room_str} room of game {game_id} - {message}");
     let body: String = format!("room={}&text={}", encode(&room_str), encode(message));
 
     let result = self.lichess_post(&endpoint, &body).await;

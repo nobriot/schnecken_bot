@@ -235,8 +235,13 @@ impl Game {
           }
         },
         Ok(GameMessage::ChatMessage(m)) => {
-          info!("Message on the chat: {:?}", m);
-          self.on_chat_message(m).await;
+          // Lichess sends us back our own messages, we already logged them
+          if events::display_name(&m.username).eq_ignore_ascii_case(&self.bot_username) {
+            debug!("Our own message on the chat: {:?}", m);
+          } else {
+            info!("Message on the chat: {:?}", m);
+            self.on_chat_message(m).await;
+          }
         },
         Ok(o) => {
           info!("Received a Game Message : {:?}", o);
