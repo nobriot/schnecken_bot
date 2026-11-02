@@ -22,7 +22,7 @@ use self::search_result::SearchResult;
 use super::model::game_state::GameState;
 use super::model::game_state::{GameStatus, START_POSITION_FEN};
 use super::model::moves::Move;
-use super::model::piece::Color;
+use super::model::piece::{Color, Piece};
 use crate::engine::search_result::VariationWithEval;
 use crate::model::board::Board;
 use crate::model::containers::move_list::MoveList;
@@ -52,6 +52,12 @@ const SEARCH_PRUNING_MARGIN: Score = 50;
 /// (must be a power of 2): reading the time at every node is expensive. Most
 /// calls are just above the leaves, so this is about a thousand leaves.
 const TIME_CHECK_SEARCH_INTERVAL: usize = 32;
+/// Maximum number of plies played in the quiescence search, after the leaves
+/// of the search: long capture sequences are rare, and checks could go on.
+const QUIESCENCE_MAX_PLY: usize = 6;
+/// Delta pruning in the quiescence search: captures are skipped when winning
+/// the captured piece plus this margin still cannot improve the score.
+const QUIESCENCE_DELTA_MARGIN: Score = 200;
 
 // -----------------------------------------------------------------------------
 // Type definitions
@@ -793,14 +799,8 @@ impl Engine {
         break;
       }
 
-      // If we are looking at a capture, make sure that we analyze possible
-      // recaptures by increasing temporarily the maximum depth
+      // Captures at the leaves are resolved by the quiescence search.
       let mut max_line_depth = max_depth;
-      if depth == max_depth && m.is_piece_capture() && (depth < analysis_depth + 3) {
-        max_line_depth = max_depth + 1;
-        self.analysis.update_selective_depth(max_line_depth);
-        // println!("Continuing to depth {max_line_depth}");
-      }
 
       let mut new_game_state = game_state.clone();
       new_game_state.apply_move(&m);
@@ -883,28 +883,26 @@ impl Engine {
                                       &mut beta);
           }
         } else if eval_cache.game_status == GameStatus::Ongoing && depth >= max_line_depth {
-          // Evaluate our position
-          eval = evaluate_board(&new_game_state);
-          self.analysis.increment_nodes_visited();
-
-          // FIXME:  NNUE eval is still too slow, we should implement
-          // incremental updates
-          if depth > 10 && self.options.use_nnue {
-            let nnue_eval = self.nnue.lock().unwrap().eval(&new_game_state);
-            // println!("board: {} - Eval: {} - NNUE Eval: {} - final eval
-            // {}",new_game_state.to_fen(), eval,nnue_eval,eval * 0.5 +
-            // nnue_eval * 0.5);
-            eval = ((eval as i32 + nnue_eval as i32) / 2) as Score;
-          }
+          // Evaluate our position, resolving the captures first so that we do
+          // not stop the line in the middle of an exchange. Like the search,
+          // keep the values a bit outside of the alpha/beta window.
+          let (low, high) = (alpha.saturating_sub(SEARCH_PRUNING_MARGIN),
+                             beta.saturating_add(SEARCH_PRUNING_MARGIN));
+          let leaf_eval = self.quiescence_search(&new_game_state, 0, low, high);
+          // Mate distances are counted from the leaf: add the ply of the move.
+          eval = decrement_mate_score(leaf_eval);
 
           result.update(VariationWithEval::new_from_move(eval, m));
           Engine::update_alpha_beta(game_state.board.side_to_play, eval, &mut alpha, &mut beta);
 
-          // Save the static eval of the leaf. (Searched children save their
-          // own eval at the end of their search)
-          eval_cache.eval = eval;
-          eval_cache.depth = 1;
-          self.cache.set_eval(&new_game_state.board, eval_cache);
+          // Save the eval of the leaf, only if it is exact: outside of the
+          // window, it is just a bound. (Searched children save their own eval
+          // at the end of their search)
+          if low < leaf_eval && leaf_eval < high {
+            eval_cache.eval = leaf_eval;
+            eval_cache.depth = 1;
+            self.cache.set_eval(&new_game_state.board, eval_cache);
+          }
         }
       } else {
         // Here the game is no longer ongoing (draw, etc.)
@@ -958,6 +956,121 @@ impl Engine {
 
     // Return our result
     Some(result)
+  }
+
+  /// Static evaluation of a position, at the leaves of the search.
+  fn static_eval(&self, game_state: &GameState) -> Score {
+    let eval = evaluate_board(game_state);
+    self.analysis.increment_nodes_visited();
+
+    // FIXME:  NNUE eval is still too slow, we should implement
+    // incremental updates
+    if self.options.use_nnue {
+      let nnue_eval = self.nnue.lock().unwrap().eval(game_state);
+      return ((eval as i32 + nnue_eval as i32) / 2) as Score;
+    }
+    eval
+  }
+
+  /// Evaluates a leaf of the search by playing all the captures until the
+  /// position is quiet, so that the eval does not stop in the middle of an
+  /// exchange or miss a piece left hanging (horizon effect).
+  ///
+  /// The side to play can also "stand pat": not capture anything and keep the
+  /// static eval of the position. When in check, all the moves are searched
+  /// (standing pat is not an option).
+  ///
+  /// ### Arguments
+  ///
+  /// * `game_state`: Position to evaluate
+  /// * `ply`:        Number of plies already played in the quiescence search
+  /// * `alpha`:      Best score White is guaranteed (White's point of view)
+  /// * `beta`:       Best score Black is guaranteed (White's point of view)
+  ///
+  /// ### Return value
+  ///
+  /// The eval of the position. Mate distances are counted from this position.
+  /// It is exact when it is strictly inside the (`alpha`, `beta`) window,
+  /// otherwise it is only a bound.
+  fn quiescence_search(&self,
+                       game_state: &GameState,
+                       ply: usize,
+                       mut alpha: Score,
+                       mut beta: Score)
+                       -> Score {
+    let board = &game_state.board;
+    let in_check = board.checkers != 0;
+    let white_to_play = board.side_to_play == Color::White;
+
+    // Moves to look at, most valuable victim first, then least valuable
+    // attacker (MVV-LVA): they are the most likely to cause a cut-off.
+    // The move lists are not cached: these positions are not searched.
+    let mut moves: Vec<(Score, Score, Move)> =
+      board.get_moves()
+           .into_iter()
+           .filter(|m| in_check || m.is_capture())
+           .map(|m| {
+             let victim = m.get_captured_piece().map_or(0, Piece::material_value_from_type);
+             let attacker = Piece::material_value_from_u8(board.pieces.get(m.src() as u8));
+             (victim * 8 - attacker / 8, victim, m)
+           })
+           .collect();
+    if in_check && moves.is_empty() {
+      // Checkmate: the side to play lost
+      return if white_to_play { -MATE } else { MATE };
+    }
+
+    let mut best = if white_to_play { -SCORE_INF } else { SCORE_INF };
+    if !in_check || ply >= QUIESCENCE_MAX_PLY {
+      let stand_pat = self.static_eval(game_state);
+      if ply >= QUIESCENCE_MAX_PLY || moves.is_empty() {
+        // Note: stalemates (no move at all) are not detected here.
+        return stand_pat;
+      }
+      if white_to_play {
+        if stand_pat >= beta {
+          return stand_pat;
+        }
+        alpha = alpha.max(stand_pat);
+      } else {
+        if stand_pat <= alpha {
+          return stand_pat;
+        }
+        beta = beta.min(stand_pat);
+      }
+      best = stand_pat;
+    }
+
+    moves.sort_unstable_by_key(|&(order, _, _)| -(order as i32));
+    for (_, victim, m) in moves {
+      // Delta pruning: if even winning the captured piece for free cannot
+      // improve our score, the next captures (smaller victims) cannot either.
+      if !in_check {
+        let gain = victim + QUIESCENCE_DELTA_MARGIN;
+        if (white_to_play && best.saturating_add(gain) <= alpha)
+           || (!white_to_play && best.saturating_sub(gain) >= beta)
+        {
+          break;
+        }
+      }
+      let mut new_game_state = game_state.clone();
+      new_game_state.apply_move(&m);
+      // Mate distances are counted from the child: add the ply of the move.
+      let eval =
+        decrement_mate_score(self.quiescence_search(&new_game_state, ply + 1, alpha, beta));
+      if white_to_play {
+        best = best.max(eval);
+        alpha = alpha.max(eval);
+      } else {
+        best = best.min(eval);
+        beta = beta.min(eval);
+      }
+      if alpha >= beta {
+        break;
+      }
+    }
+
+    best
   }
 
   /// Checks the best move in the result and check if it is a winning sequence

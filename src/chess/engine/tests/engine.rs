@@ -501,7 +501,10 @@ fn evaluate_real_game_no8g7oup_example() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(engine.get_best_move().unwrap().to_string() == "c2d4");
+  // Nxd4 wins the white queen, but other moves winning it are fine too: the
+  // eval must stay clearly winning for Black.
+  let eval = engine.get_eval().unwrap();
+  assert!(eval < -900, "best move {} - eval {eval}", engine.get_best_move().unwrap());
 }
 
 #[test]
@@ -670,7 +673,10 @@ fn test_knight_bonanza_on_real_game() {
   let best_move = engine.get_best_move().unwrap();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert_eq!(best_move.to_string(), "e5d7");
+  // The bot played 9...Ng4?, giving a knight. Other moves keeping the knights
+  // (e.g. 9...Nd7 or 9...exd5) are fine.
+  assert_ne!("f6g4", best_move.to_string());
+  assert_ne!("e5g4", best_move.to_string());
 }
 
 #[test]
@@ -1094,4 +1100,24 @@ fn variation_eval_string_and_depth() {
   result.push_move_to_variations(Move::from_string("e7e5"));
   assert_eq!(4, result.get(0).depth);
   assert_eq!(MATE - 4, result.get(0).eval);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn engine_search_real_game_iFTROpnC_horizon_effect() {
+  // https://lichess.org/iFTROpnC#38 : after 19. Qg5 Rxd4, the c5 pawn is lost
+  // (attacked by the queen, defended by nothing). The bot played 20. b4?, which
+  // defends c5 but gives the b4 pawn: 20...Rxb4 and then c5 falls anyway.
+  // At depth 5 (the depth reached in the game), the line ends with
+  // 20. b4 Ne4 21. Qh5 Rxb4 22. Qg4, Black to move with c5 still on the board:
+  // the eval counts equal material, and ...Qxc5 is past the horizon. In the
+  // other lines, ...Qxc5 is already played inside the search. Searching the
+  // captures at the leaves (quiescence search) will now see it.
+  let mut engine = Engine::new(false);
+  engine.set_position("5qk1/1p3ppp/2n1pn2/2P3Q1/3r4/8/PPP2PPP/R3R1K1 w - - 0 20");
+  engine.options.max_search_time = 0;
+  engine.options.max_depth = 5;
+  engine.go();
+  engine.print_evaluations();
+  assert_ne!("b2b4", engine.get_best_move().unwrap().to_string());
 }
