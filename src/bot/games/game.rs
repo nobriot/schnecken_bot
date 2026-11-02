@@ -1,9 +1,10 @@
-use super::engine::{configure_engine, is_depth_adjustable};
+use super::engine::{configure_engine, is_depth_adjustable, max_move_time_ms};
 use super::events::{self, ChatCommand, EvalEvent, GameEvents};
 use super::handle::GameHandle;
 use super::message::GameMessage;
 use chess::engine::Engine;
 use chess::engine::eval::position::{can_declare_draw, get_epic_mate};
+use chess::engine::time_management::Clock;
 use chess::model::game_state::{GameStatus as EngineGameStatus, START_POSITION_FEN};
 use chess::model::moves::Move;
 use lichess::api::LichessApi;
@@ -354,18 +355,10 @@ impl Game {
     }
 
     debug!("Trying to find a move for game {}", self.id);
-    let (time_left, mut increment_ms) = match self.color {
+    let (time_left, increment_ms) = match self.color {
       Color::White => (game.wtime, game.winc),
       Color::Black => (game.btime, game.binc),
     };
-
-    if increment_ms > 60_000 {
-      increment_ms = 60_000;
-    }
-
-    // Play as quick as possible if we have less than 10 seconds left
-    let mut suggested_time_ms =
-      if time_left < 10_000 { 200 } else { (time_left / 90) + increment_ms * 10 / 9 };
 
     // Against a human short on time and winning: play very fast, try to win on
     // time
@@ -379,17 +372,24 @@ impl Game {
         self.say(events::ATTEMPTING_TO_FLAG).await;
       }
     }
-    if self.events.is_flagging() {
-      suggested_time_ms = suggested_time_ms.min(events::flagging_move_time_ms(opponent_time_left));
-      info!("Flagging: using {suggested_time_ms}ms (opponent has {opponent_time_left}ms left)");
+    let flagging_time_ms =
+      self.events.is_flagging().then(|| events::flagging_move_time_ms(opponent_time_left));
+    if let Some(flagging_time_ms) = flagging_time_ms {
+      info!("Flagging: using {flagging_time_ms}ms (opponent has {opponent_time_left}ms left)");
     }
 
-    info!("Using {}ms (max depth {}) to find a move for position {}",
-          suggested_time_ms,
+    // The engine decides how long to search from the clock
+    self.engine.options.clock = Some(Clock { time_left_ms: time_left,
+                                             increment_ms,
+                                             opponent_time_left_ms: opponent_time_left,
+                                             moves_to_go: None });
+    self.engine.options.max_search_time = max_move_time_ms(self.opponent_is_bot, flagging_time_ms);
+
+    info!("Using {:?} (max depth {}) to find a move for position {}",
+          self.engine.time_budget(),
           self.engine.options.max_depth,
           self.engine.position.to_fen());
 
-    self.engine.options.max_search_time = suggested_time_ms;
     self.engine.go();
 
     // Select randomly one of the good moves.

@@ -7,6 +7,7 @@ pub mod nnue;
 pub mod search;
 pub mod search_result;
 pub mod tables;
+pub mod time_management;
 
 mod comments;
 #[cfg(test)]
@@ -34,6 +35,7 @@ use nnue::NNUE;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use time_management::*;
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -98,6 +100,8 @@ struct EngineState {
   pub start_time:     Arc<Mutex<Instant>>,
   /// Number of calls to `search()`, used to check the clock periodically
   pub search_calls:   Arc<AtomicUsize>,
+  /// Maximum time (milliseconds) for the current search, 0 for no limit
+  pub hard_limit_ms:  Arc<AtomicUsize>,
 }
 
 impl Analysis {
@@ -267,7 +271,8 @@ impl Engine {
                state:    EngineState { active:         Arc::new(AtomicBool::new(false)),
                                        stop_requested: Arc::new(AtomicBool::new(false)),
                                        start_time:     Arc::new(Mutex::new(Instant::now())),
-                                       search_calls:   Arc::new(AtomicUsize::new(0)), },
+                                       search_calls:   Arc::new(AtomicUsize::new(0)),
+                                       hard_limit_ms:  Arc::new(AtomicUsize::new(0)), },
                nnue:     Arc::new(Mutex::new(NNUE::load(nnue_path.as_str()).unwrap_or_default())),
                history:  GameHistory::new(), };
 
@@ -318,15 +323,31 @@ impl Engine {
   ///
   /// ### Return value
   ///
-  /// True if the (current_time - start_time) is larger than options.max_time
-  /// and max_time is set to a non-zero value.
+  /// True if the (current_time - start_time) is larger than the hard limit of
+  /// the search and the hard limit is set to a non-zero value.
   fn has_been_searching_too_long(&self) -> bool {
-    let max_time = self.options.max_search_time;
+    let max_time = self.state.hard_limit_ms.load(Ordering::Relaxed);
     if max_time == 0 {
       return false;
     }
     let start_time = self.get_start_time();
     (Instant::now() - start_time) > Duration::from_millis(max_time as u64)
+  }
+
+  /// Computes the time we can spend on the current position, from the clock
+  /// set in the options.
+  ///
+  /// ### Return value
+  ///
+  /// The time budget, None if no clock is set (`max_search_time` is then the
+  /// fixed search time)
+  pub fn time_budget(&self) -> Option<TimeBudget> {
+    self.options.clock.map(|clock| {
+                        time_budget(&clock,
+                                    &self.position,
+                                    self.options.time_factor,
+                                    self.options.max_search_time)
+                      })
   }
 
   /// Clears the cache of the engine.
@@ -418,6 +439,9 @@ impl Engine {
     self.set_stop_requested(false);
     self.set_engine_active(true);
     self.set_start_time(); // Capture that we started searching now.
+    let budget = self.time_budget();
+    let hard_limit_ms = budget.map_or(self.options.max_search_time, |b| b.hard_ms);
+    self.state.hard_limit_ms.store(hard_limit_ms, Ordering::Relaxed);
     self.analysis.set_nodes_visited(0);
     self.state.search_calls.store(0, Ordering::Relaxed);
 
@@ -500,6 +524,11 @@ impl Engine {
     }
 
     // Main search
+    let side_to_play = self.position.board.side_to_play;
+    let legal_moves = moves.len();
+    let mut previous_result: Option<SearchResult> = None;
+    let mut best_move_stable_depths = 0;
+    let mut soft_limit_ms = budget.map(|b| b.soft_ms);
     while !self.has_been_searching_too_long() && !self.stop_requested() {
       self.analysis.increment_depth();
       self.analysis.increment_selective_depth();
@@ -517,6 +546,25 @@ impl Engine {
       // Depth completed - print UCI result if needed
       let result = result.unwrap(); // Safe due to is_none() above
       let best_eval = result.get_eval().unwrap();
+
+      // Adjust the time we want to spend based on what the search found
+      if let Some(budget) = budget {
+        let best_move = result.get_best_move();
+        best_move_stable_depths =
+          if previous_result.as_ref().and_then(|p| p.get_best_move()) == best_move {
+            best_move_stable_depths + 1
+          } else {
+            1
+          };
+        let stats = IterationStats::new(previous_result.as_ref(),
+                                        &result,
+                                        self.analysis.get_depth(),
+                                        best_move_stable_depths,
+                                        legal_moves,
+                                        side_to_play);
+        soft_limit_ms = Some(adjust_soft_limit(budget.soft_ms, &stats));
+        previous_result = Some(result.clone());
+      }
       self.analysis.update_result(result);
       self.print_uci_info();
 
@@ -533,6 +581,25 @@ impl Engine {
       if max_depth > 0 && self.analysis.get_depth() >= max_depth {
         break;
       }
+
+      // The next depth would likely not finish within the soft limit
+      if let Some(soft_limit_ms) = soft_limit_ms
+         && (Instant::now() - self.get_start_time()).as_millis() as f32
+            > soft_limit_ms as f32 * NEXT_DEPTH_SOFT_LIMIT_SHARE
+      {
+        debug!("Soft limit {soft_limit_ms}ms reached, stopping at depth {}",
+               self.analysis.get_depth());
+        break;
+      }
+    }
+
+    if let Some(budget) = budget {
+      debug!("Searched {}ms (soft limit {}ms, adjusted {}ms, hard limit {}ms), depth {}",
+             (Instant::now() - self.get_start_time()).as_millis(),
+             budget.soft_ms,
+             soft_limit_ms.unwrap_or(budget.soft_ms),
+             budget.hard_ms,
+             self.analysis.get_depth());
     }
 
     // We are done

@@ -5,6 +5,11 @@ use lichess;
 use lichess::types::GameStart;
 use log::*;
 
+/// Against humans, we play a bit quicker than the engine would like to
+pub const HUMAN_TIME_FACTOR: f32 = 0.75;
+/// Against humans, we never think longer than this on a move (milliseconds)
+pub const HUMAN_MAX_MOVE_TIME_MS: usize = 40_000;
+
 /// Checks if the engine level is adjusted for this game, and can be changed by
 /// the opponent with `max-depth`: casual games against untitled humans.
 #[inline(always)]
@@ -34,6 +39,10 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
   let start_fen = game.fen.as_deref().unwrap_or(START_POSITION_FEN);
   engine.set_position(start_fen);
 
+  if !game.opponent_is_bot() {
+    engine.options.time_factor = HUMAN_TIME_FACTOR;
+  }
+
   // Adjust the level of difficulty based on the rating of the opponent, if they
   // are human
   if is_depth_adjustable(game) {
@@ -59,4 +68,19 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
   info!("Engine configuration for game {}: {:?}", game.game_id, engine.options);
 
   engine
+}
+
+/// Maximum time we can spend on a move, 0 for no maximum
+///
+/// ### Arguments
+///
+/// * `opponent_is_bot`:  Whether we are playing against a bot
+/// * `flagging_time_ms`: Time per move when we try to flag the opponent, if we do
+pub fn max_move_time_ms(opponent_is_bot: bool, flagging_time_ms: Option<usize>) -> usize {
+  let max_time = if opponent_is_bot { 0 } else { HUMAN_MAX_MOVE_TIME_MS };
+  match flagging_time_ms {
+    Some(flagging_time) if max_time == 0 => flagging_time,
+    Some(flagging_time) => flagging_time.min(max_time),
+    None => max_time,
+  }
 }

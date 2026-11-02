@@ -1,5 +1,7 @@
 // Imports / dependencies
+use chess::engine::config::options::EngineOptions;
 use chess::engine::config::play_style::*;
+use chess::engine::time_management::parse_go_command;
 use chess::engine::*;
 use chess::model::game_state::START_POSITION_FEN;
 use regex::Regex;
@@ -183,10 +185,17 @@ fn main() -> ExitCode {
 
       "go" => {
         // Check some of the options passed:
-        if line.contains("infinite") {
+        let go = parse_go_command(&line, engine.position.board.side_to_play);
+        let default_options = EngineOptions::default();
+        engine.options.clock = go.clock;
+        engine.options.max_search_time = go.move_time.unwrap_or(0);
+        engine.options.max_depth = go.depth.unwrap_or(default_options.max_depth);
+        if go.infinite {
           engine.options.max_depth = 0;
+          engine.options.clock = None;
+          engine.options.max_search_time = 0;
         }
-        if line.contains("ponder") {
+        if go.ponder {
           engine.options.ponder = true;
         }
         // Get started searching:

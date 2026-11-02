@@ -1,4 +1,5 @@
 use crate::engine::config::play_style::PlayStyle;
+use crate::engine::time_management::Clock;
 
 #[derive(Clone, Debug)]
 pub struct EngineOptions {
@@ -11,7 +12,14 @@ pub struct EngineOptions {
   pub max_depth:       usize,
   /// time in milliseconds to spend on a calculation
   /// Set to 0 for no limit / automatic
+  /// When a clock is set, this is the maximum time to spend on the move.
   pub max_search_time: usize,
+  /// Clock of the side to play: when set, the engine decides how long to
+  /// search.
+  pub clock:           Option<Clock>,
+  /// Multiplies the time the engine decides to spend with a clock (< 1.0 to
+  /// play quicker)
+  pub time_factor:     f32,
   /// Number of threads to use for the search.
   pub max_threads:     usize,
   /// Number of threads to use for the search.
@@ -31,6 +39,8 @@ impl Default for EngineOptions {
                     ponder:          false,
                     max_depth:       20,
                     max_search_time: 0,
+                    clock:           None,
+                    time_factor:     1.0,
                     max_threads:     16,
                     use_nnue:        false,
                     debug:           false,
