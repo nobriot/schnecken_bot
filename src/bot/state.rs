@@ -123,6 +123,9 @@ impl BotState {
   pub async fn wait_for_games(&self, timeout: Duration) {
     let start = Instant::now();
     while !self.games.all_finished() {
+      // A game may have started a new search after we asked it to stop: stop
+      // it again, it has to process the messages we sent it.
+      self.games.stop_searches();
       if start.elapsed() > timeout {
         warn!("Games did not finish within {}s, exiting anyway", timeout.as_secs());
         return;

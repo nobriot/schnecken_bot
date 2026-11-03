@@ -223,6 +223,30 @@ fn engine_go_and_stop() {
 }
 
 #[test]
+fn engine_stop_handle() {
+  let mut engine = Engine::new(false);
+  engine.set_position("rn2kbnr/ppp1pppp/8/3p4/P7/2NPPP1N/1PP1b1PR/R1B1KB2 b Qkq - 0 7");
+  engine.options.max_depth = 0;
+  engine.options.max_search_time = 0;
+  engine.options.ponder = true;
+  let stop_handle = engine.stop_handle();
+
+  // The search runs in its own thread, owning the engine
+  let search = std::thread::spawn(move || {
+    engine.go();
+    engine.get_best_move()
+  });
+
+  std::thread::sleep(std::time::Duration::from_millis(200));
+  assert!(!search.is_finished());
+  stop_handle.stop();
+
+  std::thread::sleep(std::time::Duration::from_millis(200));
+  assert!(search.is_finished());
+  assert!(search.join().unwrap().is_some());
+}
+
+#[test]
 fn engine_bench_positions_per_second() {
   let mut engine = Engine::new(false);
   engine.set_position("4r1k1/1p6/7p/p4p2/Pb1p1P2/1PN3P1/2P1P1K1/r7 w - - 0 34");

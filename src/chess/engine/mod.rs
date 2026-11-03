@@ -104,6 +104,20 @@ struct EngineState {
   pub hard_limit_ms:  Arc<AtomicUsize>,
 }
 
+/// Stops the searches of an engine from another thread
+#[derive(Clone, Debug)]
+pub struct EngineStopHandle {
+  stop_requested: Arc<AtomicBool>,
+}
+
+impl EngineStopHandle {
+  /// Stops the ongoing search, if any. A search started afterwards is not
+  /// stopped.
+  pub fn stop(&self) {
+    self.stop_requested.store(true, Ordering::Release);
+  }
+}
+
 impl Analysis {
   /// Resets the analysis
   pub fn reset(&self) {
@@ -613,6 +627,12 @@ impl Engine {
   /// Analysis will continue until stopped.
   pub fn stop(&self) {
     self.set_stop_requested(true);
+  }
+
+  /// Gets a handle that can stop the searches of this engine from another
+  /// thread, without access to the engine itself.
+  pub fn stop_handle(&self) -> EngineStopHandle {
+    EngineStopHandle { stop_requested: self.state.stop_requested.clone(), }
   }
 
   /// Returns the best move saved in the analysis

@@ -12,7 +12,7 @@ use lichess::types::Color;
 use log::*;
 use rand::Rng;
 use std::sync::{Arc, mpsc};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
 static MESSAGE_HAVE_TO_LEAVE: &str = "Sorry, I have to leave. I'll resign now!";
@@ -67,6 +67,7 @@ impl Game {
 
     // Create a new engine for playing
     let engine = configure_engine(&game, engine_config);
+    let engine_stop = engine.stop_handle();
     let opponent_name = events::display_name(&game.opponent.username).to_string();
     let opponent_is_bot = game.opponent_is_bot();
     let we_have_moved = game.has_moved;
@@ -98,7 +99,8 @@ impl Game {
     GameHandle { tx,
                  handle: Arc::new(handle),
                  id: game.game_id.clone(),
-                 opponent_id: game.opponent.id.clone() }
+                 opponent_id: game.opponent.id.clone(),
+                 engine_stop }
   }
 
   /// Writes a comment in the game chat and the spectator room, unless we
@@ -174,9 +176,23 @@ impl Game {
 
     let mut opponent_moved = false;
     const ABORT_TIMEOUT: Duration = Duration::from_secs(30);
+    // When the opponent left the game, we can claim the victory at that time.
+    // We keep processing messages until then: the opponent may come back and
+    // play, our clock is ticking.
+    let mut claim_victory_at: Option<Instant> = None;
 
     loop {
-      let msg = if opponent_moved {
+      let msg = if let Some(claim_at) = claim_victory_at {
+        match self.rx.recv_timeout(claim_at.saturating_duration_since(Instant::now())) {
+          Err(mpsc::RecvTimeoutError::Timeout) => {
+            info!("Claiming victory in game {}", self.id);
+            claim_victory_at = None;
+            let _ = self.api.claim_victory(&self.id).await;
+            continue;
+          },
+          msg => msg.map_err(|_| ()),
+        }
+      } else if opponent_moved {
         self.rx.recv().map_err(|_| ())
       } else {
         self.rx.recv_timeout(ABORT_TIMEOUT).map_err(|_| ())
@@ -230,10 +246,11 @@ impl Game {
           break;
         },
         Ok(GameMessage::OpponentGone(opt_t)) => {
-          if let Some(timeout) = opt_t {
-            info!("Opponent gone. Claiming victory after timeout {}", timeout);
-            self.api.claim_victory_after_timeout(timeout, &self.id).await;
-          }
+          claim_victory_at = opt_t.map(|timeout| {
+                                    info!("Opponent gone for game {}. Claiming victory in {}s",
+                                          self.id, timeout);
+                                    Instant::now() + Duration::from_secs(timeout + 1)
+                                  });
         },
         Ok(GameMessage::ChatMessage(m)) => {
           // Lichess sends us back our own messages, we already logged them

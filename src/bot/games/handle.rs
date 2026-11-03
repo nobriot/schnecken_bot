@@ -1,4 +1,5 @@
 use super::message::GameMessage;
+use chess::engine::EngineStopHandle;
 use lichess::traits::GameStreamHandler;
 use log::*;
 use std::sync::{Arc, mpsc};
@@ -15,6 +16,8 @@ pub struct GameHandle {
   pub id:          String,
   /// Opponent's Lichess user ID
   pub opponent_id: String,
+  /// Stops the search of the game engine
+  pub engine_stop: EngineStopHandle,
 }
 
 #[allow(dead_code)]

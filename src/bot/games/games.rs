@@ -106,6 +106,17 @@ impl BotGames {
     for handle in games.iter() {
       let _ = handle.tx.send(message());
     }
+    drop(games);
+    self.stop_searches();
+  }
+
+  /// Stops the ongoing searches of all the games, so that they process their
+  /// messages right away
+  pub fn stop_searches(&self) {
+    let games = self.games.lock().unwrap();
+    for handle in games.iter() {
+      handle.engine_stop.stop();
+    }
   }
 
   /// Checks if all the game loops are finished

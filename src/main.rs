@@ -39,6 +39,11 @@ fn main() {
     Ok(_) => info!("Exiting successfully."),
     Err(_) => error!("An error occurred"),
   };
+
+  // Do not wait for the games that did not finish in time: dropping the
+  // runtime would wait for their threads, which then fail (and abort) on their
+  // next request to Lichess.
+  rt.shutdown_background();
 }
 
 async fn main_loop(api_token: &str, engine_config: config::EngineConfig) -> Result<()> {

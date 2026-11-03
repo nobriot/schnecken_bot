@@ -290,15 +290,4 @@ impl LichessApi {
 
     Ok(())
   }
-
-  /// Claims victory for a game where the opponent left after a timeout
-  ///
-  /// ### Arguments
-  ///
-  /// * `timeout` Number of seconds to wait before claiming victory
-  /// * `game_id` Game ID on which we are claiming victory
-  pub async fn claim_victory_after_timeout(&self, timeout: u64, game_id: &str) {
-    tokio::time::sleep(tokio::time::Duration::from_secs(timeout + 1)).await;
-    let _ = self.claim_victory(game_id).await;
-  }
 }
