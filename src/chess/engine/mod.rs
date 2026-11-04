@@ -867,6 +867,9 @@ impl Engine {
       return None;
     }
 
+    // Window we received: a result outside of it is just a bound.
+    let (entry_alpha, entry_beta) = (alpha, beta);
+
     // Check that we know the moves
     let moves = self.cache.with_move_list(&game_state.board, MoveList::new_from_slice);
     // Depth of the current iteration of the iterative deepening.
@@ -1007,8 +1010,11 @@ impl Engine {
     // Same for an eval coming from a draw by repetition at the end of the best
     // line: it depends on the path, the same board in another line is not a
     // draw.
+    // Even when we looked at all the moves, if all of them failed low/high
+    // against the window we received, the eval is only a bound too.
     let best_line_is_repetition = result.variations.first().is_some_and(|v| v.repetition);
-    if !result.is_empty() && !pruned && !best_line_is_repetition {
+    let exact = result.get_eval().is_some_and(|e| entry_alpha < e && e < entry_beta);
+    if !result.is_empty() && !pruned && !best_line_is_repetition && exact {
       let best_move = &result.get_best_move().expect("Valid move in non-empty result");
       debug_assert!(!best_move.is_null(), "Best move is NULL.");
       let mut pv = game_state.clone();

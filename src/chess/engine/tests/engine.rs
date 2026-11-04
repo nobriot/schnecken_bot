@@ -594,8 +594,8 @@ fn test_drawn_pawn_and_king_endgame() {
   engine.print_evaluations();
   let analysis = engine.get_analysis();
   assert!(!analysis.is_empty());
-  assert!(analysis.get(0).eval < 100);
-  assert!(analysis.get(0).eval > -100);
+  assert!(analysis.get(0).eval < 100, "Eval is {}", analysis.get(0).eval);
+  assert!(analysis.get(0).eval > -100, "Eval is {}", analysis.get(0).eval);
 }
 
 #[test]
