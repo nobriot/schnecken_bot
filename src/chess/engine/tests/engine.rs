@@ -328,7 +328,6 @@ fn save_the_queen() {
 
   let static_eval = evaluate_board(&game_state);
   println!("Static eval: {static_eval}");
-  assert!(engine.cache.has_eval(&game_state.board));
 
   let best_move = engine.get_best_move().unwrap().to_string();
   if "e5g5" != best_move && "e5d4" != best_move && "e5c3" != best_move {

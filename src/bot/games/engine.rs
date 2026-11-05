@@ -9,6 +9,9 @@ use log::*;
 pub const HUMAN_TIME_FACTOR: f32 = 0.75;
 /// Against humans, we never think longer than this on a move (milliseconds)
 pub const HUMAN_MAX_MOVE_TIME_MS: usize = 40_000;
+/// We never think longer than this on our first move (milliseconds): Lichess
+/// aborts the game if we take too long
+pub const FIRST_MOVE_MAX_TIME_MS: usize = 3_000;
 
 /// Checks if the engine level is adjusted for this game, and can be changed by
 /// the opponent with `max-depth`: casual games against untitled humans.
@@ -76,11 +79,15 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
 ///
 /// * `opponent_is_bot`:  Whether we are playing against a bot
 /// * `flagging_time_ms`: Time per move when we try to flag the opponent, if we do
-pub fn max_move_time_ms(opponent_is_bot: bool, flagging_time_ms: Option<usize>) -> usize {
-  let max_time = if opponent_is_bot { 0 } else { HUMAN_MAX_MOVE_TIME_MS };
-  match flagging_time_ms {
-    Some(flagging_time) if max_time == 0 => flagging_time,
-    Some(flagging_time) => flagging_time.min(max_time),
-    None => max_time,
-  }
+/// * `first_move`:       Whether this is our first move of the game
+pub fn max_move_time_ms(opponent_is_bot: bool,
+                        flagging_time_ms: Option<usize>,
+                        first_move: bool)
+                        -> usize {
+  let human_max_time = (!opponent_is_bot).then_some(HUMAN_MAX_MOVE_TIME_MS);
+  let first_move_max_time = first_move.then_some(FIRST_MOVE_MAX_TIME_MS);
+  [human_max_time, flagging_time_ms, first_move_max_time].into_iter()
+                                                         .flatten()
+                                                         .min()
+                                                         .unwrap_or(0)
 }

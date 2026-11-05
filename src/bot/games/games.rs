@@ -86,7 +86,14 @@ impl BotGames {
   /// * `game_id` - A string slice representing the ID of the game to be removed.
   pub fn remove(&self, game_id: &str) {
     let mut games = self.games.lock().unwrap();
-    games.retain(|handle| handle.id != game_id);
+    games.retain(|handle| {
+           if handle.id != game_id {
+             return true;
+           }
+           // The game may still be searching: stop it, it must not play anymore
+           handle.mark_over();
+           false
+         });
   }
 
   /// Remove finished games from our list that we do not need anymore.

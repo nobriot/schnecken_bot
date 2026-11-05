@@ -11,6 +11,7 @@ use lichess::api::LichessApi;
 use lichess::types::Color;
 use log::*;
 use rand::Rng;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
@@ -48,6 +49,9 @@ pub struct Game {
   /// The opponent can change the search depth with `max-depth` (casual game
   /// against a human)
   depth_adjustable: bool,
+  /// Set by the game handle as soon as Lichess tells us the game is over,
+  /// possibly while we are searching
+  game_over:        Arc<AtomicBool>,
 }
 
 impl Game {
@@ -68,6 +72,7 @@ impl Game {
     // Create a new engine for playing
     let engine = configure_engine(&game, engine_config);
     let engine_stop = engine.stop_handle();
+    let game_over = Arc::new(AtomicBool::new(false));
     let opponent_name = events::display_name(&game.opponent.username).to_string();
     let opponent_is_bot = game.opponent_is_bot();
     let we_have_moved = game.has_moved;
@@ -85,7 +90,8 @@ impl Game {
                                     events: GameEvents::default(),
                                     bot_username: bot_username.to_string(),
                                     we_have_moved,
-                                    depth_adjustable };
+                                    depth_adjustable,
+                                    game_over: game_over.clone() };
 
     // Start the game loop
     // Spawn blocking as calculating chess moves is CPU intense and would block
@@ -100,7 +106,13 @@ impl Game {
                  handle: Arc::new(handle),
                  id: game.game_id.clone(),
                  opponent_id: game.opponent.id.clone(),
-                 engine_stop }
+                 engine_stop,
+                 game_over }
+  }
+
+  /// Checks if Lichess told us the game is over
+  fn is_over(&self) -> bool {
+    self.game_over.load(Ordering::Acquire)
   }
 
   /// Writes a comment in the game chat and the spectator room, unless we
@@ -216,6 +228,10 @@ impl Game {
             opponent_moved = true;
           }
           self.play(game.state).await;
+          if self.is_over() {
+            info!("Game {} is over", self.id);
+            break;
+          }
         },
         Ok(GameMessage::Update(game)) => {
           debug!("Received a Game Update: {:?}", game);
@@ -223,6 +239,10 @@ impl Game {
             opponent_moved = true;
           }
           self.play(game).await;
+          if self.is_over() {
+            info!("Game {} is over", self.id);
+            break;
+          }
         },
         Ok(GameMessage::End(game)) => {
           info!("Game {} is over", self.id);
@@ -265,7 +285,7 @@ impl Game {
           info!("Received a Game Message : {:?}", o);
         },
         Err(_) => {
-          if !opponent_moved {
+          if !opponent_moved && !self.is_over() {
             info!("Opponent did not move in {}s, aborting game {}",
                   ABORT_TIMEOUT.as_secs(),
                   self.id);
@@ -400,14 +420,26 @@ impl Game {
                                              increment_ms,
                                              opponent_time_left_ms: opponent_time_left,
                                              moves_to_go: None });
-    self.engine.options.max_search_time = max_move_time_ms(self.opponent_is_bot, flagging_time_ms);
+    // Our first move as White or as Black
+    let first_move = move_list.len() < 2;
+    self.engine.options.max_search_time =
+      max_move_time_ms(self.opponent_is_bot, flagging_time_ms, first_move);
 
     info!("Using {:?} (max depth {}) to find a move for position {}",
           self.engine.time_budget(),
           self.engine.options.max_depth,
           self.engine.position.to_fen());
 
+    // The game may have ended since this update: `go()` would discard a stop
+    // request sent before it starts
+    if self.is_over() {
+      return;
+    }
     self.engine.go();
+    if self.is_over() {
+      info!("Game {} ended during our search, not playing", self.id);
+      return;
+    }
 
     // Select randomly one of the good moves.
     let analysis = self.engine.get_analysis();

@@ -2,6 +2,7 @@ use super::message::GameMessage;
 use chess::engine::EngineStopHandle;
 use lichess::traits::GameStreamHandler;
 use log::*;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 
 type Handle = tokio::task::JoinHandle<()>;
@@ -18,6 +19,8 @@ pub struct GameHandle {
   pub opponent_id: String,
   /// Stops the search of the game engine
   pub engine_stop: EngineStopHandle,
+  /// Set as soon as we know the game is over, shared with the game loop
+  pub game_over:   Arc<AtomicBool>,
 }
 
 #[allow(dead_code)]
@@ -30,6 +33,13 @@ impl GameHandle {
   /// Check if the game is over
   pub fn is_over(&self) -> bool {
     self.handle.is_finished()
+  }
+
+  /// Marks the game as over and stops the ongoing search, so that the game
+  /// loop does not play a move in a finished game
+  pub fn mark_over(&self) {
+    self.game_over.store(true, Ordering::Release);
+    self.engine_stop.stop();
   }
 }
 
@@ -64,6 +74,9 @@ impl GameStreamHandler for GameHandle {
         } else {
           let game_full = game_full.unwrap();
           debug!("Parsed data: {:?}", game_full);
+          if game_full.state.status != lichess::types::GameStatus::Started {
+            self.mark_over();
+          }
 
           let _ = self.tx.send(GameMessage::Full(game_full));
         }
@@ -76,7 +89,11 @@ impl GameStreamHandler for GameHandle {
         if let Err(error) = result {
           warn!("Error deserializing GameState data !! {:?}", error);
         } else {
-          let _ = self.tx.send(GameMessage::Update(result.unwrap()));
+          let game_state = result.unwrap();
+          if game_state.status != lichess::types::GameStatus::Started {
+            self.mark_over();
+          }
+          let _ = self.tx.send(GameMessage::Update(game_state));
         }
       },
 
