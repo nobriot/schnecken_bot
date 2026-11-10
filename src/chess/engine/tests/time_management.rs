@@ -19,7 +19,7 @@ fn clock(time_left_ms: usize, increment_ms: usize) -> Clock {
 }
 
 fn budget(clock: Clock, fen: &str) -> TimeBudget {
-  time_budget(&clock, &GameState::from_fen(fen), 1.0, 0)
+  time_budget(&clock, &GameState::from_fen(fen), 1.0, 0, false)
 }
 
 #[test]
@@ -91,30 +91,38 @@ fn time_budget_moves_to_go() {
 fn time_budget_cap_and_factor() {
   let game_state = GameState::from_fen(MIDDLEGAME_FEN);
   let c = clock(3_600_000, 0);
-  let b = time_budget(&c, &game_state, 1.0, 0);
+  let b = time_budget(&c, &game_state, 1.0, 0, false);
   assert!(b.hard_ms > 60_000);
 
-  let capped = time_budget(&c, &game_state, 1.0, 60_000);
+  let capped = time_budget(&c, &game_state, 1.0, 60_000, false);
   assert_eq!(60_000, capped.hard_ms);
   assert!(capped.soft_ms <= 60_000);
 
-  let quicker = time_budget(&c, &game_state, 0.75, 0);
+  let quicker = time_budget(&c, &game_state, 0.75, 0, false);
   assert!(quicker.soft_ms < b.soft_ms);
 }
 
 #[test]
 fn time_budget_opponent_time() {
+  let game_state = GameState::from_fen(MIDDLEGAME_FEN);
+  let human_budget = |c: Clock| time_budget(&c, &game_state, 1.0, 0, true);
   let mut c = clock(60_000, 0);
-  let equal = budget(c, MIDDLEGAME_FEN);
+  let equal = human_budget(c);
   c.opponent_time_left_ms = 30_000;
-  let ahead = budget(c, MIDDLEGAME_FEN);
+  let ahead = human_budget(c);
   c.opponent_time_left_ms = 120_000;
-  let behind = budget(c, MIDDLEGAME_FEN);
+  let behind = human_budget(c);
   assert!(ahead.soft_ms > equal.soft_ms);
   assert!(behind.soft_ms < equal.soft_ms);
   // The influence stays mild
   assert!(ahead.soft_ms <= equal.soft_ms * 13 / 10);
   assert!(behind.soft_ms >= equal.soft_ms * 7 / 10);
+
+  // Against bots, the opponent time is not taken into account
+  c.opponent_time_left_ms = 30_000;
+  assert_eq!(equal, budget(c, MIDDLEGAME_FEN));
+  c.opponent_time_left_ms = 120_000;
+  assert_eq!(equal, budget(c, MIDDLEGAME_FEN));
 }
 
 /// Stats of a normal position: nothing special

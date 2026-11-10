@@ -44,6 +44,7 @@ pub fn configure_engine(game: &GameStart, config: &crate::config::EngineConfig) 
 
   if !game.opponent_is_bot() {
     engine.options.time_factor = HUMAN_TIME_FACTOR;
+    engine.options.playing_human = true;
   }
 
   // Adjust the level of difficulty based on the rating of the opponent, if they

@@ -360,7 +360,8 @@ impl Engine {
                         time_budget(&clock,
                                     &self.position,
                                     self.options.time_factor,
-                                    self.options.max_search_time)
+                                    self.options.max_search_time,
+                                    self.options.playing_human)
                       })
   }
 

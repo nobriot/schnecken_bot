@@ -31,6 +31,9 @@ pub struct EngineOptions {
   pub play_style:      PlayStyle,
   /// Number of best lines that the engine will return.
   pub multi_pv:        usize,
+  /// Is the engine playing against a human. Clock behavior (and possibly more) may get adjusted
+  /// against humans
+  pub playing_human:   bool,
 }
 
 impl Default for EngineOptions {
@@ -45,6 +48,7 @@ impl Default for EngineOptions {
                     use_nnue:        false,
                     debug:           false,
                     play_style:      PlayStyle::Normal,
-                    multi_pv:        3, }
+                    multi_pv:        3,
+                    playing_human:   false, }
   }
 }

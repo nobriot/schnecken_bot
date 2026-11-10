@@ -13,7 +13,7 @@ pub const MIN_MOVE_TIME_MS: usize = 50;
 /// Increments larger than this are not taken into account (milliseconds)
 pub const MAX_INCREMENT_MS: usize = 60_000;
 /// Share of the increment that we plan to spend on each move
-const INCREMENT_USAGE: f32 = 0.8;
+const INCREMENT_USAGE: f32 = 0.9;
 /// Estimated number of moves left in the game, by game phase. It stays high in
 /// the endgame: converting a won endgame takes many moves.
 const MOVES_LEFT_OPENING: usize = 50;
@@ -160,10 +160,11 @@ fn is_pawn_endgame(game_state: &GameState) -> bool {
 ///
 /// ### Arguments
 ///
-/// * `clock`:       Clock situation of the side to play
-/// * `game_state`:  Position to play
-/// * `time_factor`: Multiplies the time we spend (< 1.0 to play quicker)
-/// * `cap_ms`:      Maximum time to spend on the move, 0 for no cap
+/// * `clock`:          Clock situation of the side to play
+/// * `game_state`:     Position to play
+/// * `time_factor`:    Multiplies the time we spend (< 1.0 to play quicker)
+/// * `cap_ms`:         Maximum time to spend on the move, 0 for no cap
+/// * `playing_human`:  Are we playing against a human opponent
 ///
 /// ### Return value
 ///
@@ -171,7 +172,8 @@ fn is_pawn_endgame(game_state: &GameState) -> bool {
 pub fn time_budget(clock: &Clock,
                    game_state: &GameState,
                    time_factor: f32,
-                   cap_ms: usize)
+                   cap_ms: usize,
+                   playing_human: bool)
                    -> TimeBudget {
   let available = clock.time_left_ms.saturating_sub(MOVE_OVERHEAD_MS);
   let increment = clock.increment_ms.min(MAX_INCREMENT_MS);
@@ -185,7 +187,7 @@ pub fn time_budget(clock: &Clock,
 
   // Use a bit more time when we have more time than the opponent, a bit less
   // otherwise.
-  if clock.opponent_time_left_ms > 0 {
+  if playing_human && clock.opponent_time_left_ms > 0 {
     let ratio = clock.time_left_ms as f32 / clock.opponent_time_left_ms as f32;
     soft *= (1.0 + (ratio - 1.0) * OPPONENT_TIME_INFLUENCE).clamp(OPPONENT_TIME_FACTOR_MIN,
                                                                   OPPONENT_TIME_FACTOR_MAX);
