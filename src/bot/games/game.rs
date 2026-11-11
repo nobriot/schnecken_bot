@@ -135,9 +135,6 @@ impl Game {
       Err(_) => {
         // Could not get the chat: only greet if we did not play yet
         warn!("Could not get the chat of game {}, guessing if it is a new game", self.id);
-        if self.we_have_moved {
-          self.events.mark_ongoing_game();
-        }
         self.we_have_moved
       },
     };
@@ -370,10 +367,6 @@ impl Game {
 
     // Update whether it is our turn
     let move_list = Move::string_to_vec(game.moves.as_str());
-    if self.events.on_moves_played(move_list.len()) && !self.events.is_quiet() {
-      self.say(events::HAVE_FUN).await;
-    }
-
     let is_our_turn = match self.color {
       Color::White => move_list.len().is_multiple_of(2),
       Color::Black => !move_list.len().is_multiple_of(2),

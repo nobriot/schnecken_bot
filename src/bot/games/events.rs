@@ -10,7 +10,6 @@ use std::collections::BTreeSet;
 
 static BOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 static BOT_NAME: &str = env!("CARGO_PKG_NAME");
-pub static HAVE_FUN: &str = "Have fun";
 pub static WELL_PLAYED: &str = "Well played!";
 pub static GOOD_GAME: &str = "Good game!";
 pub static THANKS_FOR_PLAYING: &str = "Thanks for playing ! :)";
@@ -46,7 +45,7 @@ const OUT_OF_TROUBLE_EVAL: Score = -50;
 
 /// Greeting message at the start of the game
 pub fn greeting(opponent_name: &str) -> String {
-  format!("Hello {opponent_name}, I am {BOT_NAME} v{BOT_VERSION}")
+  format!("Hello {opponent_name}, I am {BOT_NAME} v{BOT_VERSION}. Have fun!")
 }
 
 /// Highest depth that can be requested with `max-depth` (the engine default)
@@ -246,8 +245,6 @@ impl EvalEvent {
 /// What already happened during the game
 #[derive(Debug, Default)]
 pub struct GameEvents {
-  /// We said "Have fun" when the game started
-  have_fun_sent:  bool,
   /// We announced that we found a forced mate
   mate_announced: bool,
   /// We said we are in trouble, and did not get out of it yet
@@ -277,21 +274,6 @@ pub struct GameEvents {
 }
 
 impl GameEvents {
-  /// Checks if the game just started, so we should say "Have fun".
-  /// Only true once, and only on the first moves, so that we do not say it
-  /// when joining an ongoing game (e.g. after a restart).
-  ///
-  /// ### Arguments
-  ///
-  /// * `move_count` - Number of moves (plies) played in the game
-  pub fn on_moves_played(&mut self, move_count: usize) -> bool {
-    if self.have_fun_sent || !(1..=2).contains(&move_count) {
-      return false;
-    }
-    self.have_fun_sent = true;
-    true
-  }
-
   /// Restores what already happened from the chat history of the game, when
   /// we join a game that is already ongoing (e.g. after a restart), so that we
   /// do not repeat ourselves.
@@ -338,9 +320,6 @@ impl GameEvents {
       }
     }
 
-    if already_talked {
-      self.mark_ongoing_game();
-    }
     already_talked
   }
 
@@ -382,12 +361,6 @@ impl GameEvents {
     }
     self.opponent_eval = true;
     true
-  }
-
-  /// Marks the game as already ongoing when we join it: "Have fun" is said at
-  /// the start of the game, never later.
-  pub fn mark_ongoing_game(&mut self) {
-    self.have_fun_sent = true;
   }
 
   /// Stops the commentary. Returns true only the first time, so that we

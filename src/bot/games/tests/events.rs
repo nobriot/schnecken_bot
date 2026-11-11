@@ -8,33 +8,14 @@ use lichess::types::ChatLine;
 fn test_messages() {
   assert_eq!("maia1", display_name("BOT maia1"));
   assert_eq!("thibault", display_name("thibault"));
-  assert!(greeting("maia1").starts_with("Hello maia1, I am schnecken_bot v"));
+  let hello = greeting("maia1");
+  assert!(hello.starts_with("Hello maia1, I am schnecken_bot v"), "{hello}");
+  assert!(hello.ends_with(". Have fun!"), "{hello}");
   assert_eq!("Woo-hoo, mate around the corner (#3, move 23)", mate_announcement(3, 23));
   assert_eq!("I will search 4 plies deep. Type max-depth N (1-20) to change it",
              depth_announcement(4));
   // Lichess chat messages are limited to 140 characters
   assert!(depth_announcement(20).len() <= 140);
-}
-
-#[test]
-fn test_have_fun_once_at_game_start() {
-  let mut events = GameEvents::default();
-  // Game not started yet
-  assert!(!events.on_moves_played(0));
-  // First move played
-  assert!(events.on_moves_played(1));
-  // Only once
-  assert!(!events.on_moves_played(2));
-  assert!(!events.on_moves_played(3));
-
-  // Opponent played first, we see 2 moves at once
-  let mut events = GameEvents::default();
-  assert!(events.on_moves_played(2));
-
-  // Joining an ongoing game (e.g. after a restart): no "Have fun"
-  let mut events = GameEvents::default();
-  assert!(!events.on_moves_played(30));
-  assert!(!events.on_moves_played(31));
 }
 
 #[test]
@@ -306,21 +287,20 @@ fn test_restore_from_chat_new_game() {
   // Nobody talked yet, or only the opponent: new game, we greet
   let mut events = GameEvents::default();
   assert!(!events.restore_from_chat(&[], "schnecken_bot"));
-  assert!(events.on_moves_played(1));
+  assert!(events.should_say(&greeting("oli567")));
 
   let mut events = GameEvents::default();
   assert!(!events.restore_from_chat(&[line("oli567", "hi!")], "schnecken_bot"));
-  assert!(events.on_moves_played(2));
+  assert!(events.should_say(&greeting("oli567")));
 }
 
 #[test]
 fn test_restore_from_chat_ongoing_game() {
-  // We already greeted: no greeting, no "Have fun" again
-  let chat = [line("schnecken_bot", &greeting("oli567")), line("schnecken_bot", HAVE_FUN)];
+  // We already greeted: no greeting again
+  let chat = [line("schnecken_bot", &greeting("oli567"))];
   let mut events = GameEvents::default();
   assert!(events.restore_from_chat(&chat, "schnecken_bot"));
-  assert!(!events.on_moves_played(1));
-  assert!(!events.on_moves_played(2));
+  assert!(!events.should_say(&greeting("oli567")));
   // Nothing else happened: trouble and mates can still be commented
   assert_eq!(vec![EvalEvent::InTrouble], events.after_search(-400, false));
 
@@ -411,17 +391,10 @@ fn test_ask_opponent_eval() {
 }
 
 #[test]
-fn test_mark_ongoing_game() {
-  let mut events = GameEvents::default();
-  events.mark_ongoing_game();
-  assert!(!events.on_moves_played(1));
-}
-
-#[test]
 fn test_never_say_the_same_comment_twice() {
   let mut events = GameEvents::default();
-  assert!(events.should_say(HAVE_FUN));
-  assert!(!events.should_say(HAVE_FUN));
+  assert!(events.should_say(ATTEMPTING_TO_FLAG));
+  assert!(!events.should_say(ATTEMPTING_TO_FLAG));
   assert!(events.should_say(WELL_PLAYED));
 
   // Comments with a different context (move, eval) are different comments
@@ -437,13 +410,13 @@ fn test_never_repeat_comments_after_restart() {
   // Everything we said before a restart is not said again
   let goodbye = "Sorry, I have to leave. I'll resign now!";
   let chat = [line("schnecken_bot", &greeting("oli567")),
-              line("schnecken_bot", HAVE_FUN),
+              line("schnecken_bot", ATTEMPTING_TO_FLAG),
               line("schnecken_bot", goodbye),
               line("oli567", WELL_PLAYED)];
   let mut events = GameEvents::default();
   events.restore_from_chat(&chat, "schnecken_bot");
   assert!(!events.should_say(&greeting("oli567")));
-  assert!(!events.should_say(HAVE_FUN));
+  assert!(!events.should_say(ATTEMPTING_TO_FLAG));
   assert!(!events.should_say(goodbye));
   // Only our own comments count: the opponent said "Well played!", we can too
   assert!(events.should_say(WELL_PLAYED));
