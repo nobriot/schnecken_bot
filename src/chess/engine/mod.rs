@@ -268,6 +268,19 @@ pub struct Engine {
 // type AsyncResult = std::result::Result<(), Box<dyn std::error::Error + Send +
 // Sync>>;
 
+/// Search speed, in nodes per second (0 if no time elapsed yet)
+///
+/// ### Arguments
+///
+/// * `nodes`:      Number of nodes visited
+/// * `elapsed_ms`: Time spent searching, in milliseconds
+pub fn nodes_per_second(nodes: usize, elapsed_ms: usize) -> usize {
+  if elapsed_ms == 0 {
+    return 0;
+  }
+  (nodes as u128 * 1000 / elapsed_ms as u128) as usize
+}
+
 impl Engine {
   //----------------------------------------------------------------------------
   // Public functions
@@ -648,6 +661,16 @@ impl Engine {
     analysis.get_eval()
   }
 
+  /// Returns the last fully completed depth of the last search
+  pub fn get_depth(&self) -> usize {
+    self.analysis.get_depth()
+  }
+
+  /// Returns the selective depth (including extensions) of the last search
+  pub fn get_selective_depth(&self) -> usize {
+    self.analysis.get_selective_depth()
+  }
+
   /// Returns the number of nodes (leaf positions) evaluated in the last search
   pub fn get_nodes_visited(&self) -> usize {
     self.analysis.get_nodes_visited()
@@ -662,40 +685,58 @@ impl Engine {
     }
 
     let result = self.analysis.result.lock().unwrap().clone();
-    let depth = self.analysis.get_depth();
-    let selective_depth = self.analysis.get_selective_depth();
-    let nodes_visited = self.analysis.get_nodes_visited();
-    let start_time = self.get_start_time();
-    let multi_pv_setting = self.options.multi_pv;
+    let elapsed_ms = (Instant::now() - self.get_start_time()).as_millis() as usize;
+    let hashfull = self.cache.eval_hashfull();
 
-    for (i, variation) in result.variations.iter().take(multi_pv_setting).enumerate() {
-      let eval = variation.eval;
-      let score_string = match mate_distance_in_plies(eval) {
-        // UCI mate scores are in moves, from the side to play's point of view
-        Some(plies) => {
-          let moves = plies.div_ceil(2) as isize;
-          let mating = match self.position.board.side_to_play {
-            Color::White => eval > 0,
-            Color::Black => eval < 0,
-          };
-          format!("score mate {}", if mating { moves } else { -moves })
-        },
-        None => format!("score cp {}", eval),
-      };
-      let multi_pv_string = if multi_pv_setting > 1 {
-        format!(" multipv {} ", i + 1)
-      } else {
-        String::new()
-      };
-      println!("info {} depth {} seldepth {} nodes {} time {}{}pv {}",
-               score_string,
-               depth,
-               selective_depth,
-               nodes_visited,
-               (Instant::now() - start_time).as_millis(),
-               multi_pv_string,
-               variation.variation,);
+    for (i, variation) in result.variations.iter().take(self.options.multi_pv).enumerate() {
+      println!("{}", self.uci_info_line(i, variation, elapsed_ms, hashfull));
     }
+  }
+
+  /// Builds a UCI `info` line for a variation of the current analysis
+  ///
+  /// ### Arguments
+  ///
+  /// * `index`:      Index of the variation in the analysis (0 for the best one)
+  /// * `variation`:  The variation to report
+  /// * `elapsed_ms`: Time spent searching so far, in milliseconds
+  /// * `hashfull`:   How full the hash table is, in permille
+  fn uci_info_line(&self,
+                   index: usize,
+                   variation: &VariationWithEval,
+                   elapsed_ms: usize,
+                   hashfull: usize)
+                   -> String {
+    let eval = variation.eval;
+    let score_string = match mate_distance_in_plies(eval) {
+      // UCI mate scores are in moves, from the side to play's point of view
+      Some(plies) => {
+        let moves = plies.div_ceil(2) as isize;
+        let mating = match self.position.board.side_to_play {
+          Color::White => eval > 0,
+          Color::Black => eval < 0,
+        };
+        format!("score mate {}", if mating { moves } else { -moves })
+      },
+      None => format!("score cp {}", eval),
+    };
+    let multi_pv_string = if self.options.multi_pv > 1 {
+      format!(" multipv {}", index + 1)
+    } else {
+      String::new()
+    };
+    let nodes = self.analysis.get_nodes_visited();
+    // The variation is displayed with a space before each move
+    format!("info depth {} seldepth {}{} {} nodes {} nps {} hashfull {} time {} pv{}",
+            self.analysis.get_depth(),
+            self.analysis.get_selective_depth(),
+            multi_pv_string,
+            score_string,
+            nodes,
+            nodes_per_second(nodes, elapsed_ms),
+            hashfull,
+            elapsed_ms,
+            variation.variation)
   }
 
   /// Prints the best move

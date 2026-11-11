@@ -1144,3 +1144,35 @@ fn engine_search_real_game_iFTROpnC_horizon_effect() {
   engine.print_evaluations();
   assert_ne!("b2b4", engine.get_best_move().unwrap().to_string());
 }
+
+#[test]
+fn test_nodes_per_second() {
+  assert_eq!(0, nodes_per_second(1000, 0));
+  assert_eq!(1000, nodes_per_second(1000, 1000));
+  assert_eq!(2_000_000, nodes_per_second(1_000_000, 500));
+}
+
+#[test]
+fn test_uci_info_line() {
+  let mut engine = Engine::new(false);
+  engine.set_position("rn1qkbnr/p1p2ppp/8/1N1pNb2/8/8/PPPPPPPP/R1BQKB1R w KQkq - 1 5");
+  engine.options.max_depth = 3;
+  engine.go();
+  let analysis = engine.get_analysis();
+  let best = &analysis.variations[0];
+
+  engine.options.multi_pv = 1;
+  let line = engine.uci_info_line(0, best, 1500, 42);
+  assert!(line.starts_with("info depth 3 seldepth "), "{line}");
+  assert!(!line.contains("multipv"), "{line}");
+  let nps = nodes_per_second(engine.get_nodes_visited(), 1500);
+  assert!(line.contains(&format!(" nps {nps} hashfull 42 time 1500 pv{}", best.variation)),
+          "{line}");
+  assert!(line.contains(" time 1500 pv ") && !line.ends_with(' '), "{line}");
+
+  engine.options.multi_pv = 3;
+  let line = engine.uci_info_line(1, &analysis.variations[1], 1500, 42);
+  assert!(line.contains(" multipv 2 score "), "{line}");
+  // Every token is separated by exactly one space
+  assert!(!line.contains("  "), "{line}");
+}

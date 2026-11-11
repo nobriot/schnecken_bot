@@ -95,6 +95,46 @@ pub fn game_over_message(winner: Option<Color>, us: Color) -> &'static str {
   }
 }
 
+/// Depths reached by our searches during a game
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct DepthStats {
+  /// Number of searches (moves we searched for)
+  pub searches:      usize,
+  /// Sum of the depths reached, for the average
+  pub total_depth:   usize,
+  /// Deepest completed depth
+  pub max_depth:     usize,
+  /// Deepest selective depth (with extensions)
+  pub max_sel_depth: usize,
+}
+
+impl DepthStats {
+  /// Records the depths reached by a search
+  ///
+  /// ### Arguments
+  ///
+  /// * `depth`     - Last fully completed depth
+  /// * `sel_depth` - Selective depth (with extensions)
+  pub fn record(&mut self, depth: usize, sel_depth: usize) {
+    self.searches += 1;
+    self.total_depth += depth;
+    self.max_depth = self.max_depth.max(depth);
+    self.max_sel_depth = self.max_sel_depth.max(sel_depth);
+  }
+
+  /// Average depth reached, None if we did not search
+  pub fn average_depth(&self) -> Option<f32> {
+    (self.searches > 0).then(|| self.total_depth as f32 / self.searches as f32)
+  }
+
+  /// End of game message with the depth stats, None if we did not search
+  pub fn message(&self) -> Option<String> {
+    let average = self.average_depth()?;
+    Some(format!("Search stats: {} moves, average depth {average:.1}, max depth {} (selective {})",
+                 self.searches, self.max_depth, self.max_sel_depth))
+  }
+}
+
 /// Joyful message when we deliver an epic mate
 pub fn epic_mate_message(epic_mate: EpicMate) -> String {
   match epic_mate {
@@ -232,6 +272,8 @@ pub struct GameEvents {
   /// Last valid depth the opponent asked for with `max-depth`, found in the
   /// chat history when rejoining a game
   max_depth:      Option<usize>,
+  /// Depths reached by our searches in this game (since we joined it)
+  depth_stats:    DepthStats,
 }
 
 impl GameEvents {
@@ -422,6 +464,16 @@ impl GameEvents {
   /// True if we are trying to flag the opponent
   pub fn is_flagging(&self) -> bool {
     self.flagging
+  }
+
+  /// Records the depths reached by one of our searches
+  pub fn record_search_depth(&mut self, depth: usize, sel_depth: usize) {
+    self.depth_stats.record(depth, sel_depth);
+  }
+
+  /// Depths reached by our searches in this game
+  pub fn depth_stats(&self) -> &DepthStats {
+    &self.depth_stats
   }
 
   /// Eval (from our point of view) of our last search, if any

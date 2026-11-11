@@ -167,6 +167,19 @@ impl Game {
     }
     if self.events.on_game_over() {
       self.say(events::game_over_message(game.winner, self.color)).await;
+      self.announce_depth_stats().await;
+    }
+  }
+
+  /// Tells how deep we searched during the game (only logged if we were asked
+  /// to be quiet)
+  async fn announce_depth_stats(&mut self) {
+    let stats = *self.events.depth_stats();
+    info!("Depth stats for game {}: {stats:?}", self.id);
+    if !self.events.is_quiet()
+       && let Some(message) = stats.message()
+    {
+      self.say(&message).await;
     }
   }
 
@@ -441,6 +454,9 @@ impl Game {
       return;
     }
 
+    self.events
+        .record_search_depth(self.engine.get_depth(), self.engine.get_selective_depth());
+
     // Select randomly one of the good moves.
     let analysis = self.engine.get_analysis();
     let mut cutoff = 1;
@@ -479,6 +495,7 @@ impl Game {
           // We say "Well played!" now, no need to say it again at the end
           self.events.on_game_over();
           self.say(events::WELL_PLAYED).await;
+          self.announce_depth_stats().await;
           let _ = self.api.resign_game(&self.id).await;
           return;
         }

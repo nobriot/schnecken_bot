@@ -6,6 +6,9 @@ use crate::model::tables::zobrist::BoardHash;
 use log::*;
 use std::mem;
 
+/// Number of entries we look at to estimate how full the table is
+const HASHFULL_SAMPLE_SIZE: usize = 1000;
+
 /// Struct of evaluation data we save for a given board position
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct EvaluationCache {
@@ -121,13 +124,19 @@ impl EvaluationCacheTable {
     self.counter == 0
   }
 
+  /// How full the table is, in permille (UCI `hashfull`). Like most engines,
+  /// we only sample the first `HASHFULL_SAMPLE_SIZE` entries: the hashes are
+  /// spread uniformly over the table.
+  pub fn hashfull(&self) -> usize {
+    let sample = &self.table[..self.table.len().min(HASHFULL_SAMPLE_SIZE)];
+    let used = sample.iter().filter(|e| e.hash != 0).count();
+    used * 1000 / sample.len()
+  }
+
   /// Zeroes out all the board hashes in the table and fill with default values.
   #[inline]
   pub fn clear(&mut self) {
-    for i in 0..self.max_index_mask {
-      let e = unsafe { self.table.get_unchecked_mut(i) };
-      *e = EvaluationCacheEntry::default();
-    }
+    self.table.fill(EvaluationCacheEntry::default());
     self.counter = 0;
   }
 }
@@ -168,6 +177,28 @@ mod tests {
       assert!(cache_table.get(i).is_none());
       // println!("Pointer: {:p}", cache_table.pointer(i));
     }
+  }
+
+  #[test]
+  fn test_hashfull() {
+    let mut cache_table = EvaluationCacheTable::new(1);
+    assert_eq!(0, cache_table.hashfull());
+
+    // Fill half of the sampled entries (hash 0 means empty: start at 1)
+    for i in 1..=HASHFULL_SAMPLE_SIZE / 2 {
+      cache_table.add(i as BoardHash, EvaluationCache::default());
+    }
+    assert_eq!(500, cache_table.hashfull());
+    // Entries after the sample are not counted
+    cache_table.add(HASHFULL_SAMPLE_SIZE as BoardHash, EvaluationCache::default());
+    assert_eq!(500, cache_table.hashfull());
+
+    // Clearing empties the whole table, including the last entry
+    let last = cache_table.max_index_mask as BoardHash;
+    cache_table.add(last, EvaluationCache::default());
+    cache_table.clear();
+    assert_eq!(0, cache_table.hashfull());
+    assert!(cache_table.get(last).is_none());
   }
 
   #[test]

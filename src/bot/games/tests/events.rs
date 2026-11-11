@@ -581,3 +581,24 @@ fn test_epic_mate_messages() {
   assert_eq!("Epic mate!!! 6 pieces in the mating net, what a finish \\o/",
              epic_mate_message(EpicMate::MatingNet(6)));
 }
+
+#[test]
+fn test_depth_stats() {
+  let mut events = GameEvents::default();
+  // No search, nothing to say
+  assert_eq!(None, events.depth_stats().average_depth());
+  assert_eq!(None, events.depth_stats().message());
+
+  events.record_search_depth(6, 10);
+  events.record_search_depth(9, 14);
+  events.record_search_depth(7, 18);
+  let stats = events.depth_stats();
+  assert_eq!(3, stats.searches);
+  assert_eq!(9, stats.max_depth);
+  assert_eq!(18, stats.max_sel_depth);
+  assert!((stats.average_depth().unwrap() - 22.0 / 3.0).abs() < 0.001);
+  let message = stats.message().unwrap();
+  assert_eq!("Search stats: 3 moves, average depth 7.3, max depth 9 (selective 18)", message);
+  // Lichess chat messages are limited to 140 characters
+  assert!(message.len() <= 140);
+}

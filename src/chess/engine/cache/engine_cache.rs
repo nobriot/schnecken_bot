@@ -163,6 +163,11 @@ impl EngineCache {
     self.evals.lock().unwrap().get(board.hash)
   }
 
+  /// How full the evaluation table is, in permille (UCI `hashfull`)
+  pub fn eval_hashfull(&self) -> usize {
+    self.evals.lock().unwrap().hashfull()
+  }
+
   /// Clear all the evaluation table
   /// Use this if e.g. starting a new game and you want to be sure to avoid
   /// board hash collisions.
